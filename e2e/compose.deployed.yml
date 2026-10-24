@@ -1,0 +1,17 @@
+# 部署形态的端到端测试专用覆盖文件（复制源的端到端测试方案 第 9 节）。只由 e2e/run-deployed.sh 使用：
+#   docker compose -p forecast-e2e -f deploy/kit/docker-compose.yml -f e2e/compose.deployed.yml ...
+# 测试环境的 deploy/kit/docker-compose.yml 一行不改；这里只加端到端测试需要的东西：
+# - 后端打开 e2e profile（替身和 /api/e2e/**，约定 18）。E2eGuard 照常检查：.env 里没有节点、热钱包、SMTP，才允许启动。
+#   绝不能把本文件用在测试环境或生产。
+# - Nginx 用临时生成的自签名证书（代替 Let's Encrypt），certbot 的验证目录指到临时目录，不在本机建 /var/www/certbot。
+services:
+  app:
+    environment:
+      SPRING_PROFILES_ACTIVE: e2e
+      FC_E2E_ENABLED: "true"
+      # 和测试环境一样显示"测试环境"标识条（用例里检查）
+      FC_ENV_LABEL: test
+  web:
+    volumes:
+      - ${E2E_CERT_DIR:?缺少 E2E_CERT_DIR}:/etc/letsencrypt:ro
+      - ${E2E_CERT_DIR:?缺少 E2E_CERT_DIR}/www:/var/www/certbot:ro

@@ -1,0 +1,10 @@
+# 每天 UTC 19:30（北京时间 03:30）备份数据库，保留 7 天
+[Unit]
+Description=forecast 测试环境数据库备份（每天）
+
+[Timer]
+OnCalendar=*-*-* 19:30:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

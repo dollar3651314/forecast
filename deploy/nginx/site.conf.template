@@ -1,0 +1,194 @@
+# 测试环境站点（S20，部署方案 v1.1 第 4 节；v2 加官网，部署方案第 14 节）。${APP_DOMAIN}、${ADMIN_DOMAIN}、${WWW_DOMAIN} 在容器启动时由 .env 替换；
+# Nginx 自己的变量（例如 $host）不受影响（只替换已定义的环境变量）。
+# 证书：一张 Let's Encrypt 证书同时包含三个域名（客户端、后台、官网），名字固定为 forecast（first-start.sh 申请，certbot 自动续期；
+# 已有服务器加官网域名时按部署方案第 14 节扩展证书）。
+
+# 限流（功能取舍对照表 P-05）：Nginx 是第一道防线，只防明显的洪水，阈值比后端（common/ratelimit：每 IP 每分钟 600 次接口、
+# 120 次 WebSocket 握手，每客户每分钟 60 次交易写操作）宽松；正常使用碰不到。按 Nginx 看到的来源 IP（$binary_remote_addr）计数。
+# 阈值是环境变量（deploy/web.Dockerfile 的 ENV 给默认值），容器启动时替换进来；只有压测（e2e/load/compose.load.yml）调大。
+# - 接口 /api/（两个域名合计）：每 IP 每秒 FC_NGINX_API_RATE，允许瞬间多出 FC_NGINX_API_BURST 个（nodelay：不排队，超出的直接 429）；
+#   同时处理中的请求每 IP 最多 FC_NGINX_API_CONN 个。
+# - WebSocket /api/ws/：limit_req 只数握手（长连接建立后不再计数，不会被断开），每 IP FC_NGINX_WS_RATE、瞬间多出 FC_NGINX_WS_BURST 个；
+#   同时打开的 WebSocket 每 IP 最多 FC_NGINX_WS_CONN 条（大陆移动网络很多人共用一个出口 IP，每个页面 2 条，留足余量）。
+# - 静态页面和资源、/api/health 不限。超限返回 429 和 {"code":"RATE_LIMITED",...}（两个前端都有翻译），带 Retry-After。
+limit_req_zone $binary_remote_addr zone=fc_api:10m rate=${FC_NGINX_API_RATE};
+limit_req_zone $binary_remote_addr zone=fc_ws:10m rate=${FC_NGINX_WS_RATE};
+limit_conn_zone $binary_remote_addr zone=fc_api_conn:10m;
+limit_conn_zone $binary_remote_addr zone=fc_ws_conn:10m;
+limit_req_status 429;
+limit_conn_status 429;
+limit_req_log_level warn;
+limit_conn_log_level warn;
+
+# 80：只用于申请证书和跳转到 HTTPS
+server {
+  listen 80 default_server;
+  server_name _;
+  location /.well-known/acme-challenge/ {
+    root /var/www/certbot;
+  }
+  location / {
+    return 301 https://$host$request_uri;
+  }
+}
+
+# 不认识的域名（例如直接用 IP 访问 443）：直接断开
+server {
+  listen 443 ssl default_server;
+  ssl_reject_handshake on;
+}
+
+# 客户端：test-app.<域名>
+server {
+  listen 443 ssl;
+  http2 on;
+  server_name ${APP_DOMAIN};
+  ssl_certificate /etc/letsencrypt/live/forecast/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/forecast/privkey.pem;
+  ssl_protocols TLSv1.2 TLSv1.3;
+  include /etc/nginx/snippets/security.inc;
+
+  root /usr/share/nginx/client;
+
+  # 后台接口只在后台域名开放；端到端测试接口、应用管理端点一律不转发。
+  # 用正则而不是 location /api/admin/：后端（Spring）匹配路径时忽略分号后面的内容，/api/admin;x/me 会被当成 /api/admin/me，
+  # 前缀写法拦不住（安全审查 SEC-02）；这里把 /api/admin 后面跟 / ; 或结尾的都拦下，大小写都算（正则里有分号，必须加引号）。后端也拒绝带分号的路径（CrossSiteGuard）。
+  location ~* "^/api/(admin|e2e)([/;]|$)" { return 404; }
+  # 应用管理端点（健康详情、指标 /actuator/prometheus）只在后端容器里的 127.0.0.1:8081，这里再拦一道
+  location /actuator { return 404; }
+
+
+  # 限流超限（limit_req / limit_conn）时的响应：和后端同一个错误格式。只处理 Nginx 自己产生的 429，后端返回的 429 原样转发
+  error_page 429 = @fc_rate_limited;
+  location @fc_rate_limited {
+    include /etc/nginx/snippets/security.inc;
+    add_header Retry-After 1 always;
+    add_header X-Request-Id $request_id always;
+    default_type application/json;
+    return 429 '{"code":"RATE_LIMITED","message":"too many requests","fields":[],"cooldownSeconds":1}';
+  }
+
+  location /api/ws/ {
+    limit_req zone=fc_ws burst=${FC_NGINX_WS_BURST} nodelay;
+    limit_conn fc_ws_conn ${FC_NGINX_WS_CONN};
+    include /etc/nginx/snippets/proxy.inc;
+    proxy_read_timeout 1h;
+  }
+  location /api/ {
+    limit_req zone=fc_api burst=${FC_NGINX_API_BURST} nodelay;
+    limit_conn fc_api_conn ${FC_NGINX_API_CONN};
+    include /etc/nginx/snippets/proxy.inc;
+    proxy_read_timeout 120s;
+  }
+
+  # 带文件名哈希的静态资源（构建目录 assets/）长期缓存，找不到就是 404（不能拿页面冒充脚本）。
+  # 注意：客户端的资产页路由也叫 /assets、/assets/ledger、/assets/withdraw、/assets/whitelist，和构建目录同名，
+  # 所以只把"assets/ 下带扩展名的文件"当静态资源，其余（页面路由）回到 index.html。
+  # （部署形态端到端测试发现：原来按 /assets/ 前缀匹配，刷新或直接打开资产页得到 403、资金流水等页面 404）
+  location ~ ^/assets/[^/]+\.[A-Za-z0-9]+$ {
+    expires 30d;
+    try_files $uri =404;
+  }
+  location ~ ^/(index\.html|sw\.js|push-sw\.js|registerSW\.js|manifest\.webmanifest)$ {
+    expires -1;
+  }
+  # 页面路由：有这个文件就返回文件，否则回到 index.html（不按目录查找，/assets 目录不会被当成页面）
+  location / {
+    expires -1;
+    try_files $uri /index.html;
+  }
+}
+
+# 后台：test-admin.<域名>（页面在 /admin/，和构建时的 base 一致）
+server {
+  listen 443 ssl;
+  http2 on;
+  server_name ${ADMIN_DOMAIN};
+  ssl_certificate /etc/letsencrypt/live/forecast/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/forecast/privkey.pem;
+  ssl_protocols TLSv1.2 TLSv1.3;
+  include /etc/nginx/snippets/security.inc;
+
+  root /usr/share/nginx;
+
+  location = / {
+    return 302 /admin/;
+  }
+
+  # 限流超限（limit_req / limit_conn）时的响应：和后端同一个错误格式。只处理 Nginx 自己产生的 429，后端返回的 429 原样转发
+  error_page 429 = @fc_rate_limited;
+  location @fc_rate_limited {
+    include /etc/nginx/snippets/security.inc;
+    add_header Retry-After 1 always;
+    add_header X-Request-Id $request_id always;
+    default_type application/json;
+    return 429 '{"code":"RATE_LIMITED","message":"too many requests","fields":[],"cooldownSeconds":1}';
+  }
+
+  # 后台接口和客户端接口共用同一个按 IP 的额度；后台登录另外在后端按 IP 限次（SEC-15）
+  location /api/admin/ {
+    limit_req zone=fc_api burst=${FC_NGINX_API_BURST} nodelay;
+    limit_conn fc_api_conn ${FC_NGINX_API_CONN};
+    include /etc/nginx/snippets/proxy.inc;
+    proxy_read_timeout 120s;
+  }
+  # 健康检查：只有后台域名带业务告警（alert、alerts，v2 E8）。proxy.inc 默认把 X-Fc-Health-Alerts 设为空（不发这个头，
+  # 客户端自己带的也被去掉），这里在 include 之后改成 1；客户端域名、官网的 /api/health 拿不到告警
+  location = /api/health {
+    include /etc/nginx/snippets/proxy.inc;
+    set $fc_health_alerts 1;
+  }
+  location /admin/assets/ {
+    expires 30d;
+  }
+  location /admin/ {
+    expires -1;
+    try_files $uri $uri/ /admin/index.html;
+  }
+  location / {
+    return 404;
+  }
+}
+
+# 官网：test-www.<域名>。静态页面 + 只开放健康检查（测试环境标识）一个接口；forecast S1 删除了复制源的公开行情 /api/public/quotes。
+# 其他 /api/ 一律 404：官网域名上没有登录、资金、后台接口。官网页面里的客户端地址（注册、登录跳过去）由这里填成 https://${APP_DOMAIN}，
+# 一个镜像适用于测试环境、端到端测试的假域名和以后的生产（web/site/src/config.ts）。
+# .env 里没有 WWW_DOMAIN 时（已有服务器还没加官网），compose 给一个不会被访问到的占位域名，这一段不生效、Nginx 照常启动。
+server {
+  listen 443 ssl;
+  http2 on;
+  server_name ${WWW_DOMAIN};
+  ssl_certificate /etc/letsencrypt/live/forecast/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/forecast/privkey.pem;
+  ssl_protocols TLSv1.2 TLSv1.3;
+  include /etc/nginx/snippets/security.inc;
+
+  root /usr/share/nginx/site;
+
+  error_page 429 = @fc_rate_limited;
+  location @fc_rate_limited {
+    include /etc/nginx/snippets/security.inc;
+    add_header Retry-After 1 always;
+    add_header X-Request-Id $request_id always;
+    default_type application/json;
+    return 429 '{"code":"RATE_LIMITED","message":"too many requests","fields":[],"cooldownSeconds":1}';
+  }
+
+  location = /api/health {
+    include /etc/nginx/snippets/proxy.inc;
+  }
+  location /api/ { return 404; }
+  location /actuator { return 404; }
+
+  location ~ ^/assets/[^/]+\.[A-Za-z0-9]+$ {
+    expires 30d;
+    try_files $uri =404;
+  }
+  # 页面：/、/terms、/privacy、/risk 都回到 index.html（浏览器内切换页面）；页面里的客户端地址占位符换成客户端域名
+  location / {
+    expires -1;
+    sub_filter_once on;
+    sub_filter '__FC_CLIENT_URL__' 'https://${APP_DOMAIN}';
+    try_files $uri /index.html;
+  }
+}

@@ -1,0 +1,9 @@
+# 每天备份数据库（S20，部署方案 v1.1 D5）
+[Unit]
+Description=forecast 测试环境数据库备份
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/forecast/backup.sh daily

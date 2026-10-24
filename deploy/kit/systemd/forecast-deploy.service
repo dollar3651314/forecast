@@ -1,0 +1,10 @@
+# 自动更新（S20）：运行一次 deploy.sh。由 forecast-deploy.timer 每分钟触发。
+[Unit]
+Description=forecast 测试环境自动更新
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/forecast/deploy.sh
+TimeoutStartSec=15min

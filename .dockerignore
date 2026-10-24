@@ -1,0 +1,9 @@
+# 两个镜像（deploy/app.Dockerfile、deploy/web.Dockerfile）只打包已经构建好的产物：构建上下文只放这些，
+# 其余（node_modules、.git、本机的 .env、e2e 的日志和临时文件等）不发给 Docker，构建更快，也不会被误打进镜像。
+*
+!backend/target/forecast-*.jar
+!web/client/dist/
+!web/admin/dist/
+!web/site/dist/
+!deploy/nginx/
+!deploy/kit/

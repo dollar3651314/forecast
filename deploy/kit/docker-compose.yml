@@ -1,0 +1,148 @@
+# 测试环境的容器（沿用复制源，forecast 的部署方案在 S14 写）。放在服务器 /opt/forecast/，由 deploy.sh 用两个变量文件启动：
+#   .env               ← 密钥和域名，只由 Amos 填（变量名见 env.example），权限 600
+#   state/image.env    ← 当前版本 IMAGE_TAG=<提交号>（deploy.sh、rollback.sh 写）
+# 内存上限按 2 核 2G 服务器设置（部署方案第 2 节）；数据库、Redis、后端端口都不对公网开放。
+name: forecast
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 50m
+    max-file: "3"
+
+services:
+  web:
+    image: ghcr.io/dollar3651314/forecast-web:${IMAGE_TAG:?缺少 IMAGE_TAG}
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?缺少 APP_DOMAIN}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:?缺少 ADMIN_DOMAIN}
+      # 官网（v2，部署方案第 14 节）。已有服务器的 .env 还没加时用一个不会被访问到的占位域名，Nginx 照常启动，官网那一段不生效
+      WWW_DOMAIN: ${WWW_DOMAIN:-www-not-configured.invalid}
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
+    depends_on:
+      - app
+    mem_limit: 64m
+    memswap_limit: 64m
+    logging: *logging
+
+  app:
+    image: ghcr.io/dollar3651314/forecast-app:${IMAGE_TAG:?缺少 IMAGE_TAG}
+    restart: unless-stopped
+    # 只给本机的部署脚本做健康检查，不对公网开放（云防火墙也只开 80、443）
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      FC_DB_URL: jdbc:mysql://mysql:3306/forecast?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true
+      FC_DB_USERNAME: forecast
+      FC_DB_PASSWORD: ${FC_DB_PASSWORD:?缺少 FC_DB_PASSWORD}
+      FC_REDIS_HOST: redis
+      FC_REDIS_PASSWORD: ${FC_REDIS_PASSWORD:?缺少 FC_REDIS_PASSWORD}
+      FC_COOKIE_SECURE: "true"
+      FC_ENV_LABEL: test
+      FC_ADMIN_INIT_USERNAME: ${FC_ADMIN_INIT_USERNAME:-}
+      FC_ADMIN_INIT_PASSWORD: ${FC_ADMIN_INIT_PASSWORD:-}
+      FC_MAIL_HOST: ${FC_MAIL_HOST:-}
+      FC_MAIL_PORT: ${FC_MAIL_PORT:-587}
+      FC_MAIL_SECURITY: ${FC_MAIL_SECURITY:-STARTTLS}
+      FC_MAIL_USERNAME: ${FC_MAIL_USERNAME:-}
+      FC_MAIL_PASSWORD: ${FC_MAIL_PASSWORD:-}
+      FC_MAIL_FROM: ${FC_MAIL_FROM:-}
+      FC_PUSH_VAPID_PUBLIC_KEY: ${FC_PUSH_VAPID_PUBLIC_KEY:-}
+      FC_PUSH_VAPID_PRIVATE_KEY: ${FC_PUSH_VAPID_PRIVATE_KEY:-}
+      FC_PUSH_VAPID_SUBJECT: ${FC_PUSH_VAPID_SUBJECT:-}
+      FC_RISK_ALERT_EMAILS: ${FC_RISK_ALERT_EMAILS:-}
+      # 监控告警收件人：没有默认值，必须由 Amos 在 .env 里填（架构方案第 1.4 节 ⑤）
+      FC_ALERT_EMAILS: ${FC_ALERT_EMAILS:-}
+      # 雪花 ID 节点号（单实例 1）
+      FC_ID_NODE: ${FC_ID_NODE:-1}
+      # 区块链（D4 第二步才填，全部用测试网）；没配置的链不扫块
+      FC_WALLET_ETH_XPUB: ${FC_WALLET_ETH_XPUB:-}
+      FC_WALLET_TRON_XPUB: ${FC_WALLET_TRON_XPUB:-}
+      FC_WALLET_ETH_RPC_URL: ${FC_WALLET_ETH_RPC_URL:-}
+      FC_WALLET_BSC_RPC_URL: ${FC_WALLET_BSC_RPC_URL:-}
+      FC_WALLET_TRON_RPC_URL: ${FC_WALLET_TRON_RPC_URL:-}
+      FC_WALLET_ERC20_USDT_CONTRACT: ${FC_WALLET_ERC20_USDT_CONTRACT:-}
+      FC_WALLET_BSC_USDT_CONTRACT: ${FC_WALLET_BSC_USDT_CONTRACT:-}
+      FC_WALLET_TRC20_USDT_CONTRACT: ${FC_WALLET_TRC20_USDT_CONTRACT:-}
+      FC_WALLET_ERC20_CHAIN_ID: ${FC_WALLET_ERC20_CHAIN_ID:-11155111}
+      FC_WALLET_BSC_CHAIN_ID: ${FC_WALLET_BSC_CHAIN_ID:-97}
+      FC_WALLET_ETH_HOT_KEY: ${FC_WALLET_ETH_HOT_KEY:-}
+      FC_WALLET_TRON_HOT_KEY: ${FC_WALLET_TRON_HOT_KEY:-}
+      FC_WALLET_ETH_HOT_ADDRESS: ${FC_WALLET_ETH_HOT_ADDRESS:-}
+      FC_WALLET_TRON_HOT_ADDRESS: ${FC_WALLET_TRON_HOT_ADDRESS:-}
+      # 资金归集（v2 第一阶段：以太坊、BSC）：合约地址都是公开地址，发起账户私钥只由 Amos 填；都不填时和以前一样（xpub 地址、不能归集）
+      FC_SWEEP_EVM_FACTORY: ${FC_SWEEP_EVM_FACTORY:-}
+      FC_SWEEP_EVM_IMPLEMENTATION: ${FC_SWEEP_EVM_IMPLEMENTATION:-}
+      FC_SWEEP_EVM_PARENT: ${FC_SWEEP_EVM_PARENT:-}
+      FC_SWEEP_EVM_BATCHER: ${FC_SWEEP_EVM_BATCHER:-}
+      FC_SWEEP_EVM_OPERATOR_ADDRESS: ${FC_SWEEP_EVM_OPERATOR_ADDRESS:-}
+      FC_SWEEP_EVM_OPERATOR_KEY: ${FC_SWEEP_EVM_OPERATOR_KEY:-}
+    volumes:
+      - ./data/storage:/data/storage
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # 单实例：停机时先处理完队列再退出
+    stop_grace_period: 60s
+    # 不给容器用交换分区（memswap = mem）：到上限就被杀掉重启，不能拖着整台机器换页卡死（部署方案第 19 节）
+    mem_limit: 768m
+    memswap_limit: 768m
+    logging: *logging
+
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?缺少 MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: forecast
+      MYSQL_USER: forecast
+      MYSQL_PASSWORD: ${FC_DB_PASSWORD:?缺少 FC_DB_PASSWORD}
+      TZ: UTC
+    # 2G 内存：调小缓存、关闭性能监控（部署方案第 2 节）
+    command:
+      - --innodb-buffer-pool-size=256M
+      - --performance-schema=OFF
+      - --max-connections=60
+      - --innodb-log-buffer-size=8M
+      - --key-buffer-size=8M
+      - --tmp-table-size=16M
+      - --max-heap-table-size=16M
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    mem_limit: 450m
+    memswap_limit: 450m
+    logging: *logging
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    # 密码从容器的环境变量读，不写进 compose 的命令行
+    command: ["sh", "-c", "exec redis-server --requirepass \"$$REDIS_PASSWORD\" --maxmemory 64mb --maxmemory-policy noeviction --save 300 10"]
+    volumes:
+      - ./data/redis:/data
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    environment:
+      REDIS_PASSWORD: ${FC_REDIS_PASSWORD:?缺少 FC_REDIS_PASSWORD}
+    mem_limit: 96m
+    memswap_limit: 96m
+    logging: *logging
