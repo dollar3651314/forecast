@@ -1,0 +1,30 @@
+{
+  "_说明": "项目地图和项目索引的检查配置（agents 规则 C53）。由 scripts/check-project-index.mjs 读取（脚本从 agents/工具/ 原样复制，不在本项目修改）。现在只有文档和图片，代码建立后按《架构方案》第 12.3 节补 include 和 lists。",
+  "map": "项目地图.md",
+  "index": "项目索引.md",
+  "entry": ["CLAUDE.md", "AGENTS.md"],
+  "files": {
+    "_说明": "include：必须写进索引的文件。业务代码（backend/src/main/java、web/*/src）建立后按模块和包写进索引，不放进 include；接口、表、变量用 lists 核对（C53 v0.9）",
+    "include": ["*.md", "项目索引.config.json", "scripts/**", ".github/workflows/**", "调研/**", "需求文档/**", "市场/**", "技术方案/**", "测试报告/**", "部署方案/**", "交付记录/**", "assets/**", "deploy/**", "backend/src/main/resources/db/migration/**"],
+    "exclude": ["**/.gitignore"]
+  },
+  "lists": [
+    {
+      "name": "数据库表",
+      "section": "4.1",
+      "sources": ["backend/src/main/resources/db/migration/"],
+      "patterns": ["CREATE TABLE (?:IF NOT EXISTS )?(\\w+)"],
+      "match": "firstColumn",
+      "twoWay": "extracted"
+    },
+    {
+      "name": "环境变量",
+      "section": "5. 环境变量",
+      "sources": ["backend/src/main/resources/", "deploy/", ".github/workflows/"],
+      "patterns": ["\\$\\{(FC_[A-Z0-9_]+)", "\\$\\{\\{\\s*(?:vars|secrets)\\.([A-Z][A-Z0-9_]+)"],
+      "match": "firstColumn",
+      "twoWay": "word",
+      "token": "^[A-Z][A-Z0-9_]+$"
+    }
+  ]
+}
