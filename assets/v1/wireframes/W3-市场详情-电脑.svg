@@ -16,7 +16,7 @@
 </g>
 <rect x="24" y="360" width="800" height="36" fill="#fafafa"/><text x="36" y="383" font-weight="bold">规则</text><text x="100" y="383">裁决与公示</text><text x="200" y="383">彩池怎么算</text><text x="310" y="383">我的下注（2）</text>
 <text x="36" y="420" font-size="12">问题、判定条件、裁决来源（首选 / 备用）、截止和开赛时间（UTC）、延期 / 取消 / 腰斩、数据修正、补充说明（带时间）</text>
-<text x="36" y="440" font-size="12">已结算：结果 · 依据链接和存档截图 · 裁决时间 · 裁决员编号 · 复核员编号</text>
+<text x="36" y="440" font-size="12">已结算：结果 · 依据链接和存档截图 · 裁决时间 · 裁决人编号</text>
 <g transform="translate(856,96)"><rect width="400" height="420" rx="10" fill="none" stroke="#555"/>
 <text x="16" y="30" font-weight="bold" font-size="15">押注</text>
 <rect x="16" y="44" width="120" height="44" rx="6" fill="#e6f4ea" stroke="#3a7"/><text x="26" y="72">主胜 60%</text>
