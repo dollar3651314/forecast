@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" font-family="sans-serif" font-size="13">
+<rect width="1280" height="720" fill="#fff" stroke="#999"/>
+<text x="16" y="18" font-size="11" fill="#888">W4 后台 · 裁决台 / 复核（电脑 1280 宽，低保真）</text>
+<rect x="0" y="26" width="200" height="694" fill="#f2f2f2"/>
+<text x="20" y="60">仪表盘</text><text x="20" y="90">市场管理</text><text x="20" y="120" font-weight="bold">裁决台</text><text x="20" y="150">公示与争议</text><text x="20" y="180">结算与补偿</text><text x="20" y="210">客户 · KYC</text><text x="20" y="240">资金</text><text x="20" y="270">风控告警</text><text x="20" y="300">报表</text><text x="20" y="330">参数设置</text><text x="20" y="360">通知</text><text x="20" y="390">系统</text>
+<text x="220" y="56" font-weight="bold" font-size="15">裁决台</text>
+<text x="220" y="80">待提议（3） · 待复核（2） · 自动裁决失败（1） · 超时（0）</text>
+<rect x="220" y="92" width="1040" height="30" fill="#fafafa"/><text x="230" y="112" font-weight="bold">市场</text><text x="560" y="112" font-weight="bold">裁决方式</text><text x="680" y="112" font-weight="bold">事件结束</text><text x="830" y="112" font-weight="bold">奖池</text><text x="930" y="112" font-weight="bold">状态</text><text x="1080" y="112" font-weight="bold">操作</text>
+<text x="230" y="146">曼城 vs 利物浦（胜平负）</text><text x="560" y="146">平台</text><text x="680" y="146">11-01 16:52</text><text x="830" y="146">10,000</text><text x="930" y="146">待复核</text><text x="1080" y="146">复核</text>
+<text x="230" y="176">BTC 10:15–10:30 涨跌</text><text x="560" y="176">自动（失败）</text><text x="680" y="176">10-24 10:30</text><text x="830" y="176">3,420</text><text x="930" y="176" fill="#c44">两个来源不一致</text><text x="1080" y="176">处理</text>
+<g transform="translate(220,200)"><rect width="1040" height="470" rx="8" fill="none" stroke="#555"/>
+<text x="16" y="28" font-weight="bold">复核：曼城 vs 利物浦（胜平负）</text>
+<text x="16" y="54" font-size="12">提议人：裁决员 #A03 · 11-01 17:05 · 提议结果：主胜 曼城（2:1）</text>
+<text x="16" y="76" font-size="12">依据：premierleague.com 赛果链接 · 存档截图 2 张 · 接口返回快照</text>
+<text x="16" y="98" font-size="12">规则全文（只读，含补充说明及时间）……</text>
+<text x="16" y="130" font-weight="bold">结算预览（按提议结果）</text>
+<text x="16" y="152" font-size="12">赢方池 6,000 · 输方池 4,000 · 费率 5%（上架时锁定）· 赢家 3 人</text>
+<text x="16" y="172" font-size="12">派彩合计 9,799.99 · 抽成 199.99 · 尾差 0.02 · 合计 10,000.00 ✔</text>
+<text x="16" y="210" font-weight="bold">复核结论</text>
+<rect x="16" y="222" width="20" height="20" fill="none" stroke="#555"/><text x="44" y="238">同意提议（进入公示，争议窗口 2 小时）</text>
+<rect x="16" y="252" width="20" height="20" fill="none" stroke="#555"/><text x="44" y="268">不同意：退回裁决员重新提议（必填理由）</text>
+<rect x="16" y="282" width="20" height="20" fill="none" stroke="#555"/><text x="44" y="298">作废：按规则全额退款（必填理由，高危确认）</text>
+<rect x="16" y="316" width="600" height="60" fill="none" stroke="#aaa"/><text x="26" y="340" fill="#999">理由（必填）</text>
+<rect x="16" y="392" width="160" height="40" rx="6" fill="#333"/><text x="56" y="417" fill="#fff">提交复核</text>
+<text x="200" y="417" fill="#888" font-size="11">提议人和复核人不能是同一个管理员；提交写审计</text>
+</g>
+</svg>
