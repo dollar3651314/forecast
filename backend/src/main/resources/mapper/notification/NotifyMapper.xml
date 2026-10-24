@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 通知：模板、偏好、站内信、通知记录。只有 notification 模块使用。 -->
+<mapper namespace="com.forecast.app.notification.service.NotifyMapper">
+
+  <select id="template" resultType="com.forecast.app.notification.service.Rows$TemplateRow">
+    SELECT code, audience, kind, name_zh, name_en, title_zh, title_en, body_zh, body_en, variables, channels, built_in, enabled, updated_at
+    FROM notify_template WHERE code = #{code}
+  </select>
+
+  <select id="pref" resultType="com.forecast.app.notification.service.Rows$PrefRow">
+    SELECT push_enabled, email_enabled, lang FROM notify_pref WHERE user_id = #{userId}
+  </select>
+
+  <insert id="upsertPref">
+    INSERT INTO notify_pref (user_id, push_enabled, email_enabled) VALUES (#{userId}, #{push}, #{email})
+    ON DUPLICATE KEY UPDATE push_enabled = VALUES(push_enabled), email_enabled = VALUES(email_enabled)
+  </insert>
+
+  <insert id="upsertLang">
+    INSERT INTO notify_pref (user_id, lang) VALUES (#{userId}, #{lang})
+    ON DUPLICATE KEY UPDATE lang = VALUES(lang)
+  </insert>
+
+  <insert id="insertMessage" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO notify_message (user_id, kind, template_code, params, title, body, created_at)
+    VALUES (#{userId}, #{kind}, #{templateCode}, #{params}, #{title}, #{body}, #{createdAt})
+  </insert>
+
+  <select id="messages" resultType="com.forecast.app.notification.service.Rows$MessageRow">
+    SELECT id, user_id, kind, template_code, params, title, body, read_at, created_at
+    FROM notify_message WHERE user_id = #{userId} ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="countMessages" resultType="long">
+    SELECT COUNT(*) FROM notify_message WHERE user_id = #{userId}
+  </select>
+
+  <select id="countUnread" resultType="long">
+    SELECT COUNT(*) FROM notify_message WHERE user_id = #{userId} AND read_at IS NULL
+  </select>
+
+  <update id="markRead">
+    UPDATE notify_message SET read_at = #{now} WHERE id = #{id} AND user_id = #{userId} AND read_at IS NULL
+  </update>
+
+  <update id="markAllRead">
+    UPDATE notify_message SET read_at = #{now} WHERE user_id = #{userId} AND read_at IS NULL
+  </update>
+
+  <insert id="insertRecord" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO notify_record (user_id, recipient, source, template_code, channel, title, status, error, operator_id, created_at)
+    VALUES (#{userId}, #{recipient}, #{source}, #{templateCode}, #{channel}, #{title}, #{status}, #{error}, #{operatorId}, #{createdAt})
+  </insert>
+
+  <update id="updateRecord">
+    UPDATE notify_record SET status = #{status}, error = #{error} WHERE id = #{id}
+  </update>
+
+  <select id="recordsOf" resultType="com.forecast.app.notification.service.Rows$RecordRow">
+    SELECT id, user_id, recipient, source, template_code, channel, title, status, error, operator_id, created_at
+    FROM notify_record WHERE user_id = #{userId} ORDER BY id DESC LIMIT #{limit}
+  </select>
+
+  <select id="record" resultType="com.forecast.app.notification.service.Rows$RecordRow">
+    SELECT id, user_id, recipient, source, template_code, channel, title, status, error, operator_id, created_at
+    FROM notify_record WHERE id = #{id}
+  </select>
+
+  <insert id="upsertPushSub">
+    INSERT INTO notify_push_sub (user_id, endpoint, endpoint_hash, p256dh, auth, created_at)
+    VALUES (#{userId}, #{endpoint}, #{hash}, #{p256dh}, #{auth}, #{now})
+    ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), p256dh = VALUES(p256dh), auth = VALUES(auth), created_at = VALUES(created_at)
+  </insert>
+
+  <select id="pushSubs" resultType="com.forecast.app.notification.service.Rows$PushSubRow">
+    SELECT id, user_id, endpoint, p256dh, auth FROM notify_push_sub WHERE user_id = #{userId} ORDER BY id
+  </select>
+
+  <select id="pushSub" resultType="com.forecast.app.notification.service.Rows$PushSubRow">
+    SELECT id, user_id, endpoint, p256dh, auth FROM notify_push_sub WHERE id = #{id}
+  </select>
+
+  <delete id="deletePushSub">
+    DELETE FROM notify_push_sub WHERE id = #{id}
+  </delete>
+
+  <delete id="deletePushSubByEndpoint">
+    DELETE FROM notify_push_sub WHERE user_id = #{userId} AND endpoint_hash = #{hash}
+  </delete>
+
+  <delete id="trimPushSubs">
+    DELETE FROM notify_push_sub WHERE user_id = #{userId} AND id NOT IN (
+      SELECT id FROM (SELECT id FROM notify_push_sub WHERE user_id = #{userId} ORDER BY created_at DESC, id DESC LIMIT #{max}) keep)
+  </delete>
+
+  <!-- 后台（S16b） -->
+  <select id="templates" resultType="com.forecast.app.notification.service.Rows$TemplateRow">
+    SELECT code, audience, kind, name_zh, name_en, title_zh, title_en, body_zh, body_en, variables, channels, built_in, enabled, updated_at
+    FROM notify_template ORDER BY FIELD(audience, 'USER', 'ANY', 'STAFF'), code
+  </select>
+
+  <update id="updateTemplate">
+    UPDATE notify_template SET title_zh = #{titleZh}, body_zh = #{bodyZh}, title_en = #{titleEn}, body_en = #{bodyEn}, enabled = #{enabled}
+    WHERE code = #{code}
+  </update>
+
+  <sql id="recordWhere">
+    <where>
+      <if test="channel != null">AND channel = #{channel}</if>
+      <if test="status != null">AND status = #{status}</if>
+      <if test="userIds != null">AND user_id IN <foreach collection="userIds" item="u" open="(" separator="," close=")">#{u}</foreach></if>
+    </where>
+  </sql>
+
+  <select id="records" resultType="com.forecast.app.notification.service.Rows$RecordRow">
+    SELECT id, user_id, recipient, source, template_code, channel, title, status, error, operator_id, created_at
+    FROM notify_record <include refid="recordWhere"/> ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="countRecords" resultType="long">SELECT COUNT(*) FROM notify_record <include refid="recordWhere"/></select>
+</mapper>

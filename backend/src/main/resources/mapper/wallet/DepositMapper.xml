@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 扫块进度和充值记录。只有 wallet 模块使用。 -->
+<mapper namespace="com.forecast.app.wallet.deposit.DepositMapper">
+
+  <resultMap id="row" type="com.forecast.app.wallet.deposit.DepositMapper$DepositRow">
+    <constructor>
+      <arg column="id" javaType="_long"/>
+      <arg column="public_no" javaType="_long"/>
+      <arg column="chain" javaType="string"/>
+      <arg column="tx_hash" javaType="string"/>
+      <arg column="log_index" javaType="_int"/>
+      <arg column="block_number" javaType="_long"/>
+      <arg column="block_hash" javaType="string"/>
+      <arg column="user_id" javaType="_long"/>
+      <arg column="amount" javaType="java.math.BigDecimal"/>
+      <arg column="status" javaType="string"/>
+      <arg column="confirmations" javaType="_int"/>
+      <arg column="created_at" javaType="java.time.LocalDateTime"/>
+    </constructor>
+  </resultMap>
+
+  <sql id="cols">id, public_no, chain, tx_hash, log_index, block_number, block_hash, user_id, amount, status, confirmations, created_at</sql>
+
+  <select id="cursor" resultType="long">
+    SELECT last_block FROM wallet_chain_cursor WHERE chain = #{chain}
+  </select>
+
+  <insert id="saveCursor">
+    INSERT INTO wallet_chain_cursor (chain, last_block) VALUES (#{chain}, #{block}) ON DUPLICATE KEY UPDATE last_block = VALUES(last_block)
+  </insert>
+
+  <insert id="insertIgnore">
+    INSERT IGNORE INTO wallet_deposit (public_no, chain, tx_hash, log_index, block_number, block_hash, from_address, to_address, user_id, amount, status)
+    VALUES (#{publicNo}, #{chain}, #{txHash}, #{logIndex}, #{blockNumber}, #{blockHash}, #{from}, #{to}, #{userId}, #{amount}, #{status})
+  </insert>
+
+  <select id="pending" resultMap="row">
+    SELECT <include refid="cols"/> FROM wallet_deposit WHERE chain = #{chain} AND status = 'PENDING' ORDER BY id
+  </select>
+
+  <update id="updateConfirmations">
+    UPDATE wallet_deposit SET confirmations = #{confirmations} WHERE id = #{id} AND status = 'PENDING'
+  </update>
+
+  <update id="finish">
+    UPDATE wallet_deposit SET status = #{status}, confirmations = #{confirmations},
+      credited_at = CASE WHEN #{status} = 'CREDITED' THEN UTC_TIMESTAMP(3) ELSE NULL END
+    WHERE id = #{id} AND status = 'PENDING'
+  </update>
+
+  <select id="recentCredited" resultMap="row">
+    SELECT <include refid="cols"/> FROM wallet_deposit WHERE chain = #{chain} AND status = 'CREDITED' AND block_number &gt;= #{minBlock} ORDER BY id
+  </select>
+
+  <update id="markReversed">
+    UPDATE wallet_deposit SET status = 'REVERSED' WHERE id = #{id} AND status = 'CREDITED'
+  </update>
+
+  <insert id="insertSuspense">
+    INSERT INTO wallet_suspense (user_id, deposit_id, amount, note) VALUES (#{userId}, #{depositId}, #{amount}, #{note})
+  </insert>
+
+  <select id="byUser" resultMap="row">
+    SELECT <include refid="cols"/> FROM wallet_deposit WHERE user_id = #{userId} ORDER BY id DESC LIMIT #{limit}
+  </select>
+</mapper>

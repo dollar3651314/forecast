@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 提现自动审批规则的修改记录（审计日志 withdrawal.auto_rule_update，只读）。只有 admin 模块使用。 -->
+<mapper namespace="com.forecast.app.admin.ops.AutoRuleAuditMapper">
+
+  <sql id="cols">id, admin_id, admin_name, target, reason, before_json, after_json, created_at</sql>
+
+  <select id="changes" resultType="com.forecast.app.admin.ops.AutoRuleAuditMapper$Row">
+    SELECT <include refid="cols"/> FROM admin_audit_log
+    WHERE action = 'withdrawal.auto_rule_update' AND result = 'SUCCESS' ORDER BY id DESC LIMIT #{limit}
+  </select>
+
+  <select id="versions" resultType="com.forecast.app.admin.ops.AutoRuleAuditMapper$Row">
+    SELECT <include refid="cols"/> FROM admin_audit_log
+    WHERE action = 'withdrawal.auto_rule_update' AND result = 'SUCCESS'
+      AND target IN <foreach collection="targets" item="t" open="(" separator="," close=")">#{t}</foreach>
+    ORDER BY id DESC
+  </select>
+</mapper>

@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 账户和账本。只有 ledger 模块使用（表名以 ledger_ 开头）。ledger_entry 只增不改：这里没有它的 UPDATE、DELETE 语句。 -->
+<mapper namespace="com.forecast.app.ledger.service.LedgerMapper">
+
+  <insert id="insertAccountIfAbsent">
+    INSERT IGNORE INTO ledger_account (user_id) VALUES (#{userId})
+  </insert>
+
+  <select id="lockAccount" resultType="com.forecast.app.ledger.service.AccountRow">
+    SELECT id, user_id, balance, withdraw_frozen FROM ledger_account WHERE user_id = #{userId} FOR UPDATE
+  </select>
+
+  <select id="findAccount" resultType="com.forecast.app.ledger.service.AccountRow">
+    SELECT id, user_id, balance, withdraw_frozen FROM ledger_account WHERE user_id = #{userId}
+  </select>
+
+  <!-- column 只会是 LedgerService.column() 给出的固定列名之一 -->
+  <update id="updateBucket">
+    UPDATE ledger_account SET ${column} = #{value} WHERE id = #{accountId}
+  </update>
+
+  <select id="findEntry" resultType="com.forecast.app.ledger.service.LedgerRow">
+    SELECT id, value_after FROM ledger_entry
+    WHERE biz_type = #{bizType} AND biz_id = #{bizId} AND entry_type = #{entryType} AND bucket = #{bucket}
+  </select>
+
+  <insert id="insertEntry" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO ledger_entry (account_id, bucket, entry_type, amount, value_after, biz_type, biz_id, remark)
+    VALUES (#{accountId}, #{bucket}, #{entryType}, #{amount}, #{valueAfter}, #{bizType}, #{bizId}, #{remark})
+  </insert>
+
+  <resultMap id="keyAmount" type="com.forecast.app.ledger.service.LedgerMapper$KeyAmount">
+    <constructor>
+      <arg column="k" javaType="string"/>
+      <arg column="amount" javaType="java.math.BigDecimal"/>
+    </constructor>
+  </resultMap>
+
+  <select id="totals" resultMap="keyAmount">
+    SELECT biz_id AS k, SUM(amount) AS amount FROM ledger_entry
+    WHERE biz_type = #{bizType} AND entry_type = #{entryType} AND bucket = #{bucket} GROUP BY biz_id
+  </select>
+
+  <select id="withdrawFrozen" resultMap="keyAmount">
+    SELECT CAST(user_id AS CHAR) AS k, withdraw_frozen AS amount FROM ledger_account WHERE withdraw_frozen &lt;&gt; 0
+  </select>
+
+  <!-- 充值 − 冲正（冲正在账本里是负数），以及最早一笔充值的入账时间（提现自动审批 R8、R9、R10） -->
+  <select id="depositsSince" resultType="com.forecast.app.ledger.service.LedgerMapper$DepositRow">
+    SELECT COALESCE(SUM(l.amount), 0) AS net, MIN(CASE WHEN l.entry_type = 'DEPOSIT' THEN l.created_at END) AS first_at
+    FROM ledger_entry l JOIN ledger_account a ON a.id = l.account_id
+    WHERE a.user_id = #{userId} AND l.bucket = 'BALANCE' AND l.entry_type IN ('DEPOSIT', 'DEPOSIT_REVERSAL')
+    <if test="since != null">AND l.created_at &gt;= #{since}</if>
+  </select>
+
+  <sql id="entryCols">l.id, l.entry_type, l.amount, l.value_after, l.biz_type, l.biz_id, l.remark, l.created_at</sql>
+
+  <select id="balanceLedger" resultType="com.forecast.app.ledger.service.LedgerMapper$EntryRow">
+    SELECT <include refid="entryCols"/>
+    FROM ledger_entry l JOIN ledger_account a ON a.id = l.account_id
+    WHERE a.user_id = #{userId} AND l.bucket = 'BALANCE' ORDER BY l.id DESC LIMIT #{limit}
+  </select>
+
+  <sql id="userLedgerWhere">
+    FROM ledger_entry l JOIN ledger_account a ON a.id = l.account_id
+    WHERE a.user_id = #{userId} AND l.bucket = 'BALANCE'
+      AND l.entry_type IN <foreach collection="types" item="t" open="(" separator="," close=")">#{t}</foreach>
+      <if test="since != null">AND l.created_at &gt;= #{since}</if>
+  </sql>
+
+  <select id="userLedger" resultType="com.forecast.app.ledger.service.LedgerMapper$EntryRow">
+    SELECT <include refid="entryCols"/> <include refid="userLedgerWhere"/>
+    ORDER BY l.id DESC LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="countUserLedger" resultType="long">SELECT COUNT(*) <include refid="userLedgerWhere"/></select>
+
+  <select id="balances" resultType="com.forecast.app.ledger.service.LedgerMapper$UserAmount">
+    SELECT user_id, balance AS amount FROM ledger_account WHERE user_id IN <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
+  </select>
+</mapper>

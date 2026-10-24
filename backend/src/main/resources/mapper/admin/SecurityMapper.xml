@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 后台登录、会话、权限查询、审计。只有 admin 模块使用。 -->
+<mapper namespace="com.forecast.app.admin.security.SecurityMapper">
+
+  <sql id="adminCols">id, username, display_name, email, password_hash, status, must_change_password, failed_count, locked_until</sql>
+
+  <select id="byUsername" resultType="com.forecast.app.admin.security.SecurityMapper$AdminRow">
+    SELECT <include refid="adminCols"/> FROM admin_user WHERE username = #{username}
+  </select>
+
+  <select id="byId" resultType="com.forecast.app.admin.security.SecurityMapper$AdminRow">
+    SELECT <include refid="adminCols"/> FROM admin_user WHERE id = #{id}
+  </select>
+
+  <select id="countAdmins" resultType="long">SELECT COUNT(*) FROM admin_user</select>
+
+  <insert id="insertAdmin" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO admin_user (username, display_name, email, password_hash, status, must_change_password, created_at)
+    VALUES (#{username}, #{displayName}, #{email}, #{passwordHash}, 'ACTIVE', #{mustChangePassword}, UTC_TIMESTAMP(3))
+  </insert>
+
+  <insert id="addRole">INSERT IGNORE INTO admin_user_role (admin_id, role_id) VALUES (#{adminId}, #{roleId})</insert>
+
+  <select id="roleIdByCode" resultType="long">SELECT id FROM admin_role WHERE code = #{code}</select>
+
+  <update id="loginFailed">
+    UPDATE admin_user SET failed_count = #{failedCount}, locked_until = #{lockedUntil} WHERE id = #{id}
+  </update>
+
+  <update id="loginOk">
+    UPDATE admin_user SET failed_count = 0, locked_until = NULL, last_login_at = #{now} WHERE id = #{id}
+  </update>
+
+  <update id="updatePassword">
+    UPDATE admin_user SET password_hash = #{hash}, must_change_password = #{mustChange} WHERE id = #{id}
+  </update>
+
+  <insert id="insertSession">
+    INSERT INTO admin_session (admin_id, token_hash, ip, created_at, last_seen_at, expires_at)
+    VALUES (#{adminId}, #{hash}, #{ip}, #{now}, #{now}, #{expiresAt})
+  </insert>
+
+  <select id="session" resultType="com.forecast.app.admin.security.SecurityMapper$SessionRow">
+    SELECT id, admin_id, last_seen_at, expires_at, revoked_at FROM admin_session WHERE token_hash = #{hash}
+  </select>
+
+  <update id="touchSession">UPDATE admin_session SET last_seen_at = #{now} WHERE id = #{id}</update>
+
+  <update id="revokeSession">UPDATE admin_session SET revoked_at = #{now} WHERE id = #{id} AND revoked_at IS NULL</update>
+
+  <update id="revokeAll">UPDATE admin_session SET revoked_at = #{now} WHERE admin_id = #{adminId} AND revoked_at IS NULL</update>
+
+  <select id="isSuper" resultType="boolean">
+    SELECT COUNT(*) > 0 FROM admin_user_role ur JOIN admin_role r ON r.id = ur.role_id WHERE ur.admin_id = #{adminId} AND r.code = 'super_admin'
+  </select>
+
+  <select id="permissions" resultType="string">
+    SELECT DISTINCT rp.permission FROM admin_user_role ur JOIN admin_role_permission rp ON rp.role_id = ur.role_id WHERE ur.admin_id = #{adminId}
+  </select>
+
+  <insert id="insertAudit" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO admin_audit_log (admin_id, admin_name, ip, action, target, high_risk, result, reason, before_json, after_json, created_at)
+    VALUES (#{adminId}, #{adminName}, #{ip}, #{action}, #{target}, #{highRisk}, #{result}, #{reason}, #{beforeJson}, #{afterJson}, #{createdAt})
+  </insert>
+
+  <select id="names" resultType="com.forecast.app.admin.security.SecurityMapper$NameRow">
+    SELECT id, display_name FROM admin_user WHERE id IN <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
+  </select>
+
+  <select id="lockAdmin" resultType="long">SELECT id FROM admin_user WHERE id = #{id} FOR UPDATE</select>
+</mapper>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 系统配置。读：各模块经 SystemConfig；写：只有后台模块。 -->
+<mapper namespace="com.forecast.app.common.config.ConfigMapper">
+
+  <select id="all" resultType="com.forecast.app.common.config.ConfigMapper$Row">
+    SELECT config_key, value, updated_by, updated_at FROM common_config
+  </select>
+
+  <select id="lock" resultType="com.forecast.app.common.config.ConfigMapper$Row">
+    SELECT config_key, value, updated_by, updated_at FROM common_config WHERE config_key = #{key} FOR UPDATE
+  </select>
+
+  <insert id="upsert">
+    INSERT INTO common_config (config_key, value, updated_by, updated_at) VALUES (#{key}, #{value}, #{adminId}, #{now})
+    ON DUPLICATE KEY UPDATE value = VALUES(value), updated_by = VALUES(updated_by), updated_at = VALUES(updated_at)
+  </insert>
+</mapper>

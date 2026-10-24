@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 提现自动审批（v2，技术方案/v2-提现自动审批.md）：判定记录、触发的规则、全局锁、判定用的合计。只有 wallet 模块使用。 -->
+<mapper namespace="com.forecast.app.wallet.withdraw.AutoApproveMapper">
+
+  <sql id="checkCols">id, withdrawal_id, phase, outcome, master_enabled, failed_rules, config_version, config_json, results_json, decided_at</sql>
+
+  <select id="lockGlobal" resultType="java.lang.Integer">SELECT id FROM wallet_auto_approve_lock WHERE id = 1 FOR UPDATE</select>
+
+  <insert id="insertCheck" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO wallet_withdraw_rule_check (withdrawal_id, phase, outcome, master_enabled, failed_rules, config_version, config_json, results_json, decided_at)
+    VALUES (#{withdrawalId}, #{phase}, #{outcome}, #{masterEnabled}, #{failedRules}, #{configVersion}, #{configJson}, #{resultsJson}, #{decidedAt})
+  </insert>
+
+  <select id="hitIds" resultType="long">SELECT id FROM wallet_withdraw_rule_hit WHERE withdrawal_id = #{withdrawalId}</select>
+
+  <!-- 按主键删（只锁这几行）。按 withdrawal_id 删会在没有行时加间隙锁，两笔同时判定再插入时会互相等待 -->
+  <delete id="deleteHits">
+    DELETE FROM wallet_withdraw_rule_hit WHERE id IN <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
+  </delete>
+
+  <insert id="insertHits">
+    INSERT INTO wallet_withdraw_rule_hit (check_id, withdrawal_id, rule_code) VALUES
+    <foreach collection="codes" item="c" separator=",">(#{checkId}, #{withdrawalId}, #{c})</foreach>
+  </insert>
+
+  <update id="setLastCheck">UPDATE wallet_withdrawal SET last_check_id = #{checkId} WHERE id = #{id}</update>
+
+  <update id="setAutoApproved">
+    UPDATE wallet_withdrawal SET review_mode = 'AUTO', auto_approved_at = #{at}, reviewed_at = #{at}, reviewer_id = NULL, delay_ends_at = #{delayEndsAt}
+    WHERE id = #{id}
+  </update>
+
+  <select id="check" resultType="com.forecast.app.wallet.withdraw.AutoApproveMapper$CheckRow">
+    SELECT <include refid="checkCols"/> FROM wallet_withdraw_rule_check WHERE id = #{id}
+  </select>
+
+  <select id="latest" resultType="com.forecast.app.wallet.withdraw.AutoApproveMapper$CheckRow">
+    SELECT c.id, c.withdrawal_id, c.phase, c.outcome, c.master_enabled, c.failed_rules, c.config_version, c.decided_at
+    FROM wallet_withdrawal w JOIN wallet_withdraw_rule_check c ON c.id = w.last_check_id
+    WHERE w.id IN <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
+  </select>
+
+  <select id="latestPrecheck" resultType="com.forecast.app.wallet.withdraw.AutoApproveMapper$CheckRow">
+    SELECT <include refid="checkCols"/> FROM wallet_withdraw_rule_check WHERE withdrawal_id = #{withdrawalId} AND phase = 'PRECHECK' ORDER BY id DESC LIMIT 1
+  </select>
+
+  <!-- R2 / R3：自动通过的累计，窗口 (since, 现在]；所有状态都算（自动通过后上链失败、被紧急取消的也算，AA-3）。索引 (review_mode, auto_approved_at)、(user_id, review_mode, auto_approved_at) -->
+  <select id="autoApprovedSince" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(amount), 0) FROM wallet_withdrawal
+    WHERE <if test="userId != null">user_id = #{userId} AND </if>review_mode = 'AUTO' AND auto_approved_at &gt; #{since}
+  </select>
+
+  <select id="completedCount" resultType="long">SELECT COUNT(*) FROM wallet_withdrawal WHERE user_id = #{userId} AND status = 'COMPLETED'</select>
+
+  <!-- R5：同一网络、同一地址（以太坊体系不分大小写，和白名单的 address_key 同一口径） -->
+  <select id="completedToAddress" resultType="long">
+    SELECT COUNT(*) FROM wallet_withdrawal
+    WHERE user_id = #{userId} AND network = #{network} AND status = 'COMPLETED'
+      AND (CASE WHEN #{network} = 'TRC20' THEN address = #{address} ELSE LOWER(address) = LOWER(#{address}) END)
+  </select>
+
+  <!-- R9：驳回、撤销、失败已退回的不算 -->
+  <select id="withdrawnTotal" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(amount), 0) FROM wallet_withdrawal WHERE user_id = #{userId} AND status NOT IN ('REJECTED', 'CANCELLED', 'FAILED_REFUNDED')
+  </select>
+
+  <select id="completedAmount" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(amount), 0) FROM wallet_withdrawal WHERE user_id = #{userId} AND status = 'COMPLETED'
+  </select>
+
+  <!-- R11：同一个 UTC 日、到本笔为止的笔数；客户自己撤销的不算（撤销事件的操作人是 user:…），紧急取消、驳回的算 -->
+  <select id="countOnDay" resultType="long">
+    SELECT COUNT(*) FROM wallet_withdrawal w
+    WHERE w.user_id = #{userId} AND w.created_at &gt;= #{from} AND w.created_at &lt; #{to} AND w.id &lt;= #{upToId}
+      AND NOT EXISTS (SELECT 1 FROM wallet_withdraw_event e WHERE e.withdrawal_id = w.id AND e.to_status = 'CANCELLED' AND e.actor LIKE 'user:%')
+  </select>
+
+  <!-- R12：同一条链上排在前面要付的钱（已审核待上链、延迟中的到账金额） -->
+  <select id="queuedNet" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(amount - fee), 0) FROM wallet_withdrawal WHERE network = #{network} AND status IN ('APPROVED', 'DELAYED')
+  </select>
+</mapper>

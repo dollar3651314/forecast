@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 管理员、角色、菜单的维护。只有 admin 模块使用。 -->
+<mapper namespace="com.forecast.app.admin.system.SystemMapper">
+
+  <sql id="adminCols">id, username, display_name, email, password_hash, status, must_change_password, last_login_at, created_at</sql>
+
+  <sql id="adminWhere">
+    <where>
+      <if test="keyword != null and keyword != ''">
+        username LIKE CONCAT('%', #{keyword}, '%') OR display_name LIKE CONCAT('%', #{keyword}, '%') OR email LIKE CONCAT('%', #{keyword}, '%')
+      </if>
+    </where>
+  </sql>
+
+  <select id="admins" resultType="com.forecast.app.admin.system.SystemMapper$AdminRow">
+    SELECT <include refid="adminCols"/> FROM admin_user <include refid="adminWhere"/> ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="countAdmins" resultType="long">SELECT COUNT(*) FROM admin_user <include refid="adminWhere"/></select>
+
+  <select id="admin" resultType="com.forecast.app.admin.system.SystemMapper$AdminRow">
+    SELECT <include refid="adminCols"/> FROM admin_user WHERE id = #{id} FOR UPDATE
+  </select>
+
+  <select id="adminForRead" resultType="com.forecast.app.admin.system.SystemMapper$AdminRow">
+    SELECT <include refid="adminCols"/> FROM admin_user WHERE id = #{id}
+  </select>
+
+  <select id="adminByUsername" resultType="com.forecast.app.admin.system.SystemMapper$AdminRow">
+    SELECT <include refid="adminCols"/> FROM admin_user WHERE username = #{username}
+  </select>
+
+  <insert id="insertAdmin" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO admin_user (username, display_name, email, password_hash, status, must_change_password, created_at)
+    VALUES (#{username}, #{displayName}, #{email}, #{passwordHash}, 'ACTIVE', 1, #{createdAt})
+  </insert>
+
+  <update id="updateAdmin">UPDATE admin_user SET display_name = #{displayName}, email = #{email} WHERE id = #{id}</update>
+
+  <update id="setStatus">UPDATE admin_user SET status = #{status} WHERE id = #{id}</update>
+
+  <update id="setPassword">
+    UPDATE admin_user SET password_hash = #{hash}, must_change_password = #{mustChange}, failed_count = 0, locked_until = NULL WHERE id = #{id}
+  </update>
+
+  <update id="revokeSessions">UPDATE admin_session SET revoked_at = #{now} WHERE admin_id = #{adminId} AND revoked_at IS NULL</update>
+
+  <select id="roleIdsOf" resultType="long">SELECT role_id FROM admin_user_role WHERE admin_id = #{adminId} ORDER BY role_id</select>
+
+  <delete id="clearRoles">DELETE FROM admin_user_role WHERE admin_id = #{adminId}</delete>
+
+  <insert id="addRole">INSERT IGNORE INTO admin_user_role (admin_id, role_id) VALUES (#{adminId}, #{roleId})</insert>
+
+  <select id="countActiveSupers" resultType="long">
+    SELECT COUNT(DISTINCT u.id) FROM admin_user u JOIN admin_user_role ur ON ur.admin_id = u.id JOIN admin_role r ON r.id = ur.role_id
+    WHERE u.status = 'ACTIVE' AND r.code = 'super_admin'
+  </select>
+
+  <sql id="roleCols">id, code, name_zh, name_en, description, built_in</sql>
+
+  <select id="roles" resultType="com.forecast.app.admin.system.SystemMapper$RoleRow">SELECT <include refid="roleCols"/> FROM admin_role ORDER BY id</select>
+
+  <select id="role" resultType="com.forecast.app.admin.system.SystemMapper$RoleRow">SELECT <include refid="roleCols"/> FROM admin_role WHERE id = #{id}</select>
+
+  <select id="roleByCode" resultType="com.forecast.app.admin.system.SystemMapper$RoleRow">
+    SELECT <include refid="roleCols"/> FROM admin_role WHERE code = #{code}
+  </select>
+
+  <select id="rolePermissions" resultType="string">SELECT permission FROM admin_role_permission WHERE role_id = #{roleId} ORDER BY permission</select>
+
+  <select id="memberCount" resultType="long">SELECT COUNT(*) FROM admin_user_role WHERE role_id = #{roleId}</select>
+
+  <insert id="insertRole" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO admin_role (code, name_zh, name_en, description, built_in) VALUES (#{code}, #{nameZh}, #{nameEn}, #{description}, 0)
+  </insert>
+
+  <update id="updateRole">
+    UPDATE admin_role SET name_zh = #{nameZh}, name_en = #{nameEn}, description = #{description} WHERE id = #{id} AND built_in = 0
+  </update>
+
+  <delete id="deleteRole">DELETE FROM admin_role WHERE id = #{id} AND built_in = 0</delete>
+
+  <delete id="clearRolePermissions">DELETE FROM admin_role_permission WHERE role_id = #{roleId}</delete>
+
+  <insert id="addRolePermission">INSERT INTO admin_role_permission (role_id, permission) VALUES (#{roleId}, #{permission})</insert>
+
+  <select id="menus" resultType="com.forecast.app.admin.system.SystemMapper$MenuRow">SELECT menu_key, sort_order, visible FROM admin_menu</select>
+
+  <insert id="saveMenu">
+    INSERT INTO admin_menu (menu_key, sort_order, visible) VALUES (#{key}, #{order}, #{visible})
+    ON DUPLICATE KEY UPDATE sort_order = VALUES(sort_order), visible = VALUES(visible)
+  </insert>
+</mapper>

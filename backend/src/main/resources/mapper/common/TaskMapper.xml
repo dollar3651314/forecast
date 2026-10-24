@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 任务表。时间一律用数据库时间（UTC），应用和数据库的时钟不一致也不影响到期判断。 -->
+<mapper namespace="com.forecast.app.common.task.TaskMapper">
+
+  <sql id="cols">id, task_type, CAST(payload AS CHAR) AS payload, status, attempts, max_attempts, next_run_at, last_error</sql>
+
+  <insert id="insert">
+    INSERT INTO common_task (task_type, payload, max_attempts, next_run_at)
+    VALUES (#{taskType}, #{payload}, #{maxAttempts}, DATE_ADD(UTC_TIMESTAMP(3), INTERVAL #{delaySeconds} SECOND))
+  </insert>
+
+  <select id="lastInsertId" resultType="long">SELECT LAST_INSERT_ID()</select>
+
+  <!-- 指标：到期未处理的任务数（走 idx_common_task_pick） -->
+  <select id="countDue" resultType="long">
+    SELECT COUNT(*) FROM common_task WHERE status = 'PENDING' AND next_run_at &lt;= UTC_TIMESTAMP(3)
+  </select>
+
+  <select id="lockDue" resultType="long">
+    SELECT id FROM common_task
+    WHERE status = 'PENDING' AND task_type = #{taskType} AND next_run_at &lt;= UTC_TIMESTAMP(3)
+    ORDER BY next_run_at, id LIMIT #{limit}
+    FOR UPDATE SKIP LOCKED
+  </select>
+
+  <update id="markRunning">
+    UPDATE common_task SET status = 'RUNNING', attempts = attempts + 1, locked_at = UTC_TIMESTAMP(3), locked_by = #{worker}
+    WHERE id IN <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+  </update>
+
+  <update id="markSucceeded">
+    UPDATE common_task SET status = 'SUCCEEDED', locked_at = NULL, last_error = NULL WHERE id = #{id} AND status = 'RUNNING'
+  </update>
+
+  <update id="markRetry">
+    UPDATE common_task SET status = 'PENDING', locked_at = NULL, locked_by = NULL, last_error = #{error},
+      next_run_at = DATE_ADD(UTC_TIMESTAMP(3), INTERVAL #{delaySeconds} SECOND)
+    WHERE id = #{id} AND status = 'RUNNING'
+  </update>
+
+  <update id="markFailed">
+    UPDATE common_task SET status = 'FAILED', locked_at = NULL, last_error = #{error} WHERE id = #{id} AND status = 'RUNNING'
+  </update>
+
+  <update id="recoverStuck">
+    UPDATE common_task SET status = 'PENDING', locked_at = NULL, locked_by = NULL, last_error = '处理超时，已回收'
+    WHERE status = 'RUNNING' AND locked_at &lt; DATE_SUB(UTC_TIMESTAMP(3), INTERVAL #{timeoutSeconds} SECOND)
+  </update>
+
+  <select id="find" resultType="com.forecast.app.common.task.Task">
+    SELECT <include refid="cols"/> FROM common_task WHERE id = #{id}
+  </select>
+
+  <select id="findByIds" resultType="com.forecast.app.common.task.Task">
+    SELECT <include refid="cols"/> FROM common_task
+    WHERE id IN <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+    ORDER BY id
+  </select>
+  <!-- 后台任务列表（S16b） -->
+  <sql id="listWhere">
+    <where>
+      <if test="taskType != null">AND task_type = #{taskType}</if>
+      <if test="status != null">AND status = #{status}</if>
+    </where>
+  </sql>
+
+  <select id="list" resultType="com.forecast.app.common.task.TaskItem">
+    SELECT id, task_type, status, attempts, max_attempts, next_run_at, last_error,
+      JSON_UNQUOTE(JSON_EXTRACT(payload, '$.recordId')) AS biz_ref, created_at, updated_at
+    FROM common_task <include refid="listWhere"/> ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="count" resultType="long">SELECT COUNT(*) FROM common_task <include refid="listWhere"/></select>
+
+  <!-- 手动重试：只有失败的能重试；次数清零，立即可领取 -->
+  <update id="retry">
+    UPDATE common_task SET status = 'PENDING', attempts = 0, next_run_at = UTC_TIMESTAMP(3), locked_at = NULL, locked_by = NULL
+    WHERE id = #{id} AND status = 'FAILED'
+  </update>
+
+</mapper>

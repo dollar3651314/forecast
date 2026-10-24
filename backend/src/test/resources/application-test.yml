@@ -1,0 +1,65 @@
+# 测试用真实的 MySQL 和 Redis（C37）：CI 里是 GitHub 提供的服务容器，本地用 Docker 起同样的容器。
+# 地址有默认值；数据库密码只从环境变量 FC_DB_PASSWORD 读取（CI 里是测试容器的一次性密码）。
+spring:
+  datasource:
+    url: ${FC_DB_URL:jdbc:mysql://localhost:3306/forecast_test}
+    username: ${FC_DB_USERNAME:root}
+    password: ${FC_DB_PASSWORD}
+    # 测试会缓存多个 Spring 上下文，每个都有连接池；限小一些，避免超过 MySQL 默认的 151 个连接
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+management:
+  server:
+    port: 0
+forecast:
+  # 测试都从 127.0.0.1 发请求、共用一个 Redis，按 IP 的发验证码限次（SEC-03）放大；限次本身在 SendCodeLimiterTest 里单独测
+  auth:
+    code-ip-hourly-limit: 1000000
+  # 通用限流（P-05）：测试都从 127.0.0.1 或少数几个 IP 发请求、共用一个 Redis，上限放大；限流本身在 RateLimitTest 里用很小的上限单独测
+  rate-limit:
+    ip-per-minute: 1000000
+    ws-handshake-per-minute: 1000000
+    user-write-per-minute: 1000000
+    admin-login-per-ip: 1000000
+  # 钱包：xpub 来自 BIP39 公开的测试助记词（"abandon … about"，人人都知道，没有任何价值），只用于测试；
+  # 合约地址是三条链官方 USDT 合约的公开地址。测试用链替身，不连真实节点
+  wallet:
+    # 提现状态不定时推进，测试里直接调用
+    withdraw:
+      scheduler-enabled: false
+    # 对账不定时跑，测试里直接调用
+    recon:
+      enabled: false
+    # 资金归集不定时推进，测试里直接调用（SweepFlowTest 另起一个配置了合约地址的上下文）
+    sweep:
+      evm:
+        scheduler-enabled: false
+    eth-xpub: xpub6DCoCpSuQZB2jawqnGMEPS63ePKWkwWPH4TU45Q7LPXWuNd8TMtVxRrgjtEshuqpK3mdhaWHPFsBngh5GFZaM6si3yZdUsT8ddYM3PwnATt
+    tron-xpub: xpub6D1AabNHCupeiLM65ZR9UStMhJ1vCpyV4XbZdyhMZBiJXALQtmn9p42VTQckoHVn8WNqS7dqnJokZHAHcHGoaQgmv8D45oNUKx6DZMNZBCd
+    chains:
+      ERC20:
+        usdt-contract: "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+      BSC:
+        usdt-contract: "0x55d398326f99059fF775485246999027B3197955"
+      TRC20:
+        usdt-contract: TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t
+  # 邮件任务不定时发送，测试里直接调用；SMTP 指向测试进程里的 GreenMail（NotifyFlowTest 启动），不连外网
+  notify:
+    worker-enabled: false
+    mail:
+      host: localhost
+      port: 3025
+      from: noreply@forecast.test
+      security: NONE
+    # 推送：测试用的 VAPID 私钥就是数字 1（公钥是 P-256 的基点 G），明显不是真实密钥；推送服务用本机的 HTTP 替身
+    push:
+      vapid-public-key: BGsX0fLhLEJH-Lzm5WOkQPJ3A32BLeszoPShOUXYmMKWT-NC4v4af5uO5-tKfA-eFivOM1drMV7Oy7ZAaDe_UfU
+      vapid-private-key: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE
+      vapid-subject: mailto:ops@forecast.test
+      allow-localhost: true
+  # 监控告警不定时发邮件，测试里直接调用（AlertMonitorTest）；健康检查里的 alerts 照常
+  alert:
+    enabled: false
+  storage:
+    local-dir: ${java.io.tmpdir}/forecast-test-storage

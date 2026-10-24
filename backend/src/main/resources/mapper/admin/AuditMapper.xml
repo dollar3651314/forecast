@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 审计日志查询（只读）。只有 admin 模块使用。 -->
+<mapper namespace="com.forecast.app.admin.system.AuditMapper">
+
+  <sql id="auditWhere">
+    <where>
+      <if test="action != null and action != ''">AND action = #{action}</if>
+      <if test="admin != null and admin != ''">AND admin_name = #{admin}</if>
+      <if test="highRiskOnly">AND high_risk = 1</if>
+      <if test="keyword != null and keyword != ''">AND (target LIKE CONCAT('%', #{keyword}, '%') OR admin_name LIKE CONCAT('%', #{keyword}, '%') OR reason LIKE CONCAT('%', #{keyword}, '%'))</if>
+    </where>
+  </sql>
+
+  <select id="audits" resultType="com.forecast.app.admin.system.AuditMapper$Row">
+    SELECT id, admin_id, admin_name, ip, action, target, high_risk, result, reason, before_json, after_json, created_at
+    FROM admin_audit_log <include refid="auditWhere"/> ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="countAudits" resultType="long">
+    SELECT COUNT(*) FROM admin_audit_log <include refid="auditWhere"/>
+  </select>
+
+  <select id="auditActions" resultType="string">SELECT DISTINCT action FROM admin_audit_log ORDER BY action</select>
+</mapper>
