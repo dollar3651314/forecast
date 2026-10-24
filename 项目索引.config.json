@@ -1,30 +1,125 @@
 {
-  "_说明": "项目地图和项目索引的检查配置（agents 规则 C53）。由 scripts/check-project-index.mjs 读取（脚本从 agents/工具/ 原样复制，不在本项目修改）。现在只有文档和图片，代码建立后按《架构方案》第 12.3 节补 include 和 lists。",
+  "_说明": "项目地图和项目索引的检查配置（agents 规则 C53）。由 scripts/check-project-index.mjs 读取（脚本从 agents/工具/ 原样复制，不在本项目修改），CI 的 checks 每次运行。v0.7（开发 S1）：按《架构方案》第 12.3 节加入代码——各前端根目录配置、接口层 src/api、翻译 src/i18n、品牌常量 src/lib/brand.ts、官网法律页正文；后端根目录文件和 src/main/resources；端到端测试根目录和 tests；部署 deploy；合约的根目录、src、script、test 和 lib/SHA256SUMS（lib/ 下原样复制的 BitGo、OpenZeppelin 源码和 forge-std 子模块不逐个列出）。业务代码按模块和包写在索引里，不放进 include（C53 v0.9）。",
   "map": "项目地图.md",
   "index": "项目索引.md",
-  "entry": ["CLAUDE.md", "AGENTS.md"],
+  "entry": [
+    "CLAUDE.md",
+    "AGENTS.md"
+  ],
   "files": {
-    "_说明": "include：必须写进索引的文件。业务代码（backend/src/main/java、web/*/src）建立后按模块和包写进索引，不放进 include；接口、表、变量用 lists 核对（C53 v0.9）",
-    "include": ["*.md", "项目索引.config.json", "scripts/**", ".github/workflows/**", "调研/**", "需求文档/**", "市场/**", "技术方案/**", "测试报告/**", "部署方案/**", "交付记录/**", "assets/**", "deploy/**", "backend/src/main/resources/db/migration/**"],
-    "exclude": ["**/.gitignore"]
+    "_说明": "include：必须写进索引的文件；exclude：不用写的。",
+    "include": [
+      "*.md",
+      "*.json",
+      "调研/**",
+      "需求文档/**",
+      "市场/**",
+      "技术方案/**",
+      "开发记录/**",
+      "测试报告/**",
+      "部署方案/**",
+      "交付记录/**",
+      "assets/**",
+      "scripts/**",
+      ".github/workflows/**",
+      ".github/actions/**",
+      "web/*/*",
+      "web/*/src/api/**",
+      "web/*/src/i18n/**",
+      "web/*/src/lib/brand.ts",
+      "web/site/src/content/**",
+      "backend/*",
+      "backend/src/main/resources/**",
+      "e2e/*",
+      "e2e/tests/**",
+      "deploy/**",
+      "contracts/*",
+      "contracts/src/**",
+      "contracts/script/**",
+      "contracts/test/**",
+      "contracts/lib/SHA256SUMS"
+    ],
+    "exclude": [
+      "**/package-lock.json",
+      "**/.gitignore"
+    ]
   },
   "lists": [
     {
       "name": "数据库表",
       "section": "4.1",
-      "sources": ["backend/src/main/resources/db/migration/"],
-      "patterns": ["CREATE TABLE (?:IF NOT EXISTS )?(\\w+)"],
+      "sources": [
+        "backend/src/main/resources/db/migration/"
+      ],
+      "patterns": [
+        "CREATE TABLE (?:IF NOT EXISTS )?`?(\\w+)"
+      ],
       "match": "firstColumn",
       "twoWay": "extracted"
     },
     {
       "name": "环境变量",
       "section": "5. 环境变量",
-      "sources": ["backend/src/main/resources/", "deploy/", ".github/workflows/"],
-      "patterns": ["\\$\\{(FC_[A-Z0-9_]+)", "\\$\\{\\{\\s*(?:vars|secrets)\\.([A-Z][A-Z0-9_]+)"],
+      "sources": [
+        "backend/src/main/resources/",
+        "backend/src/test/",
+        "deploy/",
+        ".github/workflows/",
+        "contracts/script/",
+        "e2e/",
+        "scripts/",
+        "web/client/vite.config.ts",
+        "web/admin/vite.config.ts",
+        "web/site/vite.config.ts",
+        "web/site/src/config.ts"
+      ],
+      "patterns": [
+        "\\$\\{(FC_[A-Z0-9_]+)",
+        "\\$\\{\\{\\s*(?:vars|secrets)\\.([A-Z][A-Z0-9_]+)"
+      ],
+      "ignore": [
+        "GITHUB_TOKEN"
+      ],
       "match": "firstColumn",
       "twoWay": "word",
       "token": "^[A-Z][A-Z0-9_]+$"
+    },
+    {
+      "name": "接口",
+      "section": "2. 接口",
+      "sources": [
+        "backend/src/main/java/"
+      ],
+      "patterns": [
+        "@(?:Get|Post|Put|Delete|Patch)Mapping\\((?:value = )?\"([^\"]+)\"",
+        "addHandler\\([^,]+, \"([^\"]+)\"\\)"
+      ],
+      "match": "firstColumn",
+      "twoWay": "extracted"
+    },
+    {
+      "name": "权限点",
+      "section": "2a. 后台权限点",
+      "sources": [
+        "backend/src/main/java/com/forecast/app/admin/security/Permission.java"
+      ],
+      "patterns": [
+        "[A-Z_]+\\(\"([a-z_]+:[a-z_]+)\""
+      ],
+      "match": "firstColumn",
+      "twoWay": "extracted"
+    },
+    {
+      "name": "通知模板编号",
+      "section": "4.3",
+      "sources": [
+        "backend/src/main/resources/db/migration/"
+      ],
+      "patterns": [
+        "INSERT INTO `notify_template` \\([^)]*\\) VALUES \\('([A-Z0-9_]+)'"
+      ],
+      "match": "firstColumn",
+      "twoWay": "extracted"
     }
   ]
 }
