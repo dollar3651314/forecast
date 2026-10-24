@@ -1,0 +1,6 @@
+/**
+ * 品牌名：前端只在这里写一次（技术方案/v1-架构方案.md 第 15 节，AQ-4、AQ-5）。品牌名不翻译，中英文界面一样。
+ * forecast S1 先用占位名 Forecast：品牌待 Amos 确认（开发记录/S1-复制骨架.md SQ-1）。定了以后只改这里、web/admin 和 web/site 的 brand.ts、
+ * 通知模板（后端新迁移）和 PWA 名称（vite.config.ts）。
+ */
+export const BRAND_NAME = 'Forecast';

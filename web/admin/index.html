@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/admin/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <!-- v2 E2：页面脚本加载前先按本机保存的选择或系统设置定好深浅色，避免深色用户先看到白屏一闪（和 src/hooks/useThemeMode.tsx 同一逻辑） -->
+    <script>
+      (function () {
+        var t = 'light';
+        try {
+          var v = localStorage.getItem('fx-admin-theme');
+          t = v === 'dark' || v === 'light' ? v : window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        } catch (e) {
+          try { t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; } catch (e2) { t = 'light'; }
+        }
+        document.documentElement.setAttribute('data-theme', t);
+        document.documentElement.style.colorScheme = t;
+      })();
+    </script>
+    <title>Forecast 管理后台（原型）</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

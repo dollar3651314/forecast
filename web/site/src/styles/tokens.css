@@ -1,0 +1,38 @@
+/* 官网设计 token（方向 A：和客户端同一套深色，v2-官网风格调研第 3 节）。
+   取自 web/client/src/styles/tokens.css 的深色主题和"绿涨红跌"语义色（官网只做深色、只用默认涨跌色，W2）。
+   客户端改了深色 token 时同步改这里。字体只用系统字体，数字优先 JetBrains Mono（本机有才用），不加载任何外部字体（AC-29）。 */
+:root {
+  --bg: #0d1117;
+  --s1: #131a24;
+  --s2: #0f151e;
+  --s3: #1b2533;
+  --border: #222c3a;
+  --hair: #1a2230;
+  --text: #e6edf3;
+  --muted: #a3b0c2;
+  --subtle: #8b98a9;
+  --cyan: #22d3ee;
+  --cyan-soft: rgba(34, 211, 238, 0.12);
+  --primary: #0891b2;
+  --primary-hover: #0e7490;
+  --amber: #fbbf24;
+  /* 涨跌（和客户端深色主题的 --long* / --short* 默认值一致） */
+  --long: #22c55e;
+  --long-soft: rgba(34, 197, 94, 0.14);
+  --long-solid: #16a34a;
+  --short: #f43f5e;
+  --short-text: #fb7185;
+  --short-soft: rgba(244, 63, 94, 0.14);
+  --short-solid: #e11d48;
+  --flat-solid: #334155;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Hiragino Sans GB', 'WenQuanYi Zen Hei', sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', 'DejaVu Sans Mono', monospace;
+  --wrap: 1200px;
+  --gutter: 24px;
+  --sticky-h: 66px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  color-scheme: dark;
+}

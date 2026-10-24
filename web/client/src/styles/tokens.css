@@ -1,0 +1,124 @@
+/* 设计 token。v2（2026-10-15，UI 风格 C）：默认深色；涨跌色可切换（绿涨红跌 / 红涨绿跌）。
+   绿、红两组原色按主题定义（--g-* / --r-*）；语义色 --long（涨、买）和 --short（跌、卖）按涨跌色设置取其中一组。
+   错误、未读、红点等"警示红"用 --danger，不随涨跌色变化。白底上达不到 4.5:1 的强调色，文字一律用更深一档。 */
+:root {
+  --bg: #f4f7fb;
+  --s1: #ffffff;
+  --s2: #f8fafc;
+  --s3: #eef5f9;
+  --border: rgba(15, 23, 42, 0.12);
+  --hair: rgba(15, 23, 42, 0.07);
+  --text: #0f172a;
+  --muted: #475569;
+  --subtle: #5b6b80;
+  --cyan: #0891b2;
+  --cyan-deep: #0e7490;
+  --cyan-soft: rgba(8, 145, 178, 0.1);
+  --primary: #0e7490;
+  --g: #15803d;
+  --g-fill: #16a34a;
+  --g-soft: rgba(22, 163, 74, 0.1);
+  --g-solid: #15803d;
+  --r: #dc2626;
+  --r-text: #c81e1e;
+  --r-fill: #dc2626;
+  --r-soft: rgba(220, 38, 38, 0.08);
+  --r-solid: #dc2626;
+  --danger: #dc2626;
+  --danger-text: #c81e1e;
+  --danger-soft: rgba(220, 38, 38, 0.08);
+  --risk: #c2410c;
+  --amber: #b45309;
+  --violet: #7c3aed;
+  --ok-bg: #f0fdf4;
+  --ok-border: #86efac;
+  --ok-text: #166534;
+  --warn-bg: #fff7ed;
+  --warn-border: #fdba74;
+  --warn-text: #9a3412;
+  --err-bg: #fef2f2;
+  --err-border: #fca5a5;
+  --err-text: #991b1b;
+  --mask: rgba(15, 23, 42, 0.48);
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 18px;
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.04);
+  --shadow-pop: 0 12px 32px rgba(15, 23, 42, 0.18);
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Hiragino Sans GB', 'WenQuanYi Zen Hei', sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', 'DejaVu Sans Mono', monospace;
+  --banner-h: 24px;
+  --top-h: 52px;
+  --bottom-h: 62px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  color-scheme: light;
+}
+
+/* 深色主题（默认；效果图 assets/v1/ui-research/C-*.png） */
+:root[data-theme='dark'] {
+  --bg: #0d1117;
+  --s1: #131a24;
+  --s2: #0f151e;
+  --s3: #1b2533;
+  --border: #222c3a;
+  --hair: #1a2230;
+  --text: #e6edf3;
+  --muted: #a3b0c2;
+  --subtle: #8b98a9;
+  --cyan: #22d3ee;
+  --cyan-deep: #22d3ee;
+  --cyan-soft: rgba(34, 211, 238, 0.12);
+  --primary: #0891b2;
+  --g: #22c55e;
+  --g-fill: #22c55e;
+  --g-soft: rgba(34, 197, 94, 0.14);
+  --g-solid: #16a34a;
+  --r: #f43f5e;
+  --r-text: #fb7185;
+  --r-fill: #f43f5e;
+  --r-soft: rgba(244, 63, 94, 0.14);
+  --r-solid: #e11d48;
+  --danger: #f43f5e;
+  --danger-text: #fb7185;
+  --danger-soft: rgba(244, 63, 94, 0.14);
+  --risk: #fb923c;
+  --amber: #fbbf24;
+  --ok-bg: rgba(22, 163, 74, 0.14);
+  --ok-border: rgba(52, 211, 153, 0.4);
+  --ok-text: #6ee7b7;
+  --warn-bg: rgba(234, 88, 12, 0.14);
+  --warn-border: rgba(251, 146, 60, 0.45);
+  --warn-text: #fdba74;
+  --err-bg: rgba(220, 38, 38, 0.14);
+  --err-border: rgba(248, 113, 113, 0.45);
+  --err-text: #fca5a5;
+  --mask: rgba(2, 6, 23, 0.7);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  color-scheme: dark;
+}
+
+/* 语义色：默认绿涨红跌 */
+:root {
+  --long: var(--g);
+  --long-fill: var(--g-fill);
+  --long-soft: var(--g-soft);
+  --long-solid: var(--g-solid);
+  --short: var(--r);
+  --short-text: var(--r-text);
+  --short-fill: var(--r-fill);
+  --short-soft: var(--r-soft);
+  --short-solid: var(--r-solid);
+}
+/* 红涨绿跌：涨、买用红色，跌、卖用绿色 */
+:root[data-updown='red'] {
+  --long: var(--r-text);
+  --long-fill: var(--r-fill);
+  --long-soft: var(--r-soft);
+  --long-solid: var(--r-solid);
+  --short: var(--g);
+  --short-text: var(--g);
+  --short-fill: var(--g-fill);
+  --short-soft: var(--g-soft);
+  --short-solid: var(--g-solid);
+}

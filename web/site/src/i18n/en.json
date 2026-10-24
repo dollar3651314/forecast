@@ -1,0 +1,102 @@
+{
+  "meta": {
+    "title": "{brand} | Sports predictions with USDT",
+    "description": "{brand}: make sports predictions with USDT (pool-based). Open it in your phone browser, no download needed."
+  },
+  "common": {
+    "login": "Log in",
+    "register": "Sign up free",
+    "registerNow": "Sign up now",
+    "menu": "Menu",
+    "close": "Close",
+    "langLabel": "Language",
+    "langCurrent": "Current",
+    "envTest": "Test environment",
+    "backHome": "Back to home",
+    "tbd": "To be provided"
+  },
+  "risk": {
+    "bar": "Risk warning: predictions can be lost and you may lose everything you put in. Only use money you can afford to lose.",
+    "barShort": "Predictions can be lost. You may lose everything you put in.",
+    "link": "Risk Disclosure",
+    "full": "Risk warning: predictions can be lost and you may lose everything you put in. Only use money you can afford to lose. Nothing on this website is investment advice."
+  },
+  "nav": {
+    "platform": "Why us",
+    "safety": "Security",
+    "faq": "FAQ"
+  },
+  "hero": {
+    "titleA": "Back the outcome you believe in,",
+    "titleB": "predict with USDT",
+    "sub": "Sports predictions with a shared pool: correct predictions split the pool in proportion to what they put in. The game is being built; you can already sign up, verify and deposit.",
+    "subMobile": "Pool-based sports predictions. The game is being built; you can already sign up and deposit.",
+    "note": "Matches and markets coming soon",
+    "p1": "USDT deposits and withdrawals",
+    "p2": "Works on phone and desktop",
+    "p3": "Withdraw after identity verification"
+  },
+  "adv": {
+    "title": "Why {brand}",
+    "sub": "Built for USDT users",
+    "a1t": "One USDT account",
+    "a1d": "Deposit USDT and take part; every amount is settled in USDT, no currency conversion.",
+    "a2t": "Mobile first",
+    "a2d": "Designed for phones; add it to your home screen to open it like an app and get deposit and review alerts."
+  },
+  "steps": {
+    "title": "Start in three steps",
+    "s1t": "Sign up",
+    "s1d": "Sign up with your email and a verification code. It takes about a minute.",
+    "s2t": "Deposit",
+    "s2d": "Send USDT to your own deposit address on ERC20, TRC20 or BSC (BEP20). The minimum is 1 USDT.",
+    "s3t": "Verify your identity",
+    "s3d": "Upload your ID to complete identity verification (KYC); after that you can withdraw."
+  },
+  "safe": {
+    "title": "Funds and security",
+    "sub": "Only what the system actually does",
+    "s1t": "Your own deposit address",
+    "s1d": "Every account has its own USDT deposit address and deposits are credited automatically after on-chain confirmation. The private keys of deposit addresses are not stored on our servers.",
+    "s2t": "Withdrawal whitelist",
+    "s2d": "Withdrawals only go to addresses on your whitelist; a newly added address can be used after 24 hours.",
+    "s3t": "Cooling-off period and manual review",
+    "s3d": "Every withdrawal starts with a cooling-off period (you can cancel during it) and is then reviewed by a person; large withdrawals are also held for a while after approval.",
+    "s4t": "Identity verification",
+    "s4d": "Withdrawals require identity verification (KYC), so a stolen login alone cannot move your funds out.",
+    "license": "Regulatory and licence information: to be provided"
+  },
+  "faq": {
+    "title": "FAQ",
+    "q1": "Which deposit networks are supported? What is the minimum?",
+    "a1": "Only USDT, on ERC20 (Ethereum), TRC20 (TRON) or BSC (BEP20). The minimum deposit is 1 USDT; smaller transfers are not credited. Choose the network carefully: transfers on the wrong network or of other tokens cannot be recovered.",
+    "q2": "How long does a withdrawal take?",
+    "a2": "After you submit a withdrawal there is a 2-hour cooling-off period (you can cancel during it), then a manual review, and after approval it is sent on chain. Withdrawals of 3,000 USDT or more are held for another 6 hours after approval. Arrival also depends on how fast the blockchain confirms.",
+    "q3": "What do I need to withdraw?",
+    "a3": "You need to complete identity verification (KYC) and you can only withdraw to whitelisted addresses; a new address becomes usable 24 hours after it is added. Withdrawal fees and limits are shown on the withdrawal page.",
+    "q4": "How do I use it on my phone?",
+    "a4": "Open the client in your phone browser to sign up and use it; no app download is needed. You can also add it to your home screen to open it like an app and receive alerts."
+  },
+  "final": {
+    "title": "Sign up now",
+    "sub": "Free to sign up, minimum deposit 1 USDT"
+  },
+  "footer": {
+    "terms": "Terms of Service",
+    "privacy": "Privacy Policy",
+    "risk": "Risk Disclosure",
+    "contact": "Contact us: {email}",
+    "contactTbd": "Contact email: to be provided",
+    "company": "Company information: to be provided",
+    "copyright": "© {brand}"
+  },
+  "legal": {
+    "review": "Legal review required",
+    "reviewNote": "This page is a draft template. It must be reviewed by legal counsel before it is used as a formal document.",
+    "updated": "Last updated",
+    "contents": "Contents"
+  },
+  "notFound": {
+    "title": "Page not found"
+  }
+}
