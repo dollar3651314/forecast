@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" font-family="sans-serif" font-size="13">
+<rect width="1280" height="720" fill="#fff" stroke="#999"/>
+<text x="16" y="18" font-size="11" fill="#888">W3 客户端 · 市场详情（电脑 1280 宽，低保真）</text>
+<rect x="0" y="26" width="1280" height="52" fill="#f2f2f2"/>
+<text x="24" y="58" font-weight="bold">品牌 Logo</text><text x="200" y="58" font-weight="bold">市场</text><text x="260" y="58">我的下注</text><text x="350" y="58">资产</text>
+<rect x="460" y="40" width="300" height="26" rx="4" fill="#fff" stroke="#bbb"/><text x="470" y="58" fill="#999">搜索市场</text>
+<text x="880" y="58">余额 1,234.56 USDT</text><text x="1040" y="58">充值</text><text x="1100" y="58">🔔</text><text x="1140" y="58">我的 ▾</text>
+<text x="24" y="108" fill="#666" font-size="11">足球 · 英超 · 可下注</text>
+<text x="24" y="134" font-weight="bold" font-size="18">曼城 vs 利物浦（90 分钟胜平负）</text>
+<text x="24" y="158" font-size="12">截止下注 2026-11-01 14:55 UTC（你的时间 22:55）· 奖池 10,000 USDT · 抽成：盈利部分的 5%</text>
+<g transform="translate(24,176)">
+<rect width="800" height="34" fill="#fafafa"/><text x="12" y="22" font-weight="bold">选项</text><text x="300" y="22" font-weight="bold">奖池</text><text x="440" y="22" font-weight="bold">概率</text><text x="560" y="22" font-weight="bold">预计赔率（扣费后）</text>
+<rect y="34" width="800" height="44" fill="none" stroke="#3a7"/><text x="12" y="62">主胜 曼城</text><text x="300" y="62">6,000</text><text x="440" y="62">60%</text><text x="560" y="62">1.63x</text>
+<rect y="78" width="800" height="44" fill="none" stroke="#ddd"/><text x="12" y="106">平局</text><text x="300" y="106">1,500</text><text x="440" y="106">15%</text><text x="560" y="106">6.38x</text>
+<rect y="122" width="800" height="44" fill="none" stroke="#ddd"/><text x="12" y="150">客胜 利物浦</text><text x="300" y="150">2,500</text><text x="440" y="150">25%</text><text x="560" y="150">3.85x</text>
+</g>
+<rect x="24" y="360" width="800" height="36" fill="#fafafa"/><text x="36" y="383" font-weight="bold">规则</text><text x="100" y="383">裁决与公示</text><text x="200" y="383">彩池怎么算</text><text x="310" y="383">我的下注（2）</text>
+<text x="36" y="420" font-size="12">问题、判定条件、裁决来源（首选 / 备用）、截止和开赛时间（UTC）、延期 / 取消 / 腰斩、数据修正、补充说明（带时间）</text>
+<text x="36" y="440" font-size="12">已结算：结果 · 依据链接和存档截图 · 裁决时间 · 裁决人编号</text>
+<g transform="translate(856,96)"><rect width="400" height="420" rx="10" fill="none" stroke="#555"/>
+<text x="16" y="30" font-weight="bold" font-size="15">押注</text>
+<rect x="16" y="44" width="120" height="44" rx="6" fill="#e6f4ea" stroke="#3a7"/><text x="26" y="72">主胜 60%</text>
+<rect x="142" y="44" width="116" height="44" rx="6" fill="none" stroke="#aaa"/><text x="152" y="72">平 15%</text>
+<rect x="264" y="44" width="120" height="44" rx="6" fill="none" stroke="#aaa"/><text x="274" y="72">客胜 25%</text>
+<rect x="16" y="104" width="368" height="44" rx="6" fill="none" stroke="#555"/><text x="28" y="132" fill="#999">金额 USDT（1 ~ 5,000）</text>
+<text x="16" y="174" font-size="12">按现在的奖池估算（含本注）：押 100 → 赢了约回 162.29</text>
+<text x="16" y="196" font-size="12">可用 1,234.56 · 本市场还可押 4,900</text>
+<text x="16" y="222" font-size="12" fill="#c44">下注后不能撤销（RQ-2 待定）</text>
+<rect x="16" y="240" width="368" height="50" rx="8" fill="#3a7"/><text x="160" y="271" fill="#fff" font-weight="bold">确认押注</text>
+<text x="16" y="320" fill="#888" font-size="11">右栏固定在首屏内，滚动规则时不动（C79）</text></g>
+</svg>

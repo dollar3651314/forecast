@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" font-family="sans-serif" font-size="13">
+<rect width="390" height="844" fill="#fff" stroke="#999"/>
+<text x="16" y="28" font-size="11" fill="#888">W1 客户端 · 市场列表（手机 390 宽，低保真）</text>
+<rect x="0" y="40" width="390" height="48" fill="#f2f2f2"/><text x="16" y="70" font-weight="bold">品牌 Logo</text><text x="250" y="70">余额 1,234.56 USDT</text>
+<rect x="0" y="88" width="390" height="40" fill="#fafafa"/>
+<text x="16" y="113">全部</text><text x="66" y="113">足球</text><text x="116" y="113">NBA</text><text x="162" y="113" font-weight="bold">加密 15分钟</text><text x="250" y="113">加密 1小时</text><text x="330" y="113">时事</text>
+<rect x="16" y="140" width="358" height="34" rx="6" fill="none" stroke="#bbb"/><text x="28" y="162" fill="#999">搜索市场</text><text x="290" y="162" fill="#555">排序：快截止 ▾</text>
+<g transform="translate(16,186)"><rect width="358" height="150" rx="8" fill="none" stroke="#888"/>
+<text x="12" y="22" fill="#666" font-size="11">加密 · BTC · 15 分钟</text><text x="250" y="22" fill="#666" font-size="11">截止 10:15 UTC（还剩 8 分）</text>
+<text x="12" y="46" font-weight="bold">BTC 10:15–10:30 UTC 涨还是跌？</text>
+<rect x="12" y="62" width="160" height="50" rx="6" fill="#e6f4ea" stroke="#3a7"/><text x="22" y="84" font-weight="bold">涨 58%</text><text x="22" y="102" font-size="11">预计 1.68x</text>
+<rect x="186" y="62" width="160" height="50" rx="6" fill="#fde8e8" stroke="#c44"/><text x="196" y="84" font-weight="bold">跌 42%</text><text x="196" y="102" font-size="11">预计 2.31x</text>
+<text x="12" y="136" fill="#666" font-size="11">奖池 3,420 USDT · 128 人</text></g>
+<g transform="translate(16,348)"><rect width="358" height="190" rx="8" fill="none" stroke="#888"/>
+<text x="12" y="22" fill="#666" font-size="11">足球 · 英超</text><text x="250" y="22" fill="#666" font-size="11">截止 11-01 14:55 UTC</text>
+<text x="12" y="46" font-weight="bold">曼城 vs 利物浦（90 分钟胜平负）</text>
+<rect x="12" y="60" width="334" height="32" rx="6" fill="none" stroke="#aaa"/><text x="22" y="81">主胜 曼城</text><text x="230" y="81" font-weight="bold">60% · 1.63x</text>
+<rect x="12" y="98" width="334" height="32" rx="6" fill="none" stroke="#aaa"/><text x="22" y="119">平局</text><text x="230" y="119" font-weight="bold">15% · 6.38x</text>
+<rect x="12" y="136" width="334" height="32" rx="6" fill="none" stroke="#aaa"/><text x="22" y="157">客胜 利物浦</text><text x="230" y="157" font-weight="bold">25% · 3.85x</text>
+<text x="12" y="184" fill="#666" font-size="11">奖池 10,000 USDT</text></g>
+<g transform="translate(16,550)"><rect width="358" height="110" rx="8" fill="none" stroke="#888"/>
+<text x="12" y="22" fill="#666" font-size="11">时事 · 经济</text><text x="12" y="46" font-weight="bold">美联储 12 月会议会降息吗？</text>
+<rect x="12" y="58" width="160" height="40" rx="6" fill="#e6f4ea" stroke="#3a7"/><text x="22" y="83">是 73%</text>
+<rect x="186" y="58" width="160" height="40" rx="6" fill="#fde8e8" stroke="#c44"/><text x="196" y="83">否 27%</text></g>
+<text x="16" y="690" fill="#888" font-size="11">点卡片进入市场详情（W2）；点选项也进入详情并预选该选项</text>
+<text x="16" y="706" fill="#888" font-size="11">赔率刷新只换数字，不闪色、不滚动（C84）</text>
+<rect x="0" y="784" width="390" height="60" fill="#f2f2f2"/>
+<text x="30" y="818" font-weight="bold">市场</text><text x="118" y="818">我的下注</text><text x="222" y="818">资产</text><text x="312" y="818">我的</text>
+</svg>
