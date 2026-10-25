@@ -25,7 +25,8 @@ const WITHDRAW_TO = '0x00000000000000000000000000000000e2e0beef';
 async function skipOnboarding(page: Page): Promise<void> {
   const guide = page.getByRole('dialog').filter({ hasText: '新手引导' });
   await expect(guide, '新客户第一次进来弹出新手引导').toBeVisible();
-  await expect(guide.getByText(`欢迎来到 ${BRAND}`)).toBeVisible();
+  // M1 起第 1 步是"这里押什么"（web/client/src/components/Onboarding.tsx）
+  await expect(guide.getByText('在这里押一件事的结果')).toBeVisible();
   await guide.getByRole('button', { name: '跳过', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
 }
@@ -96,7 +97,7 @@ test('客户主流程（手机 390px）和后台审核', async ({ browser }) => 
       await page.getByRole('checkbox').check();
       await expectNoHorizontalScroll(page, '注册页');
       await page.getByRole('button', { name: '注册', exact: true }).click();
-      await expect(page).toHaveURL(/\/home$/);
+      await expect(page).toHaveURL(/\/markets$/);
       await skipOnboarding(page);
     });
 
@@ -108,7 +109,7 @@ test('客户主流程（手机 390px）和后台审核', async ({ browser }) => 
       await page.getByLabel('邮箱', { exact: true }).fill(email);
       await page.getByLabel('密码', { exact: true }).fill(CLIENT_PASSWORD);
       await page.getByRole('button', { name: '登录', exact: true }).click();
-      await expect(page).toHaveURL(/\/home$/);
+      await expect(page).toHaveURL(/\/markets$/);
       await expectSecureCookie(client, 'fc_session');
       await expectEnvBanner(page);
       await expectNoHorizontalScroll(page, '首页');
@@ -124,7 +125,7 @@ test('客户主流程（手机 390px）和后台审核', async ({ browser }) => 
       try {
         const d = await desk.newPage();
         for (const [path, where] of [
-          ['/home', '1024 宽首页'],
+          ['/markets', '1024 宽市场列表'],
           ['/assets', '1024 宽资产页'],
           ['/assets/ledger', '1024 宽资金流水'],
           ['/me', '1024 宽我的'],

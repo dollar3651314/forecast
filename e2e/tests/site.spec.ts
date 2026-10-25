@@ -1,6 +1,6 @@
 /**
  * 官网：两种运行形态都跑（默认经 server.mjs 的 4174 端口；部署形态经 Nginx 的官网假域名）。
- * 检查：区块、注册登录跳转带语言、中英文和默认语言跟随浏览器、手机和电脑两套结构且没有横向滚动、没有 Google 请求、法律页、测试环境标识。
+ * 检查：区块、注册登录跳转带语言、中英文和默认语言跟随浏览器（M1 起 zh-TW / zh-HK 等用繁体）、手机和电脑两套结构且没有横向滚动、没有 Google 请求、法律页、测试环境标识。
  * forecast S1 删除了复制源的公开行情（行情面板、/api/public/quotes），对应的检查一起删除。
  */
 import { expect, test, type Browser, type Page } from '@playwright/test';
@@ -92,7 +92,7 @@ test('官网：区块、跳转、中英文、三种宽度、法律页', async ({
         await expect(sw.getByRole('option', { name: /English/ }), '当前语言打勾').toHaveAttribute('aria-selected', 'true');
         await sw.getByRole('option', { name: /简体中文/ }).getByRole('button').click();
         await expect(d.page.locator('html')).toHaveAttribute('lang', 'zh-CN');
-        await expect(d.page.getByTestId('hero')).toContainText('就用 USDT 预测');
+        await expect(d.page.getByTestId('hero')).toContainText('看好哪个结果，就押哪个');
         await d.page.reload();
         await expect(d.page.locator('html')).toHaveAttribute('lang', 'zh-CN');
         await sw.getByRole('button', { name: '语言: 简体中文' }).click();
@@ -110,7 +110,7 @@ test('官网：区块、跳转、中英文、三种宽度、法律页', async ({
   }
 
   // ---------- 客户端也默认跟随浏览器语言（不经过官网、没有 ?lang=）----------
-  for (const [locale, lang, label] of [['en-US', 'en', 'Language：English'], ['zh-TW', 'zh-CN', '语言：简体中文'], ['ja-JP', 'en', 'Language：English']] as const) {
+  for (const [locale, lang, label] of [['en-US', 'en', 'Language：English'], ['zh-TW', 'zh-TW', '語言：繁體中文'], ['zh-CN', 'zh-CN', '语言：简体中文'], ['ja-JP', 'en', 'Language：English']] as const) {
     await step(`客户端登录页：浏览器语言 ${locale} → ${lang}，语言下拉框显示当前语言`, async () => {
       const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, locale, ignoreHTTPSErrors: true, serviceWorkers: 'block' });
       try {
