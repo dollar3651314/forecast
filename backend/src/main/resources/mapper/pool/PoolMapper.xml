@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  彩池（forecast S4，技术方案/v1-架构方案.md 第 3.3、4.2 节）。只有 pool 模块使用（表名以 pool_ 开头）。
+  - 下注事务（BetService）：READ COMMITTED；加锁顺序 市场行共享锁 → 客户账户行排他锁 → pool_position → pool_option_total（原子加，最后一步）。
+  - pool_market、final_amount 只在 market 的事务里改（市场行排他锁之内）。
+  - pool_bet 的金额、收到时间、请求号写入后不改；S5 退款只改 status / refund_reason / refunded_at。
+-->
+<mapper namespace="com.forecast.app.pool.bet.PoolMapper">
+
+  <insert id="insertMarketIfAbsent">
+    INSERT IGNORE INTO pool_market (market_id, status, created_at, updated_at) VALUES (#{marketId}, #{status}, #{now}, #{now})
+  </insert>
+
+  <insert id="insertTotalIfAbsent">
+    INSERT IGNORE INTO pool_option_total (option_id, market_id, option_no, seq, amount, bettors, updated_at)
+    VALUES (#{optionId}, #{marketId}, #{optionNo}, #{seq}, 0, 0, #{now})
+  </insert>
+
+  <select id="marketOpened" resultType="java.lang.Integer">
+    SELECT 1 FROM pool_market WHERE market_id = #{marketId}
+  </select>
+
+  <update id="updateMarketStatus">
+    UPDATE pool_market SET status = #{status}, updated_at = #{now} WHERE market_id = #{marketId}
+  </update>
+
+  <update id="freezeTotals">
+    UPDATE pool_option_total SET final_amount = amount, final_bettors = bettors, frozen_at = #{now}, updated_at = #{now}
+    WHERE market_id = #{marketId} AND final_amount IS NULL
+  </update>
+
+  <update id="markFrozen">
+    UPDATE pool_market SET frozen_at = #{now}, updated_at = #{now} WHERE market_id = #{marketId} AND frozen_at IS NULL
+  </update>
+
+  <select id="countActiveOptions" resultType="int">
+    SELECT COUNT(*) FROM pool_option_total WHERE market_id = #{marketId} AND amount &gt; 0
+  </select>
+
+  <select id="bettors" resultType="long">
+    SELECT DISTINCT user_id FROM pool_position WHERE market_id = #{marketId} AND amount &gt; 0 ORDER BY user_id
+  </select>
+
+  <sql id="betCols">
+    b.id, b.public_no, b.user_id, b.market_id, b.option_id, b.amount, b.client_req_id, b.received_at, b.status, b.refund_reason, b.refunded_at,
+    b.snapshot, b.created_at
+  </sql>
+
+  <select id="findBetByReq" resultType="com.forecast.app.pool.bet.PoolRows$Bet">
+    SELECT <include refid="betCols"/> FROM pool_bet b WHERE b.user_id = #{userId} AND b.client_req_id = #{clientReqId}
+  </select>
+
+  <insert id="insertBet" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO pool_bet (public_no, user_id, market_id, option_id, amount, client_req_id, received_at, status, snapshot, created_at)
+    VALUES (#{publicNo}, #{userId}, #{marketId}, #{optionId}, #{amount}, #{clientReqId}, #{receivedAt}, 'ACTIVE', #{snapshot}, #{createdAt})
+  </insert>
+
+  <select id="findPosition" resultType="com.forecast.app.pool.bet.PoolRows$Position">
+    SELECT id, user_id, market_id, option_id, amount, bet_count, created_at, updated_at FROM pool_position
+    WHERE market_id = #{marketId} AND option_id = #{optionId} AND user_id = #{userId}
+  </select>
+
+  <insert id="insertPosition" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO pool_position (user_id, market_id, option_id, amount, bet_count, created_at, updated_at)
+    VALUES (#{userId}, #{marketId}, #{optionId}, #{amount}, #{betCount}, #{createdAt}, #{updatedAt})
+  </insert>
+
+  <update id="addToPosition">
+    UPDATE pool_position SET amount = amount + #{amount}, bet_count = bet_count + 1, updated_at = #{now} WHERE id = #{id}
+  </update>
+
+  <select id="sumUserMarket" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(amount), 0) FROM pool_position WHERE user_id = #{userId} AND market_id = #{marketId}
+  </select>
+
+  <update id="addToTotal">
+    UPDATE pool_option_total SET amount = amount + #{amount}, bettors = bettors + #{newBettor}, updated_at = #{now}
+    WHERE option_id = #{optionId} AND final_amount IS NULL
+  </update>
+
+  <sql id="totalCols">option_id, market_id, option_no, seq, amount, bettors, final_amount, final_bettors, frozen_at</sql>
+
+  <select id="totals" resultType="com.forecast.app.pool.bet.PoolRows$OptionTotal">
+    SELECT <include refid="totalCols"/> FROM pool_option_total WHERE market_id = #{marketId} ORDER BY seq
+  </select>
+
+  <select id="totalsOf" resultType="com.forecast.app.pool.bet.PoolRows$OptionTotal">
+    SELECT <include refid="totalCols"/> FROM pool_option_total WHERE market_id IN
+    <foreach collection="marketIds" item="m" open="(" separator="," close=")">#{m}</foreach>
+    ORDER BY market_id, seq
+  </select>
+
+  <select id="bettorCounts" resultType="com.forecast.app.pool.bet.PoolRows$MarketCount">
+    SELECT market_id, COUNT(DISTINCT user_id) AS n FROM pool_position WHERE amount &gt; 0 AND market_id IN
+    <foreach collection="marketIds" item="m" open="(" separator="," close=")">#{m}</foreach>
+    GROUP BY market_id
+  </select>
+
+  <select id="positionsOf" resultType="com.forecast.app.pool.bet.PoolRows$Position">
+    SELECT id, user_id, market_id, option_id, amount, bet_count, created_at, updated_at FROM pool_position
+    WHERE user_id = #{userId} AND market_id IN <foreach collection="marketIds" item="m" open="(" separator="," close=")">#{m}</foreach>
+    ORDER BY market_id, option_id
+  </select>
+
+  <!--
+    我的下注的分组（需求第 5.2 节"我的下注"：进行中、待结果、已结算、已退回），按下注状态和市场状态副本（pool_market.status）：
+    退回的下注、取消 / 作废的市场 → refunded；已结算 → settled；已上架 / 已暂停 → active；截止下注到争议中 → pending。
+  -->
+  <sql id="tabExpr">
+    CASE WHEN b.status = 'REFUNDED' OR m.status IN ('CANCELLED', 'VOIDED') THEN 'refunded'
+         WHEN m.status = 'SETTLED' THEN 'settled'
+         WHEN m.status IN ('LISTED', 'PAUSED') THEN 'active'
+         ELSE 'pending' END
+  </sql>
+
+  <sql id="lineFrom">
+    FROM pool_bet b JOIN pool_market m ON m.market_id = b.market_id JOIN pool_option_total t ON t.option_id = b.option_id
+  </sql>
+
+  <select id="myBets" resultType="com.forecast.app.pool.bet.PoolRows$BetLine">
+    SELECT * FROM (
+      SELECT <include refid="betCols"/>, t.option_no, t.seq, m.status AS market_status, <include refid="tabExpr"/> AS tab
+      <include refid="lineFrom"/> WHERE b.user_id = #{userId}
+    ) x
+    <if test="tab != null">WHERE x.tab = #{tab}</if>
+    ORDER BY x.id DESC LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="countMyBets" resultType="long">
+    SELECT COUNT(*) FROM (
+      SELECT <include refid="tabExpr"/> AS tab <include refid="lineFrom"/> WHERE b.user_id = #{userId}
+    ) x
+    <if test="tab != null">WHERE x.tab = #{tab}</if>
+  </select>
+
+  <select id="mySummary" resultType="com.forecast.app.pool.bet.PoolRows$TabSum">
+    SELECT x.tab, COUNT(*) AS n, SUM(x.amount) AS amount FROM (
+      SELECT b.amount, <include refid="tabExpr"/> AS tab <include refid="lineFrom"/> WHERE b.user_id = #{userId}
+    ) x GROUP BY x.tab
+  </select>
+
+  <select id="betLine" resultType="com.forecast.app.pool.bet.PoolRows$BetLine">
+    SELECT <include refid="betCols"/>, t.option_no, t.seq, m.status AS market_status, <include refid="tabExpr"/> AS tab
+    <include refid="lineFrom"/> WHERE b.user_id = #{userId} AND b.public_no = #{publicNo}
+  </select>
+
+  <sql id="marketBetsWhere">
+    WHERE b.market_id = #{marketId}
+    <if test="optionId != null">AND b.option_id = #{optionId}</if>
+    <if test="userId != null">AND b.user_id = #{userId}</if>
+    <if test="status != null">AND b.status = #{status}</if>
+  </sql>
+
+  <select id="marketBets" resultType="com.forecast.app.pool.bet.PoolRows$BetLine">
+    SELECT <include refid="betCols"/>, t.option_no, t.seq, m.status AS market_status, <include refid="tabExpr"/> AS tab
+    <include refid="lineFrom"/> <include refid="marketBetsWhere"/>
+    ORDER BY b.received_at DESC, b.id DESC LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="countMarketBets" resultType="long">
+    SELECT COUNT(*) FROM pool_bet b <include refid="marketBetsWhere"/>
+  </select>
+
+  <select id="effectiveStakeSince" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(b.amount), 0) FROM pool_bet b JOIN pool_market m ON m.market_id = b.market_id
+    WHERE b.user_id = #{userId} AND b.received_at &gt;= #{since} AND b.status = 'ACTIVE' AND m.status NOT IN ('CANCELLED', 'VOIDED')
+  </select>
+
+  <select id="sumActiveBets" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(amount), 0) FROM pool_bet WHERE market_id = #{marketId} AND status = 'ACTIVE'
+  </select>
+</mapper>

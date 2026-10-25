@@ -18,6 +18,7 @@ import com.forecast.app.market.api.MarketListener;
 import com.forecast.app.market.api.MarketPoolView;
 import com.forecast.app.market.api.MarketStatus;
 import com.forecast.app.market.api.ResolutionMode;
+import com.forecast.app.ledger.api.MarketLabels;
 import com.forecast.app.notification.api.NotifyApi;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -25,6 +26,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -54,7 +56,7 @@ import tools.jackson.databind.ObjectMapper;
  * </ul>
  */
 @Service
-public class MarketService implements MarketApi, MarketAdminApi {
+public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
 
   private static final Logger log = LoggerFactory.getLogger(MarketService.class);
 
@@ -105,8 +107,56 @@ public class MarketService implements MarketApi, MarketAdminApi {
   @Transactional(readOnly = true)
   public Optional<MarketRef> find(long publicNo) {
     MarketRows.Market m = mapper.findByPublicNo(publicNo);
-    if (m == null) return Optional.empty();
-    return Optional.of(new MarketRef(m.id, m.publicNo, status(m), MarketCategory.valueOf(m.category), instant(m.closeAt), instant(m.eventEndAt)));
+    return m == null ? Optional.empty() : Optional.of(ref(m));
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public Optional<MarketRef> findById(long marketId) {
+    MarketRows.Market m = mapper.findById(marketId);
+    return m == null ? Optional.empty() : Optional.of(ref(m));
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public Map<Long, MarketRef> refs(Collection<Long> marketIds) {
+    if (marketIds == null || marketIds.isEmpty()) return Map.of();
+    Map<Long, MarketRef> out = new LinkedHashMap<>();
+    for (MarketRows.Market m : mapper.findByIds(List.copyOf(Set.copyOf(marketIds)))) out.put(m.id, ref(m));
+    return out;
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public List<OptionRef> options(long marketId) {
+    return mapper.options(marketId).stream().map(MarketService::optionRef).toList();
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public Map<Long, OptionRef> optionsById(Collection<Long> optionIds) {
+    if (optionIds == null || optionIds.isEmpty()) return Map.of();
+    Map<Long, OptionRef> out = new LinkedHashMap<>();
+    for (MarketRows.Option o : mapper.optionsByIds(List.copyOf(Set.copyOf(optionIds)))) out.put(o.id, optionRef(o));
+    return out;
+  }
+
+  /** 客户资金流水里的市场（ledger 的 {@link MarketLabels}，AC-39：每条流水能点到对应市场） */
+  @Override
+  @Transactional(readOnly = true)
+  public Map<Long, MarketLabels.MarketLabel> labels(Collection<Long> marketIds) {
+    Map<Long, MarketLabels.MarketLabel> out = new LinkedHashMap<>();
+    refs(marketIds).forEach((id, r) -> out.put(id, new MarketLabels.MarketLabel(String.valueOf(r.publicNo()), r.title().en(), r.title().zhCN(), r.title().zhTW())));
+    return out;
+  }
+
+  private static MarketRef ref(MarketRows.Market m) {
+    return new MarketRef(m.id, m.publicNo, status(m), MarketCategory.valueOf(m.category), title(m), instant(m.openAt), instant(m.closeAt), instant(m.eventEndAt),
+        m.feeRate, m.userCap);
+  }
+
+  private static OptionRef optionRef(MarketRows.Option o) {
+    return new OptionRef(o.id, o.publicNo, o.marketId, o.seq, label(o));
   }
 
   @Override
@@ -124,7 +174,7 @@ public class MarketService implements MarketApi, MarketAdminApi {
     if (receivedAt.isBefore(instant(m.openAt))) throw new BizException("MARKET_NOT_OPEN", "市场还没到开放下注时间");
     MarketRows.Option o = mapper.option(m.id, optionPublicNo);
     if (o == null) throw new BizException("OPTION_NOT_FOUND", "选项不存在");
-    return new BetTarget(m.id, o.id, MarketCategory.valueOf(m.category), m.feeRate, m.userCap, instant(m.closeAt));
+    return new BetTarget(m.id, m.publicNo, o.id, o.publicNo, MarketCategory.valueOf(m.category), m.feeRate, m.userCap, instant(m.closeAt), title(m), label(o));
   }
 
   @Override
@@ -150,8 +200,22 @@ public class MarketService implements MarketApi, MarketAdminApi {
     l.reason = cut;
     l.createdAt = now;
     mapper.insertStatusLog(l);
+    // 上架：建好各选项的奖池行；每次跳转：pool 同步状态副本，提交后推送（S4）
+    MarketPoolView p = pool.getIfAvailable();
+    if (p != null) {
+      if (to == MarketStatus.LISTED && from == MarketStatus.DRAFT) {
+        p.open(id, mapper.options(id).stream().map(o -> new MarketPoolView.OptionRef(o.id, o.publicNo, o.seq)).toList());
+      }
+      p.changed(id, to);
+    }
     if (to == MarketStatus.CANCELLED || to == MarketStatus.VOIDED) listeners.orderedStream().forEach(x -> x.onRefundRequired(id, to, cut));
     return true;
+  }
+
+  /** 费率、截止时间改了：推送一次新的奖池和赔率（状态不变） */
+  private void poolChanged(long id, MarketStatus status) {
+    MarketPoolView p = pool.getIfAvailable();
+    if (p != null) p.changed(id, status);
   }
 
   // =====================================================================
@@ -397,6 +461,7 @@ public class MarketService implements MarketApi, MarketAdminApi {
     if (mapper.advanceClose(m.id, newClose, now()) != 1) throw stateChanged();
     Instant oldClose = instant(m.closeAt);
     listeners.orderedStream().forEach(x -> x.onCloseAdvanced(m.id, oldClose, instant(newClose)));
+    poolChanged(m.id, s);
     return detailOf(mapper.findById(m.id));
   }
 
@@ -412,6 +477,8 @@ public class MarketService implements MarketApi, MarketAdminApi {
     if (rate.compareTo(m.feeRate) == 0) throw new ValidationException(List.of(new ValidationException.Field("feeRate", "unchanged")));
     LocalDateTime now = now();
     if (mapper.updateFee(m.id, rate, now) != 1) throw stateChanged();
+    // 预计赔率按新费率显示（第 3.8 节）：推送一次
+    poolChanged(m.id, s);
     // 草稿阶段改的不通知（第 7 节 #22）；上架后改的，通知这个市场有有效下注的客户（S4 起由 pool 提供名单）
     boolean listed = s != MarketStatus.DRAFT;
     MarketRows.FeeChange c = new MarketRows.FeeChange();
@@ -466,25 +533,38 @@ public class MarketService implements MarketApi, MarketAdminApi {
     List<MarketRows.Market> rows = mapper.clientList(st, c, srt, (p - 1) * size, size);
     Map<Long, List<MarketRows.Option>> opts = rows.isEmpty() ? Map.of()
         : mapper.optionsOf(rows.stream().map(r -> r.id).toList()).stream().collect(Collectors.groupingBy(o -> o.marketId));
+    Map<Long, Object> pools = clientPools(rows, opts, null);
     List<ClientViews.Card> items = rows.stream().map(m -> new ClientViews.Card(String.valueOf(m.publicNo), m.category, title(m), status(m).api(), iso(m.openAt),
         iso(m.closeAt), iso(m.eventStartAt), iso(m.eventEndAt), percent(m.feeRate),
-        opts.getOrDefault(m.id, List.of()).stream().map(o -> new ClientViews.OptionCard(String.valueOf(o.publicNo), o.seq, label(o))).toList())).toList();
+        opts.getOrDefault(m.id, List.of()).stream().map(o -> new ClientViews.OptionCard(String.valueOf(o.publicNo), o.seq, label(o))).toList(),
+        pools.get(m.id))).toList();
     return new ClientViews.Page<>(items, mapper.clientCount(st, c), p, size);
   }
 
-  /** 客户端详情；草稿、删除的、不存在的都是空（404） */
+  /** 客户端详情；草稿、删除的、不存在的都是空（404）。userId：当前客户，详情的奖池里带上他的持仓（S4） */
   @Transactional(readOnly = true)
-  public Optional<ClientViews.Detail> clientDetail(long publicNo) {
+  public Optional<ClientViews.Detail> clientDetail(long publicNo, Long userId) {
     MarketRows.Market m = mapper.findByPublicNo(publicNo);
     if (m == null || !VISIBLE.contains(status(m))) return Optional.empty();
-    List<ClientViews.OptionDetail> options = mapper.options(m.id).stream()
+    List<MarketRows.Option> optionRows = mapper.options(m.id);
+    Object poolView = clientPools(List.of(m), Map.of(m.id, optionRows), userId).get(m.id);
+    List<ClientViews.OptionDetail> options = optionRows.stream()
         .map(o -> new ClientViews.OptionDetail(String.valueOf(o.publicNo), o.seq, label(o), winCondition(o))).toList();
     List<ClientViews.Clarification> cl = mapper.clarifications(m.id).stream()
         .map(c -> new ClientViews.Clarification(new I18nText(c.textEn, c.textZhCn, c.textZhTw), iso(c.createdAt))).toList();
     List<ClientViews.FeeChange> fees = mapper.feeChanges(m.id).stream().map(f -> new ClientViews.FeeChange(percent(f.oldRate), percent(f.newRate), iso(f.changedAt))).toList();
     return Optional.of(new ClientViews.Detail(String.valueOf(m.publicNo), m.category, title(m), rules(m), status(m).api(), m.resolutionMode, m.sourcePrimary,
         m.sourceBackup, iso(m.openAt), iso(m.closeAt), iso(m.eventStartAt), iso(m.eventEndAt), percent(m.feeRate), money(m.userCap), m.disputeWindowMin,
-        m.coverPath, m.cancelReason, m.voidReason, options, cl, fees));
+        m.coverPath, m.cancelReason, m.voidReason, options, cl, fees, poolView));
+  }
+
+  /** 客户端接口里的奖池（pool 模块提供；没有 pool 模块时没有这个字段的值） */
+  private Map<Long, Object> clientPools(List<MarketRows.Market> rows, Map<Long, List<MarketRows.Option>> opts, Long userId) {
+    MarketPoolView p = pool.getIfAvailable();
+    if (p == null || rows.isEmpty()) return Map.of();
+    List<MarketPoolView.PoolContext> ctx = rows.stream().map(m -> new MarketPoolView.PoolContext(m.id, status(m), m.feeRate, m.userCap,
+        opts.getOrDefault(m.id, List.of()).stream().map(o -> new MarketPoolView.OptionRef(o.id, o.publicNo, o.seq)).toList())).toList();
+    return p.clientPools(ctx, userId);
   }
 
   static Set<MarketStatus> clientStatuses(String status) {

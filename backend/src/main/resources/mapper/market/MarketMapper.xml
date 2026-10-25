@@ -56,6 +56,11 @@
     SELECT <include refid="marketCols"/> FROM market_question WHERE id = #{id}
   </select>
 
+  <select id="findByIds" resultType="com.forecast.app.market.core.MarketRows$Market">
+    SELECT <include refid="marketCols"/> FROM market_question WHERE id IN
+    <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
+  </select>
+
   <select id="lockById" resultType="com.forecast.app.market.core.MarketRows$Market">
     SELECT <include refid="marketCols"/> FROM market_question WHERE id = #{id} FOR UPDATE
   </select>
@@ -74,6 +79,11 @@
     SELECT <include refid="optionCols"/> FROM market_option WHERE market_id IN
     <foreach collection="marketIds" item="m" open="(" separator="," close=")">#{m}</foreach>
     ORDER BY market_id, seq
+  </select>
+
+  <select id="optionsByIds" resultType="com.forecast.app.market.core.MarketRows$Option">
+    SELECT <include refid="optionCols"/> FROM market_option WHERE id IN
+    <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
   </select>
 
   <select id="option" resultType="com.forecast.app.market.core.MarketRows$Option">

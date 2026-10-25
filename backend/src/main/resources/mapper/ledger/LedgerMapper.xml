@@ -85,7 +85,7 @@
     <if test="since != null">AND l.created_at &gt;= #{since}</if>
   </select>
 
-  <sql id="entryCols">l.id, l.entry_type, l.amount, l.value_after, l.biz_type, l.biz_id, l.remark, l.created_at</sql>
+  <sql id="entryCols">l.id, l.entry_type, l.amount, l.value_after, l.biz_type, l.biz_id, l.remark, l.ref_market_id, l.created_at</sql>
 
   <select id="balanceLedger" resultType="com.forecast.app.ledger.service.LedgerMapper$EntryRow">
     SELECT <include refid="entryCols"/>

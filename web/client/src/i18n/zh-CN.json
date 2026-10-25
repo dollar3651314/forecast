@@ -154,12 +154,14 @@
     "type": {
       "deposit": "充值",
       "withdraw": "提现",
-      "withdrawRefund": "提现退回"
+      "withdrawRefund": "提现退回",
+      "bet": "下注"
     },
     "icon": {
       "deposit": "入",
       "withdraw": "出",
-      "withdrawRefund": "退"
+      "withdrawRefund": "退",
+      "bet": "注"
     },
     "range": {
       "7d": "近 7 天",
@@ -409,7 +411,17 @@
     "badRequest": "请求无法处理，请刷新页面后重试",
     "forbidden": "没有权限进行此操作",
     "fileTooLarge": "文件太大，每张不能超过 2MB",
-    "insufficientFunds": "可用余额不足"
+    "insufficientFunds": "可用余额不足",
+    "marketNotOpen": "这个市场还没到开放下注的时间",
+    "marketClosed": "这个市场已截止下注",
+    "marketPaused": "这个市场已暂停下注",
+    "marketCancelled": "这个市场已取消",
+    "betBelowMin": "低于单笔最小下注金额",
+    "betAboveMax": "高于单笔最大下注金额",
+    "betOverUserCap": "超过你在这个市场的累计下注上限",
+    "betStaffAccount": "员工账户不能下注",
+    "betRequestReused": "这笔下注已经提交过，请刷新后重新下注",
+    "optionNotFound": "这个选项不存在，请刷新后再试"
   },
   "validation": {
     "fixAll": "请修改以上标红的内容后再提交",

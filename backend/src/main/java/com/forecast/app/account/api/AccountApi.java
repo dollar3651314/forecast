@@ -26,7 +26,12 @@ public interface AccountApi {
    */
   Optional<SecurityEvent> lastSecurityEventSince(long userId, LocalDateTime since);
 
-  /** 当前 KYC 状态。只在提现前要求 APPROVED（需求 4.1-6）。 */
+  /**
+   * 是不是员工账户（forecast S4，需求说明书第 3.3、8.1 节：员工账户不能下注）。后台登记员工在 S10；用户不存在时抛 {@code BizException("USER_NOT_FOUND")}。
+   */
+  boolean isStaff(long userId);
+
+  /** 当前 KYC 状态。提现前要求 APPROVED（需求 4.1-6）；forecast S4 起累计充值超过 KYC 阈值时下注也要求 APPROVED（第 3.10 节）。 */
   KycStatus kycStatus(long userId);
 
   /** 审核通过：只能审核"审核中"的申请；通过后个人资料锁定，并通知客户。 */

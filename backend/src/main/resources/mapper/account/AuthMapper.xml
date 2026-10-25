@@ -11,6 +11,10 @@
     SELECT id, email, password_hash, status FROM account_user WHERE id = #{id}
   </select>
 
+  <select id="isStaff" resultType="java.lang.Boolean">
+    SELECT is_staff FROM account_user WHERE id = #{id}
+  </select>
+
   <insert id="insertUser" useGeneratedKeys="true" keyProperty="id">
     INSERT INTO account_user (email, password_hash) VALUES (#{email}, #{passwordHash})
   </insert>

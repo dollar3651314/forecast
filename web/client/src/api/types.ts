@@ -110,16 +110,24 @@ export interface DepositRecord {
   time: string;
 }
 
-/** 流水类型（GET /api/ledger/entries）。S2 起加下注、派彩、退款、补偿 */
-export type LedgerType = 'deposit' | 'withdraw' | 'withdrawRefund';
+/** 流水类型（GET /api/ledger/entries）。S4 加下注；派彩、抽成、退款、补偿在 S5、S7 加 */
+export type LedgerType = 'deposit' | 'withdraw' | 'withdrawRefund' | 'bet';
+
+/** 流水相关的市场（下注等，AC-39：每条能点到对应市场）：对外编号和三种语言的题目 */
+export interface LedgerMarket {
+  publicNo: string;
+  title: { en: string; zhCN: string; zhTW: string };
+}
 
 export interface LedgerItem {
   id: string;
   type: LedgerType;
   amount: string;
-  /** 附加说明（网络） */
+  /** 附加说明（网络）；有市场时为空 */
   ref: string;
   time: string;
+  /** 相关的市场（下注）；充值、提现没有 */
+  market?: LedgerMarket | null;
 }
 
 export interface LedgerQuery {

@@ -31,6 +31,12 @@ interface MarketMapper {
 
   MarketRows.Market findById(@Param("id") long id);
 
+  /** 一批市场（按内部 id；删除的草稿也在内，调用方看状态） */
+  List<MarketRows.Market> findByIds(@Param("ids") Collection<Long> ids);
+
+  /** 一批选项（按内部 id） */
+  List<MarketRows.Option> optionsByIds(@Param("ids") Collection<Long> ids);
+
   /** 排他锁（后台改状态、改费率、截止任务） */
   MarketRows.Market lockById(@Param("id") long id);
 

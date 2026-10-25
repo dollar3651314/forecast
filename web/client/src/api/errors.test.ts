@@ -11,6 +11,18 @@ describe('后端错误码映射', () => {
     expect(keys.filter((k) => !has(en, k))).toEqual([]);
   });
 
+  it('下注的 11 种拒单原因（需求第 3.3 节，后端 BetService.REJECT_CODES）都有自己的中英文原因', () => {
+    const codes = ['MARKET_NOT_OPEN', 'MARKET_CLOSED', 'MARKET_PAUSED', 'MARKET_CANCELLED', 'BET_BELOW_MIN', 'BET_ABOVE_MAX', 'BET_OVER_USER_CAP', 'INSUFFICIENT_FUNDS', 'KYC_REQUIRED', 'USER_FROZEN', 'BET_STAFF_ACCOUNT'];
+    const reasons = codes.map((c) => SERVER_CODES[c]);
+    expect(reasons.filter((r) => !r)).toEqual([]);
+    expect(new Set(reasons).size).toBe(11);
+    for (const r of reasons) {
+      expect(has(zh, `errors.${r}`)).toBe(true);
+      expect(has(en, `errors.${r}`)).toBe(true);
+    }
+    expect(errorKey(fromServer(400, { code: 'BET_OVER_USER_CAP', message: '超过本市场的累计上限' }))).toBe('errors.betOverUserCap');
+  });
+
   it('业务错误码换成 reason，不显示错误代码', () => {
     const e = fromServer(400, { code: 'WHITELIST_NOT_ACTIVE', message: '未生效', fields: [] });
     expect(e.reason).toBe('whitelistNotActive');

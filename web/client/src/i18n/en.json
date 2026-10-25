@@ -154,12 +154,14 @@
     "type": {
       "deposit": "Deposit",
       "withdraw": "Withdrawal",
-      "withdrawRefund": "Withdrawal refund"
+      "withdrawRefund": "Withdrawal refund",
+      "bet": "Bet"
     },
     "icon": {
       "deposit": "In",
       "withdraw": "Out",
-      "withdrawRefund": "Ref"
+      "withdrawRefund": "Ref",
+      "bet": "Bet"
     },
     "range": {
       "7d": "7 days",
@@ -409,7 +411,17 @@
     "badRequest": "The request could not be processed. Please refresh the page and try again.",
     "forbidden": "You are not allowed to do this.",
     "fileTooLarge": "File too large. Each file must be 2 MB or less.",
-    "insufficientFunds": "Insufficient available balance"
+    "insufficientFunds": "Insufficient available balance",
+    "marketNotOpen": "This market is not open for betting yet",
+    "marketClosed": "Betting on this market has closed",
+    "marketPaused": "Betting on this market is paused",
+    "marketCancelled": "This market has been cancelled",
+    "betBelowMin": "Below the minimum bet amount",
+    "betAboveMax": "Above the maximum bet amount",
+    "betOverUserCap": "Exceeds your total bet limit for this market",
+    "betStaffAccount": "Staff accounts cannot place bets",
+    "betRequestReused": "This bet was already submitted. Please refresh and bet again",
+    "optionNotFound": "This option does not exist. Please refresh and try again"
   },
   "validation": {
     "fixAll": "Please fix the highlighted fields",

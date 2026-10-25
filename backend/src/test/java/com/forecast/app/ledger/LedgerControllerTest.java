@@ -79,7 +79,12 @@ class LedgerControllerTest {
     apply(u.id(), Bucket.BET_LOCKED, "20.25", LedgerEntryType.BET_LOCK, "BET", "b-" + u.id(), "下注");
     assertThat(getJson("/api/ledger/account", u.cookie()).toString()).as("下注中的钱还算余额，但不算可用")
         .isEqualTo("{\"currency\":\"USDT\",\"balance\":\"70.5\",\"available\":\"50.25\",\"betLocked\":\"20.25\",\"withdrawFrozen\":\"30\"}");
-    assertThat(getJson("/api/ledger/entries?range=all", u.cookie()).get("total").asLong()).as("客户端流水还没有下注类型（S4 起），不出现").isEqualTo(2);
+    JsonNode entries = getJson("/api/ledger/entries?range=all", u.cookie());
+    assertThat(entries.get("total").asLong()).as("S4 起客户端流水有下注（可用 −b 那一条）").isEqualTo(3);
+    assertThat(entries.get("items").get(0).get("type").asString()).isEqualTo("bet");
+    assertThat(entries.get("items").get(0).get("amount").asString()).isEqualTo("-20.25");
+    assertThat(entries.get("items").get(0).get("market").isNull()).as("没有记市场的流水，market 为 null").isTrue();
+    assertThat(getJson("/api/ledger/entries?type=bet&range=all", u.cookie()).get("total").asLong()).isEqualTo(1);
     assertThat(status("/api/ledger/account", null)).as("要登录").isEqualTo(401);
   }
 

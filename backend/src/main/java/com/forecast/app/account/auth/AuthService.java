@@ -144,6 +144,13 @@ class AuthService {
     sessions.revokeAll(userId, currentToken);
   }
 
+  /** 员工账户（不能下注，forecast S4） */
+  boolean isStaff(long userId) {
+    Boolean staff = mapper.isStaff(userId);
+    if (staff == null) throw new BizException("USER_NOT_FOUND", "用户不存在");
+    return staff;
+  }
+
   UserRow user(long userId) {
     UserRow u = mapper.findUserById(userId);
     if (u == null) throw new BizException("USER_NOT_FOUND", "用户不存在");

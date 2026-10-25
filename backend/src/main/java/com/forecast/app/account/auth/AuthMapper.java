@@ -15,6 +15,9 @@ interface AuthMapper {
 
   UserRow findUserById(@Param("id") long id);
 
+  /** 是不是员工账户；用户不存在时为 null（forecast S4） */
+  Boolean isStaff(@Param("id") long id);
+
   int insertUser(UserInsert user);
 
   int insertProfile(Profile profile);

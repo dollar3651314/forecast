@@ -61,6 +61,8 @@ jobs:
             client:
               - 'web/client/**'
               - 'vercel.json'
+              # 客户端 lib/pool.test.ts 读后端的赔率测试向量（forecast S4，前后端共用一份）
+              - 'backend/src/test/resources/pool/**'
             admin:
               - 'web/admin/**'
             site:

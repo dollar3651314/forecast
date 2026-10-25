@@ -6,7 +6,8 @@ import java.util.List;
 /**
  * 客户端接口返回的结构（{@code GET /api/markets}、{@code GET /api/markets/{publicNo}}，forecast S3 的最小契约）。
  * 字段名定了以后客户端（S11）照着接；文字都是三种语言，客户端按自己的语言选，取不到用英文（RQ-18）。
- * 奖池、概率、预计赔率在 S4 加（pool 模块），S3 还没有这些字段。
+ * 奖池、概率、预计赔率在 {@code pool} 字段（S4，结构由 pool 模块定：{@code pool/bet/PoolViews.Pool}）：列表里是各选项的奖池、概率（整数）、预计赔率；
+ * 详情里概率 1 位小数，另有本人的持仓、单笔限额、本市场还能押多少。
  * <ul>
  *   <li>编号（publicNo、optionNo）是字符串（雪花 ID 超过 JavaScript 能精确表示的范围）。</li>
  *   <li>时间是 ISO-8601 UTC 字符串；费率是百分比字符串（"5" = 5%）；金额是字符串。</li>
@@ -21,7 +22,7 @@ public final class ClientViews {
 
   /** 列表里的一个市场 */
   public record Card(String publicNo, String category, I18nText title, String status, String openAt, String closeAt, String eventStartAt,
-      String eventEndAt, String feeRate, List<OptionCard> options) {}
+      String eventEndAt, String feeRate, List<OptionCard> options, Object pool) {}
 
   public record OptionDetail(String optionNo, int seq, I18nText label, I18nText winCondition) {}
 
@@ -38,7 +39,7 @@ public final class ClientViews {
   public record Detail(String publicNo, String category, I18nText title, I18nText rules, String status, String resolutionMode, String sourcePrimary,
       String sourceBackup, String openAt, String closeAt, String eventStartAt, String eventEndAt, String feeRate, String userCap,
       Integer disputeWindowMinutes, String coverPath, String cancelReason, String voidReason, List<OptionDetail> options,
-      List<Clarification> clarifications, List<FeeChange> feeChanges) {}
+      List<Clarification> clarifications, List<FeeChange> feeChanges, Object pool) {}
 
   public record Page<T>(List<T> items, long total, int page, int pageSize) {}
 }

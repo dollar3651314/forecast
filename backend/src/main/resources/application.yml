@@ -204,6 +204,11 @@ spring:
       # 定时任务 + 接口请求共用；默认 10 不够。空闲时只保留 5 个（单实例估算见 技术方案/v1-架构方案.md 第 4.2 节）
       maximum-pool-size: ${FC_DB_POOL_SIZE:30}
       minimum-idle: 5
+      # MySQL 驱动在本地记住会话状态（autocommit、隔离级别、只读）：不加时每条 INSERT / UPDATE 前都多一次 SELECT @@session.transaction_read_only，
+      # 切换隔离级别前多一次查询（forecast S4 下注预压测实测：每笔下注约 46 条语句里有 10 条是这种查询，开发记录/S4-下注奖池.md 第 6 节）。
+      # 状态只经驱动的方法改（Spring 事务、连接池），代码里没有直接执行 SET SESSION 的地方，所以本地记的状态和服务器一致
+      data-source-properties:
+        useLocalSessionState: true
   data:
     redis:
       host: ${FC_REDIS_HOST:localhost}

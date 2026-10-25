@@ -28,6 +28,10 @@ public class AuthAccess {
     return auth.status(userId);
   }
 
+  public boolean isStaff(long userId) {
+    return auth.isStaff(userId);
+  }
+
   public String email(long userId) {
     return auth.user(userId).email();
   }

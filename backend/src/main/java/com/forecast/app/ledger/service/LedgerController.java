@@ -4,6 +4,7 @@ import com.forecast.app.common.error.ValidationException;
 import com.forecast.app.common.web.CurrentUser;
 import com.forecast.app.ledger.api.AccountSnapshot;
 import com.forecast.app.ledger.api.LedgerApi;
+import com.forecast.app.ledger.api.MarketLabels;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
@@ -12,6 +13,8 @@ import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -29,14 +32,22 @@ class LedgerController {
    */
   record AccountView(String currency, String balance, String available, String betLocked, String withdrawFrozen) {}
 
-  /** 资金流水的一条；ref 是相关的网络（例如充值 TRC20），没有时为空字符串 */
-  record LedgerView(String id, String type, String amount, String ref, String time) {}
+  /**
+   * 资金流水的一条；ref 是相关的网络（例如充值 TRC20），没有时为空字符串；market 是相关的市场（下注、以后的派彩、退款，AC-39），
+   * 没有时为 null。
+   */
+  record LedgerView(String id, String type, String amount, String ref, String time, MarketRef market) {}
+
+  /** 流水里的市场：对外编号（客户端用它打开市场详情）和三种语言的题目 */
+  record MarketRef(String publicNo, Title title) {}
+
+  record Title(String en, String zhCN, String zhTW) {}
 
   record Page<T>(List<T> items, long total, int page, int pageSize) {}
 
   /**
-   * 客户端流水类型 → 账本类型（只看可用余额的变动）。下注、派彩、抽成、退款、补偿在客户端有对应的显示以后再加（S4、S5，见开发记录/S2-账本拆分.md）；
-   * 没列在这里的类型不会出现在客户端流水里。
+   * 客户端流水类型 → 账本类型（只看可用余额的变动）。S4 加下注（BET_LOCK 的"可用 −b"那一条）；派彩、抽成、退款、补偿和结算一起在 S5、S7 加
+   * （开发记录/S2-账本拆分.md、S4-下注奖池.md）。没列在这里的类型不会出现在客户端流水里。
    */
   static final Map<String, List<String>> LEDGER_TYPES = new LinkedHashMap<>();
 
@@ -44,16 +55,19 @@ class LedgerController {
     LEDGER_TYPES.put("deposit", List.of("DEPOSIT", "DEPOSIT_REVERSAL"));
     LEDGER_TYPES.put("withdraw", List.of("WITHDRAW_FREEZE"));
     LEDGER_TYPES.put("withdrawRefund", List.of("WITHDRAW_UNFREEZE"));
+    LEDGER_TYPES.put("bet", List.of("BET_LOCK"));
   }
 
   private final LedgerApi ledger;
   private final LedgerMapper mapper;
   private final Clock clock;
+  private final ObjectProvider<MarketLabels> labels;
 
-  LedgerController(LedgerApi ledger, LedgerMapper mapper, Clock clock) {
+  LedgerController(LedgerApi ledger, LedgerMapper mapper, Clock clock, ObjectProvider<MarketLabels> labels) {
     this.ledger = ledger;
     this.mapper = mapper;
     this.clock = clock;
+    this.labels = labels;
   }
 
   @GetMapping("/api/ledger/account")
@@ -62,7 +76,7 @@ class LedgerController {
     return new AccountView("USDT", money(a.balance()), money(a.available()), money(a.betLocked()), money(a.withdrawFrozen()));
   }
 
-  /** 资金流水：可用余额的变动，最新在前。type：deposit / withdraw / withdrawRefund，不传或 all 表示全部；range：7d / 30d / 90d / all */
+  /** 资金流水：可用余额的变动，最新在前。type：deposit / withdraw / withdrawRefund / bet，不传或 all 表示全部；range：7d / 30d / 90d / all */
   @GetMapping("/api/ledger/entries")
   Page<LedgerView> entries(@RequestParam(required = false) String type, @RequestParam(defaultValue = "30d") String range,
       @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize) {
@@ -80,8 +94,15 @@ class LedgerController {
       default -> throw new ValidationException(List.of(new ValidationException.Field("range", "invalid")));
     };
     long uid = CurrentUser.id();
-    List<LedgerView> items = mapper.userLedger(uid, types, since, (p - 1) * size, size).stream()
-        .map(r -> new LedgerView(String.valueOf(r.id), ledgerType(r.entryType), money(r.amount), ref(r.remark), iso(r.createdAt))).toList();
+    List<LedgerMapper.EntryRow> rows = mapper.userLedger(uid, types, since, (p - 1) * size, size);
+    List<Long> marketIds = rows.stream().map(r -> r.refMarketId).filter(Objects::nonNull).distinct().toList();
+    MarketLabels ml = marketIds.isEmpty() ? null : labels.getIfAvailable();
+    Map<Long, MarketLabels.MarketLabel> found = ml == null ? Map.of() : ml.labels(marketIds);
+    List<LedgerView> items = rows.stream().map(r -> {
+      MarketLabels.MarketLabel l = r.refMarketId == null ? null : found.get(r.refMarketId);
+      MarketRef market = l == null ? null : new MarketRef(l.publicNo(), new Title(l.titleEn(), l.titleZhCn(), l.titleZhTw()));
+      return new LedgerView(String.valueOf(r.id), ledgerType(r.entryType), money(r.amount), market == null ? ref(r.remark) : "", iso(r.createdAt), market);
+    }).toList();
     return new Page<>(items, mapper.countUserLedger(uid, types, since), p, size);
   }
 

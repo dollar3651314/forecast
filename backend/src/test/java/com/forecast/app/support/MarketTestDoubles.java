@@ -6,15 +6,17 @@ import com.forecast.app.market.api.MarketStatus;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import org.springframework.context.annotation.Primary;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 
 /**
- * 市场测试用的替身（forecast S3）：S4 的 pool、S5 的 settle 还没有，用它们代替。
+ * 市场测试用的替身（forecast S3）：market 的测试不经过真实的下注，用替身代替 pool（S4 起有真实实现，替身标 {@code @Primary} 盖过它）和 S5 的 settle。
+ * pool 自己的测试（{@code com.forecast.app.pool}）不 import 这个类，用真实的 {@code PoolMarketView}。
  * <ul>
- *   <li>{@link Pool}：截止时每个市场有几个有效选项（没设置的按 2 个，市场正常进入"截止下注"）、有下注的客户名单。</li>
+ *   <li>{@link Pool}：截止时每个市场有几个有效选项（没设置的按 2 个，市场正常进入"截止下注"）、有下注的客户名单；记下上架、状态变化的调用。</li>
  *   <li>{@link Events}：记下"要退款"和"截止时间提前"的事件（S5 在这里建退款单）。</li>
  * </ul>
  * 市场测试都 {@code @Import(FixedClockConfig.class, MarketTestDoubles.class)}，共用同一个 Spring 上下文。
@@ -26,6 +28,23 @@ public class MarketTestDoubles {
     public final Map<Long, Integer> activeOptions = new ConcurrentHashMap<>();
     public final Map<Long, List<Long>> bettors = new ConcurrentHashMap<>();
     public final List<Long> frozen = new CopyOnWriteArrayList<>();
+    public final List<Long> opened = new CopyOnWriteArrayList<>();
+    public final List<String> changes = new CopyOnWriteArrayList<>();
+
+    @Override
+    public void open(long marketId, List<OptionRef> options) {
+      opened.add(marketId);
+    }
+
+    @Override
+    public void changed(long marketId, MarketStatus status) {
+      changes.add(marketId + ":" + status);
+    }
+
+    @Override
+    public Map<Long, Object> clientPools(List<PoolContext> markets, Long userId) {
+      return Map.of();
+    }
 
     @Override
     public int freezeAndCountActiveOptions(long marketId) {
@@ -63,6 +82,7 @@ public class MarketTestDoubles {
   }
 
   @Bean
+  @Primary
   Pool testPool() {
     return new Pool();
   }

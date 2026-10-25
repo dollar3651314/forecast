@@ -53,6 +53,11 @@ class AccountFacade implements AccountApi {
   }
 
   @Override
+  public boolean isStaff(long userId) {
+    return auth.isStaff(userId);
+  }
+
+  @Override
   public KycStatus kycStatus(long userId) {
     return kyc.status(userId);
   }

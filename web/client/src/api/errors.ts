@@ -36,6 +36,17 @@ export type ApiErrorReason =
   | 'walletNotReady'
   | 'notFound'
   | 'insufficientFunds'
+  // 下注的拒单原因（forecast S4，需求第 3.3 节；余额不足、需要身份认证、账户已冻结用上面已有的）
+  | 'marketNotOpen'
+  | 'marketClosed'
+  | 'marketPaused'
+  | 'marketCancelled'
+  | 'betBelowMin'
+  | 'betAboveMax'
+  | 'betOverUserCap'
+  | 'betStaffAccount'
+  | 'betRequestReused'
+  | 'optionNotFound'
   | 'validationFailed'
   | 'badRequest'
   | 'forbidden'
@@ -104,8 +115,20 @@ export const SERVER_CODES: Record<string, ApiErrorReason> = {
   KYC_APPROVED: 'kycApproved',
   DOC_NUMBER_USED: 'docNumberUsed',
   KYC_REQUIRED: 'kycRequired',
-  // 余额不足（复制源的下单拒绝原因在 forecast S1 删除；下注的拒绝原因在 S4 加）
+  // 余额不足（复制源的下单拒绝原因在 forecast S1 删除）
   INSUFFICIENT_FUNDS: 'insufficientFunds',
+  // 下注（forecast S4，需求第 3.3 节的 11 种拒单原因，后端 pool/bet/BetService.REJECT_CODES）：
+  // 余额不足 INSUFFICIENT_FUNDS、需要先完成身份认证 KYC_REQUIRED、账户已冻结 USER_FROZEN 和上面共用
+  MARKET_NOT_OPEN: 'marketNotOpen',
+  MARKET_CLOSED: 'marketClosed',
+  MARKET_PAUSED: 'marketPaused',
+  MARKET_CANCELLED: 'marketCancelled',
+  BET_BELOW_MIN: 'betBelowMin',
+  BET_ABOVE_MAX: 'betAboveMax',
+  BET_OVER_USER_CAP: 'betOverUserCap',
+  BET_STAFF_ACCOUNT: 'betStaffAccount',
+  BET_REQUEST_REUSED: 'betRequestReused',
+  OPTION_NOT_FOUND: 'optionNotFound',
   // 钱包
   WALLET_NOT_READY: 'walletNotReady',
   WHITELIST_FULL: 'whitelistFull',

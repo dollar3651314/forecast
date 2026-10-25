@@ -1,6 +1,10 @@
 package com.forecast.app.market.api;
 
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -8,13 +12,38 @@ import java.util.Optional;
  */
 public interface MarketApi {
 
-  /** 下注要用到的市场信息（{@link #lockForBet} 的结果） */
-  record BetTarget(long marketId, long optionId, MarketCategory category, java.math.BigDecimal feeRate, java.math.BigDecimal userCap, Instant closeAt) {}
+  /**
+   * 下注要用到的市场信息（{@link #lockForBet} 的结果）。
+   *
+   * @param feeRate 当前费率（小数，0.05 = 5%）
+   * @param userCap 单客户在本市场的累计上限
+   * @param title 题目（下注成功通知 #8 用）
+   * @param optionLabel 选项文字
+   */
+  record BetTarget(long marketId, long marketNo, long optionId, long optionNo, MarketCategory category, BigDecimal feeRate, BigDecimal userCap,
+      Instant closeAt, I18nText title, I18nText optionLabel) {}
 
-  /** 市场的基本信息（按对外编号找） */
-  record MarketRef(long marketId, long publicNo, MarketStatus status, MarketCategory category, Instant closeAt, Instant eventEndAt) {}
+  /** 市场的基本信息 */
+  record MarketRef(long marketId, long publicNo, MarketStatus status, MarketCategory category, I18nText title, Instant openAt, Instant closeAt,
+      Instant eventEndAt, BigDecimal feeRate, BigDecimal userCap) {}
 
+  /** 一个选项（上架后不变） */
+  record OptionRef(long optionId, long optionNo, long marketId, int seq, I18nText label) {}
+
+  /** 按对外编号找；草稿、删除的也找得到（调用方自己看状态） */
   Optional<MarketRef> find(long publicNo);
+
+  /** 按内部 id 找（S4：推送、我的下注、后台下注明细用） */
+  Optional<MarketRef> findById(long marketId);
+
+  /** 一批市场（内部 id → 信息），不存在的不在结果里 */
+  Map<Long, MarketRef> refs(Collection<Long> marketIds);
+
+  /** 一个市场的选项，按顺序 */
+  List<OptionRef> options(long marketId);
+
+  /** 一批选项（内部 id → 信息），不存在的不在结果里 */
+  Map<Long, OptionRef> optionsById(Collection<Long> optionIds);
 
   /**
    * 下注前的截止屏障（技术方案第 4.2、5.2 节；S4 的下注事务调用，<b>必须在调用方的事务里</b>）：

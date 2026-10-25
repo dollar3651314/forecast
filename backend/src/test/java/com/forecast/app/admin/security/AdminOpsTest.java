@@ -218,8 +218,13 @@ class AdminOpsTest extends AdminTestSupport {
     String original = jdbc.queryForObject("SELECT title_zh FROM notify_template WHERE code = 'DEPOSIT_CREDITED'", String.class);
     try {
       JsonNode ts = body(call(get("/api/admin/notify/templates"), a.cookie(), null));
-      assertThat(ts.get(0).get("code").asString()).isEqualTo("DEPOSIT_CREDITED");
-      assertThat(ts.get(0).get("channels").toString()).isEqualTo("[\"inbox\",\"push\",\"email\"]");
+      // 按编号排序；S4 起 BET_PLACED 排在最前（#8 下注成功）
+      assertThat(ts.get(0).get("code").asString()).isEqualTo("BET_PLACED");
+      JsonNode dep = null;
+      for (JsonNode x : ts) if (x.get("code").asString().equals("DEPOSIT_CREDITED")) dep = x;
+      assertThat(dep).isNotNull();
+      assertThat(dep.get("channels").toString()).isEqualTo("[\"inbox\",\"push\",\"email\"]");
+      assertThat(ts.get(0).get("channels").toString()).as("#8 只发站内信").isEqualTo("[\"inbox\"]");
       assertThat(call(put("/api/admin/notify/templates/DEPOSIT_CREDITED"), a.cookie(), "{\"enabled\":false}").getContentAsString())
           .contains("BUILT_IN_CANNOT_DISABLE");
       assertThat(call(put("/api/admin/notify/templates/DEPOSIT_CREDITED"), a.cookie(), "{\"bodyZh\":\"到账 {amount} {secret}\"}").getContentAsString())

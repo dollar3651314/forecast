@@ -45,6 +45,8 @@ public class GlobalExceptionHandler {
       Map.entry("MARKET_STATE_CHANGED", HttpStatus.CONFLICT),
       Map.entry("MARKET_NOT_EDITABLE", HttpStatus.CONFLICT),
       Map.entry("FEE_LOCKED", HttpStatus.CONFLICT),
+      // forecast S4 下注：同一个请求号换了内容（不是重复提交，客户端要重新生成请求号）
+      Map.entry("BET_REQUEST_REUSED", HttpStatus.CONFLICT),
       Map.entry("NOT_FOUND", HttpStatus.NOT_FOUND));
 
   @ExceptionHandler(BizException.class)

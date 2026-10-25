@@ -82,6 +82,8 @@ interface LedgerMapper {
     String bizType;
     String bizId;
     String remark;
+    /** 和哪个市场有关（下注、派彩、退款、补偿）；充值、提现为空 */
+    Long refMarketId;
     LocalDateTime createdAt;
   }
 

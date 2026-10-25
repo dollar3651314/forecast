@@ -1,16 +1,23 @@
 import { useTranslation } from 'react-i18next';
-import type { LedgerItem } from '../../api/types';
+import type { LedgerItem, LedgerMarket } from '../../api/types';
 import { formatAmount, formatDateTime } from '../../lib/format';
 
 const ICON_TONE: Record<LedgerItem['type'], string> = {
   deposit: 'in',
   withdraw: 'out',
   withdrawRefund: 'in',
+  bet: 'out',
 };
+
+/** 市场题目按当前语言取（取不到用英文，RQ-18） */
+function marketTitle(m: LedgerMarket, lang: string): string {
+  const t = lang.startsWith('zh') ? (lang === 'zh-TW' ? m.title.zhTW : m.title.zhCN) : m.title.en;
+  return t || m.title.en;
+}
 
 /** 资金流水列表 */
 export function LedgerList({ items }: { items: LedgerItem[] }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   return (
     <ul className="ledger">
       {items.map((l) => (
@@ -21,7 +28,7 @@ export function LedgerList({ items }: { items: LedgerItem[] }) {
           <div className="lg-t">
             <b>
               {t(`ledger.type.${l.type}`)}
-              {l.ref && <span className="num"> · {l.ref}</span>}
+              {l.market ? <span> · {marketTitle(l.market, i18n.language)}</span> : l.ref && <span className="num"> · {l.ref}</span>}
             </b>
             <small className="num">{formatDateTime(l.time)}</small>
           </div>

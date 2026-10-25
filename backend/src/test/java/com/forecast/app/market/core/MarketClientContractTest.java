@@ -84,7 +84,8 @@ class MarketClientContractTest extends MarketTestSupport {
       if (i.get("publicNo").asString().equals(no)) item = i;
     }
     assertThat(item).as("新上架的在第一页（newest）").isNotNull();
-    assertThat(keys(item)).containsExactly("publicNo", "category", "title", "status", "openAt", "closeAt", "eventStartAt", "eventEndAt", "feeRate", "options");
+    // pool（S4）由 pool 模块提供，这里的替身不给（null）；结构见 pool/PoolClientContractTest
+    assertThat(keys(item)).containsExactly("publicNo", "category", "title", "status", "openAt", "closeAt", "eventStartAt", "eventEndAt", "feeRate", "options", "pool");
     assertThat(item.get("publicNo").isString()).as("编号是字符串").isTrue();
     assertThat(item.get("category").asString()).isEqualTo("FOOTBALL");
     assertThat(keys(item.get("title"))).containsExactly("en", "zhCN", "zhTW");
@@ -107,7 +108,8 @@ class MarketClientContractTest extends MarketTestSupport {
     markets.changeFee(pn, "8", 1, "调整");
     JsonNode d = body("/api/markets/" + no, c);
     assertThat(keys(d)).containsExactly("publicNo", "category", "title", "rules", "status", "resolutionMode", "sourcePrimary", "sourceBackup", "openAt", "closeAt",
-        "eventStartAt", "eventEndAt", "feeRate", "userCap", "disputeWindowMinutes", "coverPath", "cancelReason", "voidReason", "options", "clarifications", "feeChanges");
+        "eventStartAt", "eventEndAt", "feeRate", "userCap", "disputeWindowMinutes", "coverPath", "cancelReason", "voidReason", "options", "clarifications", "feeChanges",
+        "pool");
     assertThat(d.get("status").asString()).isEqualTo("listed");
     assertThat(d.get("feeRate").asString()).isEqualTo("8");
     assertThat(d.get("userCap").asString()).isEqualTo("10000");
