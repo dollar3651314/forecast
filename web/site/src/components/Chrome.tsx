@@ -38,7 +38,7 @@ export function RiskBar({ short }: { short?: boolean }) {
 }
 
 /**
- * 文字 Logo：和客户端 web/client/src/components/Icon.tsx 的 Logo / Brand 同一个图形（青色渐变圆角方块 + 三根柱子，占位图形，品牌定了以后换），
+ * 文字 Logo：和客户端 web/client/src/components/Icon.tsx 的 Logo / Brand 同一个图形（蓝色渐变圆角方块（方向 A） + 三根柱子，占位图形，品牌定了以后换），
  * 也和 public/favicon.svg 一致；客户端改图形时同步改这里。
  */
 export function Logo() {
@@ -48,14 +48,14 @@ export function Logo() {
       <svg className="mark" width={28} height={28} viewBox="0 0 512 512" aria-hidden="true" focusable="false">
         <defs>
           <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#22d3ee" />
-            <stop offset="1" stopColor="#0891b2" />
+            <stop offset="0" stopColor="#3b82f6" />
+            <stop offset="1" stopColor="#1d4ed8" />
           </linearGradient>
         </defs>
         <rect width="512" height="512" rx="112" fill={`url(#${id})`} />
-        <rect x="136" y="236" width="64" height="140" rx="20" fill="#04121a" />
-        <rect x="224" y="156" width="64" height="220" rx="20" fill="#04121a" />
-        <rect x="312" y="196" width="64" height="180" rx="20" fill="#04121a" />
+        <rect x="136" y="236" width="64" height="140" rx="20" fill="#ffffff" />
+        <rect x="224" y="156" width="64" height="220" rx="20" fill="#ffffff" />
+        <rect x="312" y="196" width="64" height="180" rx="20" fill="#ffffff" />
       </svg>
       <span className="word">{BRAND_NAME}</span>
     </Link>
@@ -63,7 +63,8 @@ export function Logo() {
 }
 
 const LANG_OPTIONS: Array<{ value: Lang; label: string; short: string }> = [
-  { value: 'zh-CN', label: '简体中文', short: '中文' },
+  { value: 'zh-CN', label: '简体中文', short: '简体' },
+  { value: 'zh-TW', label: '繁體中文', short: '繁體' },
   { value: 'en', label: 'English', short: 'EN' },
 ];
 
@@ -142,7 +143,8 @@ export function LangSwitch() {
 
 /** 首页的几个区块（导航锚点） */
 export const SECTIONS = [
-  ['platform', 'nav.platform'],
+  ['how', 'nav.how'],
+  ['fee', 'nav.fee'],
   ['safety', 'nav.safety'],
   ['faq', 'nav.faq'],
 ] as const;

@@ -11,12 +11,12 @@ describe('模拟层场景切换', () => {
     resetDb();
   });
 
-  it('正常数据：余额 = 可用 + 下注中（S2）；流水只有充值和提现，超过一页', async () => {
+  it('正常数据：余额 = 可用 + 下注中（S2）；流水有下注、充值和提现，超过一页', async () => {
     const a = await getAccount();
-    expect(a).toMatchObject({ balance: '129656.79', available: '128456.79', betLocked: '1200.00' });
+    expect(a).toMatchObject({ balance: '1784.56', available: '1234.56', betLocked: '550.00' });
     const ledger = await listLedger({ type: 'all', range: 'all', page: 1, pageSize: 20 });
     expect(ledger.total).toBeGreaterThan(20);
-    expect(new Set(ledger.items.map((x) => x.type))).toEqual(new Set(['deposit', 'withdraw', 'withdrawRefund']));
+    expect(new Set(ledger.items.map((x) => x.type))).toEqual(new Set(['bet', 'deposit', 'withdraw', 'withdrawRefund']));
   });
 
   it('空数据场景：余额为 0、流水为空', async () => {

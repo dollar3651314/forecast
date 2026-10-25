@@ -6,20 +6,21 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Lang } from '../api/types';
-import { setLanguage } from '../i18n';
+import { currentLang, setLanguage } from '../i18n';
 import { Icon } from './Icon';
 
 const LANG_OPTIONS: Array<{ value: Lang; label: string }> = [
   { value: 'zh-CN', label: '简体中文' },
+  { value: 'zh-TW', label: '繁體中文' },
   { value: 'en', label: 'English' },
 ];
 
 export function LangSelect({ compact }: { compact?: boolean }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const listId = useId();
-  const current: Lang = i18n.language === 'en' ? 'en' : 'zh-CN';
+  const current: Lang = currentLang();
   const label = LANG_OPTIONS.find((o) => o.value === current)?.label ?? '简体中文';
 
   useEffect(() => {

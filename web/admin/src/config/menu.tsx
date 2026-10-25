@@ -12,6 +12,8 @@ import {
   SettingOutlined,
 } from '@ant-design/icons';
 import type { PermissionCode } from './permissions';
+import { IS_MOCK } from '../api/mode';
+import { PROTO_MENU } from './protoMenu';
 
 export interface MenuItemDef {
   key: string;
@@ -66,8 +68,11 @@ export const MENU: MenuItemDef[] = [
   },
 ];
 
+/** 本地菜单：原型模式下在仪表盘后面加上 M1 原型的页面（protoMenu.tsx） */
+export const LOCAL_MENU: MenuItemDef[] = IS_MOCK ? [MENU[0], ...PROTO_MENU, ...MENU.slice(1)] : MENU;
+
 /** 所有叶子菜单（带路径） */
-export function flattenMenu(items: MenuItemDef[] = MENU, parent?: MenuItemDef): (MenuItemDef & { parent?: MenuItemDef })[] {
+export function flattenMenu(items: MenuItemDef[] = LOCAL_MENU, parent?: MenuItemDef): (MenuItemDef & { parent?: MenuItemDef })[] {
   return items.flatMap((item) => (item.children ? flattenMenu(item.children, item) : [{ ...item, parent }]));
 }
 
@@ -82,7 +87,7 @@ export interface ServerMenuNode {
   children?: ServerMenuNode[];
 }
 
-function localDef(key: string, items: MenuItemDef[] = MENU): MenuItemDef | undefined {
+function localDef(key: string, items: MenuItemDef[] = LOCAL_MENU): MenuItemDef | undefined {
   for (const m of items) {
     if (m.key === key) return m;
     const c = m.children ? localDef(key, m.children) : undefined;
@@ -106,7 +111,7 @@ export function visibleMenu(serverMenus: ServerMenuNode[] | undefined, can: (per
       }
       return m.path && can(m.permission) ? [m] : [];
     });
-  if (!serverMenus) return filter(MENU);
+  if (!serverMenus) return filter(LOCAL_MENU);
   const toDef = (n: ServerMenuNode): MenuItemDef => {
     const local = localDef(n.key);
     return {

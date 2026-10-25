@@ -1,8 +1,7 @@
 /* ---------- 按钮 ---------- */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 38px; padding: 0 14px; border-radius: var(--r-md); font-size: 14px; font-weight: 600; border: 1px solid transparent; white-space: nowrap; text-decoration: none; transition: filter 0.15s; }
 .btn:hover { text-decoration: none; filter: brightness(0.96); }
-.btn-primary { background: var(--primary); color: #fff; }
-:root[data-theme='dark'] .btn-primary { background: #0e7490; }
+.btn-primary { background: var(--primary); color: var(--on-primary); }
 .btn-buy { background: var(--long-solid); color: #fff; }
 .btn-sell { background: var(--short-solid); color: #fff; }
 .btn-danger { background: var(--danger); color: #fff; }
@@ -107,7 +106,7 @@
 .modal-box { position: relative; width: 100%; max-height: calc(100vh - var(--banner-h) - 24px); display: flex; flex-direction: column; background: var(--s1); border-radius: 20px 20px 0 0; box-shadow: var(--shadow-pop); padding: 8px 16px calc(14px + var(--safe-b)); outline: none; animation: sheet-in 0.2s ease-out; }
 .modal-dialog { align-items: center; padding: 16px; }
 .modal-dialog .modal-box { border-radius: var(--r-xl); max-width: 420px; animation: none; }
-.modal-grab { width: 40px; height: 5px; border-radius: 3px; background: #cbd5e1; margin: 0 auto 8px; flex: none; }
+.modal-grab { width: 40px; height: 5px; border-radius: 3px; background: var(--border); margin: 0 auto 8px; flex: none; }
 .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; flex: none; }
 .modal-head h2 { font-size: 17px; display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; min-width: 0; }
 .modal-head h2 small { font-size: 13px; color: var(--muted); font-weight: 400; }
@@ -344,7 +343,7 @@ button.menu-item { width: 100%; text-align: left; font-size: inherit; background
 .ob > p { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.6; }
 .ob-list { list-style: none; margin: 4px 0 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 6px; text-align: left; }
 .ob-list li { display: flex; align-items: flex-start; gap: 10px; padding: 9px 12px; border-radius: var(--r-md); background: var(--s2); border: 1px solid var(--hair); font-size: 13.5px; }
-.ob-n { flex: none; width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--primary); color: #fff; font-size: 11.5px; font-weight: 700; }
+.ob-n { flex: none; width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--primary); color: var(--on-primary); font-size: 11.5px; font-weight: 700; }
 .ob-inline { color: var(--cyan-deep); gap: 2px; }
 .ob > .ob-note { font-size: 12px; color: var(--subtle); }
 .ob-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }

@@ -105,7 +105,7 @@ function ProtoPanelBody() {
       )}
       <button type="button" className="proto-fab" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
         <Icon name="flask" size={14} strokeWidth={2.2} />
-        {t('proto.title')}
+        <span className="proto-fab-t">{t('proto.title')}</span>
         {state.scenario !== 'normal' && <span className="proto-dot">{t(`proto.scenarios.${state.scenario}`)}</span>}
       </button>
     </div>
