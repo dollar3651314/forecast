@@ -31,14 +31,14 @@ import java.util.Set;
  *  7 PAUSED → CANCELLED             同上
  *  8 CLOSED → VOIDED                截止时有效选项 &lt; 2（E3、E4），退款
  *  9 CLOSED → PENDING_RESOLUTION    事件结束任务（now ≥ event_end_at）
- * 10 PENDING_RESOLUTION → SETTLED   自动裁决成功（S6）
- * 11 PENDING_RESOLUTION → PUBLICIZING  确认结果（S7）
- * 12 PUBLICIZING → SETTLED          公示期满（S7）
- * 13 PUBLICIZING → DISPUTED         客户提交争议（S7）
- * 14 DISPUTED → SETTLED             处理争议（S7）
- * 15 PENDING_RESOLUTION → VOIDED    作废（S7）
- * 16 PUBLICIZING → VOIDED           作废（S7）
- * 17 DISPUTED → VOIDED              作废（S7）
+ * 10 PENDING_RESOLUTION → SETTLED   自动裁决成功（S6，resolve/auto/CryptoResolver → settle）
+ * 11 PENDING_RESOLUTION → PUBLICIZING  确认结果（S7，resolve/platform/ResolveDesk.confirm / decide → MarketApi.publicize）
+ * 12 PUBLICIZING → SETTLED          公示期满、没有争议（S7，resolve/platform/PublicityService → settle）
+ * 13 PUBLICIZING → DISPUTED         客户提交第一个争议（S7，resolve/platform/ResolveDesk.dispute）
+ * 14 DISPUTED → SETTLED             处理争议：维持 / 改判后直接结算（S7，ResolveDesk.decideDisputes → settle）
+ * 15 PENDING_RESOLUTION → VOIDED    作废：人工（resolve:void）、确认作废提议、E6 / E7 等满 48 小时（S7）；结算时 E1 没人押赢方（S5）
+ * 16 PUBLICIZING → VOIDED           作废：人工（resolve:void）（S7）；结算时 E1（S5）
+ * 17 DISPUTED → VOIDED              作废：争议结论“无法判定”（dispute:handle）、人工（resolve:void）（S7）；结算时 E1（S5）
  * </pre>
  * 每次跳转由 {@link MarketService} 做成"带旧状态的条件更新"（{@code … WHERE id = ? AND status = 旧状态}），同一事务写状态历史。
  */

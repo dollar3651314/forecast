@@ -399,7 +399,10 @@ class AdminMarketTest extends AdminTestSupport {
     for (JsonNode p : betting) keys.add(p.get("key").asString() + "=" + p.get("value").asString());
     assertThat(keys).contains("withdraw.minAmount=100", "bet.minAmount=1", "bet.maxAmount=5000", "bet.userCap.FOOTBALL=10000", "bet.userCap.CRYPTO_15M=2000",
         "crypto.closeLeadSeconds=30", "crypto.openLeadMinutes.CRYPTO_15M=60", "crypto.openLeadMinutes.CRYPTO_1H=180", "dispute.windowMinutes.FOOTBALL=120",
-        "dispute.windowMinutes.MACRO=1440", "kyc.depositThreshold=1000");
+        "dispute.windowMinutes.MACRO=1440", "kyc.depositThreshold=1000",
+        // S7（迁移 V15）：裁决时限、争议处理时限、加密转人工的争议窗口
+        "resolve.proposeMinutes.FOOTBALL=120", "resolve.proposeMinutes.MACRO=1440", "resolve.confirmMinutes=120", "dispute.handleMinutes=1440",
+        "dispute.windowMinutes.CRYPTO_1H=120");
     assertThat(body(call(get("/api/admin/configs"), s.cookie(), null)).toString()).doesNotContain("withdraw.minAmount").doesNotContain("market.fee");
     assertThat(call(put("/api/admin/configs/withdraw.minAmount"), s.cookie(), "{\"value\":\"120\",\"reason\":\"x\"}").getStatus()).as("系统配置页改不到了").isEqualTo(404);
     Admin configOnly = withRoles(role(Permission.CONFIG_VIEW, Permission.CONFIG_EDIT));

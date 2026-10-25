@@ -242,6 +242,18 @@ public class PoolQueries implements PoolApi, PoolAdminApi {
     return v == null ? BigDecimal.ZERO : v;
   }
 
+  @Override
+  @Transactional(readOnly = true)
+  public List<Long> bettors(long marketId) {
+    return mapper.bettors(marketId);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public boolean hasPosition(long userId, long marketId) {
+    return mapper.hasPosition(userId, marketId) > 0;
+  }
+
   // =====================================================================
   // PoolAdminApi：后台下注明细（bet:view）
   // =====================================================================

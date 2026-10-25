@@ -16,8 +16,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.forecast.app.common.error.BizException;
 import com.forecast.app.market.api.MarketStatus;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
@@ -37,6 +39,37 @@ class MarketStateMachineTest {
       "PENDING_RESOLUTION>SETTLED", "PENDING_RESOLUTION>PUBLICIZING",
       "PUBLICIZING>SETTLED", "PUBLICIZING>DISPUTED", "DISPUTED>SETTLED",
       "PENDING_RESOLUTION>VOIDED", "PUBLICIZING>VOIDED", "DISPUTED>VOIDED"));
+
+  /**
+   * 每条边由谁触发（forecast S7 起 17 条边全部有业务入口；照需求第 3.2 节的图和架构方案第 5.1 节的表抄写）。
+   * 平台裁决的边（11～17）按操作 × 状态的穷举在 resolve 的 PlatformStatesTest。
+   */
+  static final Map<String, String> TRIGGERS = new LinkedHashMap<>();
+
+  static {
+    TRIGGERS.put("DRAFT>LISTED", "上架（market:publish）、加密自动生成");
+    TRIGGERS.put("LISTED>PAUSED", "暂停（market:pause）");
+    TRIGGERS.put("PAUSED>LISTED", "恢复（market:pause）");
+    TRIGGERS.put("LISTED>CLOSED", "截止任务");
+    TRIGGERS.put("PAUSED>CLOSED", "截止任务");
+    TRIGGERS.put("LISTED>CANCELLED", "取消（market:cancel）");
+    TRIGGERS.put("PAUSED>CANCELLED", "取消（market:cancel）");
+    TRIGGERS.put("CLOSED>VOIDED", "截止任务：有效选项不足 2 个");
+    TRIGGERS.put("CLOSED>PENDING_RESOLUTION", "事件结束任务");
+    TRIGGERS.put("PENDING_RESOLUTION>SETTLED", "自动裁决 → 结算");
+    TRIGGERS.put("PENDING_RESOLUTION>PUBLICIZING", "确认结果 / 直接确认（resolve:confirm）");
+    TRIGGERS.put("PUBLICIZING>SETTLED", "公示期满、没有争议 → 结算");
+    TRIGGERS.put("PUBLICIZING>DISPUTED", "客户提交第一个争议");
+    TRIGGERS.put("DISPUTED>SETTLED", "处理争议：维持 / 改判 → 结算（dispute:handle）");
+    TRIGGERS.put("PENDING_RESOLUTION>VOIDED", "人工作废（resolve:void）、确认作废提议、E6 / E7 到期、结算时 E1");
+    TRIGGERS.put("PUBLICIZING>VOIDED", "人工作废（resolve:void）、结算时 E1");
+    TRIGGERS.put("DISPUTED>VOIDED", "争议无法判定（dispute:handle）、人工作废、结算时 E1");
+  }
+
+  @Test
+  void 每条边都有业务入口() {
+    assertThat(TRIGGERS.keySet()).containsExactlyElementsOf(EDGES);
+  }
 
   @Test
   void 一共10个状态_17条边() {

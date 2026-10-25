@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  补偿（E13）和结算报表（forecast S7）。只有 settle 模块使用（表名以 settle_ 开头）。
+  settle_compensation、settle_compensation_item 只有 INSERT：没有 UPDATE、DELETE（SettleAppendOnlyTest 检查）。
+-->
+<mapper namespace="com.forecast.app.settle.comp.CompMapper">
+
+  <sql id="compCols">
+    id, public_no, market_id, run_id, original_option_id, correct_option_id, fee_rate, total_amount, user_count, reason, status, created_by, created_at
+  </sql>
+
+  <insert id="insertComp" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO settle_compensation (public_no, market_id, run_id, original_option_id, correct_option_id, fee_rate, total_amount, user_count, reason, status,
+      created_by, created_at)
+    VALUES (#{publicNo}, #{marketId}, #{runId}, #{originalOptionId}, #{correctOptionId}, #{feeRate}, #{totalAmount}, #{userCount}, #{reason}, #{status},
+      #{createdBy}, #{createdAt})
+  </insert>
+
+  <insert id="insertItems">
+    INSERT INTO settle_compensation_item (compensation_id, market_id, user_id, should_payout, actual_payout, amount, created_at) VALUES
+    <foreach collection="items" item="i" separator=",">
+      (#{i.compensationId}, #{i.marketId}, #{i.userId}, #{i.shouldPayout}, #{i.actualPayout}, #{i.amount}, #{i.createdAt})
+    </foreach>
+  </insert>
+
+  <select id="compByMarket" resultType="com.forecast.app.settle.comp.CompRows$Comp">
+    SELECT <include refid="compCols"/> FROM settle_compensation WHERE market_id = #{marketId}
+  </select>
+
+  <select id="compByPublicNo" resultType="com.forecast.app.settle.comp.CompRows$Comp">
+    SELECT <include refid="compCols"/> FROM settle_compensation WHERE public_no = #{publicNo}
+  </select>
+
+  <select id="items" resultType="com.forecast.app.settle.comp.CompRows$Item">
+    SELECT id, compensation_id, market_id, user_id, should_payout, actual_payout, amount, created_at FROM settle_compensation_item
+    WHERE compensation_id = #{compensationId} ORDER BY user_id
+  </select>
+
+  <select id="listComps" resultType="com.forecast.app.settle.comp.CompRows$Comp">
+    SELECT <include refid="compCols"/> FROM settle_compensation ORDER BY id DESC LIMIT #{offset}, #{limit}
+  </select>
+
+  <select id="countComps" resultType="long">
+    SELECT COUNT(*) FROM settle_compensation
+  </select>
+
+  <select id="payoutRun" resultType="com.forecast.app.settle.comp.CompRows$Run">
+    SELECT id, status, winning_option_id, fee_rate FROM settle_run WHERE market_id = #{marketId} AND kind = 'PAYOUT'
+  </select>
+
+  <select id="settled" resultType="com.forecast.app.settle.comp.CompRows$Settled">
+    SELECT position_id, user_id, option_id, stake, payout FROM settle_item WHERE run_id = #{runId} ORDER BY user_id, id
+  </select>
+
+  <select id="revenueByDay" resultType="com.forecast.app.settle.comp.CompRows$Day">
+    SELECT DATE(done_at) AS day, COALESCE(SUM(sum_fee), 0) AS fee, COALESCE(SUM(dust), 0) AS dust, COUNT(*) AS n FROM settle_run
+    WHERE kind = 'PAYOUT' AND status = 'DONE' AND done_at &gt;= #{from} AND done_at &lt; #{to}
+    GROUP BY DATE(done_at) ORDER BY day
+  </select>
+
+  <select id="compensationByDay" resultType="com.forecast.app.settle.comp.CompRows$Day">
+    SELECT DATE(created_at) AS day, SUM(total_amount) AS amount, COUNT(*) AS n FROM settle_compensation
+    WHERE created_at &gt;= #{from} AND created_at &lt; #{to}
+    GROUP BY DATE(created_at) ORDER BY day
+  </select>
+</mapper>

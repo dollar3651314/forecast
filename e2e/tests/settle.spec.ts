@@ -1,55 +1,22 @@
 /**
- * 主线端到端（forecast S5，技术方案/v1-架构方案.md 第 16 节"主线 充值 → 押注 → 结算 → 提现在 S5 打通"）：接口级，页面在原型确认后做（S11）。
- * 注册 → 替身链充值 → 下注（两边各有人）→ 截止 → 超管填结果（S7 正式裁决台之前的临时入口）→ 结算 → 赢家余额逐分正确、
- * 流水有派彩和抽成、站内信 #11 / #12 → KYC → 白名单 → 提现 → 后台审核 → 链上确认 → 赢家余额扣掉提现。
+ * 主线端到端（forecast S5 打通，S7 改为正式裁决流程；技术方案/v1-架构方案.md 第 16、17 节）：接口级，页面在原型确认后做（S11）。
+ * 注册 → 替身链充值 → 下注（两边各有人）→ 截止 → 事件结束 → 裁决台提议 → 确认（进入公示，争议窗口 2 分钟）→ 窗口到期、没有争议 →
+ * 自动结算（SQ-10：S5 的"超管手工填结果直接结算"临时入口已删除）→ 赢家余额逐分正确、流水有派彩和抽成、站内信 #10 / #11 / #12 →
+ * KYC → 白名单 → 提现 → 后台审核 → 链上确认 → 赢家余额扣掉提现。
  * 另一个用例：截止前取消，下注全额退回、通知 #13。
  * 两种形态都跑；结算的事务边界跟后端配置（FC_SETTLE_BATCH_SIZE，默认 500）：分批时用 /api/e2e/settle/tick 立即派完。
  */
 import { expect, request, test, type APIRequestContext } from '@playwright/test';
-import { randomUUID } from 'node:crypto';
 import { STUB_URL } from './targets';
 import { PNG_1PX, e2e, step } from './support';
-import { adminSession, clientSession, fund, json, t } from './api';
+import { adminSession, bet, clientSession, fund, json, listMarket } from './api';
 
 type Account = { balance: string; available: string; betLocked: string; withdrawFrozen: string };
 type Outcome = { marketNo: string; marketStatus: string; settlePhase: string; payout: { sumPayout: string; sumFee: string; dust: string; runNo: string } | null };
 
 const account = async (c: APIRequestContext) => json<Account>(await c.get('/api/ledger/account'), '账户');
 
-/** 后台建一个两个选项的市场并上架：开放 = 现在 − 1 分钟，截止 = 现在 + 2 分钟，事件结束 = 现在 + 3 分钟（可调时钟） */
-async function listMarket(anon: APIRequestContext, admin: APIRequestContext, title: string) {
-  const now = new Date((await json<{ now: string }>(await anon.get('/api/e2e/clock'), '读时钟')).now);
-  const at = (ms: number) => new Date(now.getTime() + ms).toISOString();
-  const draft = await json<{ publicNo: string; options: { optionNo: string }[] }>(
-    await admin.post('/api/admin/markets', {
-      data: {
-        category: 'MACRO',
-        title: t(title),
-        rules: t('按官方公布为准；无法判定的作废退款'),
-        resolutionMode: 'PLATFORM',
-        sourcePrimary: 'example.org',
-        sourceBackup: 'example.net',
-        openAt: at(-60_000),
-        closeAt: at(120_000),
-        eventStartAt: at(120_000),
-        eventEndAt: at(180_000),
-        options: [
-          { label: t('是'), winCondition: t('公布为是') },
-          { label: t('否'), winCondition: t('公布为否') },
-        ],
-      },
-    }),
-    '建草稿',
-  );
-  await json(await admin.post(`/api/admin/markets/${draft.publicNo}/publish`, { data: { checked: true } }), '上架');
-  return { no: draft.publicNo, yes: draft.options[0].optionNo, nope: draft.options[1].optionNo };
-}
-
-async function bet(c: APIRequestContext, marketNo: string, optionNo: string, amount: string) {
-  return json<{ betNo: string }>(await c.post(`/api/markets/${marketNo}/bets`, { data: { optionNo, amount, clientReqId: randomUUID() } }), `下注 ${amount}`);
-}
-
-test('主线：注册 → 充值 → 两边下注 → 截止 → 超管填结果 → 结算 → 赢家余额正确 → 提现完成', async () => {
+test('主线：注册 → 充值 → 两边下注 → 截止 → 提议 → 确认 → 公示 → 到期结算 → 赢家余额正确 → 提现完成', async () => {
   const anon = await request.newContext({ baseURL: STUB_URL });
   try {
     let admin = await step('超管登录；冷静期、白名单生效时间设成 0（规则本身由后端测试覆盖）', async () => {
@@ -80,11 +47,37 @@ test('主线：注册 → 充值 → 两边下注 → 截止 → 超管填结果
       const d = await json<{ status: string }>(await winner.api.get(`/api/markets/${m.no}`), '市场详情');
       expect(d.status).toBe('pending_resolution');
     });
-    await step('超管填结果"是"并直接结算（高危：原因必填、勾选确认）', async () => {
+    await step('裁决台：提议"是"（依据链接 + 理由）→ 确认（高危：原因必填、勾选确认）→ 公示中，争议窗口 2 分钟', async () => {
       admin = await adminSession(anon); // 拨过时钟，后台会话过期，重新登录
-      const bad = await admin.post(`/api/admin/markets/${m.no}/settle`, { data: { optionNo: m.yes } });
+      const list = await json<{ items: { marketNo: string }[] }>(await admin.get('/api/admin/resolve/cases?tab=awaiting_proposal&pageSize=100'), '待提议');
+      expect(list.items.map((i) => i.marketNo)).toContain(m.no);
+      const proposed = await json<{ detail: { summary: { proposal: { proposalId: string } } }; proposalPreview: { sumPayout: string; conserved: boolean } }>(
+        await admin.post(`/api/admin/resolve/cases/${m.no}/proposals`, {
+          data: { optionNo: m.yes, evidenceUrls: ['https://example.org/official'], note: '官方公布：是' },
+        }),
+        '提议',
+      );
+      expect(proposed.proposalPreview.sumPayout, '结算预览').toBe('195.00');
+      expect(proposed.proposalPreview.conserved).toBe(true);
+      const id = proposed.detail.summary.proposal.proposalId;
+      const bad = await admin.post(`/api/admin/resolve/cases/${m.no}/proposals/${id}/confirm`, { data: {} });
       expect(bad.status(), '没有原因、没有勾选：400').toBe(400);
-      let o = await json<Outcome>(await admin.post(`/api/admin/markets/${m.no}/settle`, { data: { optionNo: m.yes, checked: true, reason: '官方公布：是' } }), '结算');
+      await json(await admin.post(`/api/admin/resolve/cases/${m.no}/proposals/${id}/confirm`, { data: { checked: true, reason: '核对官网' } }), '确认');
+      const d = await json<{ status: string; resolution: { resultOptionNo: string; disputeDeadlineAt: string; canDispute: boolean } }>(
+        await loser.api.get(`/api/markets/${m.no}`),
+        '市场详情',
+      );
+      expect(d.status).toBe('publicizing');
+      expect(d.resolution.resultOptionNo).toBe(m.yes);
+      expect(d.resolution.canDispute, '有下注的客户可以提交争议').toBe(true);
+      const inbox = await json<{ items: { title: string }[] }>(await loser.api.get('/api/notifications'), '站内信');
+      expect(inbox.items.map((i) => i.title).join('\n'), '#10 公示结果').toContain('公示结果');
+    });
+    await step('窗口到期、没有争议：公示任务结算（分批模式再跑一次派彩）', async () => {
+      await json(await anon.post('/api/e2e/clock/advance', { data: { millis: 120_000 } }), '拨到争议截止');
+      await json(await anon.post('/api/e2e/resolve/tick'), '公示期满结算');
+      admin = await adminSession(anon);
+      let o = await json<Outcome>(await admin.get(`/api/admin/markets/${m.no}/settlement`), '结算情况');
       if (o.settlePhase === 'paying') {
         await json(await anon.post('/api/e2e/settle/tick'), '派彩（分批模式）');
         o = await json<Outcome>(await admin.get(`/api/admin/markets/${m.no}/settlement`), '结算情况');
@@ -95,6 +88,8 @@ test('主线：注册 → 充值 → 两边下注 → 截止 → 超管填结果
       expect(o.payout?.sumPayout).toBe('195.00');
       expect(o.payout?.sumFee).toBe('5.00');
       expect(o.payout?.dust).toBe('0.00');
+      const gone = await admin.post(`/api/admin/markets/${m.no}/settle`, { data: { optionNo: m.yes, checked: true, reason: 'x' } });
+      expect([404, 405], 'S5 的临时入口已删除（SQ-10）').toContain(gone.status());
     });
     await step('赢家余额逐分正确；输家本金进了赢方；流水有派彩、抽成（带市场）；站内信 #11 / #12', async () => {
       const a = await account(winner.api);

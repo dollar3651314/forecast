@@ -42,6 +42,10 @@
     SELECT DISTINCT user_id FROM pool_position WHERE market_id = #{marketId} AND amount &gt; 0 ORDER BY user_id
   </select>
 
+  <select id="hasPosition" resultType="int">
+    SELECT COUNT(*) FROM pool_position WHERE market_id = #{marketId} AND user_id = #{userId} AND amount &gt; 0
+  </select>
+
   <sql id="betCols">
     b.id, b.public_no, b.user_id, b.market_id, b.option_id, b.amount, b.client_req_id, b.received_at, b.status, b.refund_reason, b.refunded_at,
     b.snapshot, b.created_at

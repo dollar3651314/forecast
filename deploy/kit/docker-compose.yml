@@ -74,6 +74,8 @@ services:
       FC_ID_NODE: ${FC_ID_NODE:-1}
       # 结算派彩每批的持仓数（forecast S5）：500（默认）= 先算好再分批派彩（AQ-3 已定：B）；0 = 计算和派彩同一个事务
       FC_SETTLE_BATCH_SIZE: ${FC_SETTLE_BATCH_SIZE:-500}
+      # 加密自动裁决的第三源 Coinbase（forecast S6，AQ-13）：默认关闭；true = 主备一方拿不到时用它补位
+      FC_SOURCE_COINBASE_ENABLED: ${FC_SOURCE_COINBASE_ENABLED:-false}
       # 区块链（D4 第二步才填，全部用测试网）；没配置的链不扫块
       FC_WALLET_TRON_XPUB: ${FC_WALLET_TRON_XPUB:-}
       FC_WALLET_ETH_RPC_URL: ${FC_WALLET_ETH_RPC_URL:-}

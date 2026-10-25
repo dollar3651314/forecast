@@ -158,7 +158,8 @@
       "bet": "下注",
       "payout": "派彩",
       "fee": "抽成",
-      "refund": "下注退回"
+      "refund": "下注退回",
+      "compensation": "补偿"
     },
     "icon": {
       "deposit": "入",
@@ -167,7 +168,8 @@
       "bet": "注",
       "payout": "派",
       "fee": "费",
-      "refund": "还"
+      "refund": "还",
+      "compensation": "补"
     },
     "range": {
       "7d": "近 7 天",

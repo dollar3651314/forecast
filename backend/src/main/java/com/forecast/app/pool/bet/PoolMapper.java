@@ -88,6 +88,9 @@ interface PoolMapper {
   /** 提现自动审批 R8：从 since 起的有效下注本金（退回的、取消 / 作废市场里的不算） */
   BigDecimal effectiveStakeSince(@Param("userId") long userId, @Param("since") LocalDateTime since);
 
+  /** 这个客户在这个市场的有效持仓个数（S7：能不能提交争议） */
+  int hasPosition(@Param("userId") long userId, @Param("marketId") long marketId);
+
   /** 一个市场有效下注的合计（对账、测试用） */
   BigDecimal sumActiveBets(@Param("marketId") long marketId);
 

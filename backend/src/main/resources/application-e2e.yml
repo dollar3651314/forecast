@@ -36,3 +36,13 @@ forecast:
   # 证件照片放在临时目录
   storage:
     local-dir: ${FC_STORAGE_DIR:${java.io.tmpdir}/forecast-e2e-storage}
+  # 自动裁决（forecast S6）：币安、OKX 的地址指向后端自己的替身 /api/e2e/candles/**（resolve/web/E2eCandles），端到端走真实的适配器、网关和裁决器，
+  # 不连外网；第三源关闭。部署形态里后端在容器里访问自己的 8080 端口
+  resolve:
+    sources:
+      binance:
+        base-url: http://127.0.0.1:${server.port:8080}/api/e2e/candles/binance
+      okx:
+        base-url: http://127.0.0.1:${server.port:8080}/api/e2e/candles/okx
+      coinbase:
+        enabled: false

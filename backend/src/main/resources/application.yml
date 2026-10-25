@@ -183,6 +183,9 @@ forecast:
   # 后端测试里关闭（测试直接调用）。费率、下注限额、争议窗口等参数在后台"参数设置"（common_config，迁移 V10），不在这里
   market:
     clock-enabled: true
+    # 加密市场自动生成任务（forecast S6，market/autogen/CryptoAutogenJob）：每分钟一轮，按后台启用的自动生成模板生成并直接上架。
+    # 模板（按场次 / 滚动、币种、周期）在后台"加密自动生成"里配置，新库默认 BTC 1 小时每天 13:00 UTC 一场、关闭（启用要 market:publish 检查一次）
+    autogen-enabled: true
   # 结算（forecast S5，settle/run/SettleProperties）。batch-size：派彩时每批的持仓数（退款时每批的下注数）；
   # 500（默认）= 先算好、落结算单，再每批一个事务分批派彩、可以续跑（架构方案第 4.3 节方案 B，AQ-3 Amos 2026-10-25 定）；
   # 0 = 计算和派彩在同一个事务里一次完成（保留为可配置项）。派彩任务每 2 秒推进分批派彩的单（提交后也立即跑一轮）；彩池对账每天 UTC 00:30。
@@ -190,6 +193,39 @@ forecast:
     batch-size: ${FC_SETTLE_BATCH_SIZE:500}
     worker-enabled: true
     recon-enabled: true
+  # 自动裁决（forecast S6，resolve 模块；技术方案/v1-架构方案.md 第 6 节，外部调用清单第 6.3 节，agents C81）。
+  # 加密市场：窗口结束 1 分钟后取主源（币安）和备源（OKX）的 1 分钟 K 线，方向一致 → 结算；不一致或拿不到 → 每分钟重试，30 分钟后转人工。
+  # 数据源都是公开行情接口，不要 key。Coinbase 是第三源（BTC-USD），默认关闭，只在主备一方拿不到时补位（AQ-13）。
+  resolve:
+    crypto-enabled: true
+    # 平台裁决（forecast S7，resolve/platform/PlatformJob）：公示期满、没有争议 → 结算（每 15 秒）；E6 延期 / E7 腰斩等满 48 小时 → 作废、
+    # 待提议 / 待确认 / 争议处理超时 → 邮件提醒（每分钟）。时限和争议窗口在后台"参数设置"（common_config，迁移 V10、V15），不在这里
+    platform-enabled: true
+    first-delay: 60s
+    retry-interval: 60s
+    give-up-after: 30m
+    gateway:
+      connect-timeout: 3s
+      read-timeout: 5s
+      # 一轮取数最多 3 次，间隔 1 秒、2 秒（不超过 4 秒）；只重试超时、连不上、断开、5xx、429
+      attempts: 3
+      backoff: 1s
+      max-backoff: 4s
+      # 连续 5 次失败熔断 60 秒，之后放 1 次探测
+      failure-threshold: 5
+      open-duration: 60s
+      max-body-bytes: 1048576
+    sources:
+      binance:
+        enabled: true
+        # api.binance.com 在开发环境出口返回 451（架构方案第 6.1 节，2026-10-24 实测），用只读行情域名
+        base-url: https://data-api.binance.vision
+      okx:
+        enabled: true
+        base-url: https://www.okx.com
+      coinbase:
+        enabled: ${FC_SOURCE_COINBASE_ENABLED:false}
+        base-url: https://api.coinbase.com
   # 对象存储（证件照片）。现在是本地目录，正式环境在 S20 换成对象存储服务
   storage:
     local-dir: ${FC_STORAGE_DIR:./data/storage}

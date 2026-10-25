@@ -90,4 +90,48 @@ public interface MarketApi {
 
   /** 结算阶段 from → to（带旧值的条件更新）；当前不是 from 时返回 false、什么都不改 */
   boolean casSettlePhase(long marketId, SettlePhase from, SettlePhase to);
+
+  /**
+   * 自动裁决要用的市场信息（forecast S6）。
+   *
+   * @param resolutionMode 裁决方式（草稿可能为空）
+   * @param sourceRef 自动裁决用的结构化参数（{@code source_ref}，加密：{@code kind = CRYPTO_UPDOWN}、{@code symbol}、{@code windowStart}、
+   *     {@code windowEnd}、{@code options}（结果 → 选项序号，例如 {@code {"UP": 1, "DOWN": 2}}）），没有为空
+   * @param autogenId 由哪个自动生成模板生成（内部 id），手工建的为空
+   */
+  record AutoRef(long marketId, long publicNo, MarketStatus status, MarketCategory category, ResolutionMode resolutionMode, Map<String, Object> sourceRef,
+      Instant eventStartAt, Instant eventEndAt, I18nText title, List<OptionRef> options, Long autogenId) {}
+
+  /** 按内部 id 取自动裁决要用的信息；可以在调用方的事务里调用（只读） */
+  Optional<AutoRef> autoRef(long marketId);
+
+  /**
+   * 平台裁决要用的市场信息（forecast S7）。
+   *
+   * @param disputeWindowMin 市场上的争议窗口（分钟，平台裁决的市场建的时候按品类带出；自动裁决的市场为空）
+   * @param winningOptionId 已经记下的结果（公示中是拟定结果），没有为空
+   * @param resolvedBy 裁决人编号（管理员 id 或 AUTO）
+   * @param disputeDeadlineAt 争议截止时间（公示中才有）
+   */
+  record PlatformRef(long marketId, long publicNo, MarketStatus status, SettlePhase settlePhase, MarketCategory category, ResolutionMode resolutionMode,
+      I18nText title, List<OptionRef> options, Instant closeAt, Instant eventStartAt, Instant eventEndAt, Integer disputeWindowMin, Long winningOptionId,
+      Instant actualStartAt, String resolvedBy, Instant disputeDeadlineAt, String voidReason) {}
+
+  /** 按内部 id 取平台裁决要用的信息（只读）；不存在、删除的草稿为空 */
+  Optional<PlatformRef> platformRef(long marketId);
+
+  /**
+   * 平台裁决的写操作开头调用（<b>必须在调用方的事务里</b>）：市场行加<b>排他锁</b>（和截止任务、结算、状态跳转串行；锁住以后结算阶段、状态不会被别人改）。
+   * 市场不存在或是草稿时抛 {@code NOT_FOUND}。
+   */
+  PlatformRef lockPlatform(long marketId);
+
+  /**
+   * 确认结果、进入公示（forecast S7，第 11 条边 PENDING_RESOLUTION → PUBLICIZING）：带旧状态的条件跳转（写状态历史、通知监听者），
+   * 同时写拟定结果、实际开赛时间、裁决人编号、争议截止时间。必须在 {@link #lockPlatform} 的同一个事务里调用；
+   * 市场不在待裁决或结算已经开始时返回 false、什么都不改。选项必须属于这个市场（否则抛 {@code OPTION_NOT_FOUND}）。
+   *
+   * @param actor 状态历史里的操作人（管理员 id）
+   */
+  boolean publicize(long marketId, long optionId, Instant actualStartAt, String resolvedBy, Instant disputeDeadlineAt, String actor);
 }
