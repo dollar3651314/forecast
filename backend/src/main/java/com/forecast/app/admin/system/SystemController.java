@@ -168,4 +168,37 @@ class SystemController {
   SystemService.ConfigView updateConfig(@PathVariable String key, @RequestBody ConfigBody body) {
     return system.updateConfig(AdminContext.current(), key, body == null ? null : body.value(), body == null ? null : body.reason());
   }
+
+  // ---------- 参数设置（forecast S3，需求说明书第 6.2 节；页面在原型确认后做） ----------
+
+  /** 修改参数：expected 是页面打开时看到的值（可选），和数据库里的不同时返回 409 CONFIG_CHANGED */
+  record ParamBody(String value, String reason, String expected) {}
+
+  /** 品类默认费率（新建市场时带出；改了只影响之后新建的市场） */
+  @RequiresPermission(Permission.FEE_EDIT)
+  @GetMapping("/api/admin/params/fee")
+  List<SystemService.ParamView> feeParams() {
+    return system.params(com.forecast.app.common.config.ConfigKey.Params.FEE);
+  }
+
+  @RequiresPermission(Permission.FEE_EDIT)
+  @PutMapping("/api/admin/params/fee/{key}")
+  SystemService.ParamView updateFeeParam(@PathVariable String key, @RequestBody(required = false) ParamBody body) {
+    return system.updateParam(AdminContext.current(), com.forecast.app.common.config.ConfigKey.Params.FEE, key, body == null ? null : body.value(),
+        body == null ? null : body.reason(), body == null ? null : body.expected());
+  }
+
+  /** 下注限额、单客户上限、加密截止 / 开放提前量、争议窗口、KYC 阈值、单笔最小提现 */
+  @RequiresPermission(Permission.BETTING_PARAMS_EDIT)
+  @GetMapping("/api/admin/params/betting")
+  List<SystemService.ParamView> bettingParams() {
+    return system.params(com.forecast.app.common.config.ConfigKey.Params.BETTING);
+  }
+
+  @RequiresPermission(Permission.BETTING_PARAMS_EDIT)
+  @PutMapping("/api/admin/params/betting/{key}")
+  SystemService.ParamView updateBettingParam(@PathVariable String key, @RequestBody(required = false) ParamBody body) {
+    return system.updateParam(AdminContext.current(), com.forecast.app.common.config.ConfigKey.Params.BETTING, key, body == null ? null : body.value(),
+        body == null ? null : body.reason(), body == null ? null : body.expected());
+  }
 }

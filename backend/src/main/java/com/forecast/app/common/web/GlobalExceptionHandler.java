@@ -40,6 +40,11 @@ public class GlobalExceptionHandler {
       Map.entry("CONFIG_CHANGED", HttpStatus.CONFLICT),
       // v2 资金归集：这条链有进行中的批次，等它完成
       Map.entry("SWEEP_BATCH_ACTIVE", HttpStatus.CONFLICT),
+      // forecast S3 市场：不是 17 条边之一、状态刚被别人改过、上架后不能改的内容、结算开始后不能改费率
+      Map.entry("ILLEGAL_TRANSITION", HttpStatus.CONFLICT),
+      Map.entry("MARKET_STATE_CHANGED", HttpStatus.CONFLICT),
+      Map.entry("MARKET_NOT_EDITABLE", HttpStatus.CONFLICT),
+      Map.entry("FEE_LOCKED", HttpStatus.CONFLICT),
       Map.entry("NOT_FOUND", HttpStatus.NOT_FOUND));
 
   @ExceptionHandler(BizException.class)

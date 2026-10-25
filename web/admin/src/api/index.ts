@@ -167,6 +167,10 @@ export const listAuditActions: typeof real.listAuditActions = IS_MOCK ? mock.lis
 export const listSystemConfigs: typeof real.listSystemConfigs = IS_MOCK ? mock.listSystemConfigs : real.listSystemConfigs;
 /** PUT /api/admin/configs/{key}（高危） */
 export const updateSystemConfig: typeof real.updateSystemConfig = IS_MOCK ? mock.updateSystemConfig : real.updateSystemConfig;
+/** GET /api/admin/params/{fee|betting}（forecast S3 参数设置：fee:edit / betting_params:edit） */
+export const listParams: typeof real.listParams = IS_MOCK ? mock.listParams : real.listParams;
+/** PUT /api/admin/params/{fee|betting}/{key}（高危；expected 不对 409 CONFIG_CHANGED） */
+export const updateParam: typeof real.updateParam = IS_MOCK ? mock.updateParam : real.updateParam;
 
 // ---- 原型场景（只在 mock 模式下有界面入口） ----
 // 真实接口模式下恒为"正常数据"、版本号恒为 0；按编译期常量选，real 构建不打包模拟层（vite.config.ts 的 mockFree）

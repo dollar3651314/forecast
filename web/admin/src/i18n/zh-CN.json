@@ -611,7 +611,28 @@
     "withdrawal_emergency_cancel": "紧急取消出金",
     "withdrawal_auto_rule_edit": "修改提现自动审批规则",
     "withdrawal_review": "审核出金",
-    "withdrawal_view": "查看出金"
+    "withdrawal_view": "查看出金",
+    "market_view": "查看市场",
+    "market_edit": "编辑市场草稿",
+    "market_publish": "上架市场",
+    "market_pause": "暂停 / 恢复下注",
+    "market_cancel": "取消市场",
+    "market_clarify": "发布补充说明",
+    "market_autogen": "管理自动生成模板",
+    "bet_view": "查看下注记录",
+    "resolve_propose": "提议结果",
+    "resolve_confirm": "确认结果",
+    "resolve_void": "作废市场",
+    "dispute_view": "查看争议",
+    "dispute_handle": "处理争议",
+    "settle_compensate": "发起和确认补偿",
+    "pool_recon_view": "查看彩池对账",
+    "pool_recon_resolve": "处理彩池对账差异",
+    "report_view": "查看报表",
+    "fee_edit": "修改费率",
+    "betting_params_edit": "修改下注参数",
+    "risk_alert_view": "查看风控告警",
+    "risk_alert_handle": "处理风控告警"
   },
   "permModule": {
     "customer": "客户",
@@ -620,7 +641,11 @@
     "kyc": "KYC",
     "notify": "通知",
     "risk": "风控",
-    "system": "系统"
+    "system": "系统",
+    "market": "市场",
+    "resolve": "裁决与争议",
+    "settle": "结算与对账",
+    "params": "参数与费率"
   },
   "permissions": {
     "code": "权限点",

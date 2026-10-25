@@ -611,7 +611,28 @@
     "withdrawal_emergency_cancel": "Emergency-cancel withdrawals",
     "withdrawal_auto_rule_edit": "Edit withdrawal auto-approval rules",
     "withdrawal_review": "Review withdrawals",
-    "withdrawal_view": "View withdrawals"
+    "withdrawal_view": "View withdrawals",
+    "market_view": "View markets",
+    "market_edit": "Edit market drafts",
+    "market_publish": "List markets",
+    "market_pause": "Pause / resume betting",
+    "market_cancel": "Cancel markets",
+    "market_clarify": "Publish clarifications",
+    "market_autogen": "Manage auto-generation templates",
+    "bet_view": "View bets",
+    "resolve_propose": "Propose results",
+    "resolve_confirm": "Confirm results",
+    "resolve_void": "Void markets",
+    "dispute_view": "View disputes",
+    "dispute_handle": "Handle disputes",
+    "settle_compensate": "Issue compensation",
+    "pool_recon_view": "View pool reconciliation",
+    "pool_recon_resolve": "Resolve pool reconciliation",
+    "report_view": "View reports",
+    "fee_edit": "Edit fees",
+    "betting_params_edit": "Edit betting parameters",
+    "risk_alert_view": "View risk alerts",
+    "risk_alert_handle": "Handle risk alerts"
   },
   "permModule": {
     "customer": "Customers",
@@ -620,7 +641,11 @@
     "kyc": "KYC",
     "notify": "Notifications",
     "risk": "Risk",
-    "system": "System"
+    "system": "System",
+    "market": "Markets",
+    "resolve": "Resolution & disputes",
+    "settle": "Settlement & reconciliation",
+    "params": "Parameters & fees"
   },
   "permissions": {
     "code": "Code",

@@ -40,6 +40,8 @@ import type {
   Role,
   RoleInput,
   SystemConfig,
+  ParamItem,
+  ParamSection,
   SweepBatch,
   SweepBatchDetail,
   SweepBatchQuery,
@@ -433,6 +435,19 @@ export function listSystemConfigs(): Promise<SystemConfig[]> {
 
 export async function updateSystemConfig(key: string, value: string, reason: string): Promise<void> {
   await request(`/configs/${enc(key)}`, { method: 'PUT', body: { value, reason } });
+}
+
+/** 参数设置（forecast S3）：一组参数 */
+export function listParams(section: ParamSection): Promise<ParamItem[]> {
+  return request(`/params/${section}`);
+}
+
+/**
+ * 改一项参数（高危，原因必填）。expected 是打开页面时看到的值：别人已经改过时返回 409 CONFIG_CHANGED，不覆盖。
+ * 单笔最小提现（withdraw.minAmount）S3 起在这里改（betting_params:edit），不再在系统配置页。
+ */
+export async function updateParam(section: ParamSection, key: string, value: string, reason: string, expected?: string): Promise<void> {
+  await request(`/params/${section}/${enc(key)}`, { method: 'PUT', body: { value, reason, expected } });
 }
 
 // ================= S18b：仪表盘、交易监控、风控、品种与行情、交易参数（后台方案第 9 节） =================

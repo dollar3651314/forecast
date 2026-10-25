@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 定时任务租约（技术方案/v1-架构方案.md 第 5.3 节，forecast S3）。时间用数据库的 UTC_TIMESTAMP(3)，不用各实例自己的时钟。 -->
+<mapper namespace="com.forecast.app.common.job.JobLeaseMapper">
+
+  <insert id="ensure">
+    INSERT IGNORE INTO common_job_lease (name, owner, lease_until, updated_at) VALUES (#{name}, '', '1970-01-01 00:00:00.000', UTC_TIMESTAMP(3))
+  </insert>
+
+  <update id="acquire">
+    UPDATE common_job_lease SET owner = #{owner}, lease_until = UTC_TIMESTAMP(3) + INTERVAL #{ttlMillis} * 1000 MICROSECOND, updated_at = UTC_TIMESTAMP(3)
+    WHERE name = #{name} AND (lease_until &lt; UTC_TIMESTAMP(3) OR owner = #{owner})
+  </update>
+
+  <update id="renew">
+    UPDATE common_job_lease SET lease_until = UTC_TIMESTAMP(3) + INTERVAL #{ttlMillis} * 1000 MICROSECOND, updated_at = UTC_TIMESTAMP(3)
+    WHERE name = #{name} AND owner = #{owner}
+  </update>
+
+  <update id="release">
+    UPDATE common_job_lease SET lease_until = UTC_TIMESTAMP(3), updated_at = UTC_TIMESTAMP(3) WHERE name = #{name} AND owner = #{owner}
+  </update>
+</mapper>

@@ -13,6 +13,7 @@ import type {
   NotifyTemplate,
   ReconItem,
   Role,
+  ParamItem,
   SystemConfig,
   HotWalletBalance,
   TaskItem,
@@ -515,7 +516,6 @@ const withdrawFeeKey = (chain: string) => `withdraw.fee.${chain}`;
 export const hotWalletMinKey = (chain: string, gas: boolean) => `hotWallet.${gas ? 'minGas' : 'minUsdt'}.${chain}`;
 
 export const systemConfigs: SystemConfig[] = [
-  { key: 'withdraw.minAmount', value: '100', unit: 'usdt', group: 'withdraw', updatedAt: '2026-10-01 10:00:00' },
   { key: 'withdraw.maxSingle', value: '10000', unit: 'usdt', group: 'withdraw', updatedAt: '2026-10-01 10:00:00' },
   { key: 'withdraw.dailyLimit', value: '30000', unit: 'usdt', group: 'withdraw', updatedAt: '2026-10-01 10:00:00' },
   { key: 'withdraw.coolingHours', value: '2', unit: 'hours', group: 'withdraw', updatedAt: '2026-10-01 10:00:00' },
@@ -542,6 +542,25 @@ export const systemConfigs: SystemConfig[] = [
   { key: hotWalletMinKey('ERC20', true), value: '0', unit: 'eth', group: 'hotWallet', updatedAt: null },
   { key: hotWalletMinKey('BSC', true), value: '0', unit: 'bnb', group: 'hotWallet', updatedAt: null },
   { key: hotWalletMinKey('TRC20', true), value: '0', unit: 'trx', group: 'hotWallet', updatedAt: null },
+];
+
+// ---------------- 参数设置（forecast S3，和后端迁移 V10、ConfigKey 一致；单笔最小提现从系统配置搬到这里） ----------------
+const feeKey = (c: string) => `market.fee.${c}`;
+export const params: ParamItem[] = [
+  ...['FOOTBALL', 'NBA', 'CRYPTO_15M', 'CRYPTO_1H', 'MACRO'].map((c): ParamItem => ({ key: feeKey(c), value: '5', unit: 'percent', group: 'fee', section: 'fee', updatedAt: null })),
+  { key: 'withdraw.minAmount', value: '100', unit: 'usdt', group: 'withdraw', section: 'betting', updatedAt: '2026-10-01 10:00:00' },
+  { key: 'bet.minAmount', value: '1', unit: 'usdt', group: 'bet', section: 'betting', updatedAt: null },
+  { key: 'bet.maxAmount', value: '5000', unit: 'usdt', group: 'bet', section: 'betting', updatedAt: null },
+  ...['FOOTBALL', 'NBA', 'CRYPTO_15M', 'CRYPTO_1H', 'MACRO'].map(
+    (c): ParamItem => ({ key: `bet.userCap.${c}`, value: c.startsWith('CRYPTO') ? '2000' : '10000', unit: 'usdt', group: 'bet', section: 'betting', updatedAt: null }),
+  ),
+  { key: 'crypto.closeLeadSeconds', value: '30', unit: 'seconds', group: 'crypto', section: 'betting', updatedAt: null },
+  { key: 'crypto.openLeadMinutes.CRYPTO_15M', value: '60', unit: 'minutes', group: 'crypto', section: 'betting', updatedAt: null },
+  { key: 'crypto.openLeadMinutes.CRYPTO_1H', value: '180', unit: 'minutes', group: 'crypto', section: 'betting', updatedAt: null },
+  { key: 'dispute.windowMinutes.FOOTBALL', value: '120', unit: 'minutes', group: 'dispute', section: 'betting', updatedAt: null },
+  { key: 'dispute.windowMinutes.NBA', value: '120', unit: 'minutes', group: 'dispute', section: 'betting', updatedAt: null },
+  { key: 'dispute.windowMinutes.MACRO', value: '1440', unit: 'minutes', group: 'dispute', section: 'betting', updatedAt: null },
+  { key: 'kyc.depositThreshold', value: '1000', unit: 'usdt', group: 'kyc', section: 'betting', updatedAt: null },
 ];
 
 /** 热钱包余额（原型数据；地址是公开的测试地址，不是密钥）。下限在 systemConfigs 里 */

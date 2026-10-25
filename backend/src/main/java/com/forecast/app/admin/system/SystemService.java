@@ -34,6 +34,9 @@ class SystemService {
   /** 字段和原型 SystemConfig 一致 */
   record ConfigView(String key, String value, String unit, String group, String updatedAt) {}
 
+  /** 参数设置页的一项（forecast S3）：section 是 fee（fee:edit）或 betting（betting_params:edit） */
+  record ParamView(String key, String value, String unit, String group, String section, String updatedAt) {}
+
   private final SystemMapper mapper;
   private final SystemConfig config;
   private final Audit audit;
@@ -155,6 +158,47 @@ class SystemService {
       if (min.compareTo(new java.math.BigDecimal(feeText)) <= 0) errs.add(e.getKey(), isMin ? "minNotAboveFee" : "feeNotBelowMin");
     }
     errs.throwIfAny();
+  }
+
+  // ---------- 参数设置（forecast S3，需求说明书第 6.2 节） ----------
+
+  /** 参数设置页某一组的全部项（fee：品类默认费率；betting：下注限额、截止提前量、争议窗口、KYC 阈值、单笔最小提现） */
+  List<ParamView> params(ConfigKey.Params section) {
+    return config.list().stream().filter(e -> e.key().params == section).map(this::paramView).toList();
+  }
+
+  private ParamView paramView(SystemConfig.Entry e) {
+    return new ParamView(e.key().key, e.value(), e.key().unit.api(), e.key().group, e.key().params.name().toLowerCase(), AdminUserService.time(e.updatedAt()));
+  }
+
+  /**
+   * 改一项参数（高危，原因必填，审计写前 → 后）。键必须属于这一组（fee 组要 fee:edit、betting 组要 betting_params:edit，由接口的权限点保证）；
+   * 值按 {@link ConfigKey#normalize} 校验范围和小数位；单笔最小提现照样和三条链的手续费互相校验。
+   * {@code expected}：页面打开时看到的值；传了而数据库里的值已经不同（别人刚改过），返回 409 {@code CONFIG_CHANGED}，不覆盖（需求第 6.2 节"有人同时修改时后保存的提示冲突"）。
+   */
+  @Transactional
+  ParamView updateParam(AdminContext actor, ConfigKey.Params section, String key, String value, String reason, String expected) {
+    String r = Audit.requireReason(reason);
+    return audit.run("params.update", key, true, r, () -> {
+      ConfigKey k = ConfigKey.of(key).filter(x -> x.params == section).orElseThrow(() -> new BizException("NOT_FOUND", "参数不存在"));
+      String v = k.normalize(value).orElseThrow(() -> new ValidationException(List.of(new ValidationException.Field("value", "invalid"))));
+      String current = config.lockedValue(k);
+      if (expected != null && !sameValue(expected, current)) throw new BizException("CONFIG_CHANGED", "参数已被别人修改，请刷新后再改");
+      checkWithdrawMinAboveFees(k, v);
+      String old = config.set(k, v, actor.adminId(), LocalDateTime.now(clock));
+      ParamView view = params(section).stream().filter(c -> c.key().equals(k.key)).findFirst().orElseThrow();
+      return Audit.Change.of(view, Map.of("value", old == null ? "" : old), Map.of("value", v));
+    });
+  }
+
+  /** 数值按大小比（"100" 和 "100.00" 相同），文字按原样比 */
+  private static boolean sameValue(String a, String b) {
+    if (b == null) return a.isBlank();
+    try {
+      return new java.math.BigDecimal(a.strip()).compareTo(new java.math.BigDecimal(b.strip())) == 0;
+    } catch (NumberFormatException e) {
+      return a.strip().equals(b.strip());
+    }
   }
 
   /**

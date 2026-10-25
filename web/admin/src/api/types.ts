@@ -548,6 +548,20 @@ export interface AuditQuery extends PageQuery {
   keyword?: string;
 }
 
+/** 参数设置的一组（forecast S3）：fee 品类默认费率（fee:edit）；betting 下注限额、争议窗口、KYC 阈值、单笔最小提现等（betting_params:edit） */
+export type ParamSection = 'fee' | 'betting';
+
+/** 参数设置的一项（后端 SystemService.ParamView，GET /api/admin/params/{section}）；页面在原型确认后做 */
+export interface ParamItem {
+  key: string;
+  value: string;
+  unit: 'usdt' | 'percent' | 'minutes' | 'seconds';
+  group: string;
+  section: ParamSection;
+  /** 从没改过时为空 */
+  updatedAt: string | null;
+}
+
 export interface SystemConfig {
   key: string;
   value: string;

@@ -205,13 +205,13 @@ class AdminSystemTest extends AdminTestSupport {
     Admin s = superAdmin();
     try {
       JsonNode list = body(call(get("/api/admin/configs"), s.cookie(), null));
-      assertThat(list.size()).as("风控页、交易参数页的两项不在系统配置页").isEqualTo(java.util.Arrays.stream(ConfigKey.values()).filter(k -> k.configPage).count());
-      assertThat(list.toString()).as("单笔最小提现默认 100（RQ-16，迁移 V7）").contains("{\"key\":\"withdraw.minAmount\",\"value\":\"100\",\"unit\":\"usdt\",\"group\":\"withdraw\"");
+      assertThat(list.size()).as("自动审批、归集、参数设置的项不在系统配置页").isEqualTo(java.util.Arrays.stream(ConfigKey.values()).filter(k -> k.configPage).count());
+      assertThat(list.toString()).as("单笔最小提现 S3 起在参数设置页（betting_params:edit）").doesNotContain("withdraw.minAmount");
       assertThat(call(put("/api/admin/configs/deposit.confirmations.ERC20"), s.cookie(), "{\"value\":\"11\",\"reason\":\"加快到账\"}").getContentAsString())
           .contains("\"field\":\"value\"");
       assertThat(call(put("/api/admin/configs/withdraw.coolingHours"), s.cookie(), "{\"value\":\"1.5\",\"reason\":\"x\"}").getStatus()).isEqualTo(400);
-      assertThat(call(put("/api/admin/configs/withdraw.minAmount"), s.cookie(), "{\"value\":\"-1\",\"reason\":\"x\"}").getStatus()).isEqualTo(400);
-      assertThat(call(put("/api/admin/configs/withdraw.minAmount"), s.cookie(), "{\"value\":\"20\"}").getContentAsString()).contains("\"field\":\"reason\"");
+      assertThat(call(put("/api/admin/params/betting/withdraw.minAmount"), s.cookie(), "{\"value\":\"-1\",\"reason\":\"x\"}").getStatus()).isEqualTo(400);
+      assertThat(call(put("/api/admin/params/betting/withdraw.minAmount"), s.cookie(), "{\"value\":\"20\"}").getContentAsString()).contains("\"field\":\"reason\"");
       assertThat(call(put("/api/admin/configs/nope"), s.cookie(), "{\"value\":\"1\",\"reason\":\"x\"}").getStatus()).isEqualTo(404);
       MockHttpServletResponse ok = call(put("/api/admin/configs/deposit.confirmations.ERC20"), s.cookie(), "{\"value\":\"20\",\"reason\":\"链上拥堵\"}");
       assertThat(body(ok).get("value").asString()).isEqualTo("20");
@@ -228,26 +228,29 @@ class AdminSystemTest extends AdminTestSupport {
     }
   }
 
-  /** 单笔最小提现必须大于每条链的提现手续费（需求 RQ-16、第 3.11 节、AC-61）：改最小金额、改手续费都检查，并指出是哪条链 */
+  /**
+   * 单笔最小提现必须大于每条链的提现手续费（需求 RQ-16、第 3.11 节、AC-61）：改最小金额、改手续费都检查，并指出是哪条链。
+   * S3 起最小金额在参数设置页改（{@code /api/admin/params/betting/withdraw.minAmount}，betting_params:edit），手续费仍在系统配置页。
+   */
   @Test
   void 系统配置_单笔最小提现必须大于每条链的手续费_指出是哪条链_AC61() throws Exception {
     Admin s = superAdmin();
     try {
-      MockHttpServletResponse r = call(put("/api/admin/configs/withdraw.minAmount"), s.cookie(), "{\"value\":\"5\",\"reason\":\"测试\"}");
+      MockHttpServletResponse r = call(put("/api/admin/params/betting/withdraw.minAmount"), s.cookie(), "{\"value\":\"5\",\"reason\":\"测试\"}");
       assertThat(r.getStatus()).isEqualTo(400);
       assertThat(body(r).get("fields").toString()).as("ERC20 手续费 5，不能等于").isEqualTo("[{\"field\":\"ERC20\",\"code\":\"minNotAboveFee\"}]");
-      r = call(put("/api/admin/configs/withdraw.minAmount"), s.cookie(), "{\"value\":\"1\",\"reason\":\"测试\"}");
+      r = call(put("/api/admin/params/betting/withdraw.minAmount"), s.cookie(), "{\"value\":\"1\",\"reason\":\"测试\"}");
       assertThat(body(r).get("fields").toString()).as("一次列出全部不满足的链")
           .isEqualTo("[{\"field\":\"ERC20\",\"code\":\"minNotAboveFee\"},{\"field\":\"TRC20\",\"code\":\"minNotAboveFee\"}]");
       assertThat(config.decimal(ConfigKey.WITHDRAW_MIN_AMOUNT, null)).as("被拒时没有保存").isEqualByComparingTo("100");
-      assertThat(body(call(put("/api/admin/configs/withdraw.minAmount"), s.cookie(), "{\"value\":\"5.01\",\"reason\":\"测试\"}")).get("value").asString()).isEqualTo("5.01");
+      assertThat(body(call(put("/api/admin/params/betting/withdraw.minAmount"), s.cookie(), "{\"value\":\"5.01\",\"reason\":\"测试\"}")).get("value").asString()).isEqualTo("5.01");
       // 反过来：手续费不能改到大于等于最小金额
       r = call(put("/api/admin/configs/withdraw.fee.ERC20"), s.cookie(), "{\"value\":\"5.01\",\"reason\":\"测试\"}");
       assertThat(r.getStatus()).isEqualTo(400);
       assertThat(body(r).get("fields").toString()).isEqualTo("[{\"field\":\"ERC20\",\"code\":\"feeNotBelowMin\"}]");
       assertThat(call(put("/api/admin/configs/withdraw.fee.BSC"), s.cookie(), "{\"value\":\"5\",\"reason\":\"测试\"}").getStatus()).isEqualTo(200);
       assertThat(config.decimal(ConfigKey.WITHDRAW_FEE_BSC, null)).isEqualByComparingTo("5");
-      assertThat(call(put("/api/admin/configs/withdraw.minAmount"), s.cookie(), "{\"value\":\"100\",\"reason\":\"恢复\"}").getStatus()).isEqualTo(200);
+      assertThat(call(put("/api/admin/params/betting/withdraw.minAmount"), s.cookie(), "{\"value\":\"100\",\"reason\":\"恢复\"}").getStatus()).isEqualTo(200);
     } finally {
       jdbc.update("UPDATE common_config SET value = ? WHERE config_key = ?", "100", ConfigKey.WITHDRAW_MIN_AMOUNT.key);
       jdbc.update("UPDATE common_config SET value = ? WHERE config_key = ?", "5", ConfigKey.WITHDRAW_FEE_ERC20.key);

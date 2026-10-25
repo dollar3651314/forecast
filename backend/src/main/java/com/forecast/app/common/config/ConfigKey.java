@@ -7,10 +7,14 @@ import java.util.Optional;
 /**
  * 后台可以改的系统配置（从复制源复制）。键名和单位、分组和后台 {@code web/admin} 的系统配置页一致。
  * 初始值在迁移脚本 V4__admin.sql 里（forecast 重建的基线），和 application.yml 的默认值一致。
- * forecast S1 删掉了调余额上限、追保、持仓上限；费率、下注限额、KYC 阈值、最小提现等第一期参数在 S3 加（技术方案/v1-架构方案.md 第 3.3 节）。
+ * forecast S1 删掉了调余额上限、追保、持仓上限。
+ * <p>forecast S3：第一期参数（需求说明书第 6.2 节"参数设置"、第 3.3、3.7、3.8、3.10、3.11 节；初始值在迁移 V10）不在系统配置页，
+ * 在"参数设置"（{@code /api/admin/params}）：品类默认费率归 {@link Params#FEE}（权限 fee:edit），其余归 {@link Params#BETTING}（权限 betting_params:edit），
+ * 单笔最小提现 {@code withdraw.minAmount} 也从系统配置页搬到这里（S2 的遗留，需求第 2.2 节）。
  */
 public enum ConfigKey {
-  WITHDRAW_MIN_AMOUNT("withdraw.minAmount", Unit.USDT, "withdraw", BigDecimal.ZERO),
+  /** 单笔最小提现（RQ-16，默认 100）：S3 起在参数设置页改（betting_params:edit），必须大于每条链的提现手续费（admin.system.SystemService） */
+  WITHDRAW_MIN_AMOUNT("withdraw.minAmount", Unit.USDT, "withdraw", BigDecimal.ZERO, new BigDecimal("1000000000"), 2, Params.BETTING),
   WITHDRAW_MAX_SINGLE("withdraw.maxSingle", Unit.USDT, "withdraw", BigDecimal.ONE),
   WITHDRAW_DAILY_LIMIT("withdraw.dailyLimit", Unit.USDT, "withdraw", BigDecimal.ONE),
   WITHDRAW_COOLING_HOURS("withdraw.coolingHours", Unit.HOURS, "withdraw", BigDecimal.ZERO),
@@ -83,7 +87,46 @@ public enum ConfigKey {
   SWEEP_CAP_PER_ADDRESS("sweep.evmCap.perAddress", Unit.USDT, "sweep", BigDecimal.ZERO, false),
   SWEEP_CAP_PER_BATCH("sweep.evmCap.perBatch", Unit.USDT, "sweep", BigDecimal.ZERO, false),
   SWEEP_OPERATOR_MIN_ERC20("sweep.operatorMin.ERC20", Unit.ETH, "sweep", BigDecimal.ZERO, false),
-  SWEEP_OPERATOR_MIN_BSC("sweep.operatorMin.BSC", Unit.BNB, "sweep", BigDecimal.ZERO, false);
+  SWEEP_OPERATOR_MIN_BSC("sweep.operatorMin.BSC", Unit.BNB, "sweep", BigDecimal.ZERO, false),
+  /*
+   * ---------- forecast S3：第一期参数（参数设置页，迁移 V10 的初始值） ----------
+   * 品类默认费率（需求第 3.8 节、RQ-4）：盈利部分的百分比，0～20，最多 2 位小数，初始都是 5。新建市场时带出，改了只影响之后新建的市场
+   */
+  FEE_FOOTBALL("market.fee.FOOTBALL", Unit.PERCENT, "fee", BigDecimal.ZERO, BigDecimal.valueOf(20), 2, Params.FEE),
+  FEE_NBA("market.fee.NBA", Unit.PERCENT, "fee", BigDecimal.ZERO, BigDecimal.valueOf(20), 2, Params.FEE),
+  FEE_CRYPTO_15M("market.fee.CRYPTO_15M", Unit.PERCENT, "fee", BigDecimal.ZERO, BigDecimal.valueOf(20), 2, Params.FEE),
+  FEE_CRYPTO_1H("market.fee.CRYPTO_1H", Unit.PERCENT, "fee", BigDecimal.ZERO, BigDecimal.valueOf(20), 2, Params.FEE),
+  FEE_MACRO("market.fee.MACRO", Unit.PERCENT, "fee", BigDecimal.ZERO, BigDecimal.valueOf(20), 2, Params.FEE),
+  /** 下注限额（需求第 3.3 节）：单笔最小 1、最大 5,000 USDT，最多 2 位小数（S4 下注时用） */
+  BET_MIN_AMOUNT("bet.minAmount", Unit.USDT, "bet", new BigDecimal("0.01"), new BigDecimal("1000000000"), 2, Params.BETTING),
+  BET_MAX_AMOUNT("bet.maxAmount", Unit.USDT, "bet", new BigDecimal("0.01"), new BigDecimal("1000000000"), 2, Params.BETTING),
+  /** 单客户单市场累计上限（按品类，默认 10,000；加密 15 分钟 / 1 小时 2,000）：新建市场时带出，单个市场只能调低 */
+  USER_CAP_FOOTBALL("bet.userCap.FOOTBALL", Unit.USDT, "bet", new BigDecimal("0.01"), new BigDecimal("1000000000"), 2, Params.BETTING),
+  USER_CAP_NBA("bet.userCap.NBA", Unit.USDT, "bet", new BigDecimal("0.01"), new BigDecimal("1000000000"), 2, Params.BETTING),
+  USER_CAP_CRYPTO_15M("bet.userCap.CRYPTO_15M", Unit.USDT, "bet", new BigDecimal("0.01"), new BigDecimal("1000000000"), 2, Params.BETTING),
+  USER_CAP_CRYPTO_1H("bet.userCap.CRYPTO_1H", Unit.USDT, "bet", new BigDecimal("0.01"), new BigDecimal("1000000000"), 2, Params.BETTING),
+  USER_CAP_MACRO("bet.userCap.MACRO", Unit.USDT, "bet", new BigDecimal("0.01"), new BigDecimal("1000000000"), 2, Params.BETTING),
+  /** 加密市场的截止提前量（窗口开始前 30 秒，RQ-13）和开放下注提前量（15 分钟 60 分钟、1 小时 180 分钟）；S6 自动生成时用 */
+  CRYPTO_CLOSE_LEAD_SECONDS("crypto.closeLeadSeconds", Unit.SECONDS, "crypto", BigDecimal.ZERO, BigDecimal.valueOf(3600), 0, Params.BETTING),
+  CRYPTO_OPEN_LEAD_15M("crypto.openLeadMinutes.CRYPTO_15M", Unit.MINUTES, "crypto", BigDecimal.ONE, BigDecimal.valueOf(10_080), 0, Params.BETTING),
+  CRYPTO_OPEN_LEAD_1H("crypto.openLeadMinutes.CRYPTO_1H", Unit.MINUTES, "crypto", BigDecimal.ONE, BigDecimal.valueOf(10_080), 0, Params.BETTING),
+  /** 争议窗口（平台裁决的市场，RQ-9）：体育 2 小时、时事 24 小时；新建市场时带出。加密是自动裁决，没有争议窗口 */
+  DISPUTE_WINDOW_FOOTBALL("dispute.windowMinutes.FOOTBALL", Unit.MINUTES, "dispute", BigDecimal.ONE, BigDecimal.valueOf(10_080), 0, Params.BETTING),
+  DISPUTE_WINDOW_NBA("dispute.windowMinutes.NBA", Unit.MINUTES, "dispute", BigDecimal.ONE, BigDecimal.valueOf(10_080), 0, Params.BETTING),
+  DISPUTE_WINDOW_MACRO("dispute.windowMinutes.MACRO", Unit.MINUTES, "dispute", BigDecimal.ONE, BigDecimal.valueOf(10_080), 0, Params.BETTING),
+  /** KYC 阈值（RQ-10）：累计充值超过它、没有通过证件 + 人脸认证的客户不能新下注（S10 起用） */
+  KYC_DEPOSIT_THRESHOLD("kyc.depositThreshold", Unit.USDT, "kyc", BigDecimal.ZERO, new BigDecimal("1000000000"), 2, Params.BETTING);
+
+  /**
+   * 参数设置页的哪一组（决定改它要哪个权限点）；{@link #NONE} 不在参数设置页。
+   */
+  public enum Params {
+    NONE,
+    /** 品类默认费率：fee:edit */
+    FEE,
+    /** 下注限额、截止提前量、争议窗口、KYC 阈值、单笔最小提现：betting_params:edit */
+    BETTING
+  }
 
   /** 单位，和原型一致 */
   public enum Unit {
@@ -93,7 +136,9 @@ public enum ConfigKey {
     /** 开关：true / false（提现自动审批） */
     BOOL,
     /** 倍数，最多 8 位小数（提现自动审批 R8） */
-    MULTIPLE;
+    MULTIPLE,
+    /** 秒（加密市场的截止提前量，S3） */
+    SECONDS;
 
     public String api() {
       return name().toLowerCase();
@@ -110,17 +155,35 @@ public enum ConfigKey {
    * 否则有 config:edit 的人可以绕过专门的权限点去改
    */
   public final boolean configPage;
+  /** 数值的最大值（含），为空时按单位的默认上限 */
+  public final BigDecimal max;
+  /** 最多几位小数，为空时按单位（金额 8 位，小时、分钟、个数 0 位） */
+  public final Integer maxScale;
+  /** 参数设置页的分组（S3），不在参数设置页的是 NONE */
+  public final Params params;
 
   ConfigKey(String key, Unit unit, String group, BigDecimal min) {
     this(key, unit, group, min, true);
   }
 
   ConfigKey(String key, Unit unit, String group, BigDecimal min, boolean configPage) {
+    this(key, unit, group, min, configPage, null, null, Params.NONE);
+  }
+
+  /** 参数设置页的项（不在系统配置页） */
+  ConfigKey(String key, Unit unit, String group, BigDecimal min, BigDecimal max, int maxScale, Params params) {
+    this(key, unit, group, min, false, max, maxScale, params);
+  }
+
+  ConfigKey(String key, Unit unit, String group, BigDecimal min, boolean configPage, BigDecimal max, Integer maxScale, Params params) {
     this.key = key;
     this.unit = unit;
     this.group = group;
     this.min = min;
     this.configPage = configPage;
+    this.max = max;
+    this.maxScale = maxScale;
+    this.params = params;
   }
 
   public static Optional<ConfigKey> of(String key) {
@@ -136,6 +199,8 @@ public enum ConfigKey {
     try {
       BigDecimal d = new BigDecimal(v);
       if (d.compareTo(min) < 0) return Optional.empty();
+      if (max != null && d.compareTo(max) > 0) return Optional.empty();
+      if (maxScale != null && d.stripTrailingZeros().scale() > maxScale) return Optional.empty();
       if (unit == Unit.USDT || unit == Unit.PERCENT || unit == Unit.ETH || unit == Unit.BNB || unit == Unit.TRX
           || unit == Unit.MULTIPLE) {
         if (d.scale() > 8 || d.compareTo(new BigDecimal("1000000000")) > 0) return Optional.empty();

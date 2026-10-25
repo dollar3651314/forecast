@@ -42,14 +42,37 @@ export const PERMISSIONS = [
   { code: 'audit:view', module: 'system', highRisk: false },
   { code: 'config:view', module: 'system', highRisk: false },
   { code: 'config:edit', module: 'system', highRisk: true },
+
+  // forecast S3：需求说明书第 2.2 节新增的 21 个（接口随各步加；页面在原型确认后做）
+  { code: 'market:view', module: 'market', highRisk: false },
+  { code: 'market:edit', module: 'market', highRisk: false },
+  { code: 'market:publish', module: 'market', highRisk: false },
+  { code: 'market:pause', module: 'market', highRisk: true },
+  { code: 'market:cancel', module: 'market', highRisk: true },
+  { code: 'market:clarify', module: 'market', highRisk: true },
+  { code: 'market:autogen', module: 'market', highRisk: true },
+  { code: 'bet:view', module: 'market', highRisk: false },
+  { code: 'resolve:propose', module: 'resolve', highRisk: false },
+  { code: 'resolve:confirm', module: 'resolve', highRisk: true },
+  { code: 'resolve:void', module: 'resolve', highRisk: true },
+  { code: 'dispute:view', module: 'resolve', highRisk: false },
+  { code: 'dispute:handle', module: 'resolve', highRisk: true },
+  { code: 'settle:compensate', module: 'settle', highRisk: true },
+  { code: 'pool_recon:view', module: 'settle', highRisk: false },
+  { code: 'pool_recon:resolve', module: 'settle', highRisk: false },
+  { code: 'report:view', module: 'settle', highRisk: false },
+  { code: 'fee:edit', module: 'params', highRisk: true },
+  { code: 'betting_params:edit', module: 'params', highRisk: true },
+  { code: 'risk_alert:view', module: 'risk', highRisk: false },
+  { code: 'risk_alert:handle', module: 'risk', highRisk: false },
 ] as const satisfies readonly PermissionDef[];
 
 export type PermissionCode = (typeof PERMISSIONS)[number]['code'];
 
 export const ALL_PERMISSION_CODES: string[] = PERMISSIONS.map((p) => p.code);
 
-// forecast S1 删除了 trading、risk、market（复制源的品种行情）、params 四个模块；market、resolve、dispute、settle 等随 S3 以后各步加
-export const PERMISSION_MODULES = ['dashboard', 'customer', 'kyc', 'funds', 'notify', 'system'] as const;
+// forecast S1 删除了复制源的 trading、risk、market（品种行情）、params 四个模块；S3 按需求第 2.2 节加了市场、裁决、结算、参数、风控告警
+export const PERMISSION_MODULES = ['dashboard', 'customer', 'kyc', 'funds', 'notify', 'system', 'market', 'resolve', 'settle', 'params', 'risk'] as const;
 
 /** 超级管理员角色编码：只有超级管理员才能把这个角色分配给别人（修复 fxsystem S4） */
 export const SUPER_ADMIN_ROLE = 'super_admin';

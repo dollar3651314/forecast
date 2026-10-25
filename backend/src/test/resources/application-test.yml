@@ -61,5 +61,8 @@ forecast:
   # 监控告警不定时发邮件，测试里直接调用（AlertMonitorTest）；健康检查里的 alerts 照常
   alert:
     enabled: false
+  # 市场的截止、事件结束任务不定时跑，测试里直接调用（MarketClockTest 等）
+  market:
+    clock-enabled: false
   storage:
     local-dir: ${java.io.tmpdir}/forecast-test-storage

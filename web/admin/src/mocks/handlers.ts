@@ -4,6 +4,8 @@
  */
 import {
   ApiError,
+  type ParamItem,
+  type ParamSection,
   type AdminInput,
   type AdminSession,
   type AdminUser,
@@ -888,31 +890,68 @@ export function listSystemConfigs() {
   return respond(() => db.systemConfigs, { empty: () => [] as typeof db.systemConfigs });
 }
 
+const WITHDRAW_CHAINS = ['ERC20', 'TRC20', 'BSC'];
+const cfgValue = (k: string) => db.systemConfigs.find((x) => x.key === k)?.value;
+const paramValue = (k: string) => db.params.find((x) => x.key === k)?.value;
+
+/**
+ * 单笔最小提现必须大于每条链的提现手续费（RQ-16、AC-61，和后端 SystemService 一致）。最小金额 S3 起在参数设置（db.params），手续费在系统配置。
+ * 一次列出全部不满足的链。
+ */
+function checkMinAboveFees(key: string, value: string): void {
+  const feeChain = WITHDRAW_CHAINS.find((ch) => key === `withdraw.fee.${ch}`);
+  if (key !== 'withdraw.minAmount' && !feeChain) return;
+  const min = key === 'withdraw.minAmount' ? value : paramValue('withdraw.minAmount');
+  const bad = WITHDRAW_CHAINS.filter((ch) => !feeChain || ch === feeChain)
+    .filter((ch) => {
+      const fee = ch === feeChain ? value : cfgValue(`withdraw.fee.${ch}`);
+      return min !== undefined && fee !== undefined && compareAmounts(min, fee) <= 0;
+    })
+    .map((ch) => ({ field: ch, code: feeChain ? 'feeNotBelowMin' : 'minNotAboveFee' }));
+  if (bad.length) throw fieldError(bad);
+}
+
 export function updateSystemConfig(key: string, value: string, reason: string): Promise<void> {
   return mutate(() => {
     requirePerm('config:edit');
     const r = requireReason(reason);
     const c = db.systemConfigs.find((x) => x.key === key);
     if (!c) throw new ApiError('errors.notFound');
-    // 单笔最小提现必须大于每条链的提现手续费（RQ-16、AC-61，和后端 SystemService 一致）
-    const cfg = (k: string) => db.systemConfigs.find((x) => x.key === k)?.value;
-    const chains = ['ERC20', 'TRC20', 'BSC'];
-    const feeChain = chains.find((ch) => key === `withdraw.fee.${ch}`);
-    if (key === 'withdraw.minAmount' || feeChain) {
-      const min = key === 'withdraw.minAmount' ? value : cfg('withdraw.minAmount');
-      const bad = chains
-        .filter((ch) => !feeChain || ch === feeChain)
-        .filter((ch) => {
-          const fee = ch === feeChain ? value : cfg(`withdraw.fee.${ch}`);
-          return min !== undefined && fee !== undefined && compareAmounts(min, fee) <= 0;
-        })
-        .map((ch) => ({ field: ch, code: feeChain ? 'feeNotBelowMin' : 'minNotAboveFee' }));
-      if (bad.length) throw fieldError(bad);
-    }
+    checkMinAboveFees(key, value);
     const before = c.value;
     c.value = value;
     c.updatedAt = nowString();
     audit('config.update', key, true, r, { value: before }, { value });
+  });
+}
+
+/** 参数设置（forecast S3）：和后端一样按组要权限点（fee:edit / betting_params:edit） */
+const PARAM_PERM: Record<ParamSection, string> = { fee: 'fee:edit', betting: 'betting_params:edit' };
+
+export function listParams(section: ParamSection): Promise<ParamItem[]> {
+  return respond(
+    () => {
+      requirePerm(PARAM_PERM[section]);
+      return db.params.filter((p) => p.section === section);
+    },
+    { empty: () => [] as ParamItem[] },
+  );
+}
+
+export function updateParam(section: ParamSection, key: string, value: string, reason: string, expected?: string): Promise<void> {
+  return mutate(() => {
+    requirePerm(PARAM_PERM[section]);
+    const r = requireReason(reason);
+    const p = db.params.find((x) => x.key === key && x.section === section);
+    if (!p) throw new ApiError('errors.notFound');
+    if (expected !== undefined && compareAmounts(expected, p.value) !== 0) {
+      throw new ApiError('errors.configChanged', undefined, { status: 409, code: 'CONFIG_CHANGED' });
+    }
+    checkMinAboveFees(key, value);
+    const before = p.value;
+    p.value = value;
+    p.updatedAt = nowString();
+    audit('params.update', key, true, r, { value: before }, { value });
   });
 }
 

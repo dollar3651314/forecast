@@ -83,13 +83,28 @@ class E2eProfileTest {
     @Qualifier("requestMappingHandlerMapping")
     RequestMappingHandlerMapping mapping;
 
+    @Autowired
+    java.time.Clock clock;
+
     @LocalServerPort
     int port;
 
     @Test
     void 接口都在_不需要登录() throws Exception {
       assertThat(e2ePaths(mapping)).contains("/api/e2e/mail/code", "/api/e2e/wallet/deposit", "/api/e2e/wallet/mine",
-          "/api/e2e/wallet/withdrawals/advance", "/api/e2e/wallet/withdrawals/{id}/confirm");
+          "/api/e2e/wallet/withdrawals/advance", "/api/e2e/wallet/withdrawals/{id}/confirm", "/api/e2e/clock", "/api/e2e/clock/advance", "/api/e2e/clock/reset",
+          "/api/e2e/markets/tick");
+      // 可调时钟（S3）：往后拨，业务时钟跟着走；reset 回到系统时间
+      assertThat(clock.getClass().getSimpleName()).as("e2e 下业务时钟是可调时钟").isEqualTo("OffsetClock");
+      java.time.Instant before = clock.instant();
+      HttpResponse<String> adv = HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/e2e/clock/advance"))
+          .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString("{\"millis\":3600000}")).build(), HttpResponse.BodyHandlers.ofString());
+      assertThat(adv.statusCode()).isEqualTo(200);
+      assertThat(java.time.Duration.between(before, clock.instant()).toMinutes()).isBetween(59L, 61L);
+      HttpResponse<String> reset = HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/e2e/clock/reset"))
+          .POST(HttpRequest.BodyPublishers.noBody()).build(), HttpResponse.BodyHandlers.ofString());
+      assertThat(reset.body()).contains("\"offsetMillis\":0");
+      assertThat(java.time.Duration.between(java.time.Instant.now(), clock.instant()).abs().toSeconds()).isLessThan(5);
       assertThat(get(port, "/api/e2e/mail/code?email=nobody@example.com").statusCode()).as("没有邮件返回 404，不是 401").isEqualTo(404);
       assertThat(get(port, "/api/me/session").statusCode()).as("其他接口照常要求登录").isEqualTo(401);
     }

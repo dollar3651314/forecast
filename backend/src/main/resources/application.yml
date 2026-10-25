@@ -178,6 +178,10 @@ forecast:
     # 第一个超级管理员（G1）：系统里还没有管理员时启动会用它建；密码只由 Amos 填，建好后可以删掉这两个变量
     init-username: ${FC_ADMIN_INIT_USERNAME:}
     init-password: ${FC_ADMIN_INIT_PASSWORD:}
+  # 市场（forecast S3，技术方案/v1-架构方案.md 第 5.2、5.3 节）：截止任务每 5 秒、事件结束任务每 15 秒，用数据库租约 common_job_lease 防多实例重复。
+  # 后端测试里关闭（测试直接调用）。费率、下注限额、争议窗口等参数在后台"参数设置"（common_config，迁移 V10），不在这里
+  market:
+    clock-enabled: true
   # 对象存储（证件照片）。现在是本地目录，正式环境在 S20 换成对象存储服务
   storage:
     local-dir: ${FC_STORAGE_DIR:./data/storage}
