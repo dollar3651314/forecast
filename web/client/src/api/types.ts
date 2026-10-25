@@ -227,7 +227,8 @@ export type ServerEvent =
 /**
  * 字段和后端 `market/core/ClientViews.java`、`pool/bet/PoolViews.java` 一致（S3、S4 已定，`PoolClientContractTest` 核对字段名）：
  * 编号是字符串（雪花 ID）；金额是 2 位小数的字符串；费率是百分比字符串（"5" = 5%）；时间是 ISO-8601 UTC。
- * 标了"M1 提议"的字段后端还没有（结算、裁决、争议在 S5、S7 做），原型先按这个形状模拟，正式开发时由后端照着加或者再商量。
+ * 结果、裁决、争议的字段**以后端为准**（S5 `winningOptionNo` / `settling`、S6 自动裁决的 `resolution`、S7 平台裁决的 `resolution` 和提交争议；
+ * 整合 2 时按后端改，项目地图约定 48）。还标着"M1 提议"的字段后端没有（真实接口不返回，页面不显示），S11 接真实接口时再定要不要后端加。
  */
 
 /** 三种语言的文字（后端 I18nText）；客户端按界面语言选，取不到用英文 */
@@ -303,10 +304,10 @@ export interface MarketCard {
   feeRate: string;
   options: MarketOptionCard[];
   pool: MarketPool;
-  /** M1 提议：联赛 / 币种等副标题（后端在 S8 赛程生成时可以从 sourceRef 带出） */
+  /** M1 提议：联赛 / 币种等副标题（后端没有；S8 赛程生成时可以从 sourceRef 带出） */
   league?: I18nText;
-  /** M1 提议：已结算时赢的选项（列表里显示结果） */
-  winningOptionNo?: string;
+  /** 已结算市场的结果。详情有（S5，后端 `ClientViews.Detail.winningOptionNo`）；列表后端还没有（M1 提议） */
+  winningOptionNo?: string | null;
 }
 
 export interface MarketOptionDetail extends MarketOptionCard {
@@ -324,25 +325,89 @@ export interface MarketFeeChange {
   time: string;
 }
 
-/**
- * M1 提议：裁决与公示（S7）。自动裁决的 resolver 是 "auto"；平台裁决的是确认结果的管理员编号（不是姓名，需求 4.4）。
- * 加密市场带开始价、结束价和来源；体育带比分。
- */
-export interface MarketResolution {
-  winningOptionNo: string;
-  mode: 'auto' | 'platform';
-  resolver: string;
+/** 自动裁决参与判定的一个来源（S6，`resolve/auto/ResolutionViews`） */
+export interface AutoResolutionSource {
+  /** BINANCE / OKX / COINBASE */
+  source: string;
+  /** 例如 "Binance BTC/USDT" */
+  label: string;
+  startPrice: string;
+  endPrice: string;
+  direction: 'up' | 'down';
+  /** 原始返回的 sha256（存档可核对） */
+  sha256: string;
+}
+
+/** 自动裁决（S6，加密）：已结算时有；价格是原样的字符串（不舍入） */
+export interface AutoResolution {
+  mode: 'auto';
+  result: 'up' | 'down';
+  /** 固定 "AUTO" */
+  resolvedBy: string;
   resolvedAt: string;
-  basis: I18nText;
-  sources: Array<{ name: string; url: string; value?: string }>;
-  /** 公示中：争议截止时间 */
-  disputeUntil?: string;
-  /** 本人能不能提交争议（有下注、在窗口内、没提交过） */
-  canDispute?: boolean;
-  /** 已结算：结算时用的费率、派彩合计、抽成合计、尾差 */
-  settle?: { feeRate: string; payoutTotal: string; feeTotal: string; dust: string };
-  /** 本人在这个市场的结算（M1 提议，S5）：派彩、抽成 */
-  minePayout?: { payout: string; fee: string };
+  symbol: string;
+  windowStart: string;
+  windowEnd: string;
+  /** 按首选来源（币安），首选没参与判定时按实际用的来源 */
+  startPrice: string | null;
+  endPrice: string | null;
+  source: string | null;
+  sources: AutoResolutionSource[];
+}
+
+/** 争议结论（S7，公开；不显示争议人） */
+export interface DisputeDecision {
+  decision: 'upheld' | 'overturned' | 'voided';
+  conclusion: string | null;
+  decidedAt: string;
+}
+
+/** 本人提交过的争议（S7） */
+export interface MyDispute {
+  disputeNo: string;
+  /** 认为应该是哪个选项；claimVoid = true 时为空（认为应作废） */
+  claimedOptionNo: string | null;
+  claimVoid: boolean;
+  /** open / upheld / overturned / voided / closed */
+  status: string;
+  receivedAt: string;
+}
+
+/**
+ * 平台裁决（S7，`resolve/platform/PlatformViews.clientView`）：公示中、争议中、已结算、已作废，有确认或作废记录时有。
+ * 加密自动裁决转人工、由人确认的也是这个结构。resolvedBy 是员工编号（数字字符串）或 "SYSTEM"，不公开姓名（D-83）；截图不公开（D-84）。
+ */
+export interface PlatformResolution {
+  mode: 'platform';
+  voided: boolean;
+  /** 最终结果（改判后是改判的选项）；作废时为空 */
+  resultOptionNo: string | null;
+  /** 公示的（确认时的）结果 */
+  publicizedOptionNo: string | null;
+  /** 依据代码：NORMAL / E6_COMPLETED / E7_OFFICIAL / E11_USUAL，作废时 E10_UNDETERMINED 等 */
+  basis: string | null;
+  evidenceUrls: string[];
+  /** 裁决理由（裁决员写的原文，一种语言） */
+  explanation: string | null;
+  actualStartAt: string | null;
+  resolvedBy: string | null;
+  resolvedAt: string | null;
+  disputeDeadlineAt: string | null;
+  disputeCount: number;
+  dispute: DisputeDecision | null;
+  myDispute: MyDispute | null;
+  /** 本人能不能提交争议（有有效下注、在窗口内、没提交过） */
+  canDispute: boolean;
+}
+
+export type MarketResolution = AutoResolution | PlatformResolution;
+
+/** M1 提议（后端没有）：已结算时这个市场的结算合计；后端的结算单只在后台看得到 */
+export interface SettleSummary {
+  feeRate: string;
+  payoutTotal: string;
+  feeTotal: string;
+  dust: string;
 }
 
 /** 市场详情（ClientViews.Detail） */
@@ -352,13 +417,20 @@ export interface MarketDetail extends Omit<MarketCard, 'options'> {
   sourcePrimary: string;
   sourceBackup: string;
   userCap: string;
-  disputeWindowMinutes?: number;
-  cancelReason?: string;
-  voidReason?: string;
+  disputeWindowMinutes?: number | null;
+  coverPath?: string | null;
+  cancelReason?: string | null;
+  voidReason?: string | null;
+  /** 正在分批派彩（S5，显示"结算中"） */
+  settling?: boolean;
   options: MarketOptionDetail[];
   clarifications: MarketClarification[];
   feeChanges: MarketFeeChange[];
-  resolution?: MarketResolution;
+  resolution?: MarketResolution | null;
+  /** M1 提议（后端没有）：结算合计 */
+  settleSummary?: SettleSummary;
+  /** M1 提议（后端没有）：本人在这个市场的派彩和抽成 */
+  myPayout?: { payout: string; fee: string };
 }
 
 export interface MarketQuery {
@@ -392,7 +464,7 @@ export interface BetResult {
 
 export type MyBetTab = 'active' | 'pending' | 'settled' | 'refunded';
 
-/** 我的下注的一条（PoolViews.MyBet）；final*、payout、fee、refund 是 M1 提议（S5 结算后才有） */
+/** 我的下注的一条（PoolViews.MyBet）；status、refundReason S5 起后端有；category、finalMult、won、payout、fee 是 M1 提议（后端没有） */
 export interface MyBet {
   betNo: string;
   marketNo: string;
@@ -405,7 +477,7 @@ export interface MyBet {
   receivedAt: string;
   tab: MyBetTab;
   status: 'active' | 'refunded';
-  refundReason?: 'CANCELLED' | 'VOIDED' | 'LATE_BET' | 'STAFF';
+  refundReason?: 'CANCELLED' | 'VOIDED' | 'LATE_BET' | 'STAFF' | null;
   multAtBet: string;
   feeRateAtBet: string;
   category?: MarketCategory;
@@ -425,9 +497,19 @@ export interface MyBets {
   totals?: { staked: string; payout: string; net: string };
 }
 
-/** 提交争议（M1 提议，S7） */
+/** 提交争议（S7，`POST /api/markets/{publicNo}/disputes`，`resolve/web/DisputeController`）：claimedOptionNo 是选项编号或 "void"（认为应作废） */
 export interface DisputeRequest {
-  optionNo: string;
+  claimedOptionNo: string;
   reason: string;
   link?: string;
+}
+
+/** 提交争议的回执（ResolveDeskApi.DisputeReceipt） */
+export interface DisputeReceipt {
+  disputeNo: string;
+  marketNo: string;
+  claimedOptionNo: string | null;
+  claimVoid: boolean;
+  status: string;
+  receivedAt: string;
 }

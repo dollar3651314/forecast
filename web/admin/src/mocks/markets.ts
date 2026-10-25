@@ -327,16 +327,28 @@ export function previewSettle(publicNo: string, optionNo: string): Promise<Settl
     }
     const dust = loser - g;
     const sum = pay + f + dust;
+    // 字段和后端 SettleAdminApi.Preview 一致（outcome、E14 / E15 的退回在原型里没有）
     return {
+      marketNo: publicNo,
       optionNo,
+      actualStartAt: null,
+      outcome: pw === 0n ? 'void_no_winner' : 'settle',
+      feeRate: c.feeRate,
+      poolTotal: fromScaled(total, 2),
       winnerPool: fromScaled(pw, 2),
       loserPool: fromScaled(loser, 2),
-      winners: pos.length,
-      payoutTotal: fromScaled(pay, 2),
-      feeTotal: fromScaled(f, 2),
+      sumGross: fromScaled(g, 2),
+      sumFee: fromScaled(f, 2),
       dust: fromScaled(dust, 2),
-      total: fromScaled(sum, 2),
-      balanced: sum === total,
+      sumPayout: fromScaled(pay, 2),
+      platformIncome: fromScaled(f + dust, 2),
+      winnerPositions: pos.length,
+      loserPositions: c.options.filter((o) => o.optionNo !== optionNo).reduce((n, o) => n + o.positions, 0),
+      conserved: sum === total && dust >= 0n && dust < BigInt(pos.length),
+      lateBets: 0,
+      lateAmount: '0.00',
+      staffBets: 0,
+      staffAmount: '0.00',
     };
   });
 }

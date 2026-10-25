@@ -429,7 +429,10 @@
     "betOverUserCap": "超过你在这个市场的累计下注上限",
     "betStaffAccount": "员工账户不能下注",
     "betRequestReused": "这笔下注已经提交过，请刷新后重新下注",
-    "optionNotFound": "这个选项不存在，请刷新后再试"
+    "optionNotFound": "这个选项不存在，请刷新后再试",
+    "disputeClosed": "不在争议窗口内，不能提交争议",
+    "disputeNotBettor": "只有在这个市场有下注的客户可以提交争议",
+    "disputeExists": "你已经对这个市场提交过争议"
   },
   "validation": {
     "fixAll": "请修改以上标红的内容后再提交",
@@ -685,7 +688,38 @@
       "reason": "原因",
       "reasons": {
         "POSTPONED_48H": "比赛延期超过 48 小时",
-        "NOT_ENOUGH_OPTIONS": "截止时只有一个选项有人押"
+        "NOT_ENOUGH_OPTIONS": "截止时只有一个选项有人押",
+        "ABANDONED_48H": "比赛中断后 48 小时内没有结果",
+        "NO_WINNER": "没有人押中结果",
+        "NO_POOL": "退回后奖池为 0"
+      },
+      "system": "系统",
+      "autoBasis": "开始价 {{start}}，结束价 {{end}}（{{source}}）；结束价 ≥ 开始价判\"涨\"，否则判\"跌\"",
+      "disputeResult": "争议结论",
+      "myDispute": "我的争议",
+      "bases": {
+        "NORMAL": "按规则正常判定",
+        "E6_COMPLETED": "延期后 48 小时内完赛，按实际结果",
+        "E7_OFFICIAL": "比赛中断，官方宣布比分有效",
+        "E11_USUAL": "规则有歧义，按通常含义判定",
+        "E5_CANCELLED": "事件取消",
+        "E6_TIMEOUT": "延期超过 48 小时",
+        "E7_NO_RESULT": "比赛中断，没有有效比分",
+        "E10_UNDETERMINED": "无法确定结果",
+        "E11_UNDETERMINABLE": "规则无法判定",
+        "OTHER": "其他"
+      },
+      "decision": {
+        "upheld": "维持原结果",
+        "overturned": "改判",
+        "voided": "无法判定，已作废"
+      },
+      "disputeStatus": {
+        "open": "处理中",
+        "upheld": "已处理：维持原结果",
+        "overturned": "已处理：改判",
+        "voided": "已处理：作废",
+        "closed": "已结束"
       }
     },
     "how": {
@@ -792,7 +826,8 @@
     "doneBody": "24 小时内给出结论，会通知你。",
     "needReason": "请填写理由",
     "needClaim": "请选择你认为的结果",
-    "sameAsProposed": "和拟定结果相同"
+    "sameAsProposed": "和拟定结果相同",
+    "claimVoid": "无法判定，应作废"
   },
   "authSide": {
     "title": "看好哪个结果，就押哪个",

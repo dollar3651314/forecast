@@ -429,7 +429,10 @@
     "betOverUserCap": "Exceeds your total bet limit for this market",
     "betStaffAccount": "Staff accounts cannot place bets",
     "betRequestReused": "This bet was already submitted. Please refresh and bet again",
-    "optionNotFound": "This option does not exist. Please refresh and try again"
+    "optionNotFound": "This option does not exist. Please refresh and try again",
+    "disputeClosed": "The dispute window is closed",
+    "disputeNotBettor": "Only customers who bet on this market can dispute",
+    "disputeExists": "You have already disputed this market"
   },
   "validation": {
     "fixAll": "Please fix the highlighted fields",
@@ -685,7 +688,38 @@
       "reason": "Reason",
       "reasons": {
         "POSTPONED_48H": "Match postponed for more than 48 hours",
-        "NOT_ENOUGH_OPTIONS": "Only one option had bets at close"
+        "NOT_ENOUGH_OPTIONS": "Only one option had bets at close",
+        "ABANDONED_48H": "Abandoned with no result within 48 hours",
+        "NO_WINNER": "Nobody bet on the result",
+        "NO_POOL": "Pool was empty after refunds"
+      },
+      "system": "System",
+      "autoBasis": "Start {{start}}, end {{end}} ({{source}}); end ≥ start resolves \"Up\", otherwise \"Down\"",
+      "disputeResult": "Dispute decision",
+      "myDispute": "My dispute",
+      "bases": {
+        "NORMAL": "Resolved under the rules",
+        "E6_COMPLETED": "Postponed but finished within 48 hours; actual result",
+        "E7_OFFICIAL": "Abandoned; official score declared valid",
+        "E11_USUAL": "Ambiguous rule; usual meaning applied",
+        "E5_CANCELLED": "Event cancelled",
+        "E6_TIMEOUT": "Postponed more than 48 hours",
+        "E7_NO_RESULT": "Abandoned with no valid score",
+        "E10_UNDETERMINED": "Result could not be determined",
+        "E11_UNDETERMINABLE": "Rules cannot decide the result",
+        "OTHER": "Other"
+      },
+      "decision": {
+        "upheld": "Result upheld",
+        "overturned": "Result overturned",
+        "voided": "Undeterminable; voided"
+      },
+      "disputeStatus": {
+        "open": "Under review",
+        "upheld": "Decided: upheld",
+        "overturned": "Decided: overturned",
+        "voided": "Decided: voided",
+        "closed": "Closed"
       }
     },
     "how": {
@@ -792,7 +826,8 @@
     "doneBody": "You’ll be notified of the decision within 24 hours.",
     "needReason": "Please give a reason",
     "needClaim": "Please choose a result",
-    "sameAsProposed": "Same as proposed"
+    "sameAsProposed": "Same as proposed",
+    "claimVoid": "Undeterminable — should be voided"
   },
   "authSide": {
     "title": "Back the outcome you believe in",

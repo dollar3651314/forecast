@@ -19,7 +19,7 @@ import { useAsync } from '../../hooks/useAsync';
 import { useLang, useRemainText } from '../../hooks/useLang';
 import { useIsDesktop } from '../../hooks/useMediaQuery';
 import { formatAmount } from '../../lib/format';
-import { multText, pickText, useClock, utcText } from '../../lib/market';
+import { canDispute, disputeDeadline, multText, outcomeOptionNo, pickText, resolverText, useClock, utcText } from '../../lib/market';
 import { expectedReturn, rateFromPercent } from '../../lib/pool';
 
 type Tab = 'rules' | 'resolution' | 'how';
@@ -67,7 +67,8 @@ function ResultBanner({ m, onDispute }: { m: Detail; onDispute: () => void }) {
   const lang = useLang();
   const now = useClock();
   const r = m.resolution;
-  const until = useRemainText(r?.disputeUntil ?? new Date(0).toISOString(), now);
+  const deadline = disputeDeadline(r);
+  const until = useRemainText(deadline ?? new Date(0).toISOString(), now);
   if (m.status === 'voided' || m.status === 'cancelled') {
     return (
       <div className="md-banner b-void" role="status">
@@ -76,7 +77,7 @@ function ResultBanner({ m, onDispute }: { m: Detail; onDispute: () => void }) {
           <b>{t(m.status === 'voided' ? 'md.res.voided' : 'md.res.cancelled')}</b>
           {m.voidReason && (
             <span>
-              {t('md.res.reason')}：{t(`md.res.reasons.${m.voidReason}`)}
+              {t('md.res.reason')}：{t(`md.res.reasons.${m.voidReason}`, { defaultValue: m.voidReason })}
             </span>
           )}
         </div>
@@ -84,7 +85,7 @@ function ResultBanner({ m, onDispute }: { m: Detail; onDispute: () => void }) {
     );
   }
   if (!r) return null;
-  const opt = pickText(m.options.find((o) => o.optionNo === r.winningOptionNo)?.label, lang);
+  const opt = pickText(m.options.find((o) => o.optionNo === outcomeOptionNo(m))?.label, lang);
   if (m.status === 'publicizing' || m.status === 'disputed') {
     return (
       <div className="md-banner b-review" role="status">
@@ -93,7 +94,7 @@ function ResultBanner({ m, onDispute }: { m: Detail; onDispute: () => void }) {
           <b>{t('dispute.proposed', { opt })}</b>
           <span>
             {m.status === 'disputed' ? t('md.res.disputed') : t('md.res.publicizing')}
-            {r.disputeUntil && m.status === 'publicizing' && until && (
+            {deadline && m.status === 'publicizing' && until && (
               <>
                 {' '}
                 {t('md.res.disputeUntil')} <b className="num">{until}</b>
@@ -101,7 +102,7 @@ function ResultBanner({ m, onDispute }: { m: Detail; onDispute: () => void }) {
             )}
           </span>
         </div>
-        {r.canDispute && (
+        {canDispute(r) && (
           <button type="button" className="btn btn-outline btn-sm" onClick={onDispute} data-testid="dispute-open">
             {t('md.res.disputeBtn')}
           </button>
@@ -115,13 +116,14 @@ function ResultBanner({ m, onDispute }: { m: Detail; onDispute: () => void }) {
       <div>
         <b>{t('mk.result', { opt })}</b>
         <span>
-          {t('md.res.resolver')}：<b className="num">{r.resolver === 'auto' ? t('md.res.auto') : r.resolver}</b> · {utcText(r.resolvedAt)}
+          {t('md.res.resolver')}：<b className="num">{resolverText(r, t)}</b>
+          {r.resolvedAt && <> · {utcText(r.resolvedAt)}</>}
         </span>
       </div>
-      {r.minePayout && (
+      {m.myPayout && (
         <div className="md-banner-r">
           <small>{t('md.res.myPayout')}</small>
-          <b className="num up">+{formatAmount(r.minePayout.payout)}</b>
+          <b className="num up">+{formatAmount(m.myPayout.payout)}</b>
         </div>
       )}
     </div>
@@ -133,7 +135,7 @@ function OptionTable({ m, selected, onSelect }: { m: Detail; selected?: string; 
   const { t } = useTranslation();
   const lang = useLang();
   const open = m.status === 'listed';
-  const win = m.resolution && m.status === 'settled' ? m.resolution.winningOptionNo : m.resolution?.winningOptionNo;
+  const win = outcomeOptionNo(m);
   return (
     <table className="md-table">
       <thead>
@@ -189,7 +191,7 @@ function OptionList({ m, onBet }: { m: Detail; onBet: (no: string) => void }) {
   const { t } = useTranslation();
   const lang = useLang();
   const open = m.status === 'listed';
-  const win = m.resolution?.winningOptionNo;
+  const win = outcomeOptionNo(m);
   return (
     <ul className="md-opts">
       {m.options.map((o, i) => {
@@ -328,11 +330,63 @@ function RulesTab({ m }: { m: Detail }) {
   );
 }
 
+/** 结算合计、本人派彩（M1 提议的字段，后端没有时不显示） */
+function SettleBlock({ m }: { m: Detail }) {
+  const { t } = useTranslation();
+  const st = m.settleSummary;
+  if (!st) return null;
+  return (
+    <>
+      <h3>{t('md.res.settleTitle')}</h3>
+      <dl className="md-dl two">
+        <div>
+          <dt>{t('md.res.settleFee')}</dt>
+          <dd className="num">{st.feeRate}%</dd>
+        </div>
+        <div>
+          <dt>{t('md.res.payoutTotal')}</dt>
+          <dd className="num">{formatAmount(st.payoutTotal)}</dd>
+        </div>
+        <div>
+          <dt>{t('md.res.feeTotal')}</dt>
+          <dd className="num">{formatAmount(st.feeTotal)}</dd>
+        </div>
+        <div>
+          <dt>{t('md.res.dust')}</dt>
+          <dd className="num">{formatAmount(st.dust)}</dd>
+        </div>
+        {m.myPayout && (
+          <>
+            <div>
+              <dt>{t('md.res.myPayout')}</dt>
+              <dd className="num up strong">{formatAmount(m.myPayout.payout)}</dd>
+            </div>
+            <div>
+              <dt>{t('md.res.myFee')}</dt>
+              <dd className="num">{formatAmount(m.myPayout.fee)}</dd>
+            </div>
+          </>
+        )}
+      </dl>
+    </>
+  );
+}
+
+/** 依据链接只显示域名 */
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host || url;
+  } catch {
+    return url;
+  }
+}
+
 function ResolutionTab({ m, onDispute }: { m: Detail; onDispute: () => void }) {
   const { t } = useTranslation();
   const lang = useLang();
   const r = m.resolution;
-  if (m.status === 'voided' || m.status === 'cancelled') {
+  const voidedOrCancelled = m.status === 'voided' || m.status === 'cancelled';
+  if (voidedOrCancelled && r?.mode !== 'platform') {
     return (
       <div className="md-res">
         <p>{t(m.status === 'voided' ? 'md.res.voided' : 'md.res.cancelled')}</p>
@@ -340,7 +394,7 @@ function ResolutionTab({ m, onDispute }: { m: Detail; onDispute: () => void }) {
           <dl className="md-dl">
             <div>
               <dt>{t('md.res.reason')}</dt>
-              <dd>{t(`md.res.reasons.${m.voidReason}`)}</dd>
+              <dd>{t(`md.res.reasons.${m.voidReason}`, { defaultValue: m.voidReason })}</dd>
             </div>
           </dl>
         )}
@@ -348,52 +402,84 @@ function ResolutionTab({ m, onDispute }: { m: Detail; onDispute: () => void }) {
     );
   }
   if (!r) return <p className="md-res-empty">{t('md.res.pending')}</p>;
+  const win = outcomeOptionNo(m);
+  const reviewing = m.status === 'publicizing' || m.status === 'disputed';
+  const deadline = disputeDeadline(r);
   return (
     <div className="md-res">
       <dl className="md-dl">
         <div>
           <dt>{t('md.res.result')}</dt>
-          <dd className="strong">{pickText(m.options.find((o) => o.optionNo === r.winningOptionNo)?.label, lang)}</dd>
+          <dd className="strong">{r.mode === 'platform' && r.voided ? t('md.res.voided') : pickText(m.options.find((o) => o.optionNo === win)?.label, lang)}</dd>
         </div>
         <div>
           <dt>{t('md.res.basis')}</dt>
-          <dd>{pickText(r.basis, lang)}</dd>
+          <dd>
+            {r.mode === 'auto'
+              ? t('md.res.autoBasis', { start: r.startPrice ?? '—', end: r.endPrice ?? '—', source: r.source ?? '' })
+              : [r.basis ? t(`md.res.bases.${r.basis}`, { defaultValue: r.basis }) : '', r.explanation ?? ''].filter(Boolean).join('：')}
+          </dd>
         </div>
         <div>
           <dt>{t('md.res.sources')}</dt>
           <dd>
             <ul className="md-src">
-              {r.sources.map((s) => (
-                <li key={s.name}>
-                  <a href={s.url} target="_blank" rel="noreferrer noopener">
-                    {s.name}
-                    <Icon name="external" size={12} />
-                  </a>
-                  {s.value && <span className="num">{s.value}</span>}
-                </li>
-              ))}
+              {r.mode === 'auto'
+                ? r.sources.map((s) => (
+                    <li key={s.source}>
+                      <span>{s.label}</span>
+                      <span className="num">
+                        {s.startPrice} → {s.endPrice}
+                      </span>
+                    </li>
+                  ))
+                : r.evidenceUrls.map((u) => (
+                    <li key={u}>
+                      <a href={u} target="_blank" rel="noreferrer noopener">
+                        {hostOf(u)}
+                        <Icon name="external" size={12} />
+                      </a>
+                    </li>
+                  ))}
             </ul>
           </dd>
         </div>
         <div>
           <dt>{t('md.res.resolver')}</dt>
-          <dd className="num strong">{r.resolver === 'auto' ? t('md.res.auto') : r.resolver}</dd>
+          <dd className="num strong">{resolverText(r, t)}</dd>
         </div>
-        <div>
-          <dt>{t('md.res.resolvedAt')}</dt>
-          <dd className="num">{utcText(r.resolvedAt, true)}</dd>
-        </div>
-        {r.disputeUntil && (m.status === 'publicizing' || m.status === 'disputed') && (
+        {r.resolvedAt && (
+          <div>
+            <dt>{t('md.res.resolvedAt')}</dt>
+            <dd className="num">{utcText(r.resolvedAt, true)}</dd>
+          </div>
+        )}
+        {deadline && reviewing && (
           <div>
             <dt>{t('md.res.disputeUntil')}</dt>
-            <dd className="num">{utcText(r.disputeUntil, true)}</dd>
+            <dd className="num">{utcText(deadline, true)}</dd>
+          </div>
+        )}
+        {r.mode === 'platform' && r.dispute && (
+          <div>
+            <dt>{t('md.res.disputeResult')}</dt>
+            <dd>
+              {t(`md.res.decision.${r.dispute.decision}`)}
+              {r.dispute.conclusion ? `：${r.dispute.conclusion}` : ''}
+            </dd>
+          </div>
+        )}
+        {r.mode === 'platform' && r.myDispute && (
+          <div>
+            <dt>{t('md.res.myDispute')}</dt>
+            <dd>{t(`md.res.disputeStatus.${r.myDispute.status}`, { defaultValue: r.myDispute.status })}</dd>
           </div>
         )}
       </dl>
-      {(m.status === 'publicizing' || m.status === 'disputed') && (
+      {reviewing && (
         <div className="md-dispute">
           <p>{m.status === 'disputed' ? t('md.res.disputed') : t('md.res.disputeNote')}</p>
-          {r.canDispute && (
+          {canDispute(r) && (
             <button type="button" className="btn btn-outline" onClick={onDispute}>
               <Icon name="scale" size={16} />
               {t('md.res.disputeBtn')}
@@ -401,41 +487,7 @@ function ResolutionTab({ m, onDispute }: { m: Detail; onDispute: () => void }) {
           )}
         </div>
       )}
-      {r.settle && (
-        <>
-          <h3>{t('md.res.settleTitle')}</h3>
-          <dl className="md-dl two">
-            <div>
-              <dt>{t('md.res.settleFee')}</dt>
-              <dd className="num">{r.settle.feeRate}%</dd>
-            </div>
-            <div>
-              <dt>{t('md.res.payoutTotal')}</dt>
-              <dd className="num">{formatAmount(r.settle.payoutTotal)}</dd>
-            </div>
-            <div>
-              <dt>{t('md.res.feeTotal')}</dt>
-              <dd className="num">{formatAmount(r.settle.feeTotal)}</dd>
-            </div>
-            <div>
-              <dt>{t('md.res.dust')}</dt>
-              <dd className="num">{formatAmount(r.settle.dust)}</dd>
-            </div>
-            {r.minePayout && (
-              <>
-                <div>
-                  <dt>{t('md.res.myPayout')}</dt>
-                  <dd className="num up strong">{formatAmount(r.minePayout.payout)}</dd>
-                </div>
-                <div>
-                  <dt>{t('md.res.myFee')}</dt>
-                  <dd className="num">{formatAmount(r.minePayout.fee)}</dd>
-                </div>
-              </>
-            )}
-          </dl>
-        </>
-      )}
+      <SettleBlock m={m} />
     </div>
   );
 }
@@ -479,9 +531,9 @@ function ClosedPanel({ m, onDispute }: { m: Detail; onDispute: () => void }) {
         <div className="closed-state">
           <StatusTag status={m.status} />
           <p>{m.status === 'paused' ? t('bet.paused') : t('bet.closed')}</p>
-          {r && (
+          {r && outcomeOptionNo(m) && (
             <p className="closed-res">
-              {m.status === 'settled' ? t('mk.result', { opt: pickText(m.options.find((o) => o.optionNo === r.winningOptionNo)?.label, lang) }) : t('dispute.proposed', { opt: pickText(m.options.find((o) => o.optionNo === r.winningOptionNo)?.label, lang) })}
+              {t(m.status === 'settled' ? 'mk.result' : 'dispute.proposed', { opt: pickText(m.options.find((o) => o.optionNo === outcomeOptionNo(m))?.label, lang) })}
             </p>
           )}
         </div>
@@ -497,7 +549,7 @@ function ClosedPanel({ m, onDispute }: { m: Detail; onDispute: () => void }) {
         )}
       </div>
       <div className="bet-panel-foot">
-        {r?.canDispute ? (
+        {canDispute(r) ? (
           <button type="button" className="btn btn-lg btn-block btn-outline" onClick={onDispute}>
             <Icon name="scale" size={16} />
             {t('md.res.disputeBtn')}

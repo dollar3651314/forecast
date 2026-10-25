@@ -18,9 +18,9 @@ function setDesktop(on: boolean) {
     ({ matches: on && query.includes('min-width: 1024px'), media: query, onchange: null, addEventListener: () => undefined, removeEventListener: () => undefined, addListener: () => undefined, removeListener: () => undefined, dispatchEvent: () => false }) as MediaQueryList) as typeof window.matchMedia;
 }
 
-async function marketNo(prefix: string): Promise<string> {
+async function marketNo(prefix: string, status?: string): Promise<string> {
   const all = await listMarkets({ status: 'all' });
-  return all.find((m) => m.title.zhCN.startsWith(prefix))!.publicNo;
+  return all.find((m) => m.title.zhCN.startsWith(prefix) && (!status || m.status === status))!.publicNo;
 }
 
 function renderDetail(no: string) {
@@ -101,7 +101,8 @@ describe('P2、P3 市场详情和下注', () => {
   it('已结算：显示结果、依据、裁决人编号和我的派彩', async () => {
     renderDetail(await marketNo('美国 9 月 CPI'));
     expect(await screen.findByText('结果：否')).toBeInTheDocument();
-    expect(screen.getAllByText('A01').length).toBeGreaterThan(0);
+    // 裁决人是员工编号（数字，后端 S7 PlatformViews 的 resolvedBy），不显示姓名
+    expect(screen.getAllByText('1027').length).toBeGreaterThan(0);
     expect(screen.getByText(/9 月 CPI 同比 2\.9%/)).toBeInTheDocument();
     expect(screen.getAllByText(/323\.40/).length).toBeGreaterThan(0);
   });
@@ -117,6 +118,25 @@ describe('P2、P3 市场详情和下注', () => {
     fireEvent.click(within(dlg).getByRole('button', { name: '提交争议' }));
     expect(await screen.findByText('争议已提交')).toBeInTheDocument();
     expect((await screen.findAllByText('争议处理中')).length).toBeGreaterThan(0);
+  });
+
+  it('公示中：争议主张可以选"应作废"，不能选公示的结果（请求体和后端 S7 一样）', async () => {
+    renderDetail(await marketNo('布伦特福德'));
+    fireEvent.click(await screen.findByTestId('dispute-open'));
+    const dlg = await screen.findByRole('dialog');
+    expect(within(dlg).getByLabelText(/^平局/)).toBeDisabled();
+    fireEvent.click(within(dlg).getByLabelText('无法判定，应作废'));
+    fireEvent.change(within(dlg).getByLabelText(/理由/), { target: { value: '比赛报告和录像对不上' } });
+    fireEvent.click(within(dlg).getByRole('button', { name: '提交争议' }));
+    expect(await screen.findByText('争议已提交')).toBeInTheDocument();
+  });
+
+  it('自动裁决已结算：显示开始价、结束价和参与判定的来源（后端 S6 ResolutionViews）', async () => {
+    const no = await marketNo('BTC 涨还是跌', 'settled');
+    renderDetail(no);
+    expect(await screen.findByText(/开始价 67412\.50000000，结束价 67630\.10000000（Binance BTC\/USDT）/)).toBeInTheDocument();
+    expect(screen.getByText('OKX BTC-USDT')).toBeInTheDocument();
+    expect(screen.getAllByText('自动裁决').length).toBeGreaterThan(0);
   });
 });
 

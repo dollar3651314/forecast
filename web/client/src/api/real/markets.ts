@@ -4,11 +4,11 @@
  * - `GET /api/markets/{publicNo}`（带本人持仓和限额）
  * - `POST /api/markets/{publicNo}/bets`（optionNo、amount、clientReqId）→ `pool/web/BetController.java`
  * - `GET /api/me/bets`（tab、page、pageSize）
- * 后端还没有的：按关键字搜索、按奖池排序（这一页内在前端做）、裁决与公示（S7）、提交争议（S7）。
+ * - `POST /api/markets/{publicNo}/disputes`（claimedOptionNo、reason、link）→ `resolve/web/DisputeController.java`（S7）
+ * 裁决与公示在详情的 `resolution`（S6 自动裁决、S7 平台裁决）。后端还没有的：按关键字搜索、按奖池排序（这一页内在前端做）。
  */
-import { ApiError } from '../errors';
 import { get, post } from '../http';
-import type { BetRequest, BetResult, DisputeRequest, MarketCard, MarketDetail, MarketQuery, MyBets, MyBetTab, Page } from '../types';
+import type { BetRequest, BetResult, DisputeReceipt, DisputeRequest, MarketCard, MarketDetail, MarketQuery, MyBets, MyBetTab, Page } from '../types';
 
 const PAGE_SIZE = 50;
 
@@ -32,5 +32,6 @@ export const placeBet = (publicNo: string, req: BetRequest): Promise<BetResult> 
 
 export const listMyBets = (tab: MyBetTab, page: number, pageSize: number): Promise<MyBets> => get<MyBets>('/api/me/bets', { query: { tab, page, pageSize } });
 
-/** 提交争议在 S7 做；真实接口模式下详情里没有 canDispute，页面不会显示按钮 */
-export const submitDispute: (publicNo: string, req: DisputeRequest) => Promise<void> = () => Promise.reject(new ApiError('badRequest'));
+/** 提交争议（S7）：能不能提交看详情的 resolution.canDispute；拒绝时 DISPUTE_CLOSED / DISPUTE_NOT_BETTOR / DISPUTE_EXISTS */
+export const submitDispute = (publicNo: string, req: DisputeRequest): Promise<DisputeReceipt> =>
+  post<DisputeReceipt>(`/api/markets/${encodeURIComponent(publicNo)}/disputes`, req);

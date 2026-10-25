@@ -47,6 +47,10 @@ export type ApiErrorReason =
   | 'betStaffAccount'
   | 'betRequestReused'
   | 'optionNotFound'
+  // 提交争议（forecast S7，resolve/web/DisputeController）
+  | 'disputeClosed'
+  | 'disputeNotBettor'
+  | 'disputeExists'
   | 'validationFailed'
   | 'badRequest'
   | 'forbidden'
@@ -129,6 +133,10 @@ export const SERVER_CODES: Record<string, ApiErrorReason> = {
   BET_STAFF_ACCOUNT: 'betStaffAccount',
   BET_REQUEST_REUSED: 'betRequestReused',
   OPTION_NOT_FOUND: 'optionNotFound',
+  // 提交争议（forecast S7）：不在公示期 / 在这个市场没有下注（403）/ 已经提交过（409）
+  DISPUTE_CLOSED: 'disputeClosed',
+  DISPUTE_NOT_BETTOR: 'disputeNotBettor',
+  DISPUTE_EXISTS: 'disputeExists',
   // 钱包
   WALLET_NOT_READY: 'walletNotReady',
   WHITELIST_FULL: 'whitelistFull',

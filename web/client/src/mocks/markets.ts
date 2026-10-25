@@ -18,6 +18,8 @@ import { ApiError } from '../api/errors';
 import type {
   BetRequest,
   BetResult,
+  AutoResolutionSource,
+  DisputeReceipt,
   DisputeRequest,
   I18nText,
   MarketCard,
@@ -89,11 +91,40 @@ interface StoredMarket {
   options: Array<SeedOption & { optionNo: string; seq: number }>;
   clarifications: Array<{ text: I18nText; time: number }>;
   feeChanges: Array<{ oldRate: string; newRate: string; time: number }>;
-  resolution?: Omit<MarketResolution, 'canDispute' | 'minePayout' | 'settle'> & { disputed?: boolean };
+  /** 结果（公示中是公示的结果）是第几个选项 */
+  winSeq?: number;
+  /** 裁决：字段和后端 S6 / S7 的 resolution 一致（见 resolutionOf） */
+  resolution?: StoredResolution;
   voidReason?: string;
   bets: Array<{ betNo: string; optionSeq: number; amount: string; receivedAt: number; multAtBet: string; feeRateAtBet: string }>;
   createdAt: number;
 }
+
+/** 自动裁决（S6 ResolutionViews）：结果由 winSeq 定（1 = 涨） */
+interface StoredAuto {
+  mode: 'auto';
+  resolvedAt: number;
+  symbol: string;
+  windowStart: number;
+  windowEnd: number;
+  sources: AutoResolutionSource[];
+}
+
+/** 平台裁决（S7 PlatformViews.clientView） */
+interface StoredPlatform {
+  mode: 'platform';
+  /** 员工编号（数字），不公开姓名 */
+  resolvedBy: string;
+  resolvedAt: number;
+  basis: string;
+  explanation: string;
+  evidenceUrls: string[];
+  disputeDeadlineAt?: number;
+  /** 本人提交的争议 */
+  myDispute?: DisputeReceipt;
+}
+
+type StoredResolution = StoredAuto | StoredPlatform;
 
 const CATEGORY_CAP: Record<MarketCategory, string> = { FOOTBALL: '10000.00', NBA: '10000.00', CRYPTO_15M: '2000.00', CRYPTO_1H: '2000.00', MACRO: '10000.00' };
 
@@ -346,21 +377,15 @@ function seedMarkets(): StoredMarket[] {
         option(L('客胜 富勒姆', 'Fulham', '客勝 富勒姆'), L('90 分钟结束时富勒姆进球多', 'Fulham scores more after 90 minutes', '90 分鐘結束時富勒姆進球多'), '1640.00', 45),
       ],
       mine: [{ optionSeq: 1, amount: '80.00', minutesAgo: 60 * 30, multAtBet: '2.04' }],
+      winSeq: 2,
       resolution: {
-        winningOptionNo: '',
         mode: 'platform',
-        resolver: 'A01',
-        resolvedAt: iso(now - 28 * MIN),
-        basis: L(
-        '90 分钟比分 1 : 1。API-Football 一度记为 2 : 1（第 88 分钟进球后被 VAR 取消），两个来源不一致，转平台裁决；以英超官网赛果和比赛报告为准。',
-        'Full-time score 1–1. API-Football briefly showed 2–1 (an 88th-minute goal later disallowed by VAR), so the sources disagreed and the market went to platform resolution, based on the official premierleague.com result and match report.',
-        '90 分鐘比分 1 : 1。API-Football 一度記為 2 : 1（第 88 分鐘進球后被 VAR 取消），兩個來源不一致，轉平台裁決；以英超官網賽果和比賽報告為準。',
-      ),
-        sources: [
-          { name: 'premierleague.com', url: 'https://www.premierleague.com/results', value: '1 : 1' },
-          { name: 'API-Football', url: 'https://www.api-football.com', value: '2 : 1 → 1 : 1' },
-        ],
-        disputeUntil: iso(now + 92 * MIN),
+        resolvedBy: '1027',
+        resolvedAt: now - 28 * MIN,
+        basis: 'NORMAL',
+        explanation: '90 分钟比分 1 : 1。API-Football 一度记为 2 : 1（第 88 分钟进球后被 VAR 取消），两个来源不一致，转平台裁决；以英超官网赛果和比赛报告为准。',
+        evidenceUrls: ['https://www.premierleague.com/results', 'https://www.api-football.com'],
+        disputeDeadlineAt: now + 92 * MIN,
       },
       createdAgo: 5 * DAY,
     }),
@@ -384,13 +409,15 @@ function seedMarkets(): StoredMarket[] {
         option(L('否', 'No', '否'), L('同比 < 3.0%', 'YoY < 3.0%', '同比 < 3.0%'), '4850.00', 131),
       ],
       mine: [{ optionSeq: 2, amount: '200.00', minutesAgo: 60 * 24 * 13, multAtBet: '1.58' }],
+      winSeq: 2,
       resolution: {
-        winningOptionNo: '',
         mode: 'platform',
-        resolver: 'A01',
-        resolvedAt: iso(now - 10 * DAY),
-        basis: L('美国劳工统计局 CPI 新闻稿：9 月 CPI 同比 2.9%，低于 3.0%。公示 24 小时内没有争议，按"否"结算。', 'BLS CPI release: September CPI rose 2.9% year over year, below 3.0%. No disputes during the 24-hour window; settled as "No".', '美國勞工統計局 CPI 新聞稿：9 月 CPI 同比 2.9%，低於 3.0%。公示 24 小時內沒有爭議，按"否"結算。'),
-        sources: [{ name: 'bls.gov', url: 'https://www.bls.gov/cpi/', value: '2.9%' }],
+        resolvedBy: '1027',
+        resolvedAt: now - 10 * DAY,
+        basis: 'NORMAL',
+        explanation: '美国劳工统计局 CPI 新闻稿：9 月 CPI 同比 2.9%，低于 3.0%。公示 24 小时内没有争议，按"否"结算。',
+        evidenceUrls: ['https://www.bls.gov/cpi/'],
+        disputeDeadlineAt: now - 9 * DAY,
       },
       createdAgo: 20 * DAY,
     }),
@@ -413,15 +440,16 @@ function seedMarkets(): StoredMarket[] {
         option(L('跌', 'Down', '跌'), L('结束价 < 开始价', 'End price < start price', '結束價 < 開始價'), '2210.00', 77),
       ],
       mine: [{ optionSeq: 2, amount: '30.00', minutesAgo: 60 * 3 + 40, multAtBet: '2.08' }],
+      winSeq: 1,
       resolution: {
-        winningOptionNo: '',
         mode: 'auto',
-        resolver: 'auto',
-        resolvedAt: iso(prevBtcStart + HOUR + 70_000),
-        basis: L('开始价 67,412.50，结束价 67,630.10，结束价 ≥ 开始价，判"涨"。币安和 OKX 方向一致，自动结算。', 'Start 67,412.50, end 67,630.10. End ≥ start, so "Up". Binance and OKX agree; settled automatically.', '開始價 67,412.50，結束價 67,630.10，結束價 ≥ 開始價，判"漲"。幣安和 OKX 方向一致，自動結算。'),
+        resolvedAt: prevBtcStart + HOUR + 70_000,
+        symbol: 'BTCUSDT',
+        windowStart: prevBtcStart,
+        windowEnd: prevBtcStart + HOUR,
         sources: [
-          { name: 'Binance', url: 'https://www.binance.com', value: '67,412.50 → 67,630.10' },
-          { name: 'OKX', url: 'https://www.okx.com', value: '67,409.80 → 67,627.40' },
+          { source: 'BINANCE', label: 'Binance BTC/USDT', startPrice: '67412.50000000', endPrice: '67630.10000000', direction: 'up', sha256: '3f1c9a0e5b7d2c4a8e6f0b1d3c5a7e9f2b4d6c8a0e1f3b5d7c9a2e4f6b8d0c1a' },
+          { source: 'OKX', label: 'OKX BTC-USDT', startPrice: '67409.8', endPrice: '67627.4', direction: 'up', sha256: '9e2b4d6f8a0c1e3b5d7f9a2c4e6b8d0f1a3c5e7b9d2f4a6c8e0b1d3f5a7c9e2b' },
         ],
       },
       createdAgo: 6 * HOUR,
@@ -450,18 +478,12 @@ function seedMarkets(): StoredMarket[] {
       createdAgo: 8 * DAY,
     }),
   ];
-  // 赢的选项编号
-  for (const m of list) {
-    if (m.resolution) {
-      const win = m.title.en.startsWith('Brentford') ? 2 : m.title.en.startsWith('US September') ? 2 : 1;
-      m.resolution.winningOptionNo = m.options[win - 1].optionNo;
-    }
-  }
   return list;
 }
 
 let markets: StoredMarket[] = seedMarkets();
 const disputes = new Map<string, DisputeRequest>();
+const winNo = (m: StoredMarket): string | undefined => (m.winSeq ? m.options[m.winSeq - 1]?.optionNo : undefined);
 
 /** 原型：重置（和 db 的重置一起调用） */
 export function resetMarkets(): void {
@@ -521,28 +543,70 @@ function cardOf(m: StoredMarket): MarketCard {
     options: m.options.map((o) => ({ optionNo: o.optionNo, seq: o.seq, label: o.label })),
     pool: poolOf(m, false),
     league: m.league,
-    winningOptionNo: m.status === 'settled' ? m.resolution?.winningOptionNo : undefined,
+    winningOptionNo: m.status === 'settled' ? winNo(m) : undefined,
   };
 }
 
-function resolutionOf(m: StoredMarket, pool: MarketPool): MarketResolution | undefined {
+/** 详情的 resolution：结构和后端一致（S6 自动裁决只在已结算时有；S7 平台裁决有确认记录就有） */
+function resolutionOf(m: StoredMarket): MarketResolution | undefined {
   const r = m.resolution;
   if (!r) return undefined;
-  const { disputed, ...rest } = r;
-  const out: MarketResolution = { ...rest };
-  if (m.status === 'publicizing') out.canDispute = !disputed && m.bets.length > 0 && !!r.disputeUntil && Date.parse(r.disputeUntil) > Date.now();
-  if (m.status === 'settled') {
-    const win = m.options.find((o) => o.optionNo === r.winningOptionNo)!;
-    const rate = rateFromPercent(m.feeRate);
-    // 结算明细（需求第 3.5 节）：按持仓算；这里用整个赢方奖池作为一个持仓近似展示合计（原型）
-    const p = payout(win.pool, win.pool, pool.total, rate);
-    const loser = sub(dec(pool.total), dec(win.pool));
-    out.settle = { feeRate: m.feeRate, payoutTotal: p.payout, feeTotal: p.fee, dust: toFixed(sub(loser, dec(p.gross)), 2) };
-    const mine = pool.mine?.find((x) => x.optionNo === win.optionNo);
-    if (mine) {
-      const pm = payout(mine.amount, win.pool, pool.total, rate);
-      out.minePayout = { payout: pm.payout, fee: pm.fee };
-    }
+  const win = winNo(m) ?? null;
+  if (r.mode === 'auto') {
+    if (m.status !== 'settled') return undefined;
+    const basis = r.sources[0];
+    return {
+      mode: 'auto',
+      result: m.winSeq === 1 ? 'up' : 'down',
+      resolvedBy: 'AUTO',
+      resolvedAt: iso(r.resolvedAt),
+      symbol: r.symbol,
+      windowStart: iso(r.windowStart),
+      windowEnd: iso(r.windowEnd),
+      startPrice: basis?.startPrice ?? null,
+      endPrice: basis?.endPrice ?? null,
+      source: basis?.label ?? null,
+      sources: r.sources,
+    };
+  }
+  const deadline = r.disputeDeadlineAt;
+  const open = (m.status === 'publicizing' || m.status === 'disputed') && deadline !== undefined && deadline > Date.now();
+  return {
+    mode: 'platform',
+    voided: m.status === 'voided',
+    resultOptionNo: m.status === 'voided' ? null : win,
+    publicizedOptionNo: win,
+    basis: r.basis,
+    evidenceUrls: r.evidenceUrls,
+    explanation: r.explanation,
+    actualStartAt: null,
+    resolvedBy: r.resolvedBy,
+    resolvedAt: iso(r.resolvedAt),
+    disputeDeadlineAt: deadline === undefined ? null : iso(deadline),
+    disputeCount: m.status === 'disputed' ? 1 : 0,
+    dispute: null,
+    myDispute: r.myDispute
+      ? { disputeNo: r.myDispute.disputeNo, claimedOptionNo: r.myDispute.claimedOptionNo, claimVoid: r.myDispute.claimVoid, status: r.myDispute.status, receivedAt: r.myDispute.receivedAt }
+      : null,
+    canDispute: open && !r.myDispute && m.bets.length > 0,
+  };
+}
+
+/** M1 提议的结算合计和本人派彩（后端没有；原型按需求第 3.5 节现算，合计把赢方奖池当一个持仓近似） */
+function settleOf(m: StoredMarket, pool: MarketPool): Pick<MarketDetail, 'settleSummary' | 'myPayout'> {
+  const no = winNo(m);
+  if (m.status !== 'settled' || !no) return {};
+  const win = m.options.find((o) => o.optionNo === no)!;
+  const rate = rateFromPercent(m.feeRate);
+  const p = payout(win.pool, win.pool, pool.total, rate);
+  const loser = sub(dec(pool.total), dec(win.pool));
+  const out: Pick<MarketDetail, 'settleSummary' | 'myPayout'> = {
+    settleSummary: { feeRate: m.feeRate, payoutTotal: p.payout, feeTotal: p.fee, dust: toFixed(sub(loser, dec(p.gross)), 2) },
+  };
+  const mine = pool.mine?.find((x) => x.optionNo === win.optionNo);
+  if (mine) {
+    const pm = payout(mine.amount, win.pool, pool.total, rate);
+    out.myPayout = { payout: pm.payout, fee: pm.fee };
   }
   return out;
 }
@@ -562,7 +626,10 @@ function detailOf(m: StoredMarket): MarketDetail {
     options: m.options.map((o) => ({ optionNo: o.optionNo, seq: o.seq, label: o.label, winCondition: o.win })),
     clarifications: m.clarifications.map((c) => ({ text: c.text, time: iso(c.time) })),
     feeChanges: m.feeChanges.map((c) => ({ ...c, time: iso(c.time) })),
-    resolution: resolutionOf(m, pool),
+    winningOptionNo: m.status === 'settled' ? winNo(m) : null,
+    settling: false,
+    resolution: resolutionOf(m),
+    ...settleOf(m, pool),
   };
 }
 
@@ -690,7 +757,7 @@ export function listMyBets(tab: MyBetTab, page: number, pageSize: number): Promi
         };
         if (pool.frozen && t !== 'refunded') item.finalMult = pool.options.find((x) => x.optionNo === o.optionNo)!.mult;
         if (t === 'settled') {
-          const won = m.resolution?.winningOptionNo === o.optionNo;
+          const won = winNo(m) === o.optionNo;
           item.won = won;
           if (won) {
             const p = payout(b.amount, o.pool, pool.total, rate);
@@ -721,13 +788,22 @@ export function listMyBets(tab: MyBetTab, page: number, pageSize: number): Promi
   }, empty);
 }
 
-export function submitDispute(publicNo: string, req: DisputeRequest): Promise<void> {
+/** 提交争议（规则和后端 S7 一样：公示期内、有下注、每人一次、理由必填 ≤ 1,000 字、主张不能和公示的结果一样） */
+export function submitDispute(publicNo: string, req: DisputeRequest): Promise<DisputeReceipt> {
   return mutate(() => {
     const m = find(publicNo);
-    if (m.status !== 'publicizing' || !m.resolution || m.resolution.disputed) throw new ApiError('badRequest');
+    const r = m.resolution;
+    if ((m.status !== 'publicizing' && m.status !== 'disputed') || r?.mode !== 'platform' || !r.disputeDeadlineAt || r.disputeDeadlineAt <= Date.now()) throw new ApiError('disputeClosed');
+    if (m.bets.length === 0) throw new ApiError('disputeNotBettor');
+    if (r.myDispute) throw new ApiError('disputeExists');
+    const claimVoid = req.claimedOptionNo === 'void';
+    if (!req.reason.trim() || req.reason.length > 1000 || (!claimVoid && (!m.options.some((o) => o.optionNo === req.claimedOptionNo) || req.claimedOptionNo === winNo(m)))) {
+      throw new ApiError('badRequest');
+    }
     disputes.set(publicNo, req);
-    m.resolution.disputed = true;
+    r.myDispute = { disputeNo: no(0), marketNo: publicNo, claimedOptionNo: claimVoid ? null : req.claimedOptionNo, claimVoid, status: 'open', receivedAt: iso(Date.now()) };
     m.status = 'disputed';
+    return r.myDispute;
   });
 }
 

@@ -156,13 +156,21 @@
       "deposit": "充值",
       "withdraw": "提現",
       "withdrawRefund": "提現退回",
-      "bet": "下注"
+      "bet": "下注",
+      "payout": "派彩",
+      "fee": "抽成",
+      "refund": "下注退回",
+      "compensation": "補償"
     },
     "icon": {
       "deposit": "入",
       "withdraw": "出",
       "withdrawRefund": "退",
-      "bet": "注"
+      "bet": "注",
+      "payout": "派",
+      "fee": "費",
+      "refund": "還",
+      "compensation": "補"
     },
     "range": {
       "7d": "近 7 天",
@@ -421,7 +429,10 @@
     "betOverUserCap": "超過你在這個市場的累計下注上限",
     "betStaffAccount": "員工帳戶不能下注",
     "betRequestReused": "這筆下注已經提交過，請重新整理後重新下注",
-    "optionNotFound": "這個選項不存在，請重新整理後再試"
+    "optionNotFound": "這個選項不存在，請重新整理後再試",
+    "disputeClosed": "不在爭議窗口內，不能提交爭議",
+    "disputeNotBettor": "只有在這個市場有下注的客戶可以提交爭議",
+    "disputeExists": "你已經對這個市場提交過爭議"
   },
   "validation": {
     "fixAll": "請修改以上標紅的內容後再提交",
@@ -677,7 +688,38 @@
       "reason": "原因",
       "reasons": {
         "POSTPONED_48H": "比賽延期超過 48 小時",
-        "NOT_ENOUGH_OPTIONS": "截止時只有一個選項有人押"
+        "NOT_ENOUGH_OPTIONS": "截止時只有一個選項有人押",
+        "ABANDONED_48H": "比賽中斷後 48 小時內沒有結果",
+        "NO_WINNER": "沒有人押中結果",
+        "NO_POOL": "退回後獎池為 0"
+      },
+      "system": "系統",
+      "autoBasis": "開始價 {{start}}，結束價 {{end}}（{{source}}）；結束價 ≥ 開始價判\"漲\"，否則判\"跌\"",
+      "disputeResult": "爭議結論",
+      "myDispute": "我的爭議",
+      "bases": {
+        "NORMAL": "按規則正常判定",
+        "E6_COMPLETED": "延期後 48 小時內完賽，按實際結果",
+        "E7_OFFICIAL": "比賽中斷，官方宣佈比分有效",
+        "E11_USUAL": "規則有歧義，按通常含義判定",
+        "E5_CANCELLED": "事件取消",
+        "E6_TIMEOUT": "延期超過 48 小時",
+        "E7_NO_RESULT": "比賽中斷，沒有有效比分",
+        "E10_UNDETERMINED": "無法確定結果",
+        "E11_UNDETERMINABLE": "規則無法判定",
+        "OTHER": "其他"
+      },
+      "decision": {
+        "upheld": "維持原結果",
+        "overturned": "改判",
+        "voided": "無法判定，已作廢"
+      },
+      "disputeStatus": {
+        "open": "處理中",
+        "upheld": "已處理：維持原結果",
+        "overturned": "已處理：改判",
+        "voided": "已處理：作廢",
+        "closed": "已結束"
       }
     },
     "how": {
@@ -784,7 +826,8 @@
     "doneBody": "24 小時內給出結論，會通知你。",
     "needReason": "請填寫理由",
     "needClaim": "請選擇你認為的結果",
-    "sameAsProposed": "和擬定結果相同"
+    "sameAsProposed": "和擬定結果相同",
+    "claimVoid": "無法判定，應作廢"
   },
   "authSide": {
     "title": "看好哪個結果，就押哪個",

@@ -5,7 +5,7 @@
  * - 倒计时按分钟显示，最后 1 分钟按秒（需求 P1）；刷新只换数字，不闪色（C84）。
  */
 import { useEffect, useState } from 'react';
-import type { I18nText, Lang, MarketStatus } from '../api/types';
+import type { I18nText, Lang, MarketDetail, MarketResolution, MarketStatus } from '../api/types';
 
 export function pickText(t: I18nText | undefined, lang: Lang): string {
   if (!t) return '';
@@ -90,3 +90,28 @@ export function barWidth(pct: string): number {
 
 /** "1.63" → "1.63x"；"—" 原样 */
 export const multText = (m: string): string => (m === '—' ? m : `${m}x`);
+
+// ---------- 结果和裁决（后端 S5 winningOptionNo、S6 / S7 resolution 的两种结构） ----------
+
+/** 现在要显示的结果选项：已结算用 winningOptionNo；公示中、争议中用平台裁决的公示结果（改判后是最终结果）；作废、还没有结果为空 */
+export function outcomeOptionNo(m: MarketDetail): string | undefined {
+  if (m.winningOptionNo) return m.winningOptionNo;
+  const r = m.resolution;
+  if (r?.mode === 'platform' && !r.voided) return r.resultOptionNo ?? r.publicizedOptionNo ?? undefined;
+  return undefined;
+}
+
+/** 平台裁决的争议截止时间（自动裁决没有） */
+export const disputeDeadline = (r: MarketResolution | null | undefined): string | undefined =>
+  r?.mode === 'platform' ? (r.disputeDeadlineAt ?? undefined) : undefined;
+
+/** 本人现在能不能提交争议 */
+export const canDispute = (r: MarketResolution | null | undefined): boolean => r?.mode === 'platform' && r.canDispute;
+
+/** 公开的裁决人：自动裁决 AUTO、系统 SYSTEM 翻译，其他是员工编号（不公开姓名） */
+export function resolverText(r: MarketResolution, t: (k: string) => string): string {
+  const by = r.resolvedBy ?? '';
+  if (by === 'AUTO') return t('md.res.auto');
+  if (by === 'SYSTEM') return t('md.res.system');
+  return by;
+}

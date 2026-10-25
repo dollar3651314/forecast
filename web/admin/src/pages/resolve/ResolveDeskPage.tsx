@@ -45,7 +45,7 @@ function Preview({ c, optionNo }: { c: ResolveCase; optionNo: string }) {
         <div>
           <dt>{t('rs.winnerPool')}</dt>
           <dd>
-            <Amount value={data.winnerPool} /> <span className="muted">· {t('rs.winners', { n: data.winners })}</span>
+            <Amount value={data.winnerPool} /> <span className="muted">· {t('rs.winners', { n: data.winnerPositions })}</span>
           </dd>
         </div>
         <div>
@@ -57,13 +57,13 @@ function Preview({ c, optionNo }: { c: ResolveCase; optionNo: string }) {
         <div>
           <dt>{t('rs.payoutTotal')}</dt>
           <dd>
-            <Amount value={data.payoutTotal} strong />
+            <Amount value={data.sumPayout} strong />
           </dd>
         </div>
         <div>
           <dt>{t('rs.feeTotal')}</dt>
           <dd>
-            <Amount value={data.feeTotal} />
+            <Amount value={data.sumFee} />
           </dd>
         </div>
         <div>
@@ -75,8 +75,8 @@ function Preview({ c, optionNo }: { c: ResolveCase; optionNo: string }) {
         <div className="sum">
           <dt>{t('rs.sum')}</dt>
           <dd>
-            <Amount value={data.total} strong /> {data.balanced ? <CheckCircleFilled className="ok" /> : <CloseCircleFilled className="bad" />}
-            <span className={data.balanced ? 'ok' : 'bad'}>{data.balanced ? t('rs.balanced') : t('rs.unbalanced')}</span>
+            <Amount value={data.poolTotal} strong /> {data.conserved ? <CheckCircleFilled className="ok" /> : <CloseCircleFilled className="bad" />}
+            <span className={data.conserved ? 'ok' : 'bad'}>{data.conserved ? t('rs.balanced') : t('rs.unbalanced')}</span>
           </dd>
         </div>
       </dl>

@@ -883,7 +883,10 @@ export interface MarketDraft {
 
 export type ResolveStage = 'toPropose' | 'toConfirm' | 'autoFailed' | 'overdue';
 
-/** 裁决台的一条（M1 提议，S7） */
+/**
+ * 裁决台的一条（M1 原型的页面模型）。后端 S7 已有接口（`resolve/api/ResolveDeskApi`：`GET /api/admin/resolve/cases` 的 `CaseItem`、
+ * `GET /api/admin/resolve/cases/{publicNo}` 的 `CaseDetail`）；S9 做正式页面时按后端字段改这里和模拟层（项目地图约定 48），原型阶段只在模拟层用。
+ */
 export interface ResolveCase {
   publicNo: string;
   category: MarketCategory;
@@ -913,17 +916,33 @@ export interface ResolveCase {
   rulesExcerpt: I18nText;
 }
 
-/** 按某个结果的结算预览（需求第 3.5 节：派彩合计 + 抽成合计 + 尾差 = 奖池合计） */
+/**
+ * 按某个结果的结算预览（需求第 3.5 节：派彩合计 + 抽成合计 + 尾差 = 奖池合计）。
+ * 字段和后端 S7 `GET /api/admin/markets/{publicNo}/settle-preview?optionNo=&actualStartAt=` 一致（`settle/api/SettleAdminApi.Preview`；整合 2 时按后端改）。
+ * outcome：settle 结算 / void_no_winner 没人押赢方会作废（E1）/ void_no_pool E14、E15 退回后奖池为 0 会作废。
+ */
 export interface SettlePreview {
+  marketNo: string;
   optionNo: string;
+  actualStartAt: string | null;
+  outcome: 'settle' | 'void_no_winner' | 'void_no_pool';
+  feeRate: string;
+  poolTotal: string;
   winnerPool: string;
   loserPool: string;
-  winners: number;
-  payoutTotal: string;
-  feeTotal: string;
+  sumGross: string;
+  sumFee: string;
   dust: string;
-  total: string;
-  balanced: boolean;
+  sumPayout: string;
+  platformIncome: string;
+  winnerPositions: number;
+  loserPositions: number;
+  /** ΣPay + ΣF + D = T 且 0 ≤ D < 0.01 × 赢方持仓数 */
+  conserved: boolean;
+  lateBets: number;
+  lateAmount: string;
+  staffBets: number;
+  staffAmount: string;
 }
 
 export interface ResolveSummary {
