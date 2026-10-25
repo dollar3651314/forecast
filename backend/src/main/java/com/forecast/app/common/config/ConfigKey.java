@@ -114,6 +114,22 @@ public enum ConfigKey {
   DISPUTE_WINDOW_FOOTBALL("dispute.windowMinutes.FOOTBALL", Unit.MINUTES, "dispute", BigDecimal.ONE, BigDecimal.valueOf(10_080), 0, Params.BETTING),
   DISPUTE_WINDOW_NBA("dispute.windowMinutes.NBA", Unit.MINUTES, "dispute", BigDecimal.ONE, BigDecimal.valueOf(10_080), 0, Params.BETTING),
   DISPUTE_WINDOW_MACRO("dispute.windowMinutes.MACRO", Unit.MINUTES, "dispute", BigDecimal.ONE, BigDecimal.valueOf(10_080), 0, Params.BETTING),
+  /*
+   * forecast S7（迁移 V15）：加密市场自动裁决失败、转人工后由人确认的结果也公示，争议窗口按体育人工裁决的 2 小时（开发记录 S7 D-75）；
+   * 市场建的时候是自动裁决，没有带出争议窗口，确认时按这里取（MarketCategory 不变：新建加密草稿仍不带出争议窗口）
+   */
+  DISPUTE_WINDOW_CRYPTO_15M("dispute.windowMinutes.CRYPTO_15M", Unit.MINUTES, "dispute", BigDecimal.ONE, BigDecimal.valueOf(10_080), 0, Params.BETTING),
+  DISPUTE_WINDOW_CRYPTO_1H("dispute.windowMinutes.CRYPTO_1H", Unit.MINUTES, "dispute", BigDecimal.ONE, BigDecimal.valueOf(10_080), 0, Params.BETTING),
+  /** 争议处理时限（需求第 4.4 节：提交后 24 小时内给出结论；超时裁决台标红、邮件提醒） */
+  DISPUTE_HANDLE_MINUTES("dispute.handleMinutes", Unit.MINUTES, "dispute", BigDecimal.ONE, BigDecimal.valueOf(10_080), 0, Params.BETTING),
+  /** 提议时限（需求第 4.4 节，按品类）：体育、加密转人工的进入裁决台后 2 小时；时事事件结束后 24 小时 */
+  RESOLVE_PROPOSE_FOOTBALL("resolve.proposeMinutes.FOOTBALL", Unit.MINUTES, "resolve", BigDecimal.ONE, BigDecimal.valueOf(10_080), 0, Params.BETTING),
+  RESOLVE_PROPOSE_NBA("resolve.proposeMinutes.NBA", Unit.MINUTES, "resolve", BigDecimal.ONE, BigDecimal.valueOf(10_080), 0, Params.BETTING),
+  RESOLVE_PROPOSE_CRYPTO_15M("resolve.proposeMinutes.CRYPTO_15M", Unit.MINUTES, "resolve", BigDecimal.ONE, BigDecimal.valueOf(10_080), 0, Params.BETTING),
+  RESOLVE_PROPOSE_CRYPTO_1H("resolve.proposeMinutes.CRYPTO_1H", Unit.MINUTES, "resolve", BigDecimal.ONE, BigDecimal.valueOf(10_080), 0, Params.BETTING),
+  RESOLVE_PROPOSE_MACRO("resolve.proposeMinutes.MACRO", Unit.MINUTES, "resolve", BigDecimal.ONE, BigDecimal.valueOf(10_080), 0, Params.BETTING),
+  /** 确认时限（需求第 4.4 节：提议后 2 小时） */
+  RESOLVE_CONFIRM_MINUTES("resolve.confirmMinutes", Unit.MINUTES, "resolve", BigDecimal.ONE, BigDecimal.valueOf(10_080), 0, Params.BETTING),
   /** KYC 阈值（RQ-10）：累计充值超过它、没有通过证件 + 人脸认证的客户不能新下注（S10 起用） */
   KYC_DEPOSIT_THRESHOLD("kyc.depositThreshold", Unit.USDT, "kyc", BigDecimal.ZERO, new BigDecimal("1000000000"), 2, Params.BETTING);
 

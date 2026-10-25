@@ -4,6 +4,7 @@ import com.forecast.app.admin.security.AdminContext;
 import com.forecast.app.admin.security.Audit;
 import com.forecast.app.common.error.BizException;
 import com.forecast.app.common.error.ValidationException;
+import com.forecast.app.resolve.api.ResolveDeskApi;
 import com.forecast.app.settle.api.SettleAdminApi;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -12,10 +13,11 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 
 /**
- * 后台的结算、退款、彩池对账（forecast S5）：业务在 settle 模块（{@link SettleAdminApi}），这里负责审计。
+ * 后台的结算、退款、彩池对账、补偿（forecast S5、S7）：业务在 settle 模块（{@link SettleAdminApi}），这里负责审计。
  * <ul>
- *   <li>超管手工填结果直接结算（S7 正式裁决台之前的临时入口）：{@code resolve:confirm}，高危——原因必填、必须勾选确认，审计"前 → 后"（需求第 2.2 节、NF-08）。</li>
- *   <li>人工作废（E5 比赛取消等）：{@code resolve:void}，高危，原因必填。</li>
+ *   <li>S5 的临时入口"超管手工填结果直接结算"S7 已删除（SQ-10）：结果走裁决台（{@code ResolveOps}）。</li>
+ *   <li>人工作废（E5 比赛取消等）：{@code resolve:void}，高危，原因必填；业务在 resolve 的裁决台。</li>
+ *   <li>补偿（E13）：{@code settle:compensate}，高危——原因必填、勾选确认，一个有权限的人确认即入账（RQ-17）。</li>
  *   <li>结算异常重试、对账差异标记已处理：{@code pool_recon:resolve}，原因 / 处理说明必填。</li>
  * </ul>
  * 不加事务：settle 的每个操作自己一个事务，提交以后再记"成功"的审计（失败也记，Audit 在独立事务里写）。
@@ -24,10 +26,12 @@ import org.springframework.stereotype.Service;
 class SettleOps {
 
   private final SettleAdminApi settle;
+  private final ResolveDeskApi desk;
   private final Audit audit;
 
-  SettleOps(SettleAdminApi settle, Audit audit) {
+  SettleOps(SettleAdminApi settle, ResolveDeskApi desk, Audit audit) {
     this.settle = settle;
+    this.desk = desk;
     this.audit = audit;
   }
 
@@ -43,8 +47,35 @@ class SettleOps {
     return settle.outcome(no(marketNo, "市场")).orElseThrow(() -> new BizException("NOT_FOUND", "市场不存在"));
   }
 
-  SettleAdminApi.Outcome settleManually(AdminContext actor, String marketNo, String optionNo, String actualStartAt, Boolean checked, String reason) {
-    // 一次列出全部错误（C56）：原因、勾选确认、选项、实际开赛时间
+  /**
+   * 人工作废（E5 比赛取消等；{@code resolve:void}，高危、原因必填）：业务在裁决台（{@link ResolveDeskApi#voidMarket}，写裁决记录、结束待处理的争议），
+   * 返回结算情况（退款单）。S5 起的接口地址不变。
+   */
+  SettleAdminApi.Outcome voidManually(AdminContext actor, String marketNo, String reason) {
+    String r = Audit.requireReason(reason);
+    return audit.run("market.void_manual", marketNo, true, r, () -> {
+      SettleAdminApi.Outcome before = outcome(marketNo);
+      desk.voidMarket(no(marketNo, "市场"), r, actor.adminId());
+      SettleAdminApi.Outcome o = outcome(marketNo);
+      Map<String, Object> after = new LinkedHashMap<>();
+      after.put("status", o.marketStatus());
+      if (o.refund() != null) after.put("refundRunNo", o.refund().runNo());
+      return Audit.Change.of(o, Map.of("status", before.marketStatus()), after);
+    });
+  }
+
+  SettleAdminApi.Preview preview(String marketNo, String optionNo, String actualStartAt) {
+    return settle.preview(no(marketNo, "市场"), optionNo, actualStartAt);
+  }
+
+  // ---------------------------------------------------------------- 补偿（E13，settle:compensate）
+
+  SettleAdminApi.CompPlan compensationPreview(String marketNo, String correctOptionNo) {
+    return settle.compensationPreview(no(marketNo, "市场"), correctOptionNo);
+  }
+
+  /** 确认补偿（高危：原因必填、勾选确认；一次列出全部错误） */
+  SettleAdminApi.Compensation compensate(AdminContext actor, String marketNo, String correctOptionNo, Boolean checked, String reason) {
     List<ValidationException.Field> errs = new ArrayList<>();
     try {
       Audit.requireReason(reason);
@@ -52,38 +83,31 @@ class SettleOps {
       errs.addAll(e.fields());
     }
     if (!Boolean.TRUE.equals(checked)) errs.add(new ValidationException.Field("checked", "required"));
-    errs.addAll(settle.checkManual(no(marketNo, "市场"), optionNo, actualStartAt));
+    errs.addAll(settle.checkCompensation(no(marketNo, "市场"), correctOptionNo));
     if (!errs.isEmpty()) throw new ValidationException(errs);
     String r = reason.strip();
-    return audit.run("market.settle_manual", marketNo, true, r, () -> {
-      SettleAdminApi.Outcome before = outcome(marketNo);
-      SettleAdminApi.Outcome o = settle.settleManually(no(marketNo, "市场"), optionNo, actualStartAt, String.valueOf(actor.adminId()));
+    return audit.run("settle.compensate", marketNo, true, r, () -> {
+      SettleAdminApi.Compensation c = settle.compensate(no(marketNo, "市场"), correctOptionNo, r, actor.adminId());
       Map<String, Object> after = new LinkedHashMap<>();
-      after.put("status", o.marketStatus());
-      after.put("settlePhase", o.settlePhase());
-      after.put("winningOptionNo", optionNo);
-      if (actualStartAt != null && !actualStartAt.isBlank()) after.put("actualStartAt", actualStartAt);
-      if (o.payout() != null) {
-        after.put("runNo", o.payout().runNo());
-        after.put("sumPayout", o.payout().sumPayout());
-        after.put("sumFee", o.payout().sumFee());
-        after.put("dust", o.payout().dust());
-      }
-      if (o.refund() != null) after.put("refundRunNo", o.refund().runNo());
-      return Audit.Change.of(o, Map.of("status", before.marketStatus(), "settlePhase", before.settlePhase()), after);
+      after.put("compensationNo", c.compensationNo());
+      after.put("originalOptionNo", c.originalOptionNo());
+      after.put("correctOptionNo", c.correctOptionNo());
+      after.put("total", c.total());
+      after.put("userCount", c.userCount());
+      return Audit.Change.of(c, Map.of("compensated", false), after);
     });
   }
 
-  SettleAdminApi.Outcome voidManually(AdminContext actor, String marketNo, String reason) {
-    String r = Audit.requireReason(reason);
-    return audit.run("market.void_manual", marketNo, true, r, () -> {
-      SettleAdminApi.Outcome before = outcome(marketNo);
-      SettleAdminApi.Outcome o = settle.voidManually(no(marketNo, "市场"), r, String.valueOf(actor.adminId()));
-      Map<String, Object> after = new LinkedHashMap<>();
-      after.put("status", o.marketStatus());
-      if (o.refund() != null) after.put("refundRunNo", o.refund().runNo());
-      return Audit.Change.of(o, Map.of("status", before.marketStatus()), after);
-    });
+  SettleAdminApi.Page<SettleAdminApi.Compensation> compensations(int page, int pageSize) {
+    return settle.compensations(page, pageSize);
+  }
+
+  SettleAdminApi.Compensation compensation(String compensationNo) {
+    return settle.compensation(no(compensationNo, "补偿单")).orElseThrow(() -> new BizException("NOT_FOUND", "补偿单不存在"));
+  }
+
+  SettleAdminApi.Report report(String from, String to) {
+    return settle.report(from, to);
   }
 
   SettleAdminApi.Page<SettleAdminApi.Run> runs(String status, String kind, int page, int pageSize) {

@@ -1,4 +1,4 @@
-/** 我的：资料、身份认证、通知、安全、语言、主题、涨跌颜色、退出登录。 */
+/** 我的（需求 P7）：资料、身份认证、通知、安全、新手引导、语言（三种）、主题（跟随系统 / 浅色 / 深色，RQ-1）、退出登录。 */
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BRAND_NAME } from '../../lib/brand';
@@ -34,7 +34,7 @@ export default function Me() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { logout } = useAuth();
-  const { theme, setTheme, upDown, setUpDown } = useTheme();
+  const { pref, setPref } = useTheme();
   const unread = useUnread();
   const profile = useAsync(getProfile, 'profile');
   const kyc = useAsync(() => getKyc(currentLang()), `kyc|${i18n.language}`);
@@ -99,26 +99,12 @@ export default function Me() {
           </span>
           <Segmented
             label={t('me.theme')}
-            value={theme}
-            onChange={setTheme}
+            value={pref}
+            onChange={setPref}
             options={[
+              { value: 'system', label: t('me.themeSystem') },
               { value: 'light', label: t('me.themeLight') },
               { value: 'dark', label: t('me.themeDark') },
-            ]}
-          />
-        </div>
-        <div className="setting-row">
-          <span>
-            <Icon name="markets" size={20} />
-            {t('me.upDown')}
-          </span>
-          <Segmented
-            label={t('me.upDown')}
-            value={upDown}
-            onChange={setUpDown}
-            options={[
-              { value: 'green', label: t('me.upDownGreen') },
-              { value: 'red', label: t('me.upDownRed') },
             ]}
           />
         </div>

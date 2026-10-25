@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  平台裁决（forecast S7）。只有 resolve 模块使用（表名以 resolve_ 开头）。
+  - resolve_record（裁决记录）、resolve_attachment（存档截图）只增不改：这里没有它们的 UPDATE、DELETE（ResolveAppendOnlyTest 检查）。
+  - resolve_case、resolve_dispute 的改动都是带条件的更新（旧值、IS NULL）：多实例、重复执行只生效一次。写操作在市场行锁、进度行锁之内。
+-->
+<mapper namespace="com.forecast.app.resolve.platform.PlatformMapper">
+
+  <sql id="caseCols">
+    market_id, origin, stage, proposal_id, proposed_at, propose_due_at, confirm_due_at, hold_kind, hold_until, result_option_id, actual_start_at,
+    resolved_by, confirm_record_id, confirmed_at, dispute_deadline_at, dispute_due_at, decision, decision_record_id, settle_requested_at,
+    propose_alerted_at, confirm_alerted_at, dispute_alerted_at, version, created_at, updated_at
+  </sql>
+
+  <!-- 三种超时（裁决台标红，需求第 4.4 节、AC-36） -->
+  <sql id="proposeOverdue">(stage = 'OPEN' AND proposal_id IS NULL AND hold_kind IS NULL AND propose_due_at &lt;= #{now})</sql>
+  <sql id="confirmOverdue">(stage = 'OPEN' AND proposal_id IS NOT NULL AND confirm_due_at &lt;= #{now})</sql>
+  <sql id="disputeOverdue">(stage = 'DISPUTED' AND decision IS NULL AND dispute_due_at &lt;= #{now})</sql>
+
+  <insert id="insertCaseIgnore">
+    INSERT IGNORE INTO resolve_case (market_id, origin, stage, propose_due_at, version, created_at, updated_at)
+    VALUES (#{marketId}, #{origin}, #{stage}, #{proposeDueAt}, 0, #{createdAt}, #{updatedAt})
+  </insert>
+
+  <select id="findCase" resultType="com.forecast.app.resolve.platform.PlatformRows$Case">
+    SELECT <include refid="caseCols"/> FROM resolve_case WHERE market_id = #{marketId}
+  </select>
+
+  <select id="lockCase" resultType="com.forecast.app.resolve.platform.PlatformRows$Case">
+    SELECT <include refid="caseCols"/> FROM resolve_case WHERE market_id = #{marketId} FOR UPDATE
+  </select>
+
+  <update id="syncStage">
+    UPDATE resolve_case SET stage = #{stage},
+      <if test="stage == 'CLOSED'">proposal_id = NULL, hold_kind = NULL, hold_until = NULL,</if>
+      version = version + 1, updated_at = #{now}
+    WHERE market_id = #{marketId} AND stage &lt;&gt; #{stage}
+  </update>
+
+  <update id="setProposal">
+    UPDATE resolve_case SET proposal_id = #{proposalId}, proposed_at = #{now}, confirm_due_at = #{confirmDueAt}, confirm_alerted_at = NULL,
+      version = version + 1, updated_at = #{now}
+    WHERE market_id = #{marketId} AND stage = 'OPEN' AND proposal_id IS NULL AND hold_kind IS NULL
+  </update>
+
+  <update id="clearProposal">
+    UPDATE resolve_case SET proposal_id = NULL, confirm_due_at = NULL, confirm_alerted_at = NULL, version = version + 1, updated_at = #{now}
+    WHERE market_id = #{marketId} AND proposal_id = #{proposalId}
+  </update>
+
+  <update id="confirmCase">
+    UPDATE resolve_case SET proposal_id = NULL, confirm_due_at = NULL, result_option_id = #{optionId}, actual_start_at = #{actualStartAt},
+      resolved_by = #{resolvedBy}, confirm_record_id = #{recordId}, confirmed_at = #{now}, dispute_deadline_at = #{deadline},
+      version = version + 1, updated_at = #{now}
+    WHERE market_id = #{marketId} AND confirm_record_id IS NULL
+  </update>
+
+  <update id="setHold">
+    UPDATE resolve_case SET hold_kind = #{kind}, hold_until = #{until}, version = version + 1, updated_at = #{now}
+    WHERE market_id = #{marketId} AND stage = 'OPEN' AND hold_kind IS NULL AND proposal_id IS NULL
+  </update>
+
+  <update id="clearHold">
+    UPDATE resolve_case SET hold_kind = NULL, hold_until = NULL, propose_due_at = #{proposeDueAt}, propose_alerted_at = NULL,
+      version = version + 1, updated_at = #{now}
+    WHERE market_id = #{marketId} AND hold_kind IS NOT NULL
+  </update>
+
+  <update id="disputeOpened">
+    UPDATE resolve_case SET dispute_due_at = #{dueAt}, version = version + 1, updated_at = #{now}
+    WHERE market_id = #{marketId} AND dispute_due_at IS NULL
+  </update>
+
+  <update id="setDecision">
+    UPDATE resolve_case SET decision = #{decision}, decision_record_id = #{recordId}, result_option_id = #{optionId}, resolved_by = #{resolvedBy},
+      version = version + 1, updated_at = #{now}
+    WHERE market_id = #{marketId} AND decision IS NULL
+  </update>
+
+  <update id="markSettleRequested">
+    UPDATE resolve_case SET settle_requested_at = #{now}, version = version + 1, updated_at = #{now}
+    WHERE market_id = #{marketId} AND settle_requested_at IS NULL
+  </update>
+
+  <update id="markAlerted">
+    UPDATE resolve_case SET
+      <choose>
+        <when test="kind == 'PROPOSE'">propose_alerted_at = #{now}</when>
+        <when test="kind == 'CONFIRM'">confirm_alerted_at = #{now}</when>
+        <otherwise>dispute_alerted_at = #{now}</otherwise>
+      </choose>, version = version + 1, updated_at = #{now}
+    WHERE market_id = #{marketId} AND
+      <choose>
+        <when test="kind == 'PROPOSE'">propose_alerted_at IS NULL AND <include refid="proposeOverdue"/></when>
+        <when test="kind == 'CONFIRM'">confirm_alerted_at IS NULL AND <include refid="confirmOverdue"/></when>
+        <otherwise>dispute_alerted_at IS NULL AND <include refid="disputeOverdue"/></otherwise>
+      </choose>
+  </update>
+
+  <sql id="tabWhere">
+    <where>
+      stage &lt;&gt; 'CLOSED'
+      <choose>
+        <when test="tab == 'AWAITING_PROPOSAL'">AND stage = 'OPEN' AND proposal_id IS NULL AND hold_kind IS NULL</when>
+        <when test="tab == 'AWAITING_CONFIRM'">AND stage = 'OPEN' AND proposal_id IS NOT NULL</when>
+        <when test="tab == 'AUTO_FAILED'">AND stage = 'OPEN' AND origin = 'AUTO_FAILED'</when>
+        <when test="tab == 'ON_HOLD'">AND stage = 'OPEN' AND hold_kind IS NOT NULL</when>
+        <when test="tab == 'OVERDUE'">AND (<include refid="proposeOverdue"/> OR <include refid="confirmOverdue"/> OR <include refid="disputeOverdue"/>)</when>
+        <when test="tab == 'PUBLICIZING'">AND stage = 'PUBLICIZING'</when>
+        <when test="tab == 'DISPUTED'">AND stage = 'DISPUTED'</when>
+      </choose>
+    </where>
+  </sql>
+
+  <!-- 超时的先列，其次按提议时限 -->
+  <select id="listCases" resultType="com.forecast.app.resolve.platform.PlatformRows$Case">
+    SELECT <include refid="caseCols"/> FROM resolve_case <include refid="tabWhere"/>
+    ORDER BY (<include refid="proposeOverdue"/> OR <include refid="confirmOverdue"/> OR <include refid="disputeOverdue"/>) DESC, propose_due_at, market_id
+    LIMIT #{offset}, #{limit}
+  </select>
+
+  <select id="countCases" resultType="long">
+    SELECT COUNT(*) FROM resolve_case <include refid="tabWhere"/>
+  </select>
+
+  <select id="settleDue" resultType="long">
+    SELECT market_id FROM resolve_case
+    WHERE settle_requested_at IS NULL
+      AND ((stage = 'PUBLICIZING' AND dispute_deadline_at &lt;= #{now}) OR (stage = 'DISPUTED' AND decision IN ('UPHOLD', 'OVERTURN')))
+    ORDER BY dispute_deadline_at, market_id LIMIT #{limit}
+  </select>
+
+  <select id="holdsDue" resultType="long">
+    SELECT market_id FROM resolve_case WHERE stage = 'OPEN' AND hold_kind IS NOT NULL AND hold_until &lt;= #{now} ORDER BY hold_until, market_id LIMIT #{limit}
+  </select>
+
+  <select id="overdue" resultType="com.forecast.app.resolve.platform.PlatformRows$Case">
+    SELECT <include refid="caseCols"/> FROM resolve_case WHERE
+      <choose>
+        <when test="kind == 'PROPOSE'">propose_alerted_at IS NULL AND <include refid="proposeOverdue"/></when>
+        <when test="kind == 'CONFIRM'">confirm_alerted_at IS NULL AND <include refid="confirmOverdue"/></when>
+        <otherwise>dispute_alerted_at IS NULL AND <include refid="disputeOverdue"/></otherwise>
+      </choose>
+    ORDER BY market_id LIMIT #{limit}
+  </select>
+
+  <!-- ===================== resolve_record（只增不改） ===================== -->
+
+  <sql id="recordCols">id, market_id, kind, option_id, ref_id, actual_start_at, evidence_urls, attachments, detail, note, actor, created_at</sql>
+
+  <insert id="insertRecord" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO resolve_record (market_id, kind, option_id, ref_id, actual_start_at, evidence_urls, attachments, detail, note, actor, created_at)
+    VALUES (#{marketId}, #{kind}, #{optionId}, #{refId}, #{actualStartAt}, #{evidenceUrls}, #{attachments}, #{detail}, #{note}, #{actor}, #{createdAt})
+  </insert>
+
+  <select id="record" resultType="com.forecast.app.resolve.platform.PlatformRows$Record">
+    SELECT <include refid="recordCols"/> FROM resolve_record WHERE id = #{id}
+  </select>
+
+  <select id="records" resultType="com.forecast.app.resolve.platform.PlatformRows$Record">
+    SELECT <include refid="recordCols"/> FROM resolve_record WHERE market_id = #{marketId} ORDER BY id
+  </select>
+
+  <select id="recordsByIds" resultType="com.forecast.app.resolve.platform.PlatformRows$Record">
+    SELECT <include refid="recordCols"/> FROM resolve_record WHERE id IN
+    <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
+  </select>
+
+  <!-- ===================== resolve_dispute ===================== -->
+
+  <sql id="disputeCols">
+    id, public_no, market_id, user_id, claimed_option_id, reason, link, status, decision_note, handled_by, handled_at, received_at, created_at
+  </sql>
+
+  <insert id="insertDispute" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO resolve_dispute (public_no, market_id, user_id, claimed_option_id, reason, link, status, received_at, created_at)
+    VALUES (#{publicNo}, #{marketId}, #{userId}, #{claimedOptionId}, #{reason}, #{link}, 'OPEN', #{receivedAt}, #{createdAt})
+  </insert>
+
+  <select id="disputeOfUser" resultType="com.forecast.app.resolve.platform.PlatformRows$Dispute">
+    SELECT <include refid="disputeCols"/> FROM resolve_dispute WHERE market_id = #{marketId} AND user_id = #{userId}
+  </select>
+
+  <select id="disputesOf" resultType="com.forecast.app.resolve.platform.PlatformRows$Dispute">
+    SELECT <include refid="disputeCols"/> FROM resolve_dispute WHERE market_id = #{marketId} ORDER BY id
+  </select>
+
+  <select id="openDisputes" resultType="com.forecast.app.resolve.platform.PlatformRows$Dispute">
+    SELECT <include refid="disputeCols"/> FROM resolve_dispute WHERE market_id = #{marketId} AND status = 'OPEN' ORDER BY id
+  </select>
+
+  <select id="countDisputes" resultType="int">
+    SELECT COUNT(*) FROM resolve_dispute WHERE market_id = #{marketId}
+  </select>
+
+  <select id="openCounts" resultType="com.forecast.app.resolve.platform.PlatformMapper$OpenCount">
+    SELECT market_id, COUNT(*) AS n FROM resolve_dispute WHERE status = 'OPEN' AND market_id IN
+    <foreach collection="marketIds" item="i" open="(" separator="," close=")">#{i}</foreach>
+    GROUP BY market_id
+  </select>
+
+  <update id="decideDisputes">
+    UPDATE resolve_dispute SET status = #{status}, decision_note = #{note}, handled_by = #{by}, handled_at = #{now}
+    WHERE market_id = #{marketId} AND status = 'OPEN'
+  </update>
+
+  <select id="listDisputes" resultType="com.forecast.app.resolve.platform.PlatformRows$Dispute">
+    SELECT <include refid="disputeCols"/> FROM resolve_dispute
+    <where>
+      <if test="status == 'OPEN'">status = 'OPEN'</if>
+      <if test="status == 'HANDLED'">status &lt;&gt; 'OPEN'</if>
+    </where>
+    ORDER BY id DESC LIMIT #{offset}, #{limit}
+  </select>
+
+  <select id="countAllDisputes" resultType="long">
+    SELECT COUNT(*) FROM resolve_dispute
+    <where>
+      <if test="status == 'OPEN'">status = 'OPEN'</if>
+      <if test="status == 'HANDLED'">status &lt;&gt; 'OPEN'</if>
+    </where>
+  </select>
+
+  <!-- ===================== resolve_attachment（只增不改） ===================== -->
+
+  <sql id="attachmentCols">id, public_no, market_id, storage_key, content_type, size_bytes, sha256, uploaded_by, created_at</sql>
+
+  <insert id="insertAttachment" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO resolve_attachment (public_no, market_id, storage_key, content_type, size_bytes, sha256, uploaded_by, created_at)
+    VALUES (#{publicNo}, #{marketId}, #{storageKey}, #{contentType}, #{sizeBytes}, #{sha256}, #{uploadedBy}, #{createdAt})
+  </insert>
+
+  <select id="attachment" resultType="com.forecast.app.resolve.platform.PlatformRows$Attachment">
+    SELECT <include refid="attachmentCols"/> FROM resolve_attachment WHERE public_no = #{publicNo}
+  </select>
+
+  <select id="attachmentsOf" resultType="com.forecast.app.resolve.platform.PlatformRows$Attachment">
+    SELECT <include refid="attachmentCols"/> FROM resolve_attachment WHERE market_id = #{marketId} ORDER BY id
+  </select>
+</mapper>

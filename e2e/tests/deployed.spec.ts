@@ -56,7 +56,7 @@ test('Nginx：两个域名的路由、跳转和安全响应头', async ({ browse
     expect((await status(page, '/api/me/session')).status, '客户端接口经 Nginx 到后端（未登录 401）').toBe(401);
     // 浏览器路由：直接打开或刷新任意页面路径都回到客户端的 index.html。
     // 资产页路由 /assets* 和构建目录 assets/ 同名（曾经是 403 / 404，见方案第 9 节 D-1）
-    for (const p of ['/home', '/assets', '/assets/', '/assets/ledger', '/assets/withdraw', '/assets/whitelist', '/me/kyc']) {
+    for (const p of ['/markets', '/assets', '/assets/', '/assets/ledger', '/assets/withdraw', '/assets/whitelist', '/me/kyc']) {
       const r = await status(page, p);
       expect(r.status, `直接打开 ${p}`).toBe(200);
       expect(r.type, `直接打开 ${p} 是页面`).toContain('text/html');

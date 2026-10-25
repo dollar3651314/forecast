@@ -1,7 +1,6 @@
 /**
- * 新手引导（沿用复制源的组件）：可跳过；终点是"完成身份认证 / 充值"。新客户（认证未提交）第一次登录自动打开一次；之后在"我的 → 新手引导"重看。
- * forecast S1：复制源第 4 步"怎么下单"删除，先是 3 步 ① 欢迎 ② 身份认证 ③ 充值 USDT；
- * 需求的 4 步（这里押什么 → 赔率怎么算、只对盈利抽成 → 认证 → 充值）在 S11 做（技术方案/v1-架构方案.md 第 9.4 节）。
+ * 新手引导（C83，需求 P9，架构方案第 9.4 节）：4 步 ① 在这里押一件事的结果 ② 押中了分输方的奖池（赔率随奖池变化、只对盈利抽成）
+ * ③ 完成身份认证 ④ 充值 USDT，终点落在充值页（资产）；不做试玩。可以跳过；新客户（认证未提交）第一次登录自动打开一次，之后在"我的 → 新手引导"重看。
  */
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -16,7 +15,8 @@ import { Icon, type IconName } from './Icon';
 import { Modal } from './Modal';
 
 const STEPS: Array<{ key: string; icon: IconName }> = [
-  { key: 'welcome', icon: 'checkCircle' },
+  { key: 'what', icon: 'markets' },
+  { key: 'odds', icon: 'trophy' },
   { key: 'kyc', icon: 'shield' },
   { key: 'deposit', icon: 'deposit' },
 ];
@@ -35,7 +35,6 @@ export function Onboarding() {
   const open = forcedOpen || auto;
   if (!open) return null;
 
-  const kycDone = kyc.data?.status === 'approved' || kyc.data?.status === 'pending';
   const done = (to?: string) => {
     finish();
     setClosed(true);
@@ -73,8 +72,8 @@ export function Onboarding() {
               </button>
             )}
             {last ? (
-              <button type="button" className="btn btn-primary" data-autofocus onClick={() => done(kycDone ? '/assets' : '/me/kyc')}>
-                {kycDone ? t('onboarding.goDeposit') : t('onboarding.goKyc')}
+              <button type="button" className="btn btn-primary" data-autofocus onClick={() => done('/assets')}>
+                {t('onboarding.goDeposit')}
               </button>
             ) : (
               <button type="button" className="btn btn-primary" data-autofocus onClick={() => setStep(step + 1)}>
@@ -96,6 +95,11 @@ export function Onboarding() {
         </div>
         <h3>{t(`onboarding.${s.key}.title`, { brand: BRAND_NAME })}</h3>
         <p>{t(`onboarding.${s.key}.body`)}</p>
+        {s.key === 'odds' && (
+          <div className="ob-example">
+            <span className="num">{t('onboarding.odds.example')}</span>
+          </div>
+        )}
         {list.length > 0 && (
           <ul className="ob-list">
             {list.map((x, i) => (
@@ -109,12 +113,6 @@ export function Onboarding() {
         {s.key === 'kyc' && (
           <button type="button" className="btn btn-sm btn-ghost ob-inline" onClick={() => done('/me/kyc')}>
             {t('onboarding.kycNow')}
-            <Icon name="chevronRight" size={14} />
-          </button>
-        )}
-        {s.key === 'deposit' && (
-          <button type="button" className="btn btn-sm btn-ghost ob-inline" onClick={() => done('/assets')}>
-            {t('onboarding.depositNow')}
             <Icon name="chevronRight" size={14} />
           </button>
         )}

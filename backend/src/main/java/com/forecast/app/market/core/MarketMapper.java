@@ -47,6 +47,10 @@ interface MarketMapper {
   int setResult(@Param("id") long id, @Param("winningOptionId") long winningOptionId, @Param("actualStartAt") LocalDateTime actualStartAt,
       @Param("resolvedBy") String resolvedBy, @Param("now") LocalDateTime now);
 
+  /** 公示（S7）：写拟定结果和争议截止时间；只在公示中、结算还没开始时生效 */
+  int setPublicity(@Param("id") long id, @Param("winningOptionId") long winningOptionId, @Param("actualStartAt") LocalDateTime actualStartAt,
+      @Param("resolvedBy") String resolvedBy, @Param("deadline") LocalDateTime deadline, @Param("now") LocalDateTime now);
+
   /** 结算阶段 from → to（条件更新） */
   int casSettlePhase(@Param("id") long id, @Param("from") String from, @Param("to") String to, @Param("now") LocalDateTime now);
 
@@ -102,4 +106,7 @@ interface MarketMapper {
       @Param("offset") int offset, @Param("limit") int limit);
 
   long clientCount(@Param("statuses") Collection<String> statuses, @Param("category") String category);
+
+  /** 自动生成模板在 [from, to] 里已经生成的市场（按窗口开始时间） */
+  List<MarketRows.Market> generated(@Param("autogenId") long autogenId, @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 }

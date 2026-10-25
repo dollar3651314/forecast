@@ -48,7 +48,23 @@ final class Render {
           "NO_WINNER", new String[] {"没有人押结果对应的选项，按规则作废", "nobody bet on the winning option, so the market was voided under the rules"},
           "NO_POOL", new String[] {"退回晚于开赛的下注后奖池为 0，按规则作废", "after refunding bets placed after the start the pool was empty, so the market was voided"},
           "CANCELLED", new String[] {"市场已取消", "the market was cancelled"},
-          "VOIDED", new String[] {"市场已作废", "the market was voided"}));
+          "VOIDED", new String[] {"市场已作废", "the market was voided"},
+          // forecast S7：E6 延期、E7 腰斩等满 48 小时还没完赛 / 宣布，系统作废
+          "POSTPONED_48H", new String[] {"比赛延期，原定开赛后 48 小时内没有完赛，按规则作废", "the event was postponed and not completed within 48 hours of the original start, so the market was voided under the rules"},
+          "ABANDONED_48H", new String[] {"比赛中途终止，48 小时内官方没有宣布有效比分，按规则作废", "the event was abandoned and no official result was announced within 48 hours, so the market was voided under the rules"}),
+      // forecast S7：争议结论（#15）
+      "decision", Map.of(
+          "UPHELD", new String[] {"维持原结果", "the original result stands"},
+          "OVERTURNED", new String[] {"改判", "the result has been changed"},
+          "VOIDED", new String[] {"无法判定，市场作废、下注全额退回", "the result cannot be determined; the market is voided and all bets are refunded"}),
+      // forecast S7：结果是"作废"（补偿 #17 里正确结果是作废、裁决提议是作废）
+      "option", Map.of("VOID", new String[] {"作废（全额退款）", "void (full refund)"}),
+      "optionEn", Map.of("VOID", new String[] {"作废（全额退款）", "void (full refund)"}),
+      // forecast S7：裁决超时提醒（员工邮件）
+      "what", Map.of(
+          "PROPOSE", new String[] {"提议", "proposal"},
+          "CONFIRM", new String[] {"确认", "confirmation"},
+          "DISPUTE", new String[] {"争议处理", "dispute handling"}));
 
   record Text(String title, String body) {}
 

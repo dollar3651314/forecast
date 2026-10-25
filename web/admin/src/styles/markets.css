@@ -1,0 +1,93 @@
+/* forecast M1 原型：市场管理、规则模板、裁决台、参数设置。颜色只用 global.css 的变量（浅色深色都能用）。 */
+
+/* ---------- 市场管理列表 ---------- */
+.mk-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 12px 0; }
+.mk-cell-title { display: flex; flex-direction: column; min-width: 240px; max-width: 360px; white-space: normal; }
+.mk-cell-title a { font-weight: 600; }
+.mk-cell-title .muted { font-size: 12px; }
+
+/* ---------- 规则模板（编辑） ---------- */
+.mke-form .ant-card { margin-bottom: 12px; }
+.mke-form .ant-form-item { margin-bottom: 12px; }
+.i18n-inputs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.mke-opt { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-bottom: 1px dashed var(--hair); }
+.mke-opt:last-of-type { margin-bottom: 10px; }
+.mke-opt-n { flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--s3); color: var(--primary-deep); font-weight: 700; display: flex; align-items: center; justify-content: center; margin-top: 5px; font-size: 12px; }
+.mke-opt-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.mke-miss { color: var(--danger); margin-left: 4px; font-size: 11px; }
+.mke-side { position: sticky; top: calc(var(--banner-h) + var(--header-h) + 16px); display: flex; flex-direction: column; gap: 12px; }
+.mke-check { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.mke-check li { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; }
+.mke-check li .anticon { margin-top: 3px; }
+.mke-check li.ok .anticon { color: var(--long); }
+.mke-check li.bad { color: var(--danger); font-weight: 600; }
+.mke-manual { display: flex; flex-direction: column; gap: 4px; padding: 10px 0; border-top: 1px solid var(--hair); margin-bottom: 8px; }
+.mke-manual .ant-checkbox-wrapper { margin-inline-start: 0; }
+.mke-times { display: flex; justify-content: space-between; margin-top: 10px; font-size: 12.5px; color: var(--muted); }
+.mke-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mke-actions > :last-child { grid-column: 1 / -1; }
+.mke-actions .ant-btn { width: 100%; }
+
+/* ---------- 裁决台 ---------- */
+.rs-layout { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 12px; margin-top: 12px; align-items: start; }
+.rs-list { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.rs-stages { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.rs-stage { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--s1); cursor: pointer; color: var(--text); font-size: 12.5px; }
+.rs-stage b { font-size: 18px; }
+.rs-stage.on { border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+.rs-stage.s-overdue b, .rs-stage.s-autoFailed b { color: var(--danger); }
+.rs-items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.rs-items button { width: 100%; text-align: left; display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--s1); cursor: pointer; color: var(--text); }
+.rs-items button.on { border-color: var(--primary); box-shadow: inset 3px 0 0 var(--primary); background: var(--row-selected); }
+.rs-items b { font-size: 13.5px; }
+.rs-items .muted { font-size: 12px; }
+.rs-it-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.rs-badge { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 99px; background: var(--s3); color: var(--muted); }
+.rs-badge.s-toConfirm { color: var(--primary-deep); background: var(--row-selected); }
+.rs-badge.s-autoFailed, .rs-badge.s-overdue { color: var(--danger); background: var(--danger-bg); }
+.rs-due { font-size: 11.5px; color: var(--muted); }
+.rs-due.soon { color: var(--warn); font-weight: 600; }
+.rs-due.late { color: var(--danger); font-weight: 700; }
+.rs-detail .ant-card-head-title { white-space: normal; }
+.rs-title { font-size: 15px; font-weight: 700; }
+.rs-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; font-size: 12.5px; color: var(--muted); margin-bottom: 10px; }
+.rs-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 16px; }
+.rs-sec { margin-bottom: 12px; }
+.rs-sec h3, .rs-decide h3 { font-size: 13px; margin: 0 0 6px; color: var(--muted); font-weight: 600; }
+.rs-dl { margin: 0; }
+.rs-dl > div { display: flex; gap: 10px; padding: 5px 0; border-bottom: 1px solid var(--hair); font-size: 13px; }
+.rs-dl dt { flex: none; width: 72px; color: var(--muted); }
+.rs-dl dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.rs-links { display: flex; flex-direction: column; gap: 2px; }
+.rs-src { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.rs-src td { padding: 5px 6px; border-bottom: 1px solid var(--hair); }
+.rs-src .ok, .rs-pv .ok { color: var(--long); }
+.rs-src .bad, .rs-pv .bad { color: var(--danger); }
+.rs-rules { font-size: 12.5px; color: var(--muted); margin: 0; }
+.rs-preview { border: 1px solid var(--border); border-radius: var(--r-lg); padding: 10px 12px; background: var(--s2); }
+.rs-pv-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; flex-wrap: wrap; margin-bottom: 4px; }
+.rs-pv-head .muted { font-size: 11.5px; }
+.rs-pv { margin: 0; }
+.rs-pv > div { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; font-size: 13px; }
+.rs-pv dt { color: var(--muted); }
+.rs-pv dd { margin: 0; display: flex; gap: 6px; align-items: center; }
+.rs-pv .sum { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 6px; }
+.rs-decide { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.rs-pick { display: flex; flex-wrap: wrap; margin-top: 6px; }
+.rs-submit { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rs-submit .muted { font-size: 11.5px; }
+
+/* ---------- 参数设置 ---------- */
+.pm-grid { margin-top: 12px; }
+.pm-list { list-style: none; margin: 0; padding: 0; }
+.pm-list li { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--hair); }
+.pm-list li:last-child { border-bottom: 0; }
+.pm-name { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pm-name .muted { font-size: 11.5px; }
+.pm-val { font-size: 14px; }
+.pm-note { margin: 8px 0 0; font-size: 12px; color: var(--muted); }
+
+/* 原型场景按钮放到左下角（电脑上是侧栏的空白处），不挡住页面右下角的操作按钮（例如裁决台的"确认结果"） */
+@media (min-width: 992px) {
+  .scenario-fab.ant-btn, .scenario-panel.ant-card { right: auto; left: 16px; }
+}

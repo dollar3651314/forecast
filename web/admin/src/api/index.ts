@@ -8,6 +8,7 @@
  * Admin data API. Pages import from here only. "real" mode calls the backend for S18a endpoints; "mock" keeps the prototype.
  */
 import * as mock from '../mocks/handlers';
+import * as mk from '../mocks/markets';
 import * as runtime from '../mocks/runtime';
 import { IS_MOCK } from './mode';
 import * as real from './real';
@@ -171,6 +172,23 @@ export const updateSystemConfig: typeof real.updateSystemConfig = IS_MOCK ? mock
 export const listParams: typeof real.listParams = IS_MOCK ? mock.listParams : real.listParams;
 /** PUT /api/admin/params/{fee|betting}/{key}（高危；expected 不对 409 CONFIG_CHANGED） */
 export const updateParam: typeof real.updateParam = IS_MOCK ? mock.updateParam : real.updateParam;
+
+// ---- 市场管理、裁决台（forecast M1 原型，需求第 4、6 节） ----
+// 后端已有市场管理接口（S3：GET/POST/PUT /api/admin/markets…）和裁决台接口（S7：/api/admin/resolve/**）；页面按原型确认后的样子在 S9 接真实接口，
+// 在那之前真实接口模式下这几个页面不在菜单里（config/protoMenu.tsx），调用直接失败、也不打包模拟层。
+const protoOnly = () => Promise.reject(new ApiError('errors.protoOnly'));
+/** GET /api/admin/markets（列表 + 各分组的数量） */
+export const listAdminMarkets: typeof mk.listAdminMarkets = IS_MOCK ? mk.listAdminMarkets : protoOnly;
+/** GET /api/admin/markets/{publicNo}（新建时传 null，返回按品类带出默认值的空模板） */
+export const getMarketDraft: typeof mk.getMarketDraft = IS_MOCK ? mk.getMarketDraft : protoOnly;
+/** POST /api/admin/markets | PUT /api/admin/markets/{publicNo}；submit = 同时提交上架（POST …/submit） */
+export const saveMarketDraft: typeof mk.saveMarketDraft = IS_MOCK ? mk.saveMarketDraft : protoOnly;
+/** 后端 S7：GET /api/admin/resolve/cases（`tab` 分组；字段见 ResolveDeskApi.CaseItem，S9 接时改页面模型） */
+export const listResolveQueue: typeof mk.listResolveQueue = IS_MOCK ? mk.listResolveQueue : protoOnly;
+/** 后端 S7：GET /api/admin/markets/{publicNo}/settle-preview?optionNo=&actualStartAt=（按某个结果的结算预览，字段已和后端一致） */
+export const previewSettle: typeof mk.previewSettle = IS_MOCK ? mk.previewSettle : protoOnly;
+/** 后端 S7：POST /api/admin/resolve/cases/{publicNo}/proposals、…/proposals/{proposalId}/confirm | return、…/cases/{publicNo}/decide（高危）；原型合成一个调用 */
+export const decideResolve: typeof mk.decideResolve = IS_MOCK ? mk.decideResolve : protoOnly;
 
 // ---- 原型场景（只在 mock 模式下有界面入口） ----
 // 真实接口模式下恒为"正常数据"、版本号恒为 0；按编译期常量选，real 构建不打包模拟层（vite.config.ts 的 mockFree）

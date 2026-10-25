@@ -180,6 +180,7 @@ class RateLimitTest {
     // 复制源还有下单、改单、撤单、平仓、改止盈止损、追加保证金（forecast S1 删除）；S4 加下注、S7 加提交争议（技术方案/v1-架构方案.md 第 2.4 节）
     assertThat(limited).containsExactlyInAnyOrder(
         "[POST] [/api/markets/{publicNo}/bets]",
+        "[POST] [/api/markets/{publicNo}/disputes]",
         "[POST] [/api/wallet/withdrawals]",
         "[POST] [/api/wallet/whitelist]",
         "[DELETE] [/api/wallet/whitelist/{id}]");

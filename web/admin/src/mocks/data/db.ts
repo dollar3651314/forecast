@@ -560,6 +560,20 @@ export const params: ParamItem[] = [
   { key: 'dispute.windowMinutes.FOOTBALL', value: '120', unit: 'minutes', group: 'dispute', section: 'betting', updatedAt: null },
   { key: 'dispute.windowMinutes.NBA', value: '120', unit: 'minutes', group: 'dispute', section: 'betting', updatedAt: null },
   { key: 'dispute.windowMinutes.MACRO', value: '1440', unit: 'minutes', group: 'dispute', section: 'betting', updatedAt: null },
+  // S7（迁移 V15）：加密转人工的争议窗口、争议处理时限、提议 / 确认时限
+  { key: 'dispute.windowMinutes.CRYPTO_15M', value: '120', unit: 'minutes', group: 'dispute', section: 'betting', updatedAt: null },
+  { key: 'dispute.windowMinutes.CRYPTO_1H', value: '120', unit: 'minutes', group: 'dispute', section: 'betting', updatedAt: null },
+  { key: 'dispute.handleMinutes', value: '1440', unit: 'minutes', group: 'dispute', section: 'betting', updatedAt: null },
+  // 提议时限按品类（体育、加密 120 分钟，时事 1440 分钟）
+  ...(['FOOTBALL', 'NBA', 'CRYPTO_15M', 'CRYPTO_1H', 'MACRO'] as const).map((c) => ({
+    key: `resolve.proposeMinutes.${c}`,
+    value: c === 'MACRO' ? '1440' : '120',
+    unit: 'minutes' as const,
+    group: 'resolve',
+    section: 'betting' as const,
+    updatedAt: null,
+  })),
+  { key: 'resolve.confirmMinutes', value: '120', unit: 'minutes', group: 'resolve', section: 'betting', updatedAt: null },
   { key: 'kyc.depositThreshold', value: '1000', unit: 'usdt', group: 'kyc', section: 'betting', updatedAt: null },
 ];
 

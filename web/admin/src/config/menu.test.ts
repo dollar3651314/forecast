@@ -1,6 +1,8 @@
 /** AC-35：后台每个页面都能从菜单进入；forecast S1 删除差价合约的交易、风控、品种、参数菜单后剩 6 个一级菜单 */
 import { MENU, flattenMenu, findMenuByPath, visibleMenu, type ServerMenuNode } from './menu';
 import { APP_ROUTES } from './routes';
+import { PROTO_ROUTES } from './protoRoutes';
+import { PROTO_MENU } from './protoMenu';
 import { ALL_PERMISSION_CODES } from './permissions';
 
 describe('菜单', () => {
@@ -14,8 +16,8 @@ describe('菜单', () => {
     expect(orphan).toEqual([]);
   });
 
-  it('每个菜单都有对应的页面路由，且权限点已登记', () => {
-    const paths = new Set(APP_ROUTES.map((r) => r.path));
+  it('每个菜单都有对应的页面路由，且权限点已登记（含 M1 原型页面）', () => {
+    const paths = new Set([...APP_ROUTES, ...PROTO_ROUTES].map((r) => r.path));
     for (const m of flattenMenu()) {
       expect(paths.has(m.path!)).toBe(true);
       expect(ALL_PERMISSION_CODES).toContain(m.permission);
@@ -46,6 +48,13 @@ describe('菜单', () => {
     expect(menu[2].children?.[0].badge).toBe('withdrawals');
     // 没有权限点的叶子即使后端返回也不显示
     expect(visibleMenu(server, (p) => p !== 'kyc:view').map((m) => m.key)).toEqual(['customers', 'funds']);
+  });
+
+  it('M1 原型页面（市场管理、裁决台、参数设置）只在原型模式的本地菜单里，排在仪表盘后面；不进 MENU（后端 Menus.java 核对的是 MENU）', () => {
+    expect(PROTO_MENU.map((m) => m.key)).toEqual(['markets', 'resolve', 'params']);
+    expect(flattenMenu().map((m) => m.key).slice(0, 4)).toEqual(['dashboard', 'markets', 'resolve', 'params']);
+    expect(flattenMenu(MENU).some((m) => m.key === 'markets')).toBe(false);
+    expect(findMenuByPath('/markets/105901339852805101/edit')?.key).toBe('markets');
   });
 
   it('详情页归到列表菜单', () => {

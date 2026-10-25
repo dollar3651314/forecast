@@ -27,13 +27,14 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * 后台的结算接口（forecast S5）：超管手工填结果直接结算（{@code resolve:confirm}，高危：原因必填、勾选确认、审计"前 → 后"；AC-13：只有 {@code resolve:propose} 的 403）、
- * 人工作废（{@code resolve:void}）、结算记录和结算异常（{@code pool_recon:view}）、彩池对账差异（{@code pool_recon:view} / {@code pool_recon:resolve}）。
+ * 后台的结算接口（forecast S5；S7 删除了"超管手工填结果直接结算"的临时入口，SQ-10，见 AdminResolveTest）：人工作废（{@code resolve:void}）、
+ * 结算情况、结算记录和结算异常（{@code pool_recon:view}）、彩池对账差异（{@code pool_recon:view} / {@code pool_recon:resolve}）。
  */
 class AdminSettleTest extends AdminTestSupport {
 
   @Autowired MarketAdminApi markets;
   @Autowired MarketService marketService;
+  @Autowired com.forecast.app.settle.run.SettleService settleService;
   @Autowired BetService bets;
   @Autowired LedgerApi ledger;
   @Autowired Clock clock;
@@ -73,38 +74,22 @@ class AdminSettleTest extends AdminTestSupport {
     return new M(d.publicNo(), d.options().get(0).optionNo(), d.options().get(1).optionNo(), a, b);
   }
 
-  String settleBody(String optionNo, String actualStartAt, Boolean checked, String reason) throws Exception {
-    java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
-    if (optionNo != null) m.put("optionNo", optionNo);
-    if (actualStartAt != null) m.put("actualStartAt", actualStartAt);
-    if (checked != null) m.put("checked", checked);
-    if (reason != null) m.put("reason", reason);
-    return json.writeValueAsString(m);
-  }
-
   JsonNode body(MockHttpServletResponse r) throws Exception {
     return json.readTree(r.getContentAsString());
   }
 
   @Test
-  void 超管手工填结果直接结算_高危要原因和勾选_写审计_重复提交只结算一次() throws Exception {
+  void 结算情况_结算记录_明细_查看权限() throws Exception {
     M m = pending();
     Admin s = superAdmin();
-    String url = "/api/admin/markets/" + m.no() + "/settle";
-    // 一次列出全部错误（C56）：缺原因 / 没勾选 / 选项不对 / 实际开赛时间格式不对
-    MockHttpServletResponse r = call(post(url), s.cookie(), settleBody(m.yes(), null, true, null));
-    assertThat(r.getStatus()).isEqualTo(400);
-    assertThat(r.getContentAsString()).contains("reason");
-    r = call(post(url), s.cookie(), settleBody(m.yes(), null, null, "官方比分"));
-    assertThat(r.getStatus()).isEqualTo(400);
-    assertThat(r.getContentAsString()).contains("checked");
-    r = call(post(url), s.cookie(), settleBody("123", "昨天", true, "官方比分"));
-    assertThat(r.getStatus()).isEqualTo(400);
-    assertThat(r.getContentAsString()).contains("optionNo").contains("actualStartAt");
-    assertThat(jdbc.queryForObject("SELECT settle_phase FROM market_question WHERE public_no = ?", String.class, Long.parseLong(m.no()))).isEqualTo("NONE");
-    // 通过
-    r = call(post(url), s.cookie(), settleBody(m.yes(), null, true, "官方比分 2:1"));
-    assertThat(r.getStatus()).as(r.getContentAsString()).isEqualTo(200);
+    // S7 起结果走裁决台（SQ-10，S5 的临时入口已删除，AdminResolveTest）；这里直接调结算，只看后台的结算查询接口
+    long marketId = jdbc.queryForObject("SELECT id FROM market_question WHERE public_no = ?", Long.class, Long.parseLong(m.no()));
+    long yes = jdbc.queryForObject("SELECT id FROM market_option WHERE public_no = ?", Long.class, Long.parseLong(m.yes()));
+    settleService.settle(marketId, yes, null, String.valueOf(s.id()));
+    MockHttpServletResponse r;
+    Admin viewer = withRoles(role(Permission.MARKET_VIEW));
+    r = call(get("/api/admin/markets/" + m.no() + "/settlement"), viewer.cookie(), null);
+    assertThat(r.getStatus()).isEqualTo(200);
     JsonNode o = body(r);
     assertThat(o.get("marketStatus").asString()).isEqualTo("settled");
     assertThat(o.get("settlePhase").asString()).isEqualTo("done");
@@ -114,19 +99,7 @@ class AdminSettleTest extends AdminTestSupport {
     assertThat(o.get("payout").get("winningOptionNo").asString()).isEqualTo(m.yes());
     assertThat(o.get("payout").get("resolvedBy").asString()).isEqualTo(String.valueOf(s.id()));
     assertThat(ledger.snapshot(m.a()).available()).isEqualByComparingTo("138"); // 40 + 98
-    assertThat(audits("market.settle_manual")).contains("SUCCESS " + s.username() + " 官方比分 2:1");
-    assertThat(jdbc.queryForObject("SELECT CONCAT(high_risk, ' ', before_json, ' ', after_json) FROM admin_audit_log WHERE action = 'market.settle_manual' AND target = ? "
-        + "AND result = 'SUCCESS'", String.class, m.no())).startsWith("1 ").contains("\"pending_resolution\"").contains("\"settled\"").contains("98.00");
-    // 重复提交（换一个结果也一样）：只结算一次
-    r = call(post(url), s.cookie(), settleBody(m.nope(), null, true, "再点一次"));
-    assertThat(r.getStatus()).isEqualTo(200);
-    assertThat(body(r).get("payout").get("winningOptionNo").asString()).isEqualTo(m.yes());
-    assertThat(ledger.snapshot(m.a()).available()).isEqualByComparingTo("138");
-    // 结算情况、结算记录、明细
-    Admin viewer = withRoles(role(Permission.MARKET_VIEW));
-    r = call(get("/api/admin/markets/" + m.no() + "/settlement"), viewer.cookie(), null);
-    assertThat(r.getStatus()).isEqualTo(200);
-    String runNo = body(r).get("payout").get("runNo").asString();
+    String runNo = o.get("payout").get("runNo").asString();
     assertThat(call(get("/api/admin/settle/runs"), viewer.cookie(), null).getStatus()).as("结算记录要 pool_recon:view").isEqualTo(403);
     Admin finance = withRoles(role(Permission.POOL_RECON_VIEW));
     r = call(get("/api/admin/settle/runs?status=done&kind=payout"), finance.cookie(), null);
@@ -142,10 +115,8 @@ class AdminSettleTest extends AdminTestSupport {
   }
 
   @Test
-  void AC13_只有提议权限的403_只有确认权限的不能作废_不能结算的状态409() throws Exception {
+  void 人工作废要resolve_void_原因必填_全额退款_写审计_不能作废的状态409() throws Exception {
     M m = pending();
-    Admin proposer = withRoles(role(Permission.RESOLVE_PROPOSE, Permission.MARKET_VIEW));
-    assertThat(call(post("/api/admin/markets/" + m.no() + "/settle"), proposer.cookie(), settleBody(m.yes(), null, true, "x")).getStatus()).isEqualTo(403);
     Admin confirmer = withRoles(role(Permission.RESOLVE_CONFIRM));
     assertThat(call(post("/api/admin/markets/" + m.no() + "/void"), confirmer.cookie(), "{\"reason\":\"x\"}").getStatus()).isEqualTo(403);
     // 作废（E5）：原因必填，全额退款
@@ -157,20 +128,19 @@ class AdminSettleTest extends AdminTestSupport {
     assertThat(body(r).get("refund").get("status").asString()).isEqualTo("done");
     assertThat(ledger.snapshot(m.a()).available()).isEqualByComparingTo("100");
     assertThat(audits("market.void_manual")).contains("SUCCESS " + voider.username() + " 比赛取消");
-    // 已作废的不能再结算、不能再作废
-    assertThat(call(post("/api/admin/markets/" + m.no() + "/settle"), confirmer.cookie(), settleBody(m.yes(), null, true, "x")).getStatus()).isEqualTo(409);
+    // 已作废的不能再作废
     assertThat(call(post("/api/admin/markets/" + m.no() + "/void"), voider.cookie(), "{\"reason\":\"x\"}").getStatus()).isEqualTo(409);
-    // 还在下注的市场不能结算
+    // 还在下注的市场不能作废（截止前用取消）
     I18nText t = new I18nText("Open", "进行中", "進行中");
     Instant now = Instant.now(clock);
     MarketAdminApi.Detail open = markets.createDraft(new MarketAdminApi.DraftInput("FOOTBALL", t, t, "AUTO", "a", "b", null, now.minusSeconds(60).toString(),
         now.plus(Duration.ofDays(1)).toString(), now.plus(Duration.ofDays(1)).toString(), now.plus(Duration.ofDays(2)).toString(), null, null, null,
         List.of(new MarketAdminApi.OptionInput(t, t), new MarketAdminApi.OptionInput(t, t))), 1);
     markets.publish(Long.parseLong(open.publicNo()), true, 1);
-    r = call(post("/api/admin/markets/" + open.publicNo() + "/settle"), confirmer.cookie(), settleBody(open.options().get(0).optionNo(), null, true, "x"));
+    r = call(post("/api/admin/markets/" + open.publicNo() + "/void"), voider.cookie(), "{\"reason\":\"x\"}");
     assertThat(r.getStatus()).isEqualTo(409);
-    assertThat(body(r).get("code").asString()).isEqualTo("MARKET_NOT_SETTLEABLE");
-    assertThat(call(post("/api/admin/markets/99999999/settle"), confirmer.cookie(), settleBody("1", null, true, "x")).getStatus()).isEqualTo(404);
+    assertThat(body(r).get("code").asString()).isEqualTo("MARKET_NOT_VOIDABLE");
+    assertThat(call(post("/api/admin/markets/99999999/void"), voider.cookie(), "{\"reason\":\"x\"}").getStatus()).isEqualTo(404);
   }
 
   @Test

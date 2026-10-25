@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  加密市场自动生成模板、规则文本模板（forecast S6）。只有 market 模块使用（表名以 market_ 开头）。
+  - 自动生成模板只能在关闭时修改（WHERE enabled = 0）；启用、关闭是带旧值的条件更新。
+  - 生成任务每个窗口的事务里先对模板行加共享锁，和启用 / 关闭（排他锁）串行：关闭提交以后不会再生成新的（需求第 4.2 节）。
+-->
+<mapper namespace="com.forecast.app.market.autogen.AutogenMapper">
+
+  <sql id="autogenCols">
+    id, public_no, symbol, period, mode, slots, rolling_count, generate_ahead_min, template_id, user_cap, enabled, checked_by, checked_at,
+    checked_template_version, version, created_by, updated_by, created_at, updated_at
+  </sql>
+
+  <select id="list" resultType="com.forecast.app.market.autogen.AutogenRows$Autogen">
+    SELECT <include refid="autogenCols"/> FROM market_autogen ORDER BY id
+  </select>
+
+  <select id="enabled" resultType="com.forecast.app.market.autogen.AutogenRows$Autogen">
+    SELECT <include refid="autogenCols"/> FROM market_autogen WHERE enabled = 1 ORDER BY id
+  </select>
+
+  <select id="byPublicNo" resultType="com.forecast.app.market.autogen.AutogenRows$Autogen">
+    SELECT <include refid="autogenCols"/> FROM market_autogen WHERE public_no = #{publicNo}
+  </select>
+
+  <select id="bySymbolPeriod" resultType="com.forecast.app.market.autogen.AutogenRows$Autogen">
+    SELECT <include refid="autogenCols"/> FROM market_autogen WHERE symbol = #{symbol} AND period = #{period}
+  </select>
+
+  <select id="lockByPublicNo" resultType="com.forecast.app.market.autogen.AutogenRows$Autogen">
+    SELECT <include refid="autogenCols"/> FROM market_autogen WHERE public_no = #{publicNo} FOR UPDATE
+  </select>
+
+  <select id="lockForShare" resultType="com.forecast.app.market.autogen.AutogenRows$Autogen">
+    SELECT <include refid="autogenCols"/> FROM market_autogen WHERE id = #{id} FOR SHARE
+  </select>
+
+  <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO market_autogen (public_no, symbol, period, mode, slots, rolling_count, generate_ahead_min, template_id, user_cap, enabled, version,
+      created_by, updated_by, created_at, updated_at)
+    VALUES (#{publicNo}, #{symbol}, #{period}, #{mode}, #{slots}, #{rollingCount}, #{generateAheadMin}, #{templateId}, #{userCap}, 0, 0,
+      #{createdBy}, #{updatedBy}, #{createdAt}, #{updatedAt})
+  </insert>
+
+  <update id="update">
+    UPDATE market_autogen SET symbol = #{symbol}, period = #{period}, mode = #{mode}, slots = #{slots}, rolling_count = #{rollingCount},
+      generate_ahead_min = #{generateAheadMin}, template_id = #{templateId}, user_cap = #{userCap}, checked_by = NULL, checked_at = NULL,
+      checked_template_version = NULL, version = version + 1, updated_by = #{updatedBy}, updated_at = #{updatedAt}
+    WHERE id = #{id} AND enabled = 0
+  </update>
+
+  <update id="enable">
+    UPDATE market_autogen SET enabled = 1, checked_by = #{checkedBy}, checked_at = #{now}, checked_template_version = #{templateVersion},
+      version = version + 1, updated_by = #{checkedBy}, updated_at = #{now}
+    WHERE id = #{id} AND enabled = 0
+  </update>
+
+  <update id="disable">
+    UPDATE market_autogen SET enabled = 0, version = version + 1, updated_by = #{by}, updated_at = #{now} WHERE id = #{id} AND enabled = 1
+  </update>
+
+  <sql id="templateCols">
+    id, public_no, kind, name, title_en, title_zh_cn, title_zh_tw, rules_en, rules_zh_cn, rules_zh_tw, source_primary, source_backup, options, version,
+    updated_by, created_at, updated_at
+  </sql>
+
+  <select id="templates" resultType="com.forecast.app.market.autogen.AutogenRows$Template">
+    SELECT <include refid="templateCols"/> FROM market_template ORDER BY id
+  </select>
+
+  <select id="template" resultType="com.forecast.app.market.autogen.AutogenRows$Template">
+    SELECT <include refid="templateCols"/> FROM market_template WHERE id = #{id}
+  </select>
+
+  <select id="templateByPublicNo" resultType="com.forecast.app.market.autogen.AutogenRows$Template">
+    SELECT <include refid="templateCols"/> FROM market_template WHERE public_no = #{publicNo}
+  </select>
+
+  <select id="lockTemplate" resultType="com.forecast.app.market.autogen.AutogenRows$Template">
+    SELECT <include refid="templateCols"/> FROM market_template WHERE id = #{id} FOR UPDATE
+  </select>
+
+  <update id="updateTemplate">
+    UPDATE market_template SET name = #{name}, title_en = #{titleEn}, title_zh_cn = #{titleZhCn}, title_zh_tw = #{titleZhTw}, rules_en = #{rulesEn},
+      rules_zh_cn = #{rulesZhCn}, rules_zh_tw = #{rulesZhTw}, source_primary = #{sourcePrimary}, source_backup = #{sourceBackup}, options = #{options},
+      version = version + 1, updated_by = #{updatedBy}, updated_at = #{updatedAt}
+    WHERE id = #{id}
+  </update>
+</mapper>

@@ -1,8 +1,9 @@
 /**
- * 登录后的整体布局：顶部原型横幅（只在 mock 模式）或测试环境标识条（只在 real 模式且后端返回了 env）；手机为底部导航，
- * 桌面（≥1024）为顶部导航，"我的"从右上角头像进（沿用复制源）。新客户（身份认证未提交）第一次进来自动弹出新手引导。
- * forecast S1：复制源的行情、交易、持仓导航和顶栏的净值、保证金水平删除；导航先只有首页（占位）/ 资产 / 我的，
- * 需求说明书第 5 节的市场、我的下注等在原型（M1）和 S11 加（手机底部 4 个导航）。
+ * 登录后的整体布局（需求第 5.1 节）：顶部原型横幅（只在 mock 模式）或测试环境标识条（只在 real 模式且后端返回了 env）。
+ * - 手机（<1024）：顶部一条品牌 + 余额 + 通知铃铛，底部 4 个入口（市场、我的下注、资产、我的）；
+ * - 电脑（≥1024）：顶部导航（市场、我的下注、资产），右上角余额、充值、通知、我的（头像）。
+ * 两种宽度下各页面的顶栏、底部导航位置一致，切换页面不跳动（C90）：页面只在内容区里改宽度。
+ * 新客户（身份认证未提交）第一次进来自动弹出新手引导（C83）。
  */
 import type { ReactNode } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
@@ -20,7 +21,8 @@ import { PushListener } from './PushListener';
 
 // 电脑顶栏的"我的"和右上角头像重复，去掉"我的"、保留头像（手机底部导航没有头像，照旧保留"我的"）
 const NAV: Array<{ to: string; key: string; icon: IconName; desktop: boolean }> = [
-  { to: '/home', key: 'nav.home', icon: 'markets', desktop: true },
+  { to: '/markets', key: 'nav.markets', icon: 'markets', desktop: true },
+  { to: '/bets', key: 'nav.bets', icon: 'ticket', desktop: true },
   { to: '/assets', key: 'nav.assets', icon: 'assets', desktop: true },
   { to: '/me', key: 'nav.me', icon: 'me', desktop: false },
 ];
@@ -55,6 +57,27 @@ function TopAccount() {
   );
 }
 
+/** 手机顶栏：品牌、可用余额（点进资产）、通知 */
+function MobileBar({ unread }: { unread: number }) {
+  const { t } = useTranslation();
+  const { metrics, error } = useAccount();
+  return (
+    <header className="mbar">
+      <NavLink to="/markets" className="brand" aria-label={BRAND_NAME}>
+        <Brand />
+      </NavLink>
+      <NavLink to="/assets" className="mbar-bal" aria-label={t('account.available')}>
+        <small>{t('account.available')}</small>
+        <span className="num">{error ? '—' : formatAmount(metrics?.available)}</span>
+      </NavLink>
+      <NavLink to="/me/notifications" className="icon-btn" aria-label={t('me.notifications')}>
+        <Icon name="bell" />
+        {unread > 0 && <span className="badge">{unread > 99 ? '99+' : unread}</span>}
+      </NavLink>
+    </header>
+  );
+}
+
 export function Layout() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -63,8 +86,9 @@ export function Layout() {
     <div className="app">
       <ProtoBanner />
       <EnvBanner />
+      <MobileBar unread={unread} />
       <header className="topnav">
-        <NavLink to="/home" className="brand" aria-label={BRAND_NAME}>
+        <NavLink to="/markets" className="brand" aria-label={BRAND_NAME}>
           <Brand />
         </NavLink>
         <nav className="topnav-menu" aria-label={t('nav.main')}>

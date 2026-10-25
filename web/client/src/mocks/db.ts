@@ -42,6 +42,26 @@ export interface Db {
   deposit: Record<Network, string>;
 }
 
+/** M1：最近的下注流水（和 mocks/markets.ts 里本人的下注对应；题目三种语言） */
+function seedBets(): LedgerItem[] {
+  const bet = (i: number, amount: string, minutes: number, zhCN: string, en: string, zhTW: string): LedgerItem => ({
+    id: `LB${i}`,
+    type: 'bet',
+    amount: `-${amount}`,
+    ref: '',
+    time: minutesAgo(minutes),
+    market: { publicNo: seedNo(minutes, 300 + i), title: { zhCN, en, zhTW } },
+  });
+  return [
+    bet(1, '40.00', 60 * 5, '曼城 vs 利物浦（90 分钟胜平负）', 'Man City vs Liverpool (90-min result)', '曼城 vs 利物浦（90 分鐘勝平負）'),
+    bet(2, '50.00', 60 * 9, '湖人 vs 凯尔特人：总分大于 224.5？', 'Lakers vs Celtics: total points over 224.5?', '湖人 vs 凱爾特人：總分大於 224.5？'),
+    bet(3, '200.00', 60 * 26, '勇士 vs 掘金（胜负，含加时）', 'Warriors vs Nuggets (winner, incl. OT)', '勇士 vs 掘金（勝負，含加時）'),
+    bet(4, '60.00', 60 * 30, '曼城 vs 利物浦（90 分钟胜平负）', 'Man City vs Liverpool (90-min result)', '曼城 vs 利物浦（90 分鐘勝平負）'),
+    bet(5, '80.00', 60 * 30 + 5, '布伦特福德 vs 富勒姆（90 分钟胜平负）', 'Brentford vs Fulham (90-min result)', '布倫特福德 vs 富勒姆（90 分鐘勝平負）'),
+    bet(6, '120.00', 60 * 50, '美联储 12 月议息会议宣布降息吗？', 'Will the Fed cut rates at its December meeting?', '美聯儲 12 月議息會議宣佈降息嗎？'),
+  ];
+}
+
 function seedLedger(): LedgerItem[] {
   const r = seeded(7);
   const plan: Array<[LedgerType, string]> = [
@@ -153,8 +173,9 @@ export function seed(): Db {
     password: 'Forecast2026',
     kyc: { status: 'approved', docType: 'idCard', docNumber: '110101199006181234', submittedAt: minutesAgo(3000), reviewedAt: minutesAgo(2880) },
     prefs: { push: true, email: true },
-    account: { available: '128456.79', betLocked: '1200.00', withdrawFrozen: '6000.00' },
-    ledger: seedLedger(),
+    // M1：下注中 = 本人在进行中和等结果的市场里的下注合计（mocks/markets.ts：100 + 50 + 120 + 200 + 80）
+    account: { available: '1234.56', betLocked: '550.00', withdrawFrozen: '1000.00' },
+    ledger: [...seedBets(), ...seedLedger()],
     whitelist: [
       { id: 'A1', network: 'TRC20', address: 'TQ8nB4rW7xYp2LkM9vD3sF6hJ1cZ5gw3kP', label: '我的 imToken 钱包', createdAt: minutesAgo(60 * 24 * 30), activeAt: minutesAgo(60 * 24 * 29) },
       { id: 'A2', network: 'ERC20', address: '0x4A7c9E2b1D8f3C6a5B0e9F7d2C1b8A3e6D5f4C21', label: '冷钱包 <b>主</b> & "Ledger"', createdAt: minutesAgo(60 * 24 * 12), activeAt: minutesAgo(60 * 24 * 11) },

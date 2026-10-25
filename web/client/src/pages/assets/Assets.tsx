@@ -38,7 +38,10 @@ function Overview() {
           <span className="num">{show(metrics.available)}</span>
         </div>
         <div>
-          {t('assets.betLocked')}
+          <Link to="/bets" className="ov-link">
+            {t('assets.betLocked')}
+            <Icon name="chevronRight" size={12} strokeWidth={2.4} />
+          </Link>
           <span className="num">{show(metrics.betLocked)}</span>
         </div>
         <div>
