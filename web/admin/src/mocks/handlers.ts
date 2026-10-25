@@ -213,8 +213,9 @@ export function getMenuBadges(): Promise<MenuBadges> {
     () => ({
       kyc: db.kycApplications.filter((k) => k.status === 'pending').length,
       withdrawals: db.withdrawals.filter((w) => w.status === 'pending').length,
+      review: 2,
     }),
-    { empty: () => ({ kyc: 0, withdrawals: 0 }) },
+    { empty: () => ({ kyc: 0, withdrawals: 0, review: 0 }) },
   );
 }
 
@@ -673,7 +674,7 @@ export function listTemplates() {
   return respond(() => db.templates, { empty: () => [] as NotifyTemplate[] });
 }
 
-export function updateTemplate(id: string, patch: Partial<Pick<NotifyTemplate, 'titleZh' | 'bodyZh' | 'titleEn' | 'bodyEn' | 'enabled'>>): Promise<void> {
+export function updateTemplate(id: string, patch: Partial<Pick<NotifyTemplate, 'titleZh' | 'bodyZh' | 'titleEn' | 'bodyEn' | 'titleTw' | 'bodyTw' | 'enabled'>>): Promise<void> {
   return mutate(() => {
     requirePerm('notify_template:edit');
     const t = db.templates.find((x) => x.id === id);

@@ -38,7 +38,7 @@ class CryptoAutogenTest extends CryptoTestSupport {
     // 测试数据隔离（C80）：之前的测试由默认模板生成的市场不再挂在模板上（否则同一窗口的唯一键让这里生成不出来），测试建的模板删掉
     jdbc.update("UPDATE market_question SET autogen_id = NULL WHERE autogen_id IS NOT NULL");
     jdbc.update("DELETE FROM market_autogen WHERE public_no <> ?", DEFAULT_NO);
-    jdbc.update("UPDATE market_autogen SET enabled = 0, mode = 'SCHEDULE', slots = '[\"13:00\"]', rolling_count = 3, generate_ahead_min = 60, user_cap = NULL, "
+    jdbc.update("UPDATE market_autogen SET enabled = 0, mode = 'SCHEDULE', slots = '[\"13:00\"]', rolling_count = 3, generate_ahead_min = 1440, user_cap = NULL, "
         + "checked_by = NULL, checked_at = NULL, checked_template_version = NULL WHERE public_no = ?", DEFAULT_NO);
   }
 
@@ -100,7 +100,9 @@ class CryptoAutogenTest extends CryptoTestSupport {
     assertThat(a.checkedBy()).isEqualTo(7L);
     assertThat(a.checkedTemplateVersion()).isNotNull();
     long id = idOf(a.autogenNo());
-    assertThat(autogen.generateDue()).isEqualTo(1);
+    // F-I2-1（AC-80）：默认提前 1440 分钟生成 → 10:00 时今天 13:00 和明天 13:00（开放 10-15 10:00、生成时间 10-14 10:00）两场都生成
+    assertThat(api.detail(DEFAULT_NO).orElseThrow().generateAheadMinutes()).isEqualTo(1440);
+    assertThat(autogen.generateDue()).isEqualTo(2);
     Map<String, Object> m = generatedAt(id, "2026-10-14T13:00:00Z");
     assertThat(m.get("status")).isEqualTo("LISTED");
     assertThat(m.get("category")).isEqualTo("CRYPTO_1H");
@@ -124,13 +126,14 @@ class CryptoAutogenTest extends CryptoTestSupport {
     MarketAutogenAdminApi.Autogen d = api.detail(DEFAULT_NO).orElseThrow();
     assertThat(d.upcoming().get(0).generated()).isTrue();
     assertThat(d.upcoming().get(0).marketNo()).isEqualTo(String.valueOf(m.get("public_no")));
-    // 再跑不重复；明天 09:00（开放前 60 分钟）生成明天的
+    assertThat(generatedAt(id, "2026-10-15T13:00:00Z").get("status")).isEqualTo("LISTED");
+    // 再跑不重复；后天 13:00 的场次在明天 10:00（开放前 1440 分钟）生成
     assertThat(autogen.generateDue()).isZero();
-    advance(Duration.ofHours(22).plusMinutes(59));
+    advance(Duration.ofHours(23).plusMinutes(59));
     assertThat(autogen.generateDue()).isZero();
     advance(Duration.ofMinutes(1));
     assertThat(autogen.generateDue()).isEqualTo(1);
-    assertThat(generatedAt(id, "2026-10-15T13:00:00Z").get("status")).isEqualTo("LISTED");
+    assertThat(generatedAt(id, "2026-10-16T13:00:00Z").get("status")).isEqualTo("LISTED");
   }
 
   @Test
@@ -155,8 +158,11 @@ class CryptoAutogenTest extends CryptoTestSupport {
     int total = 0;
     for (Future<Integer> f : fs) total += f.get();
     ex.shutdown();
-    assertThat(total).isEqualTo(1);
-    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM market_question WHERE autogen_id = ?", Integer.class, idOf(String.valueOf(DEFAULT_NO)))).isEqualTo(1);
+    // 默认提前 1440 分钟生成（F-I2-1）：今天和明天 13:00 两个窗口，每个窗口只有一个市场
+    assertThat(total).isEqualTo(2);
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM market_question WHERE autogen_id = ?", Integer.class, idOf(String.valueOf(DEFAULT_NO)))).isEqualTo(2);
+    assertThat(jdbc.queryForObject("SELECT COUNT(DISTINCT event_start_at) FROM market_question WHERE autogen_id = ?", Integer.class, idOf(String.valueOf(DEFAULT_NO))))
+        .isEqualTo(2);
   }
 
   @Test
@@ -249,7 +255,7 @@ class CryptoAutogenTest extends CryptoTestSupport {
       jdbc.update("UPDATE market_autogen SET enabled = 0 WHERE public_no = ?", DEFAULT_NO);
       MarketAutogenAdminApi.Autogen a = api.enable(DEFAULT_NO, true, 1);
       assertThat(a.checkedTemplateVersion()).isEqualTo(after.version());
-      assertThat(autogen.generateDue()).isEqualTo(1);
+      assertThat(autogen.generateDue()).isEqualTo(2);
       // 模板校验：不认识的变量、选项不是涨 / 跌、必填
       MarketAutogenAdminApi.TemplateInput broken = new MarketAutogenAdminApi.TemplateInput("", new I18nText("{coin}", "", "x"), t.rules(), t.sourcePrimary(),
           t.sourceBackup(), List.of(t.options().get(0)));

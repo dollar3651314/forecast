@@ -1,0 +1,1320 @@
+/**
+ * forecast S9 后台页面的模拟层（原型预览站、单元测试）：数据结构和后端完全一致（api/fcTypes.ts），只是放在内存里。
+ * 数据包含每种状态的市场（待上架、草稿、可下注、暂停、截止、待裁决、公示中、争议中、已结算、已取消、已作废），
+ * 加密自动生成和赛程生成的市场；裁决台的待提议 / 待确认 / 自动裁决失败 / 等待中 / 超时；争议、结算单、对账差异、补偿、报表。
+ * 结算预览按需求第 3.5 节逐个持仓算（盈利向下取整、抽成四舍五入、尾差归平台），和后端 SettleMath 同一口径。
+ * 市场数量超过一页（30 个），用来看分页。场景（空 / 慢 / 出错）由 runtime.ts 控制。
+ */
+import { ApiError, type Page } from '../api/types';
+import type {
+  Autogen,
+  AutogenInput,
+  CaseDetail,
+  CaseItem,
+  CaseTab,
+  CaseView,
+  Compensation,
+  CompPlan,
+  Dispute,
+  DraftInput,
+  Evidence,
+  FeeChangeResult,
+  Fixture,
+  FixtureQuery,
+  Generated,
+  I18nText,
+  MarketBets,
+  MarketCategory,
+  MarketCounts,
+  MarketDashboard,
+  MarketDetail,
+  MarketQuery,
+  MarketStatus,
+  MarketSummary,
+  PlayInput,
+  PoolIssue,
+  ProposalInput,
+  Report,
+  RuleTemplate,
+  SettleOutcome,
+  SettlePreview,
+  SettleRun,
+  SettleRunDetail,
+  SportsTemplate,
+  SyncResult,
+} from '../api/fcTypes';
+import { MARKET_STATUSES } from '../api/fcTypes';
+import { fromScaled, toScaled } from '../utils/money';
+import { emptyPage, matches, mutate, paginate, respond } from './runtime';
+
+const MIN = 60_000;
+const HOUR = 60 * MIN;
+const DAY = 24 * HOUR;
+/** 固定基准时间（刷新后编号、时间不变）：2026-10-25 08:00 UTC */
+const BASE = Date.UTC(2026, 9, 25, 8, 0, 0);
+const iso = (ms: number) => new Date(ms).toISOString().replace('.000Z', 'Z');
+const L = (zhCN: string, en: string, zhTW: string): I18nText => ({ zhCN, en, zhTW });
+const cents = (v: string) => toScaled(v, 2) ?? 0n;
+const money = (c: bigint) => fromScaled(c, 2);
+
+// ---------------------------------------------------------------- 市场
+
+interface Pos {
+  userId: number;
+  option: number;
+  amount: string;
+}
+
+interface Mkt {
+  d: MarketDetail;
+  origin: MarketSummary['origin'];
+  positions: Pos[];
+}
+
+let seq = 0;
+const no = (prefix: string) => `${prefix}${String(++seq).padStart(4, '0')}`;
+
+function opt(n: number, label: I18nText, win: I18nText) {
+  return { optionNo: `${n}`, seq: 0, label, winCondition: win };
+}
+
+function makeMarket(p: {
+  category: MarketCategory;
+  title: I18nText;
+  status: MarketStatus;
+  closeIn: number;
+  options: Array<[I18nText, I18nText]>;
+  mode?: 'AUTO' | 'PLATFORM';
+  submitted?: boolean;
+  origin?: MarketSummary['origin'];
+  positions?: Array<[number, number, string]>;
+  feeRate?: string;
+  missing?: Array<{ field: string; code: string }>;
+}): Mkt {
+  const publicNo = `1079${no('0000000000')}`;
+  const close = BASE + p.closeIn;
+  const mode = p.mode ?? (p.category === 'MACRO' ? 'PLATFORM' : 'AUTO');
+  const options = p.options.map(([label, win], i) => ({ ...opt(0, label, win), optionNo: `${publicNo}${i + 1}`, seq: i + 1 }));
+  const d: MarketDetail = {
+    publicNo,
+    category: p.category,
+    title: p.title,
+    rules: L(
+      '判定：以首选来源公布的官方结果为准，首选来源不可用时用备用来源。\n取消 / 作废：比赛取消、延期超过 48 小时未完赛、无法判定的，全额退款。\n数据修正：结算后来源修正数据的，按 E13 由平台补偿，只补不扣。',
+      'Resolution: the official result published by the primary source; the backup source is used if the primary is unavailable.\nCancel / void: cancelled events, events not completed within 48 hours of a postponement, or undeterminable results are fully refunded.\nCorrections: if the source corrects the data after settlement, the platform compensates under E13 (top-ups only).',
+      '判定：以首選來源公布的官方結果為準，首選來源不可用時用備用來源。\n取消 / 作廢：比賽取消、延期超過 48 小時未完賽、無法判定的，全額退款。\n數據修正：結算後來源修正數據的，按 E13 由平台補償，只補不扣。',
+    ),
+    status: p.status,
+    submitted: !!p.submitted,
+    settlePhase: p.status === 'settled' ? 'DONE' : 'NONE',
+    resolutionMode: mode,
+    sourcePrimary: p.category.startsWith('CRYPTO') ? 'Binance spot 1m klines' : p.category === 'MACRO' ? 'federalreserve.gov' : 'football-data.org',
+    sourceBackup: p.category.startsWith('CRYPTO') ? 'OKX spot 1m candles' : p.category === 'MACRO' ? 'reuters.com' : 'thesportsdb.com',
+    sourceRef: null,
+    openAt: iso(close - 3 * DAY),
+    closeAt: iso(close),
+    eventStartAt: iso(close + 5 * MIN),
+    eventEndAt: iso(close + 2 * HOUR),
+    feeRate: p.feeRate ?? '5',
+    userCap: p.category.startsWith('CRYPTO') ? '2000.00' : '5000.00',
+    disputeWindowMinutes: mode === 'PLATFORM' ? 120 : null,
+    coverPath: null,
+    cancelReason: p.status === 'cancelled' ? '主办方宣布比赛取消' : null,
+    voidReason: p.status === 'voided' ? 'POSTPONED_48H' : null,
+    createdBy: p.origin === 'autogen' ? null : 2,
+    listedBy: p.status === 'draft' || p.origin === 'autogen' ? null : 1,
+    version: 3,
+    createdAt: iso(close - 5 * DAY),
+    updatedAt: iso(close - 2 * DAY),
+    options,
+    missing: p.missing ?? [],
+    statusLog: [],
+    feeChanges: [],
+    clarifications: [],
+  };
+  const log = (from: string | null, to: string, actor: string, at: number, reason: string | null = null) => d.statusLog.push({ from, to, actor, reason, time: iso(at) });
+  if (p.status !== 'draft') log('draft', 'listed', p.origin === 'autogen' ? 'AUTOGEN' : '1', close - 3 * DAY);
+  if (p.status === 'paused') log('listed', 'paused', '1', close - DAY, '数据源中断，暂停下注');
+  if (['closed', 'pending_resolution', 'publicizing', 'disputed', 'settled', 'voided'].includes(p.status)) log('listed', 'closed', 'SYSTEM', close);
+  if (['pending_resolution', 'publicizing', 'disputed', 'settled', 'voided'].includes(p.status)) log('closed', 'pending_resolution', 'SYSTEM', close + 2 * HOUR);
+  if (['publicizing', 'disputed'].includes(p.status) || (p.status === 'settled' && mode === 'PLATFORM')) log('pending_resolution', 'publicizing', '1', close + 3 * HOUR);
+  if (p.status === 'disputed') log('publicizing', 'disputed', 'CUSTOMER', close + 4 * HOUR);
+  if (p.status === 'settled') log(mode === 'PLATFORM' ? 'publicizing' : 'pending_resolution', 'settled', mode === 'PLATFORM' ? 'SYSTEM' : 'AUTO', close + 6 * HOUR);
+  if (p.status === 'cancelled') log('listed', 'cancelled', '1', close - DAY, '主办方宣布比赛取消');
+  if (p.status === 'voided') log('pending_resolution', 'voided', 'SYSTEM', close + 50 * HOUR, 'POSTPONED_48H');
+  const positions = (p.positions ?? []).map(([userId, option, amount]) => ({ userId, option, amount }));
+  return { d, origin: p.origin ?? 'manual', positions };
+}
+
+const T = {
+  home: L('主胜', 'Home', '主勝'),
+  draw: L('平局', 'Draw', '平局'),
+  away: L('客胜', 'Away', '客勝'),
+  over: L('大（≥ 3 球）', 'Over (3+ goals)', '大（≥ 3 球）'),
+  under: L('小（≤ 2 球）', 'Under (≤ 2 goals)', '小（≤ 2 球）'),
+  up: L('涨', 'Up', '漲'),
+  down: L('跌', 'Down', '跌'),
+  yes: L('是', 'Yes', '是'),
+  no: L('否', 'No', '否'),
+};
+const W = (s: string) => L(`${s}时赢`, `Wins if ${s}`, `${s}時贏`);
+const POS = (n: number, base = 100): Array<[number, number, string]> =>
+  Array.from({ length: n }, (_, i) => [100200 + i, i % 2, String(base + (i * 37) % 500)] as [number, number, string]);
+
+function seedMarkets(): Mkt[] {
+  // 先建一批已结算的加密市场（编号小、排在列表后面），让列表超过一页
+  const older: Mkt[] = [];
+  for (let i = 2; i <= 16; i++) {
+    older.push(
+      makeMarket({
+        category: 'CRYPTO_1H',
+        title: L(`BTC 涨还是跌：2026-10-${String(25 - i).padStart(2, '0')} 13:00–14:00 UTC`, `BTC Up or Down: 2026-10-${String(25 - i).padStart(2, '0')} 13:00–14:00 UTC`, `BTC 漲還是跌：2026-10-${String(25 - i).padStart(2, '0')} 13:00–14:00 UTC`),
+        status: 'settled',
+        closeIn: -i * DAY,
+        origin: 'autogen',
+        options: [[T.up, W('结束价 ≥ 开始价')], [T.down, W('结束价 < 开始价')]],
+        positions: POS(4 + (i % 5), 30),
+      }),
+    );
+  }
+  const list: Mkt[] = [
+    makeMarket({ category: 'NBA', title: L('勇士 vs 湖人（胜负，含加时）', 'Warriors vs Lakers (winner, incl. OT)', '勇士 vs 湖人（勝負，含加時）'), status: 'draft', submitted: true, closeIn: 4 * DAY, origin: 'sports', options: [[L('勇士', 'Warriors', '勇士'), W('勇士胜')], [L('湖人', 'Lakers', '湖人'), W('湖人胜')]] }),
+    makeMarket({ category: 'FOOTBALL', title: L('阿森纳 vs 热刺（90 分钟胜平负）', 'Arsenal vs Tottenham (90-min result)', '阿森納 vs 熱刺（90 分鐘勝平負）'), status: 'draft', submitted: true, closeIn: 6 * DAY, origin: 'sports', options: [[T.home, W('主队胜')], [T.draw, W('打平')], [T.away, W('客队胜')]] }),
+    makeMarket({ category: 'MACRO', title: L('美国 11 月非农就业 ≥ 15 万？', 'US November payrolls ≥ 150k?', '美國 11 月非農就業 ≥ 15 萬？'), status: 'draft', closeIn: 9 * DAY, options: [[T.yes, W('≥ 15 万')], [T.no, W('< 15 万')]], missing: [{ field: 'rules.zhTW', code: 'required' }, { field: 'sourceBackup', code: 'required' }] }),
+    makeMarket({ category: 'FOOTBALL', title: L('曼城 vs 利物浦（90 分钟胜平负）', 'Man City vs Liverpool (90-min result)', '曼城 vs 利物浦（90 分鐘勝平負）'), status: 'listed', closeIn: 2 * DAY, origin: 'sports', options: [[T.home, W('主队胜')], [T.draw, W('打平')], [T.away, W('客队胜')]], positions: POS(24, 200) }),
+    makeMarket({ category: 'CRYPTO_1H', title: L('BTC 涨还是跌：2026-10-25 13:00–14:00 UTC', 'BTC Up or Down: 2026-10-25 13:00–14:00 UTC', 'BTC 漲還是跌：2026-10-25 13:00–14:00 UTC'), status: 'listed', closeIn: 5 * HOUR - 30_000, origin: 'autogen', options: [[T.up, W('结束价 ≥ 开始价')], [T.down, W('结束价 < 开始价')]], positions: POS(12, 50) }),
+    makeMarket({ category: 'NBA', title: L('凯尔特人 vs 尼克斯（总分 224.5）', 'Celtics vs Knicks (total 224.5)', '塞爾提克 vs 尼克（總分 224.5）'), status: 'paused', closeIn: DAY, origin: 'sports', options: [[L('大', 'Over', '大'), W('总分 ≥ 225')], [L('小', 'Under', '小'), W('总分 ≤ 224')]], positions: POS(6) }),
+    makeMarket({ category: 'MACRO', title: L('美联储 12 月议息会议降息？', 'Fed cuts rates in December?', '聯準會 12 月議息會議降息？'), status: 'listed', closeIn: 30 * DAY, feeRate: '5', options: [[T.yes, W('降息')], [T.no, W('不降息')]], positions: POS(9, 300) }),
+    makeMarket({ category: 'NBA', title: L('勇士 vs 掘金（胜负）', 'Warriors vs Nuggets (winner)', '勇士 vs 金塊（勝負）'), status: 'closed', closeIn: -HOUR, origin: 'sports', options: [[L('勇士', 'Warriors', '勇士'), W('勇士胜')], [L('掘金', 'Nuggets', '金塊'), W('掘金胜')]], positions: POS(8) }),
+    makeMarket({ category: 'FOOTBALL', title: L('切尔西 vs 纽卡斯尔（90 分钟胜平负）', 'Chelsea vs Newcastle (90-min result)', '切爾西 vs 紐卡索（90 分鐘勝平負）'), status: 'pending_resolution', closeIn: -5 * HOUR, mode: 'PLATFORM', options: [[T.home, W('主队胜')], [T.draw, W('打平')], [T.away, W('客队胜')]], positions: [[100301, 0, '9000'], [100302, 0, '999.99'], [100303, 1, '9799.99'], [100304, 2, '199.99'], [100305, 2, '0.02']] }),
+    makeMarket({ category: 'MACRO', title: L('美国 10 月 CPI 同比 ≥ 3.0%？', 'US October CPI YoY ≥ 3.0%?', '美國 10 月 CPI 年增 ≥ 3.0%？'), status: 'pending_resolution', closeIn: -30 * HOUR, options: [[T.yes, W('≥ 3.0%')], [T.no, W('< 3.0%')]], positions: POS(10, 120) }),
+    makeMarket({ category: 'CRYPTO_15M', title: L('ETH 涨还是跌：2026-10-25 06:00–06:15 UTC', 'ETH Up or Down: 2026-10-25 06:00–06:15 UTC', 'ETH 漲還是跌：2026-10-25 06:00–06:15 UTC'), status: 'pending_resolution', closeIn: -2 * HOUR, origin: 'autogen', options: [[T.up, W('结束价 ≥ 开始价')], [T.down, W('结束价 < 开始价')]], positions: POS(5, 40) }),
+    makeMarket({ category: 'FOOTBALL', title: L('布伦特福德 vs 富勒姆（90 分钟胜平负）', 'Brentford vs Fulham (90-min result)', '布倫特福德 vs 富勒姆（90 分鐘勝平負）'), status: 'publicizing', closeIn: -8 * HOUR, mode: 'PLATFORM', origin: 'sports', options: [[T.home, W('主队胜')], [T.draw, W('打平')], [T.away, W('客队胜')]], positions: POS(14) }),
+    makeMarket({ category: 'MACRO', title: L('英国央行 10 月维持利率？', 'BoE holds rates in October?', '英國央行 10 月維持利率？'), status: 'disputed', closeIn: -20 * HOUR, options: [[T.yes, W('维持')], [T.no, W('调整')]], positions: POS(7) }),
+    makeMarket({ category: 'MACRO', title: L('美国 9 月 CPI 同比 ≥ 3.0%？', 'US September CPI YoY ≥ 3.0%?', '美國 9 月 CPI 年增 ≥ 3.0%？'), status: 'settled', closeIn: -10 * DAY, options: [[T.yes, W('≥ 3.0%')], [T.no, W('< 3.0%')]], positions: POS(11, 150) }),
+    makeMarket({ category: 'CRYPTO_1H', title: L('BTC 涨还是跌：2026-10-24 13:00–14:00 UTC', 'BTC Up or Down: 2026-10-24 13:00–14:00 UTC', 'BTC 漲還是跌：2026-10-24 13:00–14:00 UTC'), status: 'settled', closeIn: -DAY, origin: 'autogen', options: [[T.up, W('结束价 ≥ 开始价')], [T.down, W('结束价 < 开始价')]], positions: POS(10, 60) }),
+    makeMarket({ category: 'FOOTBALL', title: L('赫罗纳 vs 塞维利亚（大小 2.5 球）', 'Girona vs Sevilla (over/under 2.5)', '赫羅納 vs 塞維利亞（大小 2.5 球）'), status: 'voided', closeIn: -4 * DAY, origin: 'sports', options: [[T.over, W('≥ 3 球')], [T.under, W('≤ 2 球')]], positions: POS(4) }),
+    makeMarket({ category: 'NBA', title: L('快船 vs 太阳（胜负）', 'Clippers vs Suns (winner)', '快艇 vs 太陽（勝負）'), status: 'cancelled', closeIn: -3 * DAY, origin: 'sports', options: [[L('快船', 'Clippers', '快艇'), W('快船胜')], [L('太阳', 'Suns', '太陽'), W('太阳胜')]], positions: POS(3) }),
+  ];
+  list.push(...older);
+  const macro = list.find((m) => m.d.title.en.startsWith('Fed cuts'))!;
+  macro.d.feeChanges.push({ oldRate: '6', newRate: '5', reason: '和其他时事市场一致', changedBy: 1, time: iso(BASE - 2 * DAY), notified: true });
+  macro.d.clarifications.push({ text: L('"降息"指联邦基金利率目标区间上限下调。', '"Cut" means the upper bound of the federal funds target range is lowered.', '「降息」指聯邦基金利率目標區間上限下調。'), createdBy: 1, time: iso(BASE - DAY) });
+  return list;
+}
+
+let markets: Mkt[] = seedMarkets();
+
+function poolOf(m: Mkt): { total: bigint; bettors: number; perOption: bigint[]; people: number[] } {
+  const perOption = m.d.options.map(() => 0n);
+  const people = m.d.options.map(() => new Set<number>());
+  for (const p of m.positions) {
+    if (m.d.status === 'cancelled' || m.d.status === 'voided') continue;
+    perOption[p.option] += cents(p.amount);
+    people[p.option].add(p.userId);
+  }
+  const all = new Set(m.positions.map((p) => p.userId));
+  return { total: perOption.reduce((a, b) => a + b, 0n), bettors: m.d.status === 'cancelled' || m.d.status === 'voided' ? 0 : all.size, perOption, people: people.map((s) => s.size) };
+}
+
+function summary(m: Mkt): MarketSummary {
+  const pool = poolOf(m);
+  const d = m.d;
+  return {
+    publicNo: d.publicNo,
+    category: d.category,
+    title: d.title,
+    status: d.status,
+    submitted: d.submitted,
+    openAt: d.openAt,
+    closeAt: d.closeAt,
+    eventStartAt: d.eventStartAt,
+    eventEndAt: d.eventEndAt,
+    feeRate: d.feeRate,
+    createdAt: d.createdAt,
+    updatedAt: d.updatedAt,
+    resolutionMode: d.resolutionMode === null ? null : d.resolutionMode === 'AUTO' ? 'auto' : 'platform',
+    origin: m.origin,
+    pool: money(pool.total),
+    bettors: pool.bettors,
+  };
+}
+
+function find(publicNo: string): Mkt {
+  const m = markets.find((x) => x.d.publicNo === publicNo);
+  if (!m) throw new ApiError('errors.notFound', undefined, { status: 404, code: 'NOT_FOUND' });
+  return m;
+}
+
+const illegal = () => new ApiError('errors.fc.ILLEGAL_TRANSITION', undefined, { status: 409, code: 'ILLEGAL_TRANSITION' });
+const needReason = (reason: string) => {
+  if (!reason?.trim()) throw new ApiError('errors.reasonRequired', undefined, { status: 400, code: 'VALIDATION_FAILED', fields: [{ field: 'reason', code: 'required' }] });
+};
+
+function missingOf(d: DraftInput): Array<{ field: string; code: string }> {
+  const out: Array<{ field: string; code: string }> = [];
+  const full = (t: I18nText) => !!(t.en.trim() && t.zhCN.trim() && t.zhTW.trim());
+  for (const k of ['en', 'zhCN', 'zhTW'] as const) if (!d.title[k].trim()) out.push({ field: `title.${k}`, code: 'required' });
+  for (const k of ['en', 'zhCN', 'zhTW'] as const) if (!d.rules[k].trim()) out.push({ field: `rules.${k}`, code: 'required' });
+  d.options.forEach((o, i) => {
+    if (!full(o.label)) out.push({ field: `options[${i}].label`, code: 'required' });
+    if (!full(o.winCondition)) out.push({ field: `options[${i}].winCondition`, code: 'required' });
+  });
+  if (!d.resolutionMode) out.push({ field: 'resolutionMode', code: 'required' });
+  if (!d.sourcePrimary.trim()) out.push({ field: 'sourcePrimary', code: 'required' });
+  if (!d.sourceBackup.trim()) out.push({ field: 'sourceBackup', code: 'required' });
+  if (d.resolutionMode === 'PLATFORM' && !d.disputeWindowMinutes) out.push({ field: 'disputeWindowMinutes', code: 'required' });
+  return out;
+}
+
+function checkDraft(d: DraftInput) {
+  const fields: Array<{ field: string; code: string }> = [];
+  if (d.options.length < 2 || d.options.length > 10) fields.push({ field: 'options', code: 'count' });
+  const t = [d.openAt, d.closeAt, d.eventStartAt, d.eventEndAt].map((x) => Date.parse(x));
+  if (t.some((x) => Number.isNaN(x))) fields.push({ field: 'closeAt', code: 'required' });
+  else if (!(t[0] < t[1] && t[1] <= t[2] && t[2] < t[3])) fields.push({ field: 'closeAt', code: 'order' });
+  if (fields.length) throw new ApiError('errors.validationFailed', undefined, { status: 400, code: 'VALIDATION_FAILED', fields });
+}
+
+export function listMarkets(q: MarketQuery): Promise<Page<MarketSummary>> {
+  return respond(
+    () => {
+      const st = q.status ? q.status.split(',') : null;
+      const rows = markets
+        .filter((m) => (!st || st.includes(m.d.status)) && (!q.category || m.d.category === q.category) && (q.submitted === undefined || m.d.submitted === q.submitted))
+        .filter((m) => matches(q.keyword, m.d.publicNo, m.d.title.zhCN, m.d.title.en, m.d.title.zhTW))
+        .map(summary)
+        .sort((a, b) => b.publicNo.localeCompare(a.publicNo));
+      return paginate(rows, q.page, q.pageSize);
+    },
+    { empty: () => emptyPage<MarketSummary>(q.page, q.pageSize) },
+  );
+}
+
+export function getMarketCounts(): Promise<MarketCounts> {
+  return respond(
+    () => {
+      const byStatus = Object.fromEntries(MARKET_STATUSES.map((s) => [s, markets.filter((m) => m.d.status === s).length])) as MarketCounts['byStatus'];
+      return { byStatus, review: markets.filter((m) => m.d.status === 'draft' && m.d.submitted).length };
+    },
+    { empty: () => ({ byStatus: Object.fromEntries(MARKET_STATUSES.map((s) => [s, 0])) as MarketCounts['byStatus'], review: 0 }) },
+  );
+}
+
+export function getMarket(no: string): Promise<MarketDetail> {
+  return respond(() => find(no).d);
+}
+
+function apply(m: Mkt, d: DraftInput) {
+  m.d = {
+    ...m.d,
+    ...d,
+    resolutionMode: d.resolutionMode,
+    userCap: d.userCap ?? m.d.userCap,
+    options: d.options.map((o, i) => ({ optionNo: `${m.d.publicNo}${i + 1}`, seq: i + 1, label: o.label, winCondition: o.winCondition })),
+    missing: missingOf(d),
+    version: m.d.version + 1,
+    updatedAt: iso(Date.now()),
+  };
+}
+
+export function createMarket(d: DraftInput): Promise<MarketDetail> {
+  return mutate(() => {
+    checkDraft(d);
+    const m = makeMarket({ category: d.category, title: d.title, status: 'draft', closeIn: 0, options: [] });
+    m.d.feeRate = '5';
+    apply(m, d);
+    markets = [m, ...markets];
+    return m.d;
+  });
+}
+
+export function updateMarket(no: string, d: DraftInput): Promise<MarketDetail> {
+  return mutate(() => {
+    const m = find(no);
+    if (m.d.status !== 'draft') throw new ApiError('errors.fc.MARKET_NOT_EDITABLE', undefined, { status: 409, code: 'MARKET_NOT_EDITABLE' });
+    checkDraft(d);
+    apply(m, d);
+    return m.d;
+  });
+}
+
+export function deleteMarket(no: string): Promise<void> {
+  return mutate(() => {
+    const m = find(no);
+    if (m.d.status !== 'draft') throw new ApiError('errors.fc.MARKET_NOT_EDITABLE', undefined, { status: 409, code: 'MARKET_NOT_EDITABLE' });
+    markets = markets.filter((x) => x !== m);
+  });
+}
+
+export function submitMarket(no: string): Promise<MarketDetail> {
+  return mutate(() => {
+    const m = find(no);
+    if (m.d.missing.length) throw new ApiError('errors.validationFailed', undefined, { status: 400, code: 'VALIDATION_FAILED', fields: m.d.missing });
+    m.d.submitted = true;
+    return m.d;
+  });
+}
+
+export function returnMarket(no: string, reason: string): Promise<MarketDetail> {
+  return mutate(() => {
+    needReason(reason);
+    const m = find(no);
+    m.d.submitted = false;
+    return m.d;
+  });
+}
+
+function move(m: Mkt, to: MarketStatus, reason: string | null) {
+  m.d.statusLog.push({ from: m.d.status, to, actor: '1', reason, time: iso(Date.now()) });
+  m.d.status = to;
+  m.d.updatedAt = iso(Date.now());
+}
+
+export function publishMarket(no: string, checked: boolean): Promise<MarketDetail> {
+  return mutate(() => {
+    const m = find(no);
+    const fields = [...m.d.missing];
+    if (!checked) fields.push({ field: 'checked', code: 'required' });
+    if (fields.length) throw new ApiError('errors.validationFailed', undefined, { status: 400, code: 'VALIDATION_FAILED', fields });
+    if (m.d.status !== 'draft') throw illegal();
+    move(m, 'listed', null);
+    m.d.submitted = false;
+    return m.d;
+  });
+}
+
+function transition(from: MarketStatus[], to: MarketStatus) {
+  return (no: string, reason: string): Promise<MarketDetail> =>
+    mutate(() => {
+      needReason(reason);
+      const m = find(no);
+      if (!from.includes(m.d.status)) throw illegal();
+      move(m, to, reason);
+      if (to === 'cancelled') m.d.cancelReason = reason;
+      return m.d;
+    });
+}
+
+export const pauseMarket = transition(['listed'], 'paused');
+export const resumeMarket = transition(['paused'], 'listed');
+export const cancelMarket = transition(['listed', 'paused'], 'cancelled');
+
+export function advanceClose(no: string, closeAt: string, reason: string): Promise<MarketDetail> {
+  return mutate(() => {
+    needReason(reason);
+    const m = find(no);
+    if (!['listed', 'paused'].includes(m.d.status)) throw new ApiError('errors.fc.MARKET_CLOSED', undefined, { status: 409, code: 'MARKET_CLOSED' });
+    if (!(Date.parse(closeAt) < Date.parse(m.d.closeAt))) throw new ApiError('errors.validationFailed', undefined, { status: 400, code: 'VALIDATION_FAILED', fields: [{ field: 'closeAt', code: 'notEarlier' }] });
+    m.d.closeAt = closeAt;
+    return m.d;
+  });
+}
+
+export function clarifyMarket(no: string, text: I18nText, reason: string): Promise<MarketDetail> {
+  return mutate(() => {
+    needReason(reason);
+    const m = find(no);
+    const fields = (['en', 'zhCN', 'zhTW'] as const).filter((k) => !text[k]?.trim()).map((k) => ({ field: `text.${k}`, code: 'required' }));
+    if (fields.length) throw new ApiError('errors.validationFailed', undefined, { status: 400, code: 'VALIDATION_FAILED', fields });
+    if (!['listed', 'paused'].includes(m.d.status)) throw new ApiError('errors.fc.MARKET_CLOSED', undefined, { status: 409, code: 'MARKET_CLOSED' });
+    m.d.clarifications.push({ text, createdBy: 1, time: iso(Date.now()) });
+    return m.d;
+  });
+}
+
+export function changeFee(no: string, feeRate: string, reason: string): Promise<FeeChangeResult> {
+  return mutate(() => {
+    needReason(reason);
+    const m = find(no);
+    if (!/^\d{1,2}(\.\d{1,2})?$/.test(feeRate) || Number(feeRate) > 20) throw new ApiError('errors.validationFailed', undefined, { status: 400, code: 'VALIDATION_FAILED', fields: [{ field: 'feeRate', code: 'invalid' }] });
+    if (m.d.settlePhase !== 'NONE' || ['settled', 'cancelled', 'voided'].includes(m.d.status)) throw new ApiError('errors.fc.FEE_LOCKED', undefined, { status: 409, code: 'FEE_LOCKED' });
+    const old = m.d.feeRate;
+    const notified = m.d.status === 'draft' ? 0 : new Set(m.positions.map((p) => p.userId)).size;
+    m.d.feeChanges.push({ oldRate: old, newRate: String(Number(feeRate)), reason, changedBy: 1, time: iso(Date.now()), notified: notified > 0 });
+    m.d.feeRate = String(Number(feeRate));
+    return { oldRate: old, newRate: m.d.feeRate, notified, market: m.d };
+  });
+}
+
+export function voidMarket(no: string, reason: string): Promise<SettleOutcome> {
+  return mutate(() => {
+    needReason(reason);
+    const m = find(no);
+    if (!['pending_resolution', 'publicizing', 'disputed'].includes(m.d.status)) throw new ApiError('errors.fc.MARKET_NOT_VOIDABLE', undefined, { status: 409, code: 'MARKET_NOT_VOIDABLE' });
+    move(m, 'voided', reason);
+    m.d.voidReason = reason;
+    return { marketNo: no, marketStatus: 'voided', settlePhase: 'NONE', payout: null, refund: null };
+  });
+}
+
+export function getMarketBets(no: string, q: { sort?: 'time' | 'amount'; status?: string; page: number; pageSize: number }): Promise<MarketBets> {
+  return respond(() => {
+    const m = find(no);
+    const pool = poolOf(m);
+    const refunded = m.d.status === 'cancelled' || m.d.status === 'voided';
+    let bets = m.positions.map((p, i) => ({
+      bet: {
+        betNo: `${m.d.publicNo.slice(0, 10)}${String(i + 1).padStart(6, '0')}`,
+        userId: p.userId,
+        optionNo: m.d.options[p.option].optionNo,
+        seq: p.option + 1,
+        amount: money(cents(p.amount)),
+        receivedAt: iso(Date.parse(m.d.closeAt) - (i + 1) * 17 * MIN),
+        status: refunded ? ('refunded' as const) : ('active' as const),
+        refundReason: refunded ? (m.d.status === 'cancelled' ? 'CANCELLED' : 'VOIDED') : null,
+        clientReqId: `req-${i}`,
+      },
+      email: `user${p.userId}@example.com`,
+      name: `客户 ${p.userId}`,
+    }));
+    if (q.sort === 'amount') bets = [...bets].sort((a, b) => Number(cents(b.bet.amount) - cents(a.bet.amount)));
+    const frozen = !['draft', 'listed', 'paused'].includes(m.d.status);
+    return {
+      marketNo: no,
+      status: m.d.status,
+      total: money(pool.total),
+      activeTotal: money(pool.total),
+      bettors: pool.bettors,
+      frozen,
+      options: m.d.options.map((o, i) => ({ optionNo: o.optionNo, seq: o.seq, amount: money(pool.perOption[i]), bettors: pool.people[i], finalAmount: frozen ? money(pool.perOption[i]) : null, finalBettors: frozen ? pool.people[i] : null })),
+      bets: paginate(bets, q.page, q.pageSize),
+    };
+  });
+}
+
+export function getSettlement(no: string): Promise<SettleOutcome> {
+  return respond(() => {
+    const m = find(no);
+    const run = runs.find((r) => r.marketNo === no && r.kind === 'payout') ?? null;
+    const refund = runs.find((r) => r.marketNo === no && r.kind === 'refund') ?? null;
+    return { marketNo: no, marketStatus: m.d.status, settlePhase: m.d.settlePhase.toLowerCase(), payout: run, refund };
+  });
+}
+
+export function getEvidence(no: string): Promise<Evidence> {
+  return respond(() => {
+    const m = find(no);
+    const auto = m.d.resolutionMode === 'AUTO' && m.d.status === 'pending_resolution';
+    const at = Date.parse(m.d.eventEndAt) + MIN;
+    return {
+      marketNo: no,
+      task: auto ? { status: 'manual', attempts: 31, lastReason: '两个来源方向不一致：币安 涨（3,812.40 → 3,812.55），OKX 跌（3,812.61 → 3,812.38）', deadlineAt: iso(at + 30 * MIN) } : null,
+      records: auto ? [{ id: 1, kind: 'AUTO_FAILED', optionNo: null, detail: null, note: '30 分钟内两个来源仍不一致，转人工', actor: 'AUTO', time: iso(at + 30 * MIN) }] : [],
+      fetches: auto
+        ? [
+            { id: 11, source: 'binance', attempt: 1, requestUrl: 'https://data-api.binance.vision/api/v3/klines?symbol=ETHUSDT&interval=1m', httpStatus: 200, outcome: 'OK', parsed: { open: '3812.40', close: '3812.55' }, error: null, bodySha256: '9f2c…a1', fetchedAt: iso(at), elapsedMs: 182 },
+            { id: 12, source: 'okx', attempt: 1, requestUrl: 'https://www.okx.com/api/v5/market/history-candles?instId=ETH-USDT&bar=1m', httpStatus: 200, outcome: 'OK', parsed: { open: '3812.61', close: '3812.38' }, error: null, bodySha256: '41be…07', fetchedAt: iso(at), elapsedMs: 240 },
+          ]
+        : [],
+      sports: null,
+    };
+  });
+}
+
+// ---------------------------------------------------------------- 结算预览（需求第 3.5 节）
+
+function preview(m: Mkt, optionNo: string): SettlePreview {
+  const idx = m.d.options.findIndex((o) => o.optionNo === optionNo);
+  if (idx < 0) throw new ApiError('errors.validationFailed', undefined, { status: 400, code: 'VALIDATION_FAILED', fields: [{ field: 'optionNo', code: 'invalid' }] });
+  const pool = poolOf(m);
+  const winners = m.positions.filter((p) => p.option === idx);
+  const W0 = pool.perOption[idx];
+  const Lp = pool.total - W0;
+  const rate = toScaled(m.d.feeRate, 4) ?? 0n; // 5% → 50000（4 位小数的百分比）
+  let gross = 0n;
+  let fee = 0n;
+  for (const w of winners) {
+    const s = cents(w.amount);
+    const g = W0 === 0n ? 0n : (s * Lp) / W0; // 向下取整到分
+    const f = (g * rate + 500000n) / 1000000n; // 四舍五入到分
+    gross += g;
+    fee += f;
+  }
+  const dust = Lp - gross;
+  const payout = W0 + gross - fee;
+  return {
+    marketNo: m.d.publicNo,
+    optionNo,
+    actualStartAt: null,
+    outcome: W0 === 0n ? 'void_no_winner' : 'settle',
+    feeRate: m.d.feeRate,
+    poolTotal: money(pool.total),
+    winnerPool: money(W0),
+    loserPool: money(Lp),
+    sumGross: money(gross),
+    sumFee: money(fee),
+    dust: money(dust),
+    sumPayout: money(payout),
+    platformIncome: money(fee + dust),
+    winnerPositions: winners.length,
+    loserPositions: m.positions.length - winners.length,
+    conserved: payout + fee + dust === pool.total,
+    lateBets: 0,
+    lateAmount: '0.00',
+    staffBets: 0,
+    staffAmount: '0.00',
+  };
+}
+
+export function previewSettle(no: string, optionNo: string): Promise<SettlePreview> {
+  return respond(() => preview(find(no), optionNo));
+}
+
+// ---------------------------------------------------------------- 裁决台
+
+interface CaseState {
+  marketNo: string;
+  origin: CaseItem['origin'];
+  hold: CaseItem['hold'];
+  proposal: CaseItem['proposal'];
+  proposeDueAt: string;
+  disputes: Dispute[];
+  records: CaseDetail['records'];
+  resultOptionNo: string | null;
+}
+
+let cases: CaseState[] = [];
+
+function seedCases() {
+  const at = (name: string) => markets.find((m) => m.d.title.en.startsWith(name))!;
+  const chelsea = at('Chelsea');
+  const cpi = at('US October CPI');
+  const eth = at('ETH Up');
+  const brent = at('Brentford');
+  const boe = at('BoE');
+  const nuggets = at('Warriors vs Nuggets');
+  cases = [
+    {
+      marketNo: chelsea.d.publicNo,
+      origin: 'platform',
+      hold: null,
+      proposal: {
+        proposalId: '501',
+        outcome: 'result',
+        optionNo: chelsea.d.options[0].optionNo,
+        basis: 'NORMAL',
+        actualStartAt: iso(Date.parse(chelsea.d.eventStartAt)),
+        evidenceUrls: ['https://www.premierleague.com/match/115880', 'https://www.bbc.com/sport/football/live/c0k4'],
+        attachmentNos: ['9001'],
+        note: '官方比分 2:1，主队胜；两个比分源一致，已截图存档。',
+        proposedBy: '7',
+        proposedAt: iso(BASE - HOUR),
+        confirmDueAt: iso(BASE + HOUR),
+        confirmOverdue: false,
+      },
+      proposeDueAt: iso(BASE - 3 * HOUR),
+      disputes: [],
+      records: [],
+      resultOptionNo: null,
+    },
+    { marketNo: cpi.d.publicNo, origin: 'platform', hold: null, proposal: null, proposeDueAt: iso(BASE - 6 * HOUR), disputes: [], records: [], resultOptionNo: null },
+    { marketNo: eth.d.publicNo, origin: 'auto_failed', hold: null, proposal: null, proposeDueAt: iso(BASE + 90 * MIN), disputes: [], records: [], resultOptionNo: null },
+    { marketNo: nuggets.d.publicNo, origin: 'auto_failed', hold: 'postponed', proposal: null, proposeDueAt: iso(BASE + 40 * HOUR), disputes: [], records: [], resultOptionNo: null },
+    { marketNo: brent.d.publicNo, origin: 'auto_failed', hold: null, proposal: null, proposeDueAt: iso(BASE - 10 * HOUR), disputes: [], records: [], resultOptionNo: brent.d.options[1].optionNo },
+    {
+      marketNo: boe.d.publicNo,
+      origin: 'platform',
+      hold: null,
+      proposal: null,
+      proposeDueAt: iso(BASE - 18 * HOUR),
+      disputes: [
+        { disputeNo: '880001', marketNo: boe.d.publicNo, userId: 100204, claimedOptionNo: boe.d.options[1].optionNo, claimVoid: false, reason: '央行声明里写了上调 25 个基点，公示的结果不对。', link: 'https://www.bankofengland.co.uk/monetary-policy-summary', status: 'open', decisionNote: null, handledBy: null, handledAt: null, receivedAt: iso(BASE - 4 * HOUR) },
+        { disputeNo: '880002', marketNo: boe.d.publicNo, userId: 100205, claimedOptionNo: null, claimVoid: true, reason: '会议延期到下周，应作废。', link: null, status: 'open', decisionNote: null, handledBy: null, handledAt: null, receivedAt: iso(BASE - 3 * HOUR) },
+      ],
+      records: [],
+      resultOptionNo: boe.d.options[0].optionNo,
+    },
+  ];
+  // 公示中的市场的争议截止
+  void brent;
+}
+seedCases();
+
+function caseItem(c: CaseState): CaseItem {
+  const m = find(c.marketNo);
+  const now = Date.now();
+  const stage: CaseItem['stage'] = m.d.status === 'publicizing' ? 'publicizing' : m.d.status === 'disputed' ? 'disputed' : m.d.status === 'pending_resolution' ? 'open' : 'closed';
+  const proposeOverdue = stage === 'open' && !c.proposal && !c.hold && Date.parse(c.proposeDueAt) < now;
+  const disputeDueAt = stage === 'disputed' ? iso(Date.parse(c.disputes[0]?.receivedAt ?? m.d.updatedAt) + DAY) : null;
+  const disputeOverdue = !!disputeDueAt && Date.parse(disputeDueAt) < now;
+  const proposal = c.proposal ? { ...c.proposal, confirmOverdue: Date.parse(c.proposal.confirmDueAt) < now } : null;
+  return {
+    marketNo: m.d.publicNo,
+    category: m.d.category,
+    title: m.d.title,
+    marketStatus: m.d.status,
+    origin: c.origin,
+    stage,
+    hold: c.hold,
+    holdUntil: c.hold ? iso(Date.parse(m.d.eventStartAt) + 48 * HOUR) : null,
+    proposeDueAt: c.proposeDueAt,
+    proposeOverdue,
+    proposal,
+    resultOptionNo: c.resultOptionNo,
+    disputeDeadlineAt: stage === 'publicizing' ? iso(BASE + 75 * MIN) : null,
+    openDisputes: c.disputes.filter((d) => d.status === 'open').length,
+    disputeDueAt,
+    disputeOverdue,
+    overdue: proposeOverdue || !!proposal?.confirmOverdue || disputeOverdue,
+    eventEndAt: m.d.eventEndAt,
+    updatedAt: m.d.updatedAt,
+  };
+}
+
+function inTab(i: CaseItem, tab: CaseTab): boolean {
+  if (i.stage === 'closed') return false;
+  switch (tab) {
+    case 'awaiting_proposal':
+      return i.stage === 'open' && !i.proposal && !i.hold;
+    case 'awaiting_confirm':
+      return i.stage === 'open' && !!i.proposal;
+    case 'auto_failed':
+      return i.stage === 'open' && i.origin === 'auto_failed';
+    case 'on_hold':
+      return !!i.hold;
+    case 'overdue':
+      return i.overdue;
+    case 'publicizing':
+      return i.stage === 'publicizing';
+    case 'disputed':
+      return i.stage === 'disputed';
+    default:
+      return true;
+  }
+}
+
+export function listCases(tab: CaseTab, page: number, pageSize: number): Promise<Page<CaseItem>> {
+  return respond(
+    () => {
+      const items = cases.map(caseItem).filter((i) => inTab(i, tab)).sort((a, b) => Number(b.overdue) - Number(a.overdue));
+      return paginate(items, page, pageSize);
+    },
+    { empty: () => emptyPage<CaseItem>(page, pageSize) },
+  );
+}
+
+export function getCaseCounts(): Promise<Record<CaseTab, number>> {
+  const tabs: CaseTab[] = ['all', 'awaiting_proposal', 'awaiting_confirm', 'auto_failed', 'on_hold', 'overdue', 'publicizing', 'disputed'];
+  return respond(
+    () => Object.fromEntries(tabs.map((t) => [t, cases.map(caseItem).filter((i) => inTab(i, t)).length])) as Record<CaseTab, number>,
+    { empty: () => Object.fromEntries(tabs.map((t) => [t, 0])) as Record<CaseTab, number> },
+  );
+}
+
+function findCase(no: string): CaseState {
+  const c = cases.find((x) => x.marketNo === no);
+  if (!c) throw new ApiError('errors.notFound', undefined, { status: 404, code: 'NOT_FOUND' });
+  return c;
+}
+
+function detailOf(c: CaseState): CaseDetail {
+  const m = find(c.marketNo);
+  return {
+    summary: caseItem(c),
+    options: m.d.options.map((o) => ({ optionNo: o.optionNo, seq: o.seq, label: o.label })),
+    actualStartAt: c.proposal?.actualStartAt ?? null,
+    resolvedBy: null,
+    confirmedAt: null,
+    decision: null,
+    records: c.records,
+    disputes: c.disputes,
+    attachments: c.proposal?.attachmentNos.map((a) => ({ attachmentNo: a, contentType: 'image/png', size: 182_331, sha256: '3b8f…c2', uploadedBy: 7, createdAt: c.proposal!.proposedAt })) ?? [],
+  };
+}
+
+function view(c: CaseState): CaseView {
+  const m = find(c.marketNo);
+  return { detail: detailOf(c), proposalPreview: c.proposal?.optionNo ? preview(m, c.proposal.optionNo) : null };
+}
+
+export function getCase(no: string): Promise<CaseView> {
+  return respond(() => view(findCase(no)));
+}
+
+function checkProposal(p: ProposalInput) {
+  const fields: Array<{ field: string; code: string }> = [];
+  if (!p.voidMarket && !p.optionNo) fields.push({ field: 'optionNo', code: 'required' });
+  if (!p.evidenceUrls.length) fields.push({ field: 'evidenceUrls', code: 'required' });
+  if (p.evidenceUrls.some((u) => !/^https?:\/\//.test(u))) fields.push({ field: 'evidenceUrls', code: 'invalid' });
+  if (!p.note.trim()) fields.push({ field: 'note', code: 'required' });
+  if (fields.length) throw new ApiError('errors.validationFailed', undefined, { status: 400, code: 'VALIDATION_FAILED', fields });
+}
+
+export function propose(no: string, p: ProposalInput): Promise<CaseView> {
+  return mutate(() => {
+    const c = findCase(no);
+    if (c.hold) throw new ApiError('errors.fc.RESOLVE_ON_HOLD', undefined, { status: 409, code: 'RESOLVE_ON_HOLD' });
+    if (c.proposal) throw new ApiError('errors.fc.PROPOSAL_PENDING', undefined, { status: 409, code: 'PROPOSAL_PENDING' });
+    checkProposal(p);
+    c.proposal = {
+      proposalId: String(600 + c.records.length),
+      outcome: p.voidMarket ? 'void' : 'result',
+      optionNo: p.voidMarket ? null : p.optionNo,
+      basis: p.basis ?? 'NORMAL',
+      actualStartAt: p.actualStartAt,
+      evidenceUrls: p.evidenceUrls,
+      attachmentNos: p.attachmentNos,
+      note: p.note,
+      proposedBy: '1',
+      proposedAt: iso(Date.now()),
+      confirmDueAt: iso(Date.now() + 2 * HOUR),
+      confirmOverdue: false,
+    };
+    c.records.push({ id: c.proposal.proposalId, kind: 'PROPOSE', optionNo: c.proposal.optionNo, refId: null, basis: c.proposal.basis, actualStartAt: p.actualStartAt, evidenceUrls: p.evidenceUrls, attachmentNos: p.attachmentNos, note: p.note, actor: '1', time: iso(Date.now()), detail: null });
+    return view(c);
+  });
+}
+
+function toPublicity(c: CaseState, optionNo: string | null, reason: string) {
+  const m = find(c.marketNo);
+  if (optionNo === null) {
+    move(m, 'voided', reason);
+  } else {
+    move(m, 'publicizing', null);
+    c.resultOptionNo = optionNo;
+  }
+  c.proposal = null;
+}
+
+export function confirmProposal(no: string, proposalId: string, reason: string): Promise<CaseView> {
+  return mutate(() => {
+    needReason(reason);
+    const c = findCase(no);
+    if (!c.proposal || c.proposal.proposalId !== proposalId) throw new ApiError('errors.fc.PROPOSAL_CHANGED', undefined, { status: 409, code: 'PROPOSAL_CHANGED' });
+    c.records.push({ id: String(700 + c.records.length), kind: 'CONFIRM', optionNo: c.proposal.optionNo, refId: proposalId, basis: null, actualStartAt: null, evidenceUrls: [], attachmentNos: [], note: reason, actor: '1', time: iso(Date.now()), detail: null });
+    toPublicity(c, c.proposal.optionNo, reason);
+    return view(c);
+  });
+}
+
+export function returnProposal(no: string, proposalId: string, reason: string): Promise<CaseView> {
+  return mutate(() => {
+    needReason(reason);
+    const c = findCase(no);
+    if (!c.proposal || c.proposal.proposalId !== proposalId) throw new ApiError('errors.fc.PROPOSAL_CHANGED', undefined, { status: 409, code: 'PROPOSAL_CHANGED' });
+    c.records.push({ id: String(800 + c.records.length), kind: 'RETURN', optionNo: null, refId: proposalId, basis: null, actualStartAt: null, evidenceUrls: [], attachmentNos: [], note: reason, actor: '1', time: iso(Date.now()), detail: null });
+    c.proposal = null;
+    return view(c);
+  });
+}
+
+export function decideDirect(no: string, p: ProposalInput, reason: string): Promise<CaseView> {
+  return mutate(() => {
+    needReason(reason);
+    const c = findCase(no);
+    if (c.hold) throw new ApiError('errors.fc.RESOLVE_ON_HOLD', undefined, { status: 409, code: 'RESOLVE_ON_HOLD' });
+    checkProposal(p);
+    toPublicity(c, p.voidMarket ? null : p.optionNo, reason);
+    return view(c);
+  });
+}
+
+export function holdCase(no: string, kind: 'postponed' | 'abandoned', reason: string): Promise<CaseView> {
+  return mutate(() => {
+    needReason(reason);
+    const c = findCase(no);
+    c.hold = kind;
+    return view(c);
+  });
+}
+
+export function releaseCase(no: string, reason: string): Promise<CaseView> {
+  return mutate(() => {
+    needReason(reason);
+    const c = findCase(no);
+    if (!c.hold) throw new ApiError('errors.fc.NOT_ON_HOLD', undefined, { status: 409, code: 'NOT_ON_HOLD' });
+    c.hold = null;
+    return view(c);
+  });
+}
+
+const SVG_NS = `http://www.w3.org/2000/svg`;
+export const attachmentUrl = (attachmentNo: string): string => `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="${SVG_NS}" width="320" height="180"><rect width="100%" height="100%" fill="#e8eef7"/><text x="16" y="96" font-size="14" fill="#33415c">存档截图 ${attachmentNo}（原型）</text></svg>`)}`;
+
+export function uploadAttachment(no: string, file: File): Promise<{ attachmentNo: string }> {
+  return mutate(() => {
+    findCase(no);
+    if (file.size > 2 * 1024 * 1024) throw new ApiError('errors.validationFailed', undefined, { status: 400, code: 'VALIDATION_FAILED', fields: [{ field: 'file', code: 'tooLarge' }] });
+    return { attachmentNo: String(9000 + Math.floor(Math.random() * 999)) };
+  });
+}
+
+// ---------------------------------------------------------------- 公示与争议
+
+export function listDisputes(status: 'open' | 'handled' | undefined, page: number, pageSize: number): Promise<Page<Dispute>> {
+  return respond(
+    () => {
+      const all = cases.flatMap((c) => c.disputes).filter((d) => !status || (status === 'open' ? d.status === 'open' : d.status !== 'open'));
+      return paginate(all.sort((a, b) => b.receivedAt.localeCompare(a.receivedAt)), page, pageSize);
+    },
+    { empty: () => emptyPage<Dispute>(page, pageSize) },
+  );
+}
+
+export function getDisputeCase(no: string): Promise<CaseDetail> {
+  return respond(() => detailOf(findCase(no)));
+}
+
+export function decideDisputes(no: string, decision: 'uphold' | 'overturn' | 'void', optionNo: string | null, note: string, reason: string): Promise<CaseDetail> {
+  return mutate(() => {
+    needReason(reason);
+    const c = findCase(no);
+    const m = find(no);
+    if (m.d.status !== 'disputed') throw new ApiError('errors.fc.DISPUTE_NOT_OPEN', undefined, { status: 409, code: 'DISPUTE_NOT_OPEN' });
+    const fields: Array<{ field: string; code: string }> = [];
+    if (!note.trim()) fields.push({ field: 'note', code: 'required' });
+    if (decision === 'overturn' && (!optionNo || optionNo === c.resultOptionNo)) fields.push({ field: 'optionNo', code: optionNo ? 'sameAsResult' : 'required' });
+    if (fields.length) throw new ApiError('errors.validationFailed', undefined, { status: 400, code: 'VALIDATION_FAILED', fields });
+    const st = decision === 'uphold' ? 'upheld' : decision === 'overturn' ? 'overturned' : 'voided';
+    c.disputes = c.disputes.map((d) => (d.status === 'open' ? { ...d, status: st, decisionNote: note, handledBy: 1, handledAt: iso(Date.now()) } : d));
+    move(m, decision === 'void' ? 'voided' : 'settled', note);
+    return detailOf(c);
+  });
+}
+
+// ---------------------------------------------------------------- 结算单、对账差异
+
+function seedRuns(): SettleRun[] {
+  const out: SettleRun[] = [];
+  let n = 0;
+  for (const m of markets.filter((x) => x.d.status === 'settled')) {
+    const p = preview(m, m.d.options[0].optionNo);
+    out.push({
+      runNo: `61${String(++n).padStart(6, '0')}`,
+      marketNo: m.d.publicNo,
+      kind: 'payout',
+      status: 'done',
+      reason: null,
+      winningOptionNo: p.optionNo,
+      feeRate: p.feeRate,
+      poolTotal: p.poolTotal,
+      winnerPool: p.winnerPool,
+      loserPool: p.loserPool,
+      sumGross: p.sumGross,
+      sumFee: p.sumFee,
+      dust: p.dust,
+      sumPayout: p.sumPayout,
+      platformIncome: p.platformIncome,
+      winnerPositions: p.winnerPositions,
+      loserPositions: p.loserPositions,
+      itemCount: p.winnerPositions + p.loserPositions,
+      pendingItems: 0,
+      conservationOk: true,
+      abnormalReason: null,
+      batchSize: 500,
+      resolvedBy: m.d.resolutionMode === 'AUTO' ? 'AUTO' : '1',
+      calculatedAt: iso(Date.parse(m.d.eventEndAt) + 4 * HOUR),
+      doneAt: iso(Date.parse(m.d.eventEndAt) + 4 * HOUR + 3000),
+    });
+  }
+  for (const m of markets.filter((x) => x.d.status === 'cancelled' || x.d.status === 'voided')) {
+    const pool = poolOf({ ...m, d: { ...m.d, status: 'listed' } });
+    out.push({ ...out[0], runNo: `61${String(++n).padStart(6, '0')}`, marketNo: m.d.publicNo, kind: 'refund', reason: m.d.status === 'cancelled' ? '主办方宣布比赛取消' : 'POSTPONED_48H', winningOptionNo: null, poolTotal: money(pool.total), winnerPool: '0.00', loserPool: '0.00', sumGross: '0.00', sumFee: '0.00', dust: '0.00', sumPayout: money(pool.total), platformIncome: '0.00', winnerPositions: 0, loserPositions: 0, itemCount: m.positions.length });
+  }
+  // 一张结算异常：守恒没通过（停止派彩，等处理后重试）
+  out.push({ ...out[1], runNo: `61${String(++n).padStart(6, '0')}`, status: 'abnormal', conservationOk: false, abnormalReason: '结算前对账：这个市场的下注锁定合计和奖池合计差 0.01，已停止派彩', pendingItems: out[1].itemCount, doneAt: null });
+  return out;
+}
+
+let runs: SettleRun[] = seedRuns();
+
+export function listSettleRuns(q: { status?: string; kind?: string; page: number; pageSize: number }): Promise<Page<SettleRun>> {
+  return respond(
+    () => paginate(runs.filter((r) => (!q.status || r.status === q.status) && (!q.kind || r.kind === q.kind)).sort((a, b) => b.runNo.localeCompare(a.runNo)), q.page, q.pageSize),
+    { empty: () => emptyPage<SettleRun>(q.page, q.pageSize) },
+  );
+}
+
+export function getSettleRun(runNo: string, page: number, pageSize: number): Promise<SettleRunDetail> {
+  return respond(() => {
+    const r = runs.find((x) => x.runNo === runNo);
+    if (!r) throw new ApiError('errors.notFound', undefined, { status: 404, code: 'NOT_FOUND' });
+    const m = find(r.marketNo);
+    if (r.kind === 'refund') {
+      const items = m.positions.map((p, i) => ({ userId: p.userId, betNo: `${m.d.publicNo.slice(0, 10)}${String(i + 1).padStart(6, '0')}`, amount: money(cents(p.amount)), reason: r.reason ?? '', status: 'done' }));
+      return { run: r, payoutItems: null, refundItems: paginate(items, page, pageSize) };
+    }
+    const win = m.d.options.findIndex((o) => o.optionNo === r.winningOptionNo);
+    const items = m.positions.map((p) => ({ userId: p.userId, optionNo: m.d.options[p.option].optionNo, win: p.option === win, stake: money(cents(p.amount)), gross: '0.00', fee: '0.00', payout: p.option === win ? money(cents(p.amount)) : '0.00', status: r.status === 'abnormal' ? 'pending' : 'done' }));
+    return { run: r, payoutItems: paginate(items, page, pageSize), refundItems: null };
+  });
+}
+
+export function retrySettleRun(runNo: string, reason: string): Promise<SettleRun> {
+  return mutate(() => {
+    needReason(reason);
+    const r = runs.find((x) => x.runNo === runNo);
+    if (!r || r.status !== 'abnormal') throw new ApiError('errors.fc.SETTLE_NOT_ABNORMAL', undefined, { status: 409, code: 'SETTLE_NOT_ABNORMAL' });
+    if (issues.some((i) => i.status === 'open' && i.marketNo === r.marketNo)) throw new ApiError('errors.fc.POOL_RECON_OPEN', undefined, { status: 409, code: 'POOL_RECON_OPEN' });
+    Object.assign(r, { status: 'done', conservationOk: true, abnormalReason: null, pendingItems: 0, doneAt: iso(Date.now()) });
+    return r;
+  });
+}
+
+const issues: PoolIssue[] = [
+  { id: 31, marketNo: null, refKey: 'POOL_TOTAL', checkDate: '2026-10-24', kind: 'POOL_VS_LEDGER', source: 'pool_option_total', expected: '18,240.00', actual: '18,239.99', diff: '-0.01', detail: '全部市场的奖池合计和账本"下注锁定"合计差 0.01', status: 'open', resolvedBy: null, resolvedAt: null, note: null, createdAt: iso(BASE - 7 * HOUR) },
+  { id: 30, marketNo: null, refKey: 'POOL_TOTAL', checkDate: '2026-10-21', kind: 'POOL_VS_BETS', source: 'pool_bet', expected: '9,120.00', actual: '9,120.00', diff: '0.00', detail: '复核后一致（当时一笔退款还在派）', status: 'resolved', resolvedBy: 1, resolvedAt: iso(BASE - 3 * DAY), note: '退款派完后复核一致', createdAt: iso(BASE - 4 * DAY) },
+];
+
+export function listPoolIssues(status: 'open' | 'resolved' | undefined, page: number, pageSize: number): Promise<Page<PoolIssue>> {
+  return respond(() => paginate(issues.filter((i) => !status || i.status === status), page, pageSize), { empty: () => emptyPage<PoolIssue>(page, pageSize) });
+}
+
+export function resolvePoolIssue(id: number, note: string): Promise<PoolIssue> {
+  return mutate(() => {
+    if (!note.trim()) throw new ApiError('errors.reasonRequired', undefined, { status: 400, code: 'VALIDATION_FAILED', fields: [{ field: 'note', code: 'required' }] });
+    const i = issues.find((x) => x.id === id);
+    if (!i || i.status !== 'open') throw new ApiError('errors.fc.ISSUE_ALREADY_RESOLVED', undefined, { status: 409, code: 'ISSUE_ALREADY_RESOLVED' });
+    Object.assign(i, { status: 'resolved', note, resolvedBy: 1, resolvedAt: iso(Date.now()) });
+    return i;
+  });
+}
+
+// ---------------------------------------------------------------- 补偿、报表
+
+let compensations: Compensation[] = [];
+
+function plan(no: string, correctOptionNo: string): CompPlan {
+  const m = find(no);
+  if (m.d.status !== 'settled') throw new ApiError('errors.fc.MARKET_NOT_COMPENSABLE', undefined, { status: 409, code: 'MARKET_NOT_COMPENSABLE' });
+  const run = runs.find((r) => r.marketNo === no && r.kind === 'payout');
+  if (correctOptionNo === run?.winningOptionNo) throw new ApiError('errors.validationFailed', undefined, { status: 400, code: 'VALIDATION_FAILED', fields: [{ field: 'correctOptionNo', code: 'sameAsResult' }] });
+  const idx = m.d.options.findIndex((o) => o.optionNo === correctOptionNo);
+  const lines = m.positions
+    .filter((p) => correctOptionNo === 'void' || p.option === idx)
+    .map((p) => ({ userId: p.userId, shouldPayout: money(cents(p.amount) * (correctOptionNo === 'void' ? 1n : 2n)), actualPayout: '0.00', amount: money(cents(p.amount) * (correctOptionNo === 'void' ? 1n : 2n)) }));
+  const total = lines.reduce((a, l) => a + cents(l.amount), 0n);
+  return { marketNo: no, originalOptionNo: run?.winningOptionNo ?? '', correctOptionNo, feeRate: m.d.feeRate, total: money(total), userCount: lines.length, lines };
+}
+
+export function previewCompensation(no: string, correctOptionNo: string): Promise<CompPlan> {
+  return respond(() => plan(no, correctOptionNo));
+}
+
+export function compensate(no: string, correctOptionNo: string, reason: string): Promise<Compensation> {
+  return mutate(() => {
+    needReason(reason);
+    if (compensations.some((c) => c.marketNo === no)) throw new ApiError('errors.fc.COMPENSATION_EXISTS', undefined, { status: 409, code: 'COMPENSATION_EXISTS' });
+    const c: Compensation = { ...plan(no, correctOptionNo), compensationNo: String(7700 + compensations.length + 1), reason, createdBy: 1, createdAt: iso(Date.now()) };
+    compensations = [c, ...compensations];
+    return c;
+  });
+}
+
+function seedComp() {
+  const m = markets.find((x) => x.d.status === 'settled' && x.d.category === 'MACRO')!;
+  compensations = [{ ...plan(m.d.publicNo, m.d.options[1].optionNo), compensationNo: '7700', reason: '统计局修正了 9 月 CPI，正确结果应为"否"', createdBy: 1, createdAt: iso(BASE - 2 * DAY) }];
+}
+seedComp();
+
+export function listCompensations(page: number, pageSize: number): Promise<Page<Compensation>> {
+  return respond(() => paginate(compensations.map((c) => ({ ...c, lines: [] })), page, pageSize), { empty: () => emptyPage<Compensation>(page, pageSize) });
+}
+
+export function getCompensation(no: string): Promise<Compensation> {
+  return respond(() => {
+    const c = compensations.find((x) => x.compensationNo === no);
+    if (!c) throw new ApiError('errors.notFound', undefined, { status: 404, code: 'NOT_FOUND' });
+    return c;
+  });
+}
+
+export function getReport(from: string, to: string): Promise<Report> {
+  return respond(
+    () => {
+      const days = [];
+      let fee = 0n;
+      let dust = 0n;
+      let comp = 0n;
+      for (let t = Date.parse(`${to}T00:00:00Z`); t >= Date.parse(`${from}T00:00:00Z`); t -= DAY) {
+        const k = Math.round((BASE - t) / DAY);
+        const f = BigInt(4000 + ((k * 731) % 9000));
+        const d = BigInt((k * 7) % 13);
+        const c = k === 2 ? cents(compensations[compensations.length - 1]?.total ?? '0') : 0n;
+        fee += f;
+        dust += d;
+        comp += c;
+        days.push({ date: new Date(t).toISOString().slice(0, 10), feeIncome: money(f), dust: money(d), revenue: money(f + d), compensation: money(c), compensations: c > 0n ? 1 : 0 });
+      }
+      return { from, to, feeIncome: money(fee), dust: money(dust), revenue: money(fee + dust), compensationExpense: money(comp), compensations: days.filter((d) => d.compensations).length, days };
+    },
+    { empty: () => ({ from, to, feeIncome: '0.00', dust: '0.00', revenue: '0.00', compensationExpense: '0.00', compensations: 0, days: [] }) },
+  );
+}
+
+// ---------------------------------------------------------------- 仪表盘
+
+export function getMarketDashboard(): Promise<MarketDashboard> {
+  const period = (from: string, to: string, k: number) => ({ from, to, betAmount: money(1_284_350n * BigInt(k)), bets: 412 * k, bettors: 97 * k + 12, revenue: money(31_240n * BigInt(k)), compensation: k > 1 ? '186.40' : '0.00', registrations: 23 * k, deposit: money(4_520_000n * BigInt(k)), depositCount: 31 * k, withdraw: money(1_830_000n * BigInt(k)), withdrawCount: 9 * k });
+  const zero = { from: '2026-10-25', to: '2026-10-25', betAmount: '0.00', bets: 0, bettors: 0, revenue: '0.00', compensation: '0.00', registrations: 0, deposit: '0.00', depositCount: 0, withdraw: '0.00', withdrawCount: 0 };
+  return respond(
+    () => {
+      const items = cases.map(caseItem);
+      return {
+        today: period('2026-10-25', '2026-10-25', 1),
+        week: period('2026-10-19', '2026-10-25', 6),
+        pending: {
+          review: markets.filter((m) => m.d.status === 'draft' && m.d.submitted).length,
+          awaitingProposal: items.filter((i) => inTab(i, 'awaiting_proposal')).length,
+          awaitingConfirm: items.filter((i) => inTab(i, 'awaiting_confirm')).length,
+          autoFailed: items.filter((i) => inTab(i, 'auto_failed')).length,
+          overdue: items.filter((i) => i.overdue).length,
+          publicizing: items.filter((i) => i.stage === 'publicizing').length,
+          disputed: items.filter((i) => i.stage === 'disputed').length,
+          settleAbnormal: runs.filter((r) => r.status === 'abnormal').length,
+          poolReconOpen: issues.filter((i) => i.status === 'open').length,
+          withdrawalsPending: 3,
+        },
+        updatedAt: iso(Date.now()),
+      };
+    },
+    { empty: () => ({ today: zero, week: { ...zero, from: '2026-10-19' }, pending: { review: 0, awaitingProposal: 0, awaitingConfirm: 0, autoFailed: 0, overdue: 0, publicizing: 0, disputed: 0, settleAbnormal: 0, poolReconOpen: 0, withdrawalsPending: 0 }, updatedAt: iso(Date.now()) }) },
+  );
+}
+
+// ---------------------------------------------------------------- 加密自动生成、规则文本模板
+
+const sample = (title: I18nText) => ({
+  title,
+  rules: L('窗口开始前 30 秒截止；以币安现货 BTC/USDT 1 分钟 K 线为准，OKX 现货 BTC-USDT 为备用；结束价 ≥ 开始价判"涨"。', 'Closes 30 s before the window; Binance spot BTC/USDT 1m klines, OKX spot BTC-USDT as backup; Up if close ≥ open.', '窗口開始前 30 秒截止；以幣安現貨 BTC/USDT 1 分鐘 K 線為準，OKX 現貨 BTC-USDT 為備用；結束價 ≥ 開始價判「漲」。'),
+  sourcePrimary: 'Binance spot BTC/USDT 1m klines (data-api.binance.vision)',
+  sourceBackup: 'OKX spot BTC-USDT 1m candles',
+  options: [
+    { outcome: 'UP', label: T.up, winCondition: W('结束价 ≥ 开始价') },
+    { outcome: 'DOWN', label: T.down, winCondition: W('结束价 < 开始价') },
+  ],
+});
+
+function windows(slots: string[], period: '15M' | '1H', generatedFirst: boolean) {
+  const len = period === '1H' ? HOUR : 15 * MIN;
+  const day = Date.UTC(2026, 9, 25);
+  return [0, 1, 2, 3].map((d) => {
+    const [h, m] = (slots[0] ?? '13:00').split(':').map(Number);
+    const start = day + d * DAY + h * HOUR + m * MIN;
+    return { windowStart: iso(start), windowEnd: iso(start + len), openAt: iso(start - 3 * HOUR), closeAt: iso(start - 30_000), generated: generatedFirst && d < 2, marketNo: generatedFirst && d < 2 ? `10791000000${d}` : null };
+  });
+}
+
+let autogens: Autogen[] = [
+  { autogenNo: '1000000000000000002', symbol: 'BTCUSDT', period: '1H', category: 'CRYPTO_1H', mode: 'schedule', slots: ['13:00'], rollingCount: 3, generateAheadMinutes: 1440, templateNo: '1000000000000000001', userCap: null, enabled: true, checkedBy: 1, checkedAt: iso(BASE - 3 * DAY), checkedTemplateVersion: 2, version: 4, createdAt: iso(BASE - 10 * DAY), updatedAt: iso(BASE - 3 * DAY), upcoming: windows(['13:00'], '1H', true), sample: sample(L('BTC 涨还是跌：2026-10-25 13:00–14:00 UTC', 'BTC Up or Down: 2026-10-25 13:00–14:00 UTC', 'BTC 漲還是跌：2026-10-25 13:00–14:00 UTC')), missing: [] },
+  { autogenNo: '1000000000000000003', symbol: 'ETHUSDT', period: '15M', category: 'CRYPTO_15M', mode: 'rolling', slots: [], rollingCount: 4, generateAheadMinutes: 1440, templateNo: '1000000000000000001', userCap: '1000.00', enabled: false, checkedBy: null, checkedAt: null, checkedTemplateVersion: null, version: 1, createdAt: iso(BASE - 2 * DAY), updatedAt: iso(BASE - 2 * DAY), upcoming: windows(['06:00'], '15M', false), sample: sample(L('ETH 涨还是跌：2026-10-25 06:00–06:15 UTC', 'ETH Up or Down: 2026-10-25 06:00–06:15 UTC', 'ETH 漲還是跌：2026-10-25 06:00–06:15 UTC')), missing: [] },
+];
+
+export function listAutogens(): Promise<Autogen[]> {
+  return respond(() => autogens, { empty: () => [] });
+}
+
+function checkAutogen(i: AutogenInput) {
+  const fields: Array<{ field: string; code: string }> = [];
+  if (!['BTCUSDT', 'ETHUSDT'].includes(i.symbol)) fields.push({ field: 'symbol', code: 'invalid' });
+  if (i.mode === 'schedule') {
+    if (!i.slots.length) fields.push({ field: 'slots', code: 'required' });
+    i.slots.forEach((s, k) => {
+      const ok = /^\d{2}:\d{2}$/.test(s) && (i.period === '1H' ? s.endsWith(':00') : Number(s.slice(3)) % 15 === 0);
+      if (!ok) fields.push({ field: `slots[${k}]`, code: 'invalid' });
+    });
+  }
+  if (fields.length) throw new ApiError('errors.validationFailed', undefined, { status: 400, code: 'VALIDATION_FAILED', fields });
+}
+
+export function createAutogen(i: AutogenInput, reason: string): Promise<Autogen> {
+  return mutate(() => {
+    needReason(reason);
+    checkAutogen(i);
+    if (autogens.some((a) => a.symbol === i.symbol && a.period === i.period)) throw new ApiError('errors.fc.AUTOGEN_EXISTS', undefined, { status: 409, code: 'AUTOGEN_EXISTS' });
+    const a: Autogen = { ...autogens[0], ...i, autogenNo: String(1000000000000000010n + BigInt(autogens.length)), category: i.period === '1H' ? 'CRYPTO_1H' : 'CRYPTO_15M', rollingCount: i.rollingCount ?? 3, generateAheadMinutes: i.generateAheadMinutes ?? 1440, templateNo: i.templateNo ?? '1000000000000000001', enabled: false, checkedBy: null, checkedAt: null, checkedTemplateVersion: null, version: 0, upcoming: windows(i.slots, i.period, false) };
+    autogens = [...autogens, a];
+    return a;
+  });
+}
+
+export function updateAutogen(no: string, i: AutogenInput, reason: string): Promise<Autogen> {
+  return mutate(() => {
+    needReason(reason);
+    const a = autogens.find((x) => x.autogenNo === no);
+    if (!a) throw new ApiError('errors.notFound', undefined, { status: 404, code: 'NOT_FOUND' });
+    if (a.enabled) throw new ApiError('errors.fc.AUTOGEN_ENABLED', undefined, { status: 409, code: 'AUTOGEN_ENABLED' });
+    checkAutogen(i);
+    Object.assign(a, i, { rollingCount: i.rollingCount ?? a.rollingCount, generateAheadMinutes: i.generateAheadMinutes ?? a.generateAheadMinutes, version: a.version + 1, upcoming: windows(i.slots, i.period, false) });
+    return a;
+  });
+}
+
+export function enableAutogen(no: string, checked: boolean): Promise<Autogen> {
+  return mutate(() => {
+    const a = autogens.find((x) => x.autogenNo === no)!;
+    if (!checked) throw new ApiError('errors.validationFailed', undefined, { status: 400, code: 'VALIDATION_FAILED', fields: [{ field: 'checked', code: 'required' }] });
+    Object.assign(a, { enabled: true, checkedBy: 1, checkedAt: iso(Date.now()), checkedTemplateVersion: 2 });
+    return a;
+  });
+}
+
+export function disableAutogen(no: string, reason: string): Promise<Autogen> {
+  return mutate(() => {
+    needReason(reason);
+    const a = autogens.find((x) => x.autogenNo === no)!;
+    a.enabled = false;
+    return a;
+  });
+}
+
+let ruleTemplates: RuleTemplate[] = [
+  { templateNo: '1000000000000000001', kind: 'CRYPTO_UPDOWN', name: '加密涨跌（默认）', title: L('{asset} 涨还是跌：{date} {startTime}–{endTime} UTC', '{asset} Up or Down: {date} {startTime}–{endTime} UTC', '{asset} 漲還是跌：{date} {startTime}–{endTime} UTC'), rules: sample(T.up).rules, sourcePrimary: sample(T.up).sourcePrimary, sourceBackup: sample(T.up).sourceBackup, options: sample(T.up).options, version: 2, usedBy: ['1000000000000000002', '1000000000000000003'], usedByEnabled: true, variables: ['asset', 'symbol', 'date', 'startTime', 'endTime', 'period'], updatedAt: iso(BASE - 5 * DAY) },
+];
+
+export function listRuleTemplates(): Promise<RuleTemplate[]> {
+  return respond(() => ruleTemplates, { empty: () => [] });
+}
+
+export function updateRuleTemplate(no: string, t: Pick<RuleTemplate, 'name' | 'title' | 'rules' | 'sourcePrimary' | 'sourceBackup' | 'options'>, reason: string): Promise<RuleTemplate> {
+  return mutate(() => {
+    needReason(reason);
+    const r = ruleTemplates.find((x) => x.templateNo === no)!;
+    if (autogens.some((a) => a.enabled && a.templateNo === no)) throw new ApiError('errors.fc.TEMPLATE_IN_USE', undefined, { status: 409, code: 'TEMPLATE_IN_USE' });
+    Object.assign(r, t, { version: r.version + 1, updatedAt: iso(Date.now()) });
+    ruleTemplates = [...ruleTemplates];
+    return r;
+  });
+}
+
+// ---------------------------------------------------------------- 体育
+
+function fx(i: number, sport: 'FOOTBALL' | 'NBA', comp: string, home: string, away: string, inHours: number, mapped: boolean): Fixture {
+  const k = BASE + inHours * HOUR;
+  return {
+    fixtureNo: `55${String(i).padStart(6, '0')}`,
+    sport,
+    competition: sport === 'NBA' ? 'NBA' : comp,
+    competitionName: sport === 'NBA' ? 'NBA' : comp === 'PL' ? 'Premier League' : 'Primera Division',
+    home: { name: home, shortName: home.split(' ')[0] },
+    away: { name: away, shortName: away.split(' ')[0] },
+    kickoffAt: iso(k),
+    originalKickoffAt: iso(i === 3 ? k - 2 * HOUR : k),
+    kickoffChanged: i === 3,
+    status: 'scheduled',
+    rawStatus: 'TIMED',
+    primarySource: sport === 'NBA' ? 'balldontlie' : 'football-data',
+    primaryRef: String(540000 + i),
+    mapping: mapped ? { source: 'thesportsdb', ref: String(2494000 + i), swapped: false, home: home.replace(' FC', ''), away: away.replace(' FC', ''), kickoffAt: iso(k), confirmedBy: 2, confirmedAt: iso(BASE - DAY) } : null,
+    candidates: [
+      { source: 'thesportsdb', ref: String(2494000 + i), home: home.replace(' FC', ''), away: away.replace(' FC', ''), kickoffAt: iso(k), league: comp, score: 0.96, swapped: false, suggested: true },
+      { source: 'thesportsdb', ref: String(2495000 + i), home: away.replace(' FC', ''), away: home.replace(' FC', ''), kickoffAt: iso(k + 3 * DAY), league: comp, score: 0.41, swapped: true, suggested: false },
+    ],
+    candidatesAt: iso(BASE - 2 * HOUR),
+    candidatesError: null,
+    markets: [],
+    fetchedAt: iso(BASE - 2 * HOUR),
+  };
+}
+
+const fixtures: Fixture[] = [
+  fx(1, 'FOOTBALL', 'PL', 'Manchester United FC', 'AFC Bournemouth', 26, true),
+  fx(2, 'FOOTBALL', 'PL', 'Liverpool FC', 'Brighton & Hove Albion FC', 28, false),
+  fx(3, 'FOOTBALL', 'PD', 'Girona FC', 'Sevilla FC', 50, false),
+  fx(4, 'NBA', 'NBA', 'Golden State Warriors', 'Los Angeles Lakers', 36, true),
+  fx(5, 'NBA', 'NBA', 'Boston Celtics', 'New York Knicks', 60, false),
+];
+
+export function listFixtures(q: FixtureQuery): Promise<Page<Fixture>> {
+  return respond(
+    () => paginate(fixtures.filter((f) => (!q.sport || f.sport === q.sport) && (!q.mapping || (q.mapping === 'confirmed') === !!f.mapping)), q.page, q.pageSize),
+    { empty: () => emptyPage<Fixture>(q.page, q.pageSize) },
+  );
+}
+
+const findFx = (no: string) => {
+  const f = fixtures.find((x) => x.fixtureNo === no);
+  if (!f) throw new ApiError('errors.notFound', undefined, { status: 404, code: 'NOT_FOUND' });
+  return f;
+};
+
+export function getFixture(no: string): Promise<Fixture> {
+  return respond(() => findFx(no));
+}
+
+export function syncFixtures(sport?: string): Promise<SyncResult[]> {
+  return mutate(() =>
+    (['FOOTBALL', 'NBA'] as const)
+      .filter((s) => !sport || s === sport)
+      .map((s) => ({ sport: s, source: s === 'NBA' ? 'balldontlie' : 'football-data', outcome: s === 'NBA' ? ('disabled' as const) : ('ok' as const), fetched: s === 'NBA' ? 0 : 38, created: s === 'NBA' ? 0 : 2, updated: s === 'NBA' ? 0 : 1, kickoffChanged: s === 'NBA' ? 0 : 1, candidatesSearched: s === 'NBA' ? 0 : 3, error: s === 'NBA' ? '未开通：没有配置 FC_SRC_BALLDONTLIE_KEY' : null })),
+  );
+}
+
+export function searchCandidates(no: string): Promise<Fixture> {
+  return mutate(() => ({ ...findFx(no), candidatesAt: iso(Date.now()) }));
+}
+
+export function confirmMapping(no: string, ref: string): Promise<Fixture> {
+  return mutate(() => {
+    const f = findFx(no);
+    const c = f.candidates.find((x) => x.ref === ref);
+    if (!c) throw new ApiError('errors.validationFailed', undefined, { status: 400, code: 'VALIDATION_FAILED', fields: [{ field: 'ref', code: 'notCandidate' }] });
+    f.mapping = { source: c.source, ref: c.ref, swapped: c.swapped, home: c.home, away: c.away, kickoffAt: c.kickoffAt, confirmedBy: 1, confirmedAt: iso(Date.now()) };
+    return f;
+  });
+}
+
+export function clearMapping(no: string): Promise<Fixture> {
+  return mutate(() => {
+    const f = findFx(no);
+    f.mapping = null;
+    return f;
+  });
+}
+
+export function generateDrafts(no: string, plays: PlayInput[]): Promise<Generated> {
+  return mutate(() => {
+    const f = findFx(no);
+    if (!plays.length) throw new ApiError('errors.validationFailed', undefined, { status: 400, code: 'VALIDATION_FAILED', fields: [{ field: 'plays', code: 'required' }] });
+    const fields = plays.flatMap((p, i) => ((p.play === 'NBA_TOTAL' && !p.line) || (p.line && !/\.5$/.test(p.line)) ? [{ field: `plays[${i}].line`, code: 'invalid' }] : []));
+    if (fields.length) throw new ApiError('errors.validationFailed', undefined, { status: 400, code: 'VALIDATION_FAILED', fields });
+    const created = plays.map((p) => {
+      const m = makeMarket({ category: f.sport, title: L(`${f.home.name} 对 ${f.away.name}`, `${f.home.name} v ${f.away.name}`, `${f.home.name} 對 ${f.away.name}`), status: 'draft', closeIn: Date.parse(f.kickoffAt) - BASE - 5 * MIN, origin: 'sports', options: [[T.home, W('主队胜')], [T.away, W('客队胜')]] });
+      markets = [m, ...markets];
+      return { marketNo: m.d.publicNo, play: p.play, line: p.line ?? (p.play === 'FOOTBALL_OU' ? '2.5' : null), status: 'draft' as const };
+    });
+    f.markets = [...f.markets, ...created];
+    return { fixtureNo: no, created, warnings: f.mapping ? [] : ['mappingNotConfirmed'] };
+  });
+}
+
+let sportsTemplates: SportsTemplate[] = (['FOOTBALL_1X2', 'FOOTBALL_OU', 'NBA_ML', 'NBA_TOTAL'] as const).map((kind, i) => ({
+  kind,
+  name: ['足球胜平负', '足球大小球', 'NBA 胜负', 'NBA 大小分'][i],
+  title: L('{home} 对 {away}', '{home} v {away}', '{home} 對 {away}'),
+  rules: L('以 90 分钟常规时间（含补时）的比分为准。', 'Based on the score after 90 minutes plus stoppage time.', '以 90 分鐘常規時間（含補時）的比分為準。'),
+  sourcePrimary: kind.startsWith('NBA') ? 'balldontlie.io' : 'football-data.org',
+  sourceBackup: 'thesportsdb.com',
+  options: [
+    { outcome: 'HOME', label: T.home, winCondition: W('主队胜') },
+    { outcome: 'AWAY', label: T.away, winCondition: W('客队胜') },
+  ],
+  version: 1,
+  updatedBy: null,
+  updatedAt: iso(BASE - 6 * DAY),
+  variables: ['home', 'away', 'competition', 'kickoff', 'line'],
+}));
+
+export function listSportsTemplates(): Promise<SportsTemplate[]> {
+  return respond(() => sportsTemplates, { empty: () => [] });
+}
+
+export function updateSportsTemplate(kind: string, t: Pick<SportsTemplate, 'name' | 'title' | 'rules' | 'sourcePrimary' | 'sourceBackup' | 'options'>, reason: string): Promise<SportsTemplate> {
+  return mutate(() => {
+    needReason(reason);
+    const s = sportsTemplates.find((x) => x.kind === kind)!;
+    Object.assign(s, t, { version: s.version + 1, updatedBy: 1, updatedAt: iso(Date.now()) });
+    sportsTemplates = [...sportsTemplates];
+    return s;
+  });
+}
+
+/** 单元测试用：恢复初始数据 */
+export function resetFcMocks(): void {
+  seq = 0;
+  markets = seedMarkets();
+  seedCases();
+  runs = seedRuns();
+  seedComp();
+}

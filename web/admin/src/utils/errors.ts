@@ -11,7 +11,8 @@ export function errorText(t: TFunction, err: unknown): string {
   if (!err.fields?.length || err.reasonKey !== 'errors.validationFailed') return base;
   const details = err.fields.map((f) =>
     t('errors.fieldProblem', {
-      field: t(`apiField.${f.field}`, { defaultValue: f.field }),
+      // forecast S9：嵌套字段（title.zhTW、options[0].label）去掉序号、点换成下划线再查翻译（i18next 的键用点分层级）
+      field: t(`apiField.${f.field.replace(/\[\d+\]/g, '').replace(/\./g, '_')}`, { defaultValue: f.field }),
       problem: t(`apiFieldCode.${f.code}`, { defaultValue: f.code }),
     }),
   );

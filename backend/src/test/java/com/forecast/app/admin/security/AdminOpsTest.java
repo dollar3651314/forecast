@@ -218,13 +218,18 @@ class AdminOpsTest extends AdminTestSupport {
     String original = jdbc.queryForObject("SELECT title_zh FROM notify_template WHERE code = 'DEPOSIT_CREDITED'", String.class);
     try {
       JsonNode ts = body(call(get("/api/admin/notify/templates"), a.cookie(), null));
-      // 按编号排序；S4 起 BET_PLACED 排在最前（#8 下注成功）
-      assertThat(ts.get(0).get("code").asString()).isEqualTo("BET_PLACED");
+      // S9 起按需求编号（第 6 节通知表 #1～#23）排序：#1 注册欢迎排在最前
+      assertThat(ts.get(0).get("code").asString()).isEqualTo("WELCOME");
       JsonNode dep = null;
-      for (JsonNode x : ts) if (x.get("code").asString().equals("DEPOSIT_CREDITED")) dep = x;
+      JsonNode betPlaced = null;
+      for (JsonNode x : ts) {
+        if (x.get("code").asString().equals("DEPOSIT_CREDITED")) dep = x;
+        if (x.get("code").asString().equals("BET_PLACED")) betPlaced = x;
+      }
       assertThat(dep).isNotNull();
       assertThat(dep.get("channels").toString()).isEqualTo("[\"inbox\",\"push\",\"email\"]");
-      assertThat(ts.get(0).get("channels").toString()).as("#8 只发站内信").isEqualTo("[\"inbox\"]");
+      assertThat(betPlaced).isNotNull();
+      assertThat(betPlaced.get("channels").toString()).as("#8 只发站内信").isEqualTo("[\"inbox\"]");
       assertThat(call(put("/api/admin/notify/templates/DEPOSIT_CREDITED"), a.cookie(), "{\"enabled\":false}").getContentAsString())
           .contains("BUILT_IN_CANNOT_DISABLE");
       assertThat(call(put("/api/admin/notify/templates/DEPOSIT_CREDITED"), a.cookie(), "{\"bodyZh\":\"到账 {amount} {secret}\"}").getContentAsString())

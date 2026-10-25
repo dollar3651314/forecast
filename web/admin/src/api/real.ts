@@ -358,7 +358,7 @@ export function listTemplates(): Promise<NotifyTemplate[]> {
 }
 
 /** id 就是模板编号 */
-export async function updateTemplate(id: string, patch: Partial<Pick<NotifyTemplate, 'titleZh' | 'bodyZh' | 'titleEn' | 'bodyEn' | 'enabled'>>): Promise<void> {
+export async function updateTemplate(id: string, patch: Partial<Pick<NotifyTemplate, 'titleZh' | 'bodyZh' | 'titleEn' | 'bodyEn' | 'titleTw' | 'bodyTw' | 'enabled'>>): Promise<void> {
   await request(`/notify/templates/${enc(id)}`, { method: 'PUT', body: patch });
 }
 

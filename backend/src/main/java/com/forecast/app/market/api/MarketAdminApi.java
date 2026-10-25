@@ -30,8 +30,16 @@ public interface MarketAdminApi {
 
   record OptionView(String optionNo, int seq, I18nText label, I18nText winCondition) {}
 
+  /**
+   * 列表的一行。S9 加：resolutionMode（auto / platform，草稿可以为空）、origin（manual 手动 / autogen 加密自动生成 / sports 从赛程生成）、
+   * pool（奖池合计，2 位小数）、bettors（下注人数）——后台列表要显示（需求第 6.2 节"奖池、下注人数"）。
+   */
   record Summary(String publicNo, String category, I18nText title, String status, boolean submitted, String openAt, String closeAt,
-      String eventStartAt, String eventEndAt, String feeRate, String createdAt, String updatedAt) {}
+      String eventStartAt, String eventEndAt, String feeRate, String createdAt, String updatedAt, String resolutionMode, String origin, String pool,
+      int bettors) {}
+
+  /** 各状态的市场数（小写状态 → 数量，没删除的）和待上架（已提交上架的草稿）数，后台列表的分组标签和仪表盘用（S9） */
+  record Counts(Map<String, Long> byStatus, long review) {}
 
   record StatusLogView(String from, String to, String actor, String reason, String time) {}
 
@@ -54,8 +62,11 @@ public interface MarketAdminApi {
   /** 改费率的结果：前后的费率（百分比）、这次通知了几个客户（#22） */
   record FeeChange(String oldRate, String newRate, int notified, Detail market) {}
 
-  /** 列表：状态（小写）、品类、是否已提交上架、关键字（题目或编号）筛选；草稿删除后不列出 */
+  /** 列表：状态（小写；S9 起可以逗号分隔多个，例如 {@code listed,paused}）、品类、是否已提交上架、关键字（题目或编号）筛选；草稿删除后不列出 */
   Page<Summary> list(String status, String category, Boolean submitted, String keyword, int page, int pageSize);
+
+  /** 各状态的数量（S9） */
+  Counts counts();
 
   Optional<Detail> detail(long publicNo);
 

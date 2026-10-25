@@ -71,4 +71,11 @@ final class PoolRows {
     long n;
     BigDecimal amount;
   }
+
+  /** 仪表盘的下注统计（S9） */
+  static class BetStat {
+    java.math.BigDecimal amount;
+    long bets;
+    long bettors;
+  }
 }

@@ -9,6 +9,10 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 interface SecurityMapper {
 
+  /** S9（SQ-14）：有这些权限点之一的在用管理员的邮箱（超级管理员算有全部权限点） */
+  java.util.List<String> staffEmails(@org.apache.ibatis.annotations.Param("codes") java.util.Collection<String> codes);
+
+
   class AdminRow {
     Long id;
     String username;

@@ -4,7 +4,7 @@ import java.util.List;
 
 /**
  * 后台菜单结构：固定在代码里，和后台 {@code web/admin/src/config/menu.tsx} 一致，每个页面都有菜单入口（测试核对）。
- * forecast S1 删掉了交易、风控、品种行情、交易参数四组；需求说明书第 6.1 节的 12 个一级菜单随 S3 以后各步补齐。
+ * forecast S1 删掉了交易、风控、品种行情、交易参数四组；S9 按需求说明书第 6.1 节加上市场管理、裁决、结算与补偿、报表、参数设置（迁移 V17 写默认顺序）。
  * 后台只能改顺序和是否显示（表 {@code admin_menu}）；隐藏菜单不影响权限，权限只看权限点。
  */
 public final class Menus {
@@ -14,12 +14,27 @@ public final class Menus {
 
   public static final List<Item> TREE = List.of(
       leaf("dashboard", "menu.dashboard", "/dashboard", Permission.DASHBOARD_VIEW),
+      // forecast S9：需求第 6.1 节（内容中心、来源统计不在 S9；风控告警 S10）。默认顺序同迁移 V17 的 admin_menu
+      group("market", "menu.market",
+          leaf("markets", "menu.markets", "/markets", Permission.MARKET_VIEW),
+          leaf("market-review", "menu.marketReview", "/markets/review", Permission.MARKET_PUBLISH),
+          leaf("autogen", "menu.autogen", "/markets/autogen", Permission.MARKET_VIEW),
+          leaf("sports", "menu.sports", "/markets/sports", Permission.MARKET_VIEW)),
+      group("judge", "menu.judge",
+          leaf("resolve", "menu.resolve", "/resolve", Permission.RESOLVE_PROPOSE),
+          leaf("disputes", "menu.disputes", "/resolve/disputes", Permission.DISPUTE_VIEW)),
+      group("settle", "menu.settle",
+          leaf("settle-runs", "menu.settleRuns", "/settle/runs", Permission.POOL_RECON_VIEW),
+          leaf("compensations", "menu.compensations", "/settle/compensations", Permission.REPORT_VIEW)),
+      leaf("reports", "menu.reports", "/reports", Permission.REPORT_VIEW),
+      leaf("params", "menu.params", "/params", Permission.FEE_EDIT),
       leaf("customers", "menu.customers", "/customers", Permission.CUSTOMER_VIEW),
       leaf("kyc", "menu.kyc", "/kyc", Permission.KYC_VIEW),
       group("funds", "menu.funds",
           leaf("deposits", "menu.deposits", "/funds/deposits", Permission.DEPOSIT_VIEW),
           leaf("withdrawals", "menu.withdrawals", "/funds/withdrawals", Permission.WITHDRAWAL_VIEW),
           leaf("reconciliation", "menu.reconciliation", "/funds/reconciliation", Permission.RECON_VIEW),
+          leaf("pool-recon", "menu.poolRecon", "/funds/pool-recon", Permission.POOL_RECON_VIEW),
           leaf("tasks", "menu.tasks", "/funds/tasks", Permission.TASK_VIEW)),
       group("notify", "menu.notify",
           leaf("templates", "menu.templates", "/notify/templates", Permission.NOTIFY_TEMPLATE_VIEW),

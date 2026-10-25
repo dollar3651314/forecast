@@ -56,6 +56,20 @@ class PoolMarketView implements MarketPoolView {
   }
 
   @Override
+  public Map<Long, Totals> totals(List<Long> marketIds) {
+    if (marketIds == null || marketIds.isEmpty()) return Map.of();
+    Map<Long, java.math.BigDecimal> amount = new java.util.HashMap<>();
+    for (PoolRows.OptionTotal t : mapper.totalsOf(marketIds)) amount.merge(t.marketId, t.amount, java.math.BigDecimal::add);
+    Map<Long, Integer> people = new java.util.HashMap<>();
+    for (PoolRows.MarketCount c : mapper.bettorCounts(marketIds)) people.put(c.marketId, c.n);
+    Map<Long, Totals> out = new java.util.HashMap<>();
+    for (Long id : marketIds) {
+      if (amount.containsKey(id) || people.containsKey(id)) out.put(id, new Totals(amount.getOrDefault(id, java.math.BigDecimal.ZERO), people.getOrDefault(id, 0)));
+    }
+    return out;
+  }
+
+  @Override
   public List<Long> bettors(long marketId) {
     return mapper.bettors(marketId);
   }

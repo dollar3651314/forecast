@@ -106,7 +106,7 @@ test('主线：注册 → 充值 → 两边下注 → 截止 → 提议 → 确�
       expect(lines).toContain(`payout 200 ${m.no}`);
       expect(lines).toContain(`fee -5 ${m.no}`);
       const inboxA = await json<{ items: { title: string }[] }>(await winner.api.get('/api/notifications'), '站内信');
-      expect(inboxA.items.map((i) => i.title).join('\n')).toContain('你赢了');
+      expect(inboxA.items.map((i) => i.title).join('\n')).toContain('你押中了');
       const inboxB = await json<{ items: { title: string }[] }>(await loser.api.get('/api/notifications'), '站内信');
       expect(inboxB.items.map((i) => i.title).join('\n')).toContain('已结算');
       const d = await json<{ status: string; winningOptionNo: string }>(await winner.api.get(`/api/markets/${m.no}`), '市场详情');

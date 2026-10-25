@@ -22,6 +22,7 @@ import com.forecast.app.market.api.ResolutionMode;
 import com.forecast.app.market.api.SettlePhase;
 import com.forecast.app.ledger.api.MarketLabels;
 import com.forecast.app.notification.api.NotifyApi;
+import com.forecast.app.notification.api.StaffAlertApi;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -81,19 +82,21 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
   private final Snowflake ids;
   private final Clock clock;
   private final NotifyApi notify;
+  private final StaffAlertApi staff;
   private final ObjectProvider<MarketPoolView> pool;
   private final ObjectProvider<MarketListener> listeners;
   private final ObjectProvider<MarketResolutionView> resolution;
   private final ObjectMapper json;
   private final TransactionTemplate tx;
 
-  MarketService(MarketMapper mapper, SystemConfig config, Snowflake ids, Clock clock, NotifyApi notify, ObjectProvider<MarketPoolView> pool,
+  MarketService(MarketMapper mapper, SystemConfig config, Snowflake ids, Clock clock, NotifyApi notify, StaffAlertApi staff, ObjectProvider<MarketPoolView> pool,
       ObjectProvider<MarketListener> listeners, ObjectProvider<MarketResolutionView> resolution, ObjectMapper json, PlatformTransactionManager tm) {
     this.mapper = mapper;
     this.config = config;
     this.ids = ids;
     this.clock = clock;
     this.notify = notify;
+    this.staff = staff;
     this.pool = pool;
     this.listeners = listeners;
     this.resolution = resolution;
@@ -368,11 +371,16 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
   public Page<Summary> list(String status, String category, Boolean submitted, String keyword, int page, int pageSize) {
     int p = Math.max(1, page);
     int size = Math.min(100, Math.max(1, pageSize));
-    String st = null;
+    List<String> sts = null;
     if (status != null && !status.isBlank()) {
-      MarketStatus s = MarketStatus.ofApi(status);
-      if (s == null) throw new ValidationException(List.of(new ValidationException.Field("status", "invalid")));
-      st = s.name();
+      sts = new ArrayList<>();
+      for (String one : status.split(",")) {
+        if (one.isBlank()) continue;
+        MarketStatus s = MarketStatus.ofApi(one.strip());
+        if (s == null) throw new ValidationException(List.of(new ValidationException.Field("status", "invalid")));
+        sts.add(s.name());
+      }
+      if (sts.isEmpty()) sts = null;
     }
     String cat = null;
     if (category != null && !category.isBlank()) {
@@ -382,8 +390,25 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
     }
     String kw = keyword == null || keyword.isBlank() ? null : keyword.strip();
     Long no = kw != null && kw.matches("\\d{1,19}") ? parseLong(kw) : null;
-    List<Summary> items = mapper.adminList(st, cat, submitted, kw, no, (p - 1) * size, size).stream().map(this::summary).toList();
-    return new Page<>(items, mapper.adminCount(st, cat, submitted, kw, no), p, size);
+    List<MarketRows.Market> rows = mapper.adminList(sts, cat, submitted, kw, no, (p - 1) * size, size);
+    MarketPoolView pv = pool.getIfAvailable();
+    Map<Long, MarketPoolView.Totals> totals = pv == null || rows.isEmpty() ? Map.of() : pv.totals(rows.stream().map(r -> r.id).toList());
+    List<Summary> items = rows.stream().map(r -> summary(r, totals.get(r.id))).toList();
+    return new Page<>(items, mapper.adminCount(sts, cat, submitted, kw, no), p, size);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public Counts counts() {
+    Map<String, Long> by = new LinkedHashMap<>();
+    for (MarketStatus s : MarketStatus.values()) by.put(s.api(), 0L);
+    long review = 0;
+    for (MarketRows.StatusCount c : mapper.statusCounts()) {
+      MarketStatus s = MarketStatus.valueOf(c.status);
+      by.merge(s.api(), c.n, Long::sum);
+      if (s == MarketStatus.DRAFT && c.submitted) review += c.n;
+    }
+    return new Counts(by, review);
   }
 
   @Override
@@ -442,6 +467,15 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
     List<ValidationException.Field> missing = missing(m, mapper.options(m.id));
     if (!missing.isEmpty()) throw new ValidationException(missing);
     mapper.setSubmitted(m.id, true, now());
+    // S9：提醒有 market:publish 的人（默认超管）有草稿待上架（需求第 7 节"发给管理员"）；已经提交过的再提交不重复提醒
+    if (!m.submittedForListing) {
+      Map<String, String> v = new LinkedHashMap<>();
+      v.put("marketNo", String.valueOf(m.publicNo));
+      v.put("market", m.titleZhCn);
+      v.put("marketEn", m.titleEn);
+      v.put("category", m.category);
+      staff.notifyStaff("MARKET_SUBMITTED", v);
+    }
     return detailOf(mapper.findById(m.id));
   }
 
@@ -522,6 +556,23 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
     c.createdBy = adminId;
     c.createdAt = now;
     mapper.insertClarification(c);
+    // 通知 #18：发给这个市场有下注的客户（只发站内信）；和补充说明同一个事务
+    MarketPoolView p = pool.getIfAvailable();
+    List<Long> users = p == null ? List.of() : p.bettors(m.id);
+    if (!users.isEmpty()) {
+      List<NotifyApi.Notice> notices = new ArrayList<>();
+      for (Long uid : users) {
+        Map<String, String> v = new LinkedHashMap<>();
+        v.put("market", m.titleZhCn);
+        v.put("marketEn", m.titleEn);
+        v.put("marketTw", m.titleZhTw);
+        v.put("text", t.zhCN());
+        v.put("textEn", t.en());
+        v.put("textTw", t.zhTW());
+        notices.add(new NotifyApi.Notice(uid, v));
+      }
+      notify.toUsers("MARKET_CLARIFIED", notices);
+    }
     return detailOf(mapper.findById(m.id));
   }
 
@@ -582,6 +633,7 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
       Map<String, String> params = new LinkedHashMap<>();
       params.put("market", m.titleZhCn);
       params.put("marketEn", m.titleEn);
+      params.put("marketTw", m.titleZhTw);
       params.put("old", percent(m.feeRate) + "%");
       params.put("new", percent(rate) + "%");
       params.put("at", MarketFormats.noticeTime(now));
@@ -1030,9 +1082,12 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
     }
   }
 
-  private Summary summary(MarketRows.Market m) {
+  private Summary summary(MarketRows.Market m, MarketPoolView.Totals t) {
+    String origin = m.autogenId != null ? "autogen" : m.sourceRef != null && m.sourceRef.contains("\"fixtureNo\"") ? "sports" : "manual";
+    String pool = (t == null ? java.math.BigDecimal.ZERO : t.amount()).setScale(2, java.math.RoundingMode.HALF_UP).toPlainString();
     return new Summary(String.valueOf(m.publicNo), m.category, title(m), status(m).api(), m.submittedForListing, iso(m.openAt), iso(m.closeAt), iso(m.eventStartAt),
-        iso(m.eventEndAt), percent(m.feeRate), iso(m.createdAt), iso(m.updatedAt));
+        iso(m.eventEndAt), percent(m.feeRate), iso(m.createdAt), iso(m.updatedAt), m.resolutionMode == null ? null : m.resolutionMode.toLowerCase(java.util.Locale.ROOT),
+        origin, pool, t == null ? 0 : t.bettors());
   }
 
   private Detail detailOf(MarketRows.Market m) {

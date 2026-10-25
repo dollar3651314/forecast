@@ -10,4 +10,9 @@ public interface MailApi {
 
   /** 模板编号，例如 {@code EMAIL_CODE}（变量 code、purpose） */
   void send(String to, String template, Map<String, String> params);
+
+  /**
+   * 知道收件人语言时只发一种语言（forecast S9：#23 场次提醒按订阅时的语言；zh-CN / zh-TW / en，其他按简体）。
+   */
+  void send(String to, String template, Map<String, String> params, String lang);
 }

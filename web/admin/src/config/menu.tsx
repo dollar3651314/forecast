@@ -1,19 +1,22 @@
 /**
  * 后台菜单。每个页面都必须在这里有入口（由单元测试检查），和后端 admin/security/Menus.java 一致（后端测试 AdminSystemTest 核对）。
- * forecast S1：复制源的交易、风控、品种行情、交易参数四组删除；需求说明书第 6.1 节的 12 个一级菜单随 S3 以后各步补齐。
+ * forecast S1：复制源的交易、风控、品种行情、交易参数四组删除；S9 按需求说明书第 6.1 节加上市场管理、裁决、结算与补偿、报表、参数设置（11 个一级菜单）。
  */
 import type { ReactNode } from 'react';
 import {
   AppstoreOutlined,
-  TeamOutlined,
-  IdcardOutlined,
-  WalletOutlined,
+  AuditOutlined,
+  BarChartOutlined,
   BellOutlined,
+  ControlOutlined,
+  FundOutlined,
+  IdcardOutlined,
+  ReconciliationOutlined,
   SettingOutlined,
+  TeamOutlined,
+  WalletOutlined,
 } from '@ant-design/icons';
 import type { PermissionCode } from './permissions';
-import { IS_MOCK } from '../api/mode';
-import { PROTO_MENU } from './protoMenu';
 
 export interface MenuItemDef {
   key: string;
@@ -24,12 +27,44 @@ export interface MenuItemDef {
   /** 查看该页面需要的权限点 */
   permission?: PermissionCode;
   /** 菜单角标：对应 MenuBadges 的字段 */
-  badge?: 'kyc' | 'withdrawals';
+  badge?: 'kyc' | 'withdrawals' | 'review';
   children?: MenuItemDef[];
 }
 
 export const MENU: MenuItemDef[] = [
   { key: 'dashboard', labelKey: 'menu.dashboard', icon: <AppstoreOutlined />, path: '/dashboard', permission: 'dashboard:view' },
+  // forecast S9：需求第 6.1 节（内容中心、来源统计不在 S9；风控告警在 S10）。顺序和后端 Menus.java、迁移 V17 的 admin_menu 一致
+  {
+    key: 'market',
+    labelKey: 'menu.market',
+    icon: <FundOutlined />,
+    children: [
+      { key: 'markets', labelKey: 'menu.markets', path: '/markets', permission: 'market:view' },
+      { key: 'market-review', labelKey: 'menu.marketReview', path: '/markets/review', permission: 'market:publish', badge: 'review' },
+      { key: 'autogen', labelKey: 'menu.autogen', path: '/markets/autogen', permission: 'market:view' },
+      { key: 'sports', labelKey: 'menu.sports', path: '/markets/sports', permission: 'market:view' },
+    ],
+  },
+  {
+    key: 'judge',
+    labelKey: 'menu.judge',
+    icon: <AuditOutlined />,
+    children: [
+      { key: 'resolve', labelKey: 'menu.resolve', path: '/resolve', permission: 'resolve:propose' },
+      { key: 'disputes', labelKey: 'menu.disputes', path: '/resolve/disputes', permission: 'dispute:view' },
+    ],
+  },
+  {
+    key: 'settle',
+    labelKey: 'menu.settle',
+    icon: <ReconciliationOutlined />,
+    children: [
+      { key: 'settle-runs', labelKey: 'menu.settleRuns', path: '/settle/runs', permission: 'pool_recon:view' },
+      { key: 'compensations', labelKey: 'menu.compensations', path: '/settle/compensations', permission: 'report:view' },
+    ],
+  },
+  { key: 'reports', labelKey: 'menu.reports', icon: <BarChartOutlined />, path: '/reports', permission: 'report:view' },
+  { key: 'params', labelKey: 'menu.params', icon: <ControlOutlined />, path: '/params', permission: 'fee:edit' },
   { key: 'customers', labelKey: 'menu.customers', icon: <TeamOutlined />, path: '/customers', permission: 'customer:view' },
   { key: 'kyc', labelKey: 'menu.kyc', icon: <IdcardOutlined />, path: '/kyc', permission: 'kyc:view', badge: 'kyc' },
   {
@@ -40,6 +75,7 @@ export const MENU: MenuItemDef[] = [
       { key: 'deposits', labelKey: 'menu.deposits', path: '/funds/deposits', permission: 'deposit:view' },
       { key: 'withdrawals', labelKey: 'menu.withdrawals', path: '/funds/withdrawals', permission: 'withdrawal:view', badge: 'withdrawals' },
       { key: 'reconciliation', labelKey: 'menu.reconciliation', path: '/funds/reconciliation', permission: 'recon:view' },
+      { key: 'pool-recon', labelKey: 'menu.poolRecon', path: '/funds/pool-recon', permission: 'pool_recon:view' },
       { key: 'tasks', labelKey: 'menu.tasks', path: '/funds/tasks', permission: 'task:view' },
     ],
   },
@@ -68,8 +104,8 @@ export const MENU: MenuItemDef[] = [
   },
 ];
 
-/** 本地菜单：原型模式下在仪表盘后面加上 M1 原型的页面（protoMenu.tsx） */
-export const LOCAL_MENU: MenuItemDef[] = IS_MOCK ? [MENU[0], ...PROTO_MENU, ...MENU.slice(1)] : MENU;
+/** 本地菜单（S9 起原型模式和真实模式相同；M1 的"只在原型模式显示"的菜单已改成正式菜单） */
+export const LOCAL_MENU: MenuItemDef[] = MENU;
 
 /** 所有叶子菜单（带路径） */
 export function flattenMenu(items: MenuItemDef[] = LOCAL_MENU, parent?: MenuItemDef): (MenuItemDef & { parent?: MenuItemDef })[] {

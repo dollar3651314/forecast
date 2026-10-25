@@ -15,6 +15,19 @@
 
   <select id="countAdmins" resultType="long">SELECT COUNT(*) FROM admin_user</select>
 
+  <!-- S9（SQ-14）：员工提醒按角色发 -->
+  <select id="staffEmails" resultType="string">
+    SELECT u.email FROM admin_user u
+    WHERE u.status = 'ACTIVE' AND u.email IS NOT NULL AND u.email &lt;&gt; ''
+      AND EXISTS (
+        SELECT 1 FROM admin_user_role ur JOIN admin_role r ON r.id = ur.role_id
+        WHERE ur.admin_id = u.id
+          AND (r.code = 'super_admin'
+               OR EXISTS (SELECT 1 FROM admin_role_permission rp WHERE rp.role_id = r.id
+                          AND rp.permission IN <foreach collection="codes" item="c" open="(" separator="," close=")">#{c}</foreach>)))
+    GROUP BY u.email ORDER BY MIN(u.id)
+  </select>
+
   <insert id="insertAdmin" useGeneratedKeys="true" keyProperty="id">
     INSERT INTO admin_user (username, display_name, email, password_hash, status, must_change_password, created_at)
     VALUES (#{username}, #{displayName}, #{email}, #{passwordHash}, 'ACTIVE', #{mustChangePassword}, UTC_TIMESTAMP(3))

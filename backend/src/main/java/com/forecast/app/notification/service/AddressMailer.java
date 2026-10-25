@@ -16,6 +16,11 @@ class AddressMailer implements MailApi {
 
   @Override
   public void send(String to, String template, Map<String, String> params) {
-    service.sendToAddress(to, template, params);
+    service.sendToAddress(to, template, params, null);
+  }
+
+  @Override
+  public void send(String to, String template, Map<String, String> params, String lang) {
+    service.sendToAddress(to, template, params, lang == null ? null : Render.lang(lang));
   }
 }

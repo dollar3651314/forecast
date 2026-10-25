@@ -261,6 +261,19 @@ public class PoolQueries implements PoolApi, PoolAdminApi {
   @Override
   @Transactional(readOnly = true)
   public MarketBets marketBets(long marketNo, String optionNo, Long userId, String status, int page, int pageSize) {
+    return marketBets(marketNo, optionNo, userId, status, null, page, pageSize);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public BetStats betStats(java.time.Instant from, java.time.Instant to) {
+    PoolRows.BetStat r = mapper.betStats(java.time.LocalDateTime.ofInstant(from, java.time.ZoneOffset.UTC), java.time.LocalDateTime.ofInstant(to, java.time.ZoneOffset.UTC));
+    return new BetStats(money(r == null || r.amount == null ? BigDecimal.ZERO : r.amount), r == null ? 0 : r.bets, r == null ? 0 : r.bettors);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public MarketBets marketBets(long marketNo, String optionNo, Long userId, String status, String sort, int page, int pageSize) {
     MarketApi.MarketRef m = markets.find(marketNo).filter(x -> x.status() != MarketStatus.DRAFT).orElseThrow(() -> new BizException("NOT_FOUND", "市场不存在"));
     ValidationException.Collector errs = new ValidationException.Collector();
     Long optionId = null;
@@ -278,6 +291,8 @@ public class PoolQueries implements PoolApi, PoolAdminApi {
       };
       if (st == null) errs.add("status", "invalid");
     }
+    boolean byAmount = "amount".equals(sort);
+    if (sort != null && !sort.isBlank() && !byAmount && !"time".equals(sort)) errs.add("sort", "invalid");
     errs.throwIfAny();
     int p = Math.max(1, page);
     int size = Math.min(200, Math.max(1, pageSize));
@@ -285,7 +300,7 @@ public class PoolQueries implements PoolApi, PoolAdminApi {
     PoolViews.Pool pool = marketPool(m);
     List<OptionRow> options = rows.stream().map(r -> new OptionRow(String.valueOf(r.optionNo), r.seq, money(r.amount), r.bettors,
         r.finalAmount == null ? null : money(r.finalAmount), r.finalBettors)).toList();
-    List<BetRow> bets = mapper.marketBets(m.marketId(), optionId, userId, st, (p - 1) * size, size).stream()
+    List<BetRow> bets = mapper.marketBets(m.marketId(), optionId, userId, st, byAmount, (p - 1) * size, size).stream()
         .map(l -> new BetRow(String.valueOf(l.publicNo), l.userId, String.valueOf(l.optionNo), l.seq, money(l.amount), iso(l.receivedAt),
             l.status.toLowerCase(java.util.Locale.ROOT), l.refundReason, l.clientReqId)).toList();
     BigDecimal active = mapper.sumActiveBets(m.marketId());

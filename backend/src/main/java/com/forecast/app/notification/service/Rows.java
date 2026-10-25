@@ -18,6 +18,13 @@ final class Rows {
     String titleEn;
     String bodyZh;
     String bodyEn;
+    /** 繁体（S9）；员工模板为空，按简体发 */
+    String titleTw;
+    String bodyTw;
+    /** 需求第 7 节的编号（例如 #13），员工模板为空 */
+    String reqNo;
+    /** 员工模板：收件人是有这些权限点之一的管理员（逗号分隔，S9，SQ-14）；为空或没有这样的管理员时发告警邮箱 */
+    String staffPerms;
     String variables;
     String channels;
     boolean builtIn;

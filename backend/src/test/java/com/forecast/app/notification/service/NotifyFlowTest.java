@@ -51,7 +51,7 @@ class NotifyFlowTest extends NotifyTestSupport {
     User u = register();
     MimeMessage m = mailsTo(u.email()).getFirst();
     assertThat(m.getSubject()).isEqualTo("Quick Come 验证码 | Quick Come verification code");
-    assertThat(body(m)).contains("您的验证码是").contains("Your code is").contains("10 分钟内有效");
+    assertThat(body(m)).contains("你的验证码是").contains("Your code is").contains("10 分钟内有效");
     assertThat(m.getFrom()[0].toString()).isEqualTo("noreply@forecast.test");
     assertThat(jdbc.queryForObject("SELECT status FROM notify_record WHERE recipient = ? AND template_code = 'EMAIL_CODE'", String.class, u.email())).isEqualTo("SENT");
   }
@@ -60,17 +60,17 @@ class NotifyFlowTest extends NotifyTestSupport {
   void 站内信按客户当前界面语言显示_未读数_标记已读_只能标记自己的() throws Exception {
     User u = registerClean();
     User other = registerClean();
-    // 通过、驳回是两个模板（复制源 V30 起）；forecast 基线的通过文案只说提现已开通（没有交易）
+    // 通过、驳回是两个模板（复制源 V30 起）；通过的文案（S9 PM 定稿）说可以提现，没有"交易"
     notify.toUser(u.id(), "KYC_REJECTED", Map.of("reason", "照片模糊"));
     notify.toUser(u.id(), "KYC_APPROVED", Map.of());
 
     String zh = call(get("/api/notifications?lang=zh-CN"), u.cookie(), null).getContentAsString();
     assertThat(zh).contains("\"total\":2").contains("\"kind\":\"kyc\"").contains("\"title\":\"身份认证已通过\"").contains("\"title\":\"身份认证未通过\"")
-        .contains("您的身份认证已通过，提现已开通。").contains("驳回原因：照片模糊").contains("\"read\":false")
-        .doesNotContain("现在可以提现");
+        .contains("你的身份认证已通过，现在可以提现，下注也不再受累计充值的认证门槛限制。").contains("驳回原因：照片模糊").contains("\"read\":false")
+        .doesNotContain("交易");
     assertThat(zh.indexOf("已通过")).as("最新的在前").isLessThan(zh.indexOf("未通过"));
     String en = call(get("/api/notifications?lang=en&page=1&pageSize=1"), u.cookie(), null).getContentAsString();
-    assertThat(en).contains("\"total\":2").contains("\"pageSize\":1").contains("Withdrawals are now available.")
+    assertThat(en).contains("\"total\":2").contains("\"pageSize\":1").contains("You can now withdraw")
         .doesNotContain("not approved");
     assertThat(call(get("/api/notifications/unread-count"), u.cookie(), null).getContentAsString()).isEqualTo("{\"count\":2}");
 
@@ -85,11 +85,11 @@ class NotifyFlowTest extends NotifyTestSupport {
   }
 
   @Test
-  void 基线模板_认证通过只说提现已开通_没有差价合约的模板和交易的说法() {
+  void 基线模板_认证通过说可以提现_没有差价合约的模板和交易的说法() {
     Map<String, Object> approved = jdbc.queryForMap("SELECT audience, kind, variables, channels, body_zh, body_en FROM notify_template WHERE code = 'KYC_APPROVED'");
     assertThat(approved).containsEntry("audience", "USER").containsEntry("kind", "kyc").containsEntry("variables", "").containsEntry("channels", "INBOX,PUSH,EMAIL");
-    assertThat((String) approved.get("body_zh")).isEqualTo("您的身份认证已通过，提现已开通。");
-    assertThat((String) approved.get("body_en")).isEqualTo("Your identity has been verified. Withdrawals are now available.");
+    assertThat((String) approved.get("body_zh")).isEqualTo("你的身份认证已通过，现在可以提现，下注也不再受累计充值的认证门槛限制。");
+    assertThat((String) approved.get("body_en")).isEqualTo("Your identity has been verified. You can now withdraw, and the verification threshold on total deposits no longer limits your bets.");
     assertThat(jdbc.queryForObject("SELECT variables FROM notify_template WHERE code = 'KYC_REJECTED'", String.class)).isEqualTo("reason");
     // 复制源的差价合约模板和旧的 KYC_RESULT 不建（forecast S1 基线 V3）
     assertThat(jdbc.queryForList("SELECT code FROM notify_template", String.class)).doesNotContain("KYC_RESULT", "MARGIN_CALL", "LIQUIDATED", "ORDER_FILLED",
@@ -116,7 +116,7 @@ class NotifyFlowTest extends NotifyTestSupport {
     assertThat(records(u.id())).last().isEqualTo("EMAIL SENT -");
     MimeMessage zh = mailsTo(u.email()).getLast();
     assertThat(zh.getSubject()).isEqualTo("充值已到账");
-    assertThat(body(zh)).isEqualTo("您通过 TRC20 充值的 100 USDT 已到账。");
+    assertThat(body(zh)).isEqualTo("你通过 TRC20 充值的 100 USDT 已到账，已计入可用余额。");
 
     assertThat(call(put("/api/me/notify-prefs"), u.cookie(), "{\"push\":false,\"email\":false}").getContentAsString()).isEqualTo("{\"push\":false,\"email\":false}");
     notify.toUser(u.id(), "DEPOSIT_CREDITED", Map.of("amount", "5", "chain", "BSC"));
@@ -203,9 +203,9 @@ class NotifyFlowTest extends NotifyTestSupport {
     assertThat(mailsTo(u.email())).as("只有注册验证码一封邮件").hasSize(1);
     String zh = call(get("/api/notifications?lang=zh-CN"), u.cookie(), null).getContentAsString();
     assertThat(zh).contains("\"total\":1").contains("\"kind\":\"system\"").contains("\"title\":\"欢迎来到 Quick Come\"")
-        .contains("完成身份认证").contains("充值 USDT").contains("新手引导");
+        .contains("完成认证").contains("转入 USDT").contains("新手引导").contains("平台只对赢家的盈利部分抽成");
     String en = call(get("/api/notifications?lang=en"), u.cookie(), null).getContentAsString();
-    assertThat(en).contains("\"title\":\"Welcome to Quick Come\"").contains("Verify your identity").contains("Deposit USDT");
+    assertThat(en).contains("\"title\":\"Welcome to Quick Come\"").contains("verify your identity").contains("send USDT").contains("Getting started");
     assertThat(call(get("/api/notifications/unread-count"), u.cookie(), null).getContentAsString()).isEqualTo("{\"count\":1}");
   }
 

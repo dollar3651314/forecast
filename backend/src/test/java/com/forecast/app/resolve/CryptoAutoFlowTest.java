@@ -29,6 +29,7 @@ class CryptoAutoFlowTest extends CryptoTestSupport {
   void reset() {
     jdbc.update("UPDATE market_question SET autogen_id = NULL WHERE autogen_id IS NOT NULL");
     jdbc.update("DELETE FROM market_autogen WHERE public_no <> ?", DEFAULT_NO);
+    // 这里只看一场的完整流程：提前 60 分钟生成，启用时只生成今天 13:00 这一场（默认值 1440 见 CryptoAutogenTest，F-I2-1）
     jdbc.update("UPDATE market_autogen SET enabled = 0, mode = 'SCHEDULE', slots = '[\"13:00\"]', rolling_count = 3, generate_ahead_min = 60, user_cap = NULL, "
         + "checked_by = NULL, checked_at = NULL, checked_template_version = NULL WHERE public_no = ?", DEFAULT_NO);
   }

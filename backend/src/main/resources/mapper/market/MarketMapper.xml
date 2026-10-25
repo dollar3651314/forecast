@@ -180,7 +180,7 @@
   <sql id="adminWhere">
     <where>
       deleted_at IS NULL
-      <if test="status != null">AND status = #{status}</if>
+      <if test="statuses != null">AND status IN <foreach collection="statuses" item="s" open="(" separator="," close=")">#{s}</foreach></if>
       <if test="category != null">AND category = #{category}</if>
       <if test="submitted != null">AND submitted_for_listing = #{submitted}</if>
       <if test="keyword != null">
@@ -192,6 +192,10 @@
 
   <select id="adminList" resultType="com.forecast.app.market.core.MarketRows$Market">
     SELECT <include refid="marketCols"/> FROM market_question <include refid="adminWhere"/> ORDER BY id DESC LIMIT #{offset}, #{limit}
+  </select>
+
+  <select id="statusCounts" resultType="com.forecast.app.market.core.MarketRows$StatusCount">
+    SELECT status, submitted_for_listing AS submitted, COUNT(*) AS n FROM market_question WHERE deleted_at IS NULL GROUP BY status, submitted_for_listing
   </select>
 
   <select id="adminCount" resultType="long">

@@ -37,8 +37,11 @@ class OpsController {
   private final FundsOps funds;
   private final NotifyOps notify;
   private final AutoApproveOps autoApprove;
+  private final com.forecast.app.market.api.MarketAdminApi markets;
 
-  OpsController(DashboardOps dashboard, CustomerOps customers, FundsOps funds, NotifyOps notify, AutoApproveOps autoApprove) {
+  OpsController(DashboardOps dashboard, CustomerOps customers, FundsOps funds, NotifyOps notify, AutoApproveOps autoApprove,
+      com.forecast.app.market.api.MarketAdminApi markets) {
+    this.markets = markets;
     this.dashboard = dashboard;
     this.customers = customers;
     this.funds = funds;
@@ -46,11 +49,14 @@ class OpsController {
     this.autoApprove = autoApprove;
   }
 
-  /** 菜单角标：待审核的 KYC、出金（没有查看权限的记 0） */
+  /** 菜单角标：待审核的 KYC、出金；S9 加待上架的草稿（review，要 market:publish）。没有查看权限的记 0 */
   @AdminLoginOnly
   @GetMapping("/api/admin/menu-badges")
   Map<String, Long> badges() {
-    return funds.badges(AdminContext.current());
+    AdminContext ctx = AdminContext.current();
+    Map<String, Long> m = new java.util.LinkedHashMap<>(funds.badges(ctx));
+    m.put("review", ctx.has(com.forecast.app.admin.security.Permission.MARKET_PUBLISH) ? markets.counts().review() : 0L);
+    return m;
   }
 
   // ---------- 仪表盘（复制源在 MonitorController，交易监控删除后搬到这里） ----------

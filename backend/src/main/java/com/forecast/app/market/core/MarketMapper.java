@@ -95,10 +95,13 @@ interface MarketMapper {
   /** 截止下注、事件已结束的市场（事件结束任务） */
   List<Long> dueToEnd(@Param("now") LocalDateTime now, @Param("limit") int limit);
 
-  List<MarketRows.Market> adminList(@Param("status") String status, @Param("category") String category, @Param("submitted") Boolean submitted,
+  List<MarketRows.Market> adminList(@Param("statuses") java.util.List<String> statuses, @Param("category") String category, @Param("submitted") Boolean submitted,
       @Param("keyword") String keyword, @Param("no") Long no, @Param("offset") int offset, @Param("limit") int limit);
 
-  long adminCount(@Param("status") String status, @Param("category") String category, @Param("submitted") Boolean submitted,
+  /** 各状态（和是否已提交上架）的数量，没删除的（S9） */
+  List<MarketRows.StatusCount> statusCounts();
+
+  long adminCount(@Param("statuses") java.util.List<String> statuses, @Param("category") String category, @Param("submitted") Boolean submitted,
       @Param("keyword") String keyword, @Param("no") Long no);
 
   /** 客户端列表：只列 statuses 里的状态（不含草稿），sort = closeAt（截止时间先到的在前）/ newest（新上架的在前） */

@@ -406,8 +406,10 @@ public class SettleService {
     Map<String, String> p = new LinkedHashMap<>();
     p.put("market", title.zhCN());
     p.put("marketEn", title.en());
+    p.put("marketTw", title.zhTW());
     p.put("option", win == null ? "" : win.label().zhCN());
     p.put("optionEn", win == null ? "" : win.label().en());
+    p.put("optionTw", win == null ? "" : win.label().zhTW());
     List<SettleRows.Item> wins = items.stream().filter(i -> i.win).toList();
     if (!wins.isEmpty()) {
       p.put("stake", money(wins.stream().map(i -> i.stake).reduce(BigDecimal.ZERO, BigDecimal::add)));
@@ -643,6 +645,7 @@ public class SettleService {
     Map<String, String> p = new LinkedHashMap<>();
     p.put("market", title.zhCN());
     p.put("marketEn", title.en());
+    p.put("marketTw", title.zhTW());
     p.put("amount", money(rows.stream().map(r -> r.amount).reduce(BigDecimal.ZERO, BigDecimal::add)));
     if ("LATE_BET".equals(reason)) {
       p.put("at", at == null ? "" : NOTICE_TIME.format(at.atZone(ZoneOffset.UTC)));
