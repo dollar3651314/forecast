@@ -3,7 +3,7 @@
  * 注册 → 替身链充值 → 下注（两边各有人）→ 截止 → 超管填结果（S7 正式裁决台之前的临时入口）→ 结算 → 赢家余额逐分正确、
  * 流水有派彩和抽成、站内信 #11 / #12 → KYC → 白名单 → 提现 → 后台审核 → 链上确认 → 赢家余额扣掉提现。
  * 另一个用例：截止前取消，下注全额退回、通知 #13。
- * 两种形态都跑；结算的事务边界跟后端配置（FC_SETTLE_BATCH_SIZE，默认 0）：分批时用 /api/e2e/settle/tick 立即派完。
+ * 两种形态都跑；结算的事务边界跟后端配置（FC_SETTLE_BATCH_SIZE，默认 500）：分批时用 /api/e2e/settle/tick 立即派完。
  */
 import { expect, request, test, type APIRequestContext } from '@playwright/test';
 import { randomUUID } from 'node:crypto';

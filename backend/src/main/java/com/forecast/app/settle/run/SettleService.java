@@ -54,8 +54,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  *       平台抽成按批入账（幂等键 SETTLE_FEE : 结算单 : 这批第一个明细）。</li>
  *   <li><b>收尾</b>（一个事务）：明细全部 DONE → 尾差入平台（SETTLE_RUN : 结算单）→ <b>按账本复核守恒</b> → 结算阶段 DONE、市场进入已结算。</li>
  * </ol>
- * 事务边界由 {@code forecast.settle.batch-size} 决定（{@link SettleProperties}，AQ-3）：<b>0 = 三段在同一个事务里一次完成</b>（需求原文）；
- * 大于 0 = 计算一个事务，派彩每批一个事务（{@link PayoutWorker} 推进，可以续跑），收尾一个事务（架构方案建议 B）。
+ * 事务边界由 {@code forecast.settle.batch-size} 决定（{@link SettleProperties}，AQ-3 已定：B）：<b>大于 0（默认 500）= 计算一个事务，
+ * 派彩每批一个事务（{@link PayoutWorker} 推进，可以续跑），收尾一个事务</b>（架构方案第 4.3 节方案 B）；0 = 三段在同一个事务里一次完成（可配置项）。
  *
  * <h2>三道防重复派彩</h2>
  * ① {@code settle_run} 唯一 (market_id, kind)；② 明细 PENDING → DONE 的条件更新（改的行数不对整批回滚）；③ 账本幂等键。外加市场行、结算单行的锁让并发的触发排队。
