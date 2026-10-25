@@ -11,7 +11,7 @@
   <sql id="marketCols">
     id, public_no, category, title_en, title_zh_cn, title_zh_tw, rules_en, rules_zh_cn, rules_zh_tw, resolution_mode, source_primary, source_backup,
     source_ref, status, submitted_for_listing, settle_phase, winning_option_id, actual_start_at, resolved_by, open_at, close_at, event_start_at, event_end_at, fee_rate, user_cap, dispute_window_min,
-    void_reason, cancel_reason, cover_path, autogen_id, created_by, listed_by, deleted_at, version, created_at, updated_at
+    dispute_deadline_at, void_reason, cancel_reason, cover_path, autogen_id, created_by, listed_by, deleted_at, version, created_at, updated_at
   </sql>
 
   <insert id="insertMarket" useGeneratedKeys="true" keyProperty="id">
@@ -127,6 +127,13 @@
     UPDATE market_question SET winning_option_id = #{winningOptionId}, actual_start_at = #{actualStartAt}, resolved_by = #{resolvedBy},
       version = version + 1, updated_at = #{now}
     WHERE id = #{id} AND settle_phase = 'NONE' AND deleted_at IS NULL
+  </update>
+
+  <!-- S7 确认结果进入公示：拟定结果、实际开赛时间、裁决人编号、争议截止时间（只在公示中、结算还没开始时） -->
+  <update id="setPublicity">
+    UPDATE market_question SET winning_option_id = #{winningOptionId}, actual_start_at = #{actualStartAt}, resolved_by = #{resolvedBy},
+      dispute_deadline_at = #{deadline}, version = version + 1, updated_at = #{now}
+    WHERE id = #{id} AND status = 'PUBLICIZING' AND settle_phase = 'NONE' AND deleted_at IS NULL
   </update>
 
   <!-- 结算阶段（不是需求状态机里的状态，第 4.3 节）：带旧值的条件更新 -->

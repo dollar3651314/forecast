@@ -197,6 +197,9 @@ forecast:
   # 数据源都是公开行情接口，不要 key。Coinbase 是第三源（BTC-USD），默认关闭，只在主备一方拿不到时补位（AQ-13）。
   resolve:
     crypto-enabled: true
+    # 平台裁决（forecast S7，resolve/platform/PlatformJob）：公示期满、没有争议 → 结算（每 15 秒）；E6 延期 / E7 腰斩等满 48 小时 → 作废、
+    # 待提议 / 待确认 / 争议处理超时 → 邮件提醒（每分钟）。时限和争议窗口在后台"参数设置"（common_config，迁移 V10、V15），不在这里
+    platform-enabled: true
     first-delay: 60s
     retry-interval: 60s
     give-up-after: 30m

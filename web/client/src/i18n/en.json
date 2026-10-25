@@ -158,7 +158,8 @@
       "bet": "Bet",
       "payout": "Payout",
       "fee": "Fee",
-      "refund": "Bet refund"
+      "refund": "Bet refund",
+      "compensation": "Compensation"
     },
     "icon": {
       "deposit": "In",
@@ -167,7 +168,8 @@
       "bet": "Bet",
       "payout": "Win",
       "fee": "Fee",
-      "refund": "Back"
+      "refund": "Back",
+      "compensation": "Comp"
     },
     "range": {
       "7d": "7 days",

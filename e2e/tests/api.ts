@@ -4,6 +4,7 @@
  * 部署形态的登录 Cookie 带 Secure，测试进程走的是 http，所以 Cookie 由这里取出来放进请求头。
  */
 import { expect, request, type APIRequestContext, type APIResponse } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
 import { STUB_URL } from './targets';
 import { ADMIN_INIT_PASSWORD, ADMIN_NEW_PASSWORD, ADMIN_USERNAME, CLIENT_PASSWORD, e2e, uniqueId } from './support';
 
@@ -64,4 +65,38 @@ export async function fund(anon: APIRequestContext, client: APIRequestContext, a
   await expect
     .poll(async () => (await json<{ available: string }>(await client.get('/api/ledger/account'), '账户')).available, { message: '等充值到账', timeout: 20_000 })
     .toBe(amount);
+}
+
+/** 后台建一个两个选项的平台裁决市场并上架：开放 = 现在 − 1 分钟，截止 = 现在 + 2 分钟，事件结束 = 现在 + 3 分钟（可调时钟），争议窗口 2 分钟（AC-31） */
+export async function listMarket(anon: APIRequestContext, admin: APIRequestContext, title: string) {
+  const now = new Date((await json<{ now: string }>(await anon.get('/api/e2e/clock'), '读时钟')).now);
+  const at = (ms: number) => new Date(now.getTime() + ms).toISOString();
+  const draft = await json<{ publicNo: string; options: { optionNo: string }[] }>(
+    await admin.post('/api/admin/markets', {
+      data: {
+        category: 'MACRO',
+        title: t(title),
+        rules: t('按官方公布为准；无法判定的作废退款'),
+        resolutionMode: 'PLATFORM',
+        sourcePrimary: 'example.org',
+        sourceBackup: 'example.net',
+        openAt: at(-60_000),
+        closeAt: at(120_000),
+        eventStartAt: at(120_000),
+        eventEndAt: at(180_000),
+        disputeWindowMinutes: 2,
+        options: [
+          { label: t('是'), winCondition: t('公布为是') },
+          { label: t('否'), winCondition: t('公布为否') },
+        ],
+      },
+    }),
+    '建草稿',
+  );
+  await json(await admin.post(`/api/admin/markets/${draft.publicNo}/publish`, { data: { checked: true } }), '上架');
+  return { no: draft.publicNo, yes: draft.options[0].optionNo, nope: draft.options[1].optionNo };
+}
+
+export async function bet(c: APIRequestContext, marketNo: string, optionNo: string, amount: string) {
+  return json<{ betNo: string }>(await c.post(`/api/markets/${marketNo}/bets`, { data: { optionNo, amount, clientReqId: randomUUID() } }), `下注 ${amount}`);
 }

@@ -8,7 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.forecast.app.common.error.BizException;
-import com.forecast.app.settle.api.SettleAdminApi;
+import com.forecast.app.resolve.api.ResolveDeskApi;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -34,7 +34,8 @@ import tools.jackson.databind.JsonNode;
  */
 class SettleFlowTest extends SettleTestSupport {
 
-  @Autowired SettleAdminApi settleAdmin;
+  /** S7：人工作废在裁决台（S5 的 SettleAdminApi.voidManually 搬过去了） */
+  @Autowired ResolveDeskApi desk;
 
   record Example(Market m, User alice, User bob, User carol, User dave, User eve, User frank) {}
 
@@ -247,7 +248,7 @@ class SettleFlowTest extends SettleTestSupport {
     bet(a.id(), m, 0, "60");
     bet(b.id(), m, 1, "40");
     closeAndEnd(m);
-    settleAdmin.voidManually(Long.parseLong(m.no()), "比赛取消（E5）", "1");
+    desk.voidMarket(Long.parseLong(m.no()), "比赛取消（E5）", 1);
     if (batch > 0) settle.drainAll();
     assertThat(status(m)).isEqualTo("VOIDED");
     assertThat(available(a.id())).isEqualByComparingTo("100");
@@ -255,7 +256,7 @@ class SettleFlowTest extends SettleTestSupport {
     assertThat(run(m, "REFUND").get("reason")).isEqualTo("比赛取消（E5）");
     assertThat(inbox(b.id(), "MARKET_REFUNDED")).isEqualTo(1);
     // 已作废的市场不能再结算
-    assertThatThrownBy(() -> settleAdmin.settleManually(Long.parseLong(m.no()), m.options().get(0), null, "1")).isInstanceOf(BizException.class)
+    assertThatThrownBy(() -> settle.settle(m.id(), optionId(m, 0), null, "1")).isInstanceOf(BizException.class)
         .extracting(e -> ((BizException) e).code()).isEqualTo("MARKET_NOT_SETTLEABLE");
   }
 

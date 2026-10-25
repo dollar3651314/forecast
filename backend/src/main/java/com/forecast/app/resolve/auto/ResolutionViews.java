@@ -1,6 +1,8 @@
 package com.forecast.app.resolve.auto;
 
 import com.forecast.app.market.api.MarketResolutionView;
+import com.forecast.app.market.api.MarketStatus;
+import com.forecast.app.resolve.platform.PlatformViews;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -11,8 +13,13 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * 客户端市场详情里的 {@code resolution} 字段（market 的 {@link MarketResolutionView}；forecast S6，需求第 4.3 节"已结算市场详情页公开显示开始价、结束价和来源"、AC-27）。
- * 结构（客户端 S11 照着接；价格是字符串，原样不舍入）：
+ * 客户端市场详情里的 {@code resolution} 字段（market 的 {@link MarketResolutionView}）。
+ * <ul>
+ *   <li>forecast S7：有平台裁决的确认 / 作废记录的（平台裁决的市场、自动裁决转人工后由人确认的）→ {@link PlatformViews}（结果、依据、裁决人编号、争议截止时间、
+ *       争议结论，{@code mode = "platform"}）。</li>
+ *   <li>forecast S6：已结算的自动裁决市场 → 开始价、结束价和来源（需求第 4.3 节、AC-27），结构见下。</li>
+ * </ul>
+ * 自动裁决的结构（客户端 S11 照着接；价格是字符串，原样不舍入）：
  * <pre>
  * { "mode": "auto", "result": "up" | "down", "resolvedBy": "AUTO", "resolvedAt": "…Z",
  *   "symbol": "BTCUSDT", "windowStart": "…Z", "windowEnd": "…Z",
@@ -24,15 +31,23 @@ import tools.jackson.databind.ObjectMapper;
 class ResolutionViews implements MarketResolutionView {
 
   private final ResolveMapper mapper;
+  private final PlatformViews platform;
   private final ObjectMapper json;
 
-  ResolutionViews(ResolveMapper mapper, ObjectMapper json) {
+  ResolutionViews(ResolveMapper mapper, PlatformViews platform, ObjectMapper json) {
     this.mapper = mapper;
+    this.platform = platform;
     this.json = json;
   }
 
   @Override
-  public Object clientResolution(long marketId) {
+  public Object clientResolution(long marketId, MarketStatus status, Long userId) {
+    Map<String, Object> p = platform.clientView(marketId, status, userId);
+    if (p != null) return p;
+    return status == MarketStatus.SETTLED ? autoResolution(marketId) : null;
+  }
+
+  private Object autoResolution(long marketId) {
     ResolveRows.Record r = mapper.latestRecord(marketId, CryptoResolver.KIND_RESULT);
     if (r == null || r.detail == null) return null;
     Map<String, Object> d = json.readValue(r.detail, new TypeReference<Map<String, Object>>() {});

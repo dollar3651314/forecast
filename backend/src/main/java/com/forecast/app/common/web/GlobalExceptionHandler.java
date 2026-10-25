@@ -59,6 +59,23 @@ public class GlobalExceptionHandler {
       Map.entry("AUTOGEN_ENABLED", HttpStatus.CONFLICT),
       Map.entry("AUTOGEN_STATE_CHANGED", HttpStatus.CONFLICT),
       Map.entry("TEMPLATE_IN_USE", HttpStatus.CONFLICT),
+      // S7 平台裁决：市场不在待裁决、已有待确认的提议、提议已经被确认 / 退回、在等待（E6 / E7）、没有在等待、自动裁决还在处理
+      Map.entry("MARKET_NOT_RESOLVABLE", HttpStatus.CONFLICT),
+      Map.entry("PROPOSAL_PENDING", HttpStatus.CONFLICT),
+      Map.entry("PROPOSAL_CHANGED", HttpStatus.CONFLICT),
+      Map.entry("RESOLVE_ON_HOLD", HttpStatus.CONFLICT),
+      Map.entry("NOT_ON_HOLD", HttpStatus.CONFLICT),
+      Map.entry("RESOLVE_AUTO_IN_PROGRESS", HttpStatus.CONFLICT),
+      // S7 争议：不在公示期、已经提交过、没有待处理的争议；没有下注的客户不能提交（403）
+      Map.entry("DISPUTE_CLOSED", HttpStatus.CONFLICT),
+      Map.entry("DISPUTE_EXISTS", HttpStatus.CONFLICT),
+      Map.entry("DISPUTE_NOT_OPEN", HttpStatus.CONFLICT),
+      Map.entry("DISPUTE_NOT_BETTOR", HttpStatus.FORBIDDEN),
+      // S7 补偿（E13）：不是已结算的市场、已经补偿过、没有人要补偿、结果和原来相同
+      Map.entry("MARKET_NOT_COMPENSABLE", HttpStatus.CONFLICT),
+      Map.entry("COMPENSATION_EXISTS", HttpStatus.CONFLICT),
+      Map.entry("COMPENSATION_NOTHING", HttpStatus.CONFLICT),
+      Map.entry("COMPENSATION_SAME_RESULT", HttpStatus.CONFLICT),
       Map.entry("NOT_FOUND", HttpStatus.NOT_FOUND));
 
   @ExceptionHandler(BizException.class)

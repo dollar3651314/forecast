@@ -10,7 +10,7 @@ import { usePaged } from '../../hooks/usePaged';
 import { LedgerList } from './LedgerList';
 
 // S4 加下注；派彩、退款、补偿在 S5、S7 加（复制源的保证金、平仓盈亏、手续费、隔夜费、人工调整在 forecast S1 删除）
-const TYPES: Array<LedgerType | 'all'> = ['all', 'deposit', 'withdraw', 'withdrawRefund', 'bet', 'payout', 'fee', 'refund'];
+const TYPES: Array<LedgerType | 'all'> = ['all', 'deposit', 'withdraw', 'withdrawRefund', 'bet', 'payout', 'fee', 'refund', 'compensation'];
 const RANGES: Array<LedgerQuery['range']> = ['7d', '30d', '90d', 'all'];
 
 export default function Ledger() {

@@ -68,6 +68,8 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
   public static final String VOID_NOT_ENOUGH_OPTIONS = "NOT_ENOUGH_OPTIONS";
   /** 客户端能看到的状态（草稿不出现） */
   static final Set<MarketStatus> VISIBLE = EnumSet.complementOf(EnumSet.of(MarketStatus.DRAFT));
+  /** 客户端详情里有裁决信息（resolution 字段）的状态（S7 起含公示中、争议中、已作废） */
+  static final Set<MarketStatus> RESOLUTION_VISIBLE = EnumSet.of(MarketStatus.PUBLICIZING, MarketStatus.DISPUTED, MarketStatus.SETTLED, MarketStatus.VOIDED);
   /** 截止任务、事件结束任务每轮最多处理几个市场（处理不完的下一轮接着处理） */
   static final int BATCH = 200;
   /** 发补充说明、文字长度上限 */
@@ -225,6 +227,44 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
     List<OptionRef> opts = mapper.options(m.id).stream().map(MarketService::optionRef).toList();
     return Optional.of(new AutoRef(m.id, m.publicNo, status(m), MarketCategory.valueOf(m.category), ResolutionMode.of(m.resolutionMode), sourceRef(m),
         instant(m.eventStartAt), instant(m.eventEndAt), title(m), opts, m.autogenId));
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public Optional<PlatformRef> platformRef(long marketId) {
+    MarketRows.Market m = mapper.findById(marketId);
+    if (m == null || m.deletedAt != null) return Optional.empty();
+    return Optional.of(platformRef(m));
+  }
+
+  @Override
+  @Transactional(propagation = Propagation.MANDATORY)
+  public PlatformRef lockPlatform(long marketId) {
+    MarketRows.Market m = mapper.lockById(marketId);
+    if (m == null || m.deletedAt != null || status(m) == MarketStatus.DRAFT) throw new BizException("NOT_FOUND", "市场不存在");
+    return platformRef(m);
+  }
+
+  @Override
+  @Transactional(propagation = Propagation.MANDATORY)
+  public boolean publicize(long marketId, long optionId, Instant actualStartAt, String resolvedBy, Instant disputeDeadlineAt, String actor) {
+    if (mapper.options(marketId).stream().noneMatch(o -> o.id == optionId)) throw new BizException("OPTION_NOT_FOUND", "选项不存在");
+    MarketRows.Market m = mapper.findById(marketId);
+    if (m == null || !"NONE".equals(m.settlePhase)) return false;
+    LocalDateTime now = now();
+    if (!move(marketId, MarketStatus.PENDING_RESOLUTION, MarketStatus.PUBLICIZING, actor, null, null, now)) return false;
+    if (mapper.setPublicity(marketId, optionId, actualStartAt == null ? null : ldt(actualStartAt.truncatedTo(ChronoUnit.MILLIS)),
+        resolvedBy == null ? null : cut(resolvedBy, 32), ldt(disputeDeadlineAt.truncatedTo(ChronoUnit.MILLIS)), now) != 1) {
+      throw new IllegalStateException("公示时市场被别人改了：" + marketId);
+    }
+    return true;
+  }
+
+  private PlatformRef platformRef(MarketRows.Market m) {
+    List<OptionRef> opts = mapper.options(m.id).stream().map(MarketService::optionRef).toList();
+    return new PlatformRef(m.id, m.publicNo, status(m), SettlePhase.valueOf(m.settlePhase), MarketCategory.valueOf(m.category), ResolutionMode.of(m.resolutionMode),
+        title(m), opts, instant(m.closeAt), instant(m.eventStartAt), instant(m.eventEndAt), m.disputeWindowMin, m.winningOptionId,
+        m.actualStartAt == null ? null : instant(m.actualStartAt), m.resolvedBy, m.disputeDeadlineAt == null ? null : instant(m.disputeDeadlineAt), m.voidReason);
   }
 
   /**
@@ -598,9 +638,10 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
     List<ClientViews.Clarification> cl = mapper.clarifications(m.id).stream()
         .map(c -> new ClientViews.Clarification(new I18nText(c.textEn, c.textZhCn, c.textZhTw), iso(c.createdAt))).toList();
     List<ClientViews.FeeChange> fees = mapper.feeChanges(m.id).stream().map(f -> new ClientViews.FeeChange(percent(f.oldRate), percent(f.newRate), iso(f.changedAt))).toList();
-    // 已结算市场的裁决依据（S6：自动裁决的开始价、结束价、来源，需求第 4.3 节、AC-27；resolve 模块提供）
+    // 裁决信息（resolve 模块提供）：S6 已结算的自动裁决（开始价、结束价、来源，需求第 4.3 节、AC-27）；S7 平台裁决的公示、争议、结论
+    // （结果、依据、裁决人编号、争议截止时间、争议结论，需求第 4.4 节、第 5.2 节 P2、AC-34），公示中、争议中、已结算、已作废时有
     MarketResolutionView rv = resolution.getIfAvailable();
-    Object resolved = rv != null && status(m) == MarketStatus.SETTLED ? rv.clientResolution(m.id) : null;
+    Object resolved = rv != null && RESOLUTION_VISIBLE.contains(status(m)) ? rv.clientResolution(m.id, status(m), userId) : null;
     return Optional.of(new ClientViews.Detail(String.valueOf(m.publicNo), m.category, title(m), rules(m), status(m).api(), m.resolutionMode, m.sourcePrimary,
         m.sourceBackup, iso(m.openAt), iso(m.closeAt), iso(m.eventStartAt), iso(m.eventEndAt), percent(m.feeRate), money(m.userCap), m.disputeWindowMin,
         m.coverPath, m.cancelReason, m.voidReason, winningOptionNo(m, optionRows), SettlePhase.PAYING.name().equals(m.settlePhase), options, cl, fees,

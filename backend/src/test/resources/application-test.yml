@@ -70,6 +70,8 @@ forecast:
   # 超时、退避改短，测试不用等几秒
   resolve:
     crypto-enabled: false
+    # 平台裁决的公示期满结算、E6 / E7 到期、超时提醒（S7）不定时跑，测试里直接调用 PublicityService
+    platform-enabled: false
     gateway:
       connect-timeout: 500ms
       read-timeout: 1s

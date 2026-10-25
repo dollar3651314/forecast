@@ -39,6 +39,8 @@ final class MarketRows {
     BigDecimal feeRate;
     BigDecimal userCap;
     Integer disputeWindowMin;
+    /** 争议窗口截止（S7：确认结果进入公示时写） */
+    LocalDateTime disputeDeadlineAt;
     String voidReason;
     String cancelReason;
     String coverPath;

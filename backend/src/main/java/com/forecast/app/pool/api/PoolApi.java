@@ -18,4 +18,10 @@ public interface PoolApi {
    * 退回的下注（取消、作废、E14、E15）不算；已经取消、作废但还没退款完的市场里的下注也不算。
    */
   BigDecimal effectiveStakeSince(long userId, LocalDateTime since);
+
+  /** 这个市场有有效持仓的客户（按 user_id 升序；forecast S7：公示 #10、改判 #16 发给他们） */
+  java.util.List<Long> bettors(long marketId);
+
+  /** 这个客户在这个市场有没有有效持仓（forecast S7：只有在这个市场有下注的客户能提交争议，需求第 4.4 节、AC-32） */
+  boolean hasPosition(long userId, long marketId);
 }

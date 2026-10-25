@@ -46,7 +46,7 @@ class LedgerController {
   record Page<T>(List<T> items, long total, int page, int pageSize) {}
 
   /**
-   * 客户端流水类型 → 账本类型（只看可用余额的变动）。S4 加下注（BET_LOCK 的"可用 −b"那一条）；S5 加派彩、抽成、退款（REFUND 的"可用 +b"那一条）；补偿在 S7 加
+   * 客户端流水类型 → 账本类型（只看可用余额的变动）。S4 加下注（BET_LOCK 的"可用 −b"那一条）；S5 加派彩、抽成、退款（REFUND 的"可用 +b"那一条）；S7 加补偿（E13）
    * （开发记录/S2-账本拆分.md、S4-下注奖池.md）。没列在这里的类型不会出现在客户端流水里。
    */
   static final Map<String, List<String>> LEDGER_TYPES = new LinkedHashMap<>();
@@ -60,6 +60,8 @@ class LedgerController {
     LEDGER_TYPES.put("payout", List.of("PAYOUT"));
     LEDGER_TYPES.put("fee", List.of("FEE"));
     LEDGER_TYPES.put("refund", List.of("REFUND"));
+    // S7：补偿（E13，平台出钱补本应多得的人，AC-39）
+    LEDGER_TYPES.put("compensation", List.of("COMPENSATION"));
   }
 
   private final LedgerApi ledger;
@@ -80,7 +82,7 @@ class LedgerController {
     return new AccountView("USDT", money(a.balance()), money(a.available()), money(a.betLocked()), money(a.withdrawFrozen()));
   }
 
-  /** 资金流水：可用余额的变动，最新在前。type：deposit / withdraw / withdrawRefund / bet，不传或 all 表示全部；range：7d / 30d / 90d / all */
+  /** 资金流水：可用余额的变动，最新在前。type：{@link #LEDGER_TYPES} 的键（deposit / withdraw / withdrawRefund / bet / payout / fee / refund / compensation），不传或 all 表示全部；range：7d / 30d / 90d / all */
   @GetMapping("/api/ledger/entries")
   Page<LedgerView> entries(@RequestParam(required = false) String type, @RequestParam(defaultValue = "30d") String range,
       @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize) {

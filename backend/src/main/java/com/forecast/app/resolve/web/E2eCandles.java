@@ -2,6 +2,7 @@ package com.forecast.app.resolve.web;
 
 import com.forecast.app.common.e2e.E2eGuard;
 import com.forecast.app.resolve.auto.CryptoResolver;
+import com.forecast.app.resolve.platform.PublicityService;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -23,7 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
  *   <li>{@code POST /api/e2e/candles} {@code {"symbol":"BTCUSDT","windowStart":"…Z","windowEnd":"…Z","open":"100","close":"100","sources":["BINANCE","OKX"],"fail":false}}：
  *       设一个窗口的开始价、结束价（fail = true 时这个来源返回 500）</li>
  *   <li>{@code GET /api/e2e/candles/binance/api/v3/klines}、{@code GET /api/e2e/candles/okx/api/v5/market/history-candles}：照真实接口的格式返回</li>
- *   <li>{@code POST /api/e2e/resolve/tick}：立即跑一轮自动裁决（不用等 15 秒的任务）</li>
+ *   <li>{@code POST /api/e2e/resolve/tick}：立即跑一轮自动裁决（不用等 15 秒的任务）；S7 起同时跑一轮平台裁决的任务（公示期满结算、E6 / E7 到期作废、超时提醒）</li>
  * </ul>
  */
 @RestController
@@ -36,9 +37,11 @@ class E2eCandles {
 
   private final Map<String, Window> windows = new ConcurrentHashMap<>();
   private final CryptoResolver resolver;
+  private final PublicityService publicity;
 
-  E2eCandles(CryptoResolver resolver) {
+  E2eCandles(CryptoResolver resolver, PublicityService publicity) {
     this.resolver = resolver;
+    this.publicity = publicity;
   }
 
   @PostMapping("/api/e2e/candles")
@@ -88,7 +91,7 @@ class E2eCandles {
 
   @PostMapping("/api/e2e/resolve/tick")
   Map<String, Object> tick() {
-    return Map.of("markets", resolver.resolveDue());
+    return Map.of("markets", resolver.resolveDue(), "publicity", publicity.settleDue(), "holds", publicity.holdsDue(), "reminders", publicity.remindOverdue());
   }
 
   private static String key(String source, String symbol, long start) {

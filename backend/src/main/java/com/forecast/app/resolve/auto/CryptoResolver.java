@@ -4,6 +4,7 @@ import com.forecast.app.market.api.MarketApi;
 import com.forecast.app.market.api.MarketStatus;
 import com.forecast.app.notification.api.StaffAlertApi;
 import com.forecast.app.resolve.api.ResultHandler;
+import com.forecast.app.resolve.platform.CaseBook;
 import com.forecast.app.resolve.source.BinanceSpot;
 import com.forecast.app.resolve.source.CandleQuery;
 import com.forecast.app.resolve.source.CandleSource;
@@ -40,7 +41,8 @@ import tools.jackson.databind.ObjectMapper;
  *       主备一方拿不到且打开了第三源（Coinbase）时用它补位。</li>
  *   <li>判定（{@link CryptoDecision}）：两个来源方向一致 → 记下结果（PENDING → RESOLVING，写裁决记录 AUTO_RESULT，一个事务）→ 调 settle 结算
  *       （{@link ResultHandler}，S5 的结算三段，自己开事务）→ RESOLVED。结算失败或进程中途退出：RESOLVING 的下一轮接着调（结算本身幂等）。</li>
- *   <li>不一致或拿不到：每分钟重试；过了转人工的时间仍不行 → MANUAL，写 AUTO_FAILED（带两个来源的数据），邮件告警（S7 的裁决台从这里接手）。市场留在待裁决。</li>
+ *   <li>不一致或拿不到：每分钟重试；过了转人工的时间仍不行 → MANUAL，写 AUTO_FAILED（带两个来源的数据），建平台裁决的进度行（S7 的裁决台"自动裁决失败"），
+ *       邮件告警。市场留在待裁决，由人按首选来源判定（提议 → 确认 → 公示）或作废。</li>
  * </ol>
  * 进度行的每次改动都是带旧状态和版本号的条件更新：多实例、重复执行只生效一次。
  */
@@ -63,12 +65,14 @@ public class CryptoResolver {
   private final ResolveProperties props;
   private final ObjectProvider<ResultHandler> handler;
   private final StaffAlertApi staff;
+  private final CaseBook cases;
   private final Clock clock;
   private final ObjectMapper json;
   private final TransactionTemplate tx;
 
   CryptoResolver(ResolveMapper mapper, MarketApi markets, SourceGateway gateway, BinanceSpot binance, OkxSpot okx, CoinbaseSpot coinbase,
-      ResolveProperties props, ObjectProvider<ResultHandler> handler, StaffAlertApi staff, Clock clock, ObjectMapper json, PlatformTransactionManager tm) {
+      ResolveProperties props, ObjectProvider<ResultHandler> handler, StaffAlertApi staff, CaseBook cases, Clock clock, ObjectMapper json,
+      PlatformTransactionManager tm) {
     this.mapper = mapper;
     this.markets = markets;
     this.gateway = gateway;
@@ -78,6 +82,7 @@ public class CryptoResolver {
     this.props = props;
     this.handler = handler;
     this.staff = staff;
+    this.cases = cases;
     this.clock = clock;
     this.json = json;
     this.tx = new TransactionTemplate(tm);
@@ -203,6 +208,8 @@ public class CryptoResolver {
     Boolean ok = tx.execute(st -> {
       if (mapper.toManual(t.marketId, t.version, cut(reason), now) != 1) return false;
       mapper.insertRecord(record(t.marketId, KIND_FAILED, null, detail, reason, now));
+      // S7：进裁决台（"自动裁决失败"），提议时限从现在算
+      cases.open(t.marketId, CaseBook.AUTO_FAILED, m.category());
       return true;
     });
     if (!Boolean.TRUE.equals(ok)) return "raced";

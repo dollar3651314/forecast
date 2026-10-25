@@ -156,7 +156,9 @@ class CryptoResolverTest extends CryptoTestSupport {
     // 窗口结束 + 1 分钟起每分钟一次，到 + 31 分钟（第一次取数后 30 分钟）转人工
     assertThat(rounds).isEqualTo(31);
     assertThat(taskStatus(m)).isEqualTo("MANUAL");
-    assertThat(status(m)).as("市场留在待裁决，等 S7 的裁决台").isEqualTo("PENDING_RESOLUTION");
+    assertThat(status(m)).as("市场留在待裁决，由 S7 的裁决台接手").isEqualTo("PENDING_RESOLUTION");
+    // S7：进裁决台"自动裁决失败"（平台裁决的进度行，提议时限从转人工的时候算 2 小时）
+    assertThat(jdbc.queryForObject("SELECT CONCAT(origin, ' ', stage) FROM resolve_case WHERE market_id = ?", String.class, m.id())).isEqualTo("AUTO_FAILED OPEN");
     assertThat(phase(m)).isEqualTo("NONE");
     assertThat(available(up.id())).isEqualByComparingTo("90");
     assertThat(recordKinds(m)).containsExactly("AUTO_FAILED");
@@ -373,16 +375,19 @@ class CryptoResolverTest extends CryptoTestSupport {
     closeAndEnd(m);
     assertThat(taskStatus(m)).isEqualTo("MANUAL");
     assertThat(recordKinds(m)).containsExactly("AUTO_FAILED");
+    assertThat(jdbc.queryForObject("SELECT origin FROM resolve_case WHERE market_id = ?", String.class, m.id())).isEqualTo("AUTO_FAILED");
     verify(staff, atLeastOnce()).notifyStaff(eq("RESOLVE_AUTO_FAILED"), argThat(p -> m.no().equals(p.get("marketNo"))));
   }
 
   @Test
-  void 不是加密自动裁决的市场不建进度() throws Exception {
+  void 不是加密自动裁决的市场不建进度_S7起进平台裁决台() throws Exception {
     Market m = shortMarket(2);
     bothSides(m);
     closeAndEnd(m);
     assertThat(status(m)).isEqualTo("PENDING_RESOLUTION");
     assertThat(taskStatus(m)).isNull();
+    // 体育自动裁决在 S8：S7 先进平台裁决台（NO_AUTO）
+    assertThat(jdbc.queryForObject("SELECT origin FROM resolve_case WHERE market_id = ?", String.class, m.id())).isEqualTo("NO_AUTO");
     verify(staff, never()).notifyStaff(eq("RESOLVE_AUTO_FAILED"), argThat(p -> m.no().equals(p.get("marketNo"))));
   }
 }

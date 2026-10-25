@@ -145,13 +145,28 @@ public class SettleService {
    * @param resolvedBy 谁给的结果（管理员 id / AUTO）
    */
   public void settle(long marketId, long winningOptionId, Instant actualStartAt, String resolvedBy) {
-    tx.executeWithoutResult(st -> calculate(marketId, winningOptionId, actualStartAt, resolvedBy, false));
+    settle(marketId, winningOptionId, actualStartAt, resolvedBy, null);
+  }
+
+  /**
+   * 同上，但只在市场<b>正好是 expect 状态</b>时开始（forecast S7）：锁住市场行以后检查，不是就什么都不做（不报错）。
+   * 公示期满的结算用 {@code PUBLICIZING}：和"客户提交争议（公示中 → 争议中）"在市场行锁上排队，只有一个生效。
+   *
+   * @param expect 为空 = 待裁决、公示中、争议中都可以
+   */
+  public void settle(long marketId, long winningOptionId, Instant actualStartAt, String resolvedBy, MarketStatus expect) {
+    tx.executeWithoutResult(st -> calculate(marketId, winningOptionId, actualStartAt, resolvedBy, false, expect));
     if (props.getBatchSize() > 0) kick.now();
   }
 
   private void calculate(long marketId, long winningOptionId, Instant actualStartAt, String resolvedBy, boolean retry) {
+    calculate(marketId, winningOptionId, actualStartAt, resolvedBy, retry, null);
+  }
+
+  private void calculate(long marketId, long winningOptionId, Instant actualStartAt, String resolvedBy, boolean retry, MarketStatus expect) {
     MarketApi.SettleTarget t = markets.lockForSettle(marketId);
     if (t.settlePhase() != SettlePhase.NONE) return; // 已经开始（派彩中、完成、异常）：幂等，什么都不做
+    if (expect != null && t.status() != expect) return; // S7：状态已经变了（例如公示期满的同时有人提交了争议）
     if (!SETTLEABLE.contains(t.status())) throw new BizException("MARKET_NOT_SETTLEABLE", "市场现在不能结算（" + t.status().api() + "）");
     if (!markets.recordResult(marketId, winningOptionId, actualStartAt, resolvedBy)) return;
     int batch = props.getBatchSize();
@@ -231,6 +246,53 @@ public class SettleService {
       payPayout(run, t.title(), Integer.MAX_VALUE);
       finishPayout(run, t);
     }
+  }
+
+  /**
+   * 结算预览（forecast S7，裁决台"按提议结果的结算预览"，需求第 6.2 节、W4）：按这个结果<b>现在</b>结算会怎样——不加锁、不写任何数据。
+   * 和 {@link #calculate} 同样的步骤：E14 退回实际开赛之后收到的下注、E15 退回员工的下注，按持仓算 G、F、Pay、D，守恒校验；没人押赢方或退回后奖池为 0 时是作废。
+   *
+   * @param outcome settle 结算 / void_no_winner 没人押赢方，作废（E1）/ void_no_pool 退回之后奖池为 0，作废
+   * @param lateBets E14 要退回的下注笔数和金额（实际开赛时间早于截止时间时）
+   * @param staffBets E15 要退回的员工下注笔数和金额
+   */
+  public record Preview(String outcome, BigDecimal feeRate, BigDecimal total, BigDecimal winnerPool, BigDecimal loserPool, BigDecimal sumGross,
+      BigDecimal sumFee, BigDecimal dust, BigDecimal sumPayout, BigDecimal platformIncome, int winners, int losers, boolean conserved, int lateBets,
+      BigDecimal lateAmount, int staffBets, BigDecimal staffAmount) {}
+
+  public Preview preview(long marketId, long winningOptionId, Instant actualStartAt) {
+    return tx.execute(st -> {
+      MarketApi.MarketRef m = markets.findById(marketId).orElseThrow(() -> new BizException("NOT_FOUND", "市场不存在"));
+      List<PoolSettleApi.Bet> active = pool.activeBets(marketId);
+      Map<Long, PoolSettleApi.Bet> excluded = new LinkedHashMap<>();
+      List<PoolSettleApi.Bet> late = actualStartAt != null && actualStartAt.isBefore(m.closeAt()) ? pool.activeBetsReceivedFrom(marketId, ldt(actualStartAt)) : List.of();
+      for (PoolSettleApi.Bet b : late) excluded.put(b.id(), b);
+      Set<Long> staffUsers = accounts.staffAmong(active.stream().map(PoolSettleApi.Bet::userId).distinct().toList());
+      List<PoolSettleApi.Bet> staffBets = staffUsers.isEmpty() ? List.of() : pool.activeBetsOfUsers(marketId, staffUsers);
+      List<PoolSettleApi.Bet> staffOnly = staffBets.stream().filter(b -> !excluded.containsKey(b.id())).toList();
+      for (PoolSettleApi.Bet b : staffOnly) excluded.put(b.id(), b);
+      // 持仓减去要退回的下注（同一客户同一选项）
+      Map<String, BigDecimal> minus = new LinkedHashMap<>();
+      for (PoolSettleApi.Bet b : excluded.values()) minus.merge(b.userId() + ":" + b.optionId(), b.amount(), BigDecimal::add);
+      List<SettleMath.Stake> stakes = new ArrayList<>();
+      for (PoolSettleApi.Position p : pool.positions(marketId)) {
+        BigDecimal left = p.amount().subtract(minus.getOrDefault(p.userId() + ":" + p.optionId(), BigDecimal.ZERO));
+        if (left.signum() > 0) stakes.add(new SettleMath.Stake(p.id(), p.userId(), p.optionId(), left));
+      }
+      BigDecimal lateAmount = late.stream().map(PoolSettleApi.Bet::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
+      BigDecimal staffAmount = staffOnly.stream().map(PoolSettleApi.Bet::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
+      if (stakes.isEmpty()) {
+        return new Preview("void_no_pool", m.feeRate(), BigDecimal.ZERO, null, null, null, null, null, BigDecimal.ZERO, BigDecimal.ZERO, 0, 0, false, late.size(),
+            lateAmount, staffOnly.size(), staffAmount);
+      }
+      SettleMath.Result r = SettleMath.settle(stakes, winningOptionId, m.feeRate());
+      if (r.noWinner()) {
+        return new Preview("void_no_winner", m.feeRate(), r.total(), BigDecimal.ZERO, r.total(), null, null, null, BigDecimal.ZERO, BigDecimal.ZERO, 0,
+            r.losers(), false, late.size(), lateAmount, staffOnly.size(), staffAmount);
+      }
+      return new Preview("settle", m.feeRate(), r.total(), r.winnerPool(), r.loserPool(), r.sumGross(), r.sumFee(), r.dust(), r.sumPayout(), r.platformIncome(),
+          r.winners(), r.losers(), r.conserved(), late.size(), lateAmount, staffOnly.size(), staffAmount);
+    });
   }
 
   /** 计算时就没通过：写一张"结算异常"的结算单（没有明细，不动钱），结算阶段 → ABNORMAL，记对账差异、告警 */

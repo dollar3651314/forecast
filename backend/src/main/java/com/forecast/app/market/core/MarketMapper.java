@@ -47,6 +47,10 @@ interface MarketMapper {
   int setResult(@Param("id") long id, @Param("winningOptionId") long winningOptionId, @Param("actualStartAt") LocalDateTime actualStartAt,
       @Param("resolvedBy") String resolvedBy, @Param("now") LocalDateTime now);
 
+  /** 公示（S7）：写拟定结果和争议截止时间；只在公示中、结算还没开始时生效 */
+  int setPublicity(@Param("id") long id, @Param("winningOptionId") long winningOptionId, @Param("actualStartAt") LocalDateTime actualStartAt,
+      @Param("resolvedBy") String resolvedBy, @Param("deadline") LocalDateTime deadline, @Param("now") LocalDateTime now);
+
   /** 结算阶段 from → to（条件更新） */
   int casSettlePhase(@Param("id") long id, @Param("from") String from, @Param("to") String to, @Param("now") LocalDateTime now);
 
