@@ -4,8 +4,11 @@
     "1) scripts/check-brand.mjs <dist>：前端构建产物（CI 的 web-check）；",
     "2) scripts/check-brand.mjs --repo：仓库里所有纳入版本管理的文件（CI 的 checks，相当于第 1.4 节 ⑦ 的 git grep）；",
     "3) 后端测试 BrandTextTest：通知模板（迁移后的数据库）、后端代码里的字符串、src/main/resources 下的文件。",
-    "oldBrands 里 enabled=false 的不检查。Quick Come 先关着：Amos 说想用 Quick Come 做品牌，和需求说明书 FQ-9、NF-11、AC-73（独立品牌、不和 Quick Come 导流）冲突，",
-    "正在向 Amos 确认（开发记录/S1-复制骨架.md 的 SQ-1）。结论是不用 Quick Come 时把 enabled 改成 true；用 Quick Come 时删掉这一项，并按需求修订流程改 AC-73。",
+    "oldBrands 里 enabled=false 的不检查。FalconX（复制源的名字）一直检查。",
+    "Quick Come 的检查关着（enabled=false），原因：上线前本项目沿用 Quick Come 作为品牌名、用 quickcome.online 的子域名（Amos 2026-10-25：",
+    "'很多项目在上线前我都会用 quick come这个名字，域名也会用quickcome.online的子域名，只有正式上线时，才需要改名和域名'；需求说明书 v1.2 第 0 节、NF-11、AC-73、RQ-19，",
+    "架构方案 v1.1 第 15 节）。正式上线改名时：先把 web/*/src/lib/brand.ts、index.html、PWA 名称、push-sw.js、通知模板（新迁移）改成正式品牌，再把这一项改成 true（讲品牌历史的文档，例如项目地图、开发记录，按需加进 excludePaths），",
+    "这样前端产物、仓库、后端 BrandTextTest、端到端测试都会检查不再出现 Quick Come。",
     "excludePaths：讲复制过程、竞品和品牌历史的文档，里面出现这些字是正常的（只对 --repo 生效）。"
   ],
   "oldBrands": [

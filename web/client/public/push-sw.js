@@ -11,7 +11,7 @@ self.addEventListener('push', (event) => {
   } catch (e) {
     data = { body: event.data ? event.data.text() : '' };
   }
-  const title = data.title || 'Forecast'; // 品牌名占位，和 src/lib/brand.ts 一致（Service Worker 里读不到它）
+  const title = data.title || 'Quick Come'; // 品牌名（上线前沿用 Quick Come），和 src/lib/brand.ts 一致（Service Worker 里读不到它）
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       const visible = list.some((c) => c.visibilityState === 'visible' && c.focused);

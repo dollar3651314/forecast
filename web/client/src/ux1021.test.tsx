@@ -98,7 +98,7 @@ describe('第 2 条：新手引导', () => {
     const view = renderShell();
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('第 1 / 3 步')).toBeInTheDocument();
-    expect(within(dialog).getByText('欢迎来到 Forecast')).toBeInTheDocument();
+    expect(within(dialog).getByText('欢迎来到 Quick Come')).toBeInTheDocument();
     const titles = ['第一步：完成身份认证', '第二步：充值 USDT'];
     for (const title of titles) {
       fireEvent.click(within(dialog).getByRole('button', { name: '下一步' }));

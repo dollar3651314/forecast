@@ -42,7 +42,7 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * 通知：站内信、通知偏好、邮件、通知记录。邮件发到测试进程里的 SMTP 服务器（GreenMail，端口 3025），不连外网。
- * 品牌名是占位名 Forecast（品牌待 Amos 确认，AQ-5）；定了以后改基线后的迁移和这里的期望值。
+ * 品牌名上线前沿用 Quick Come（迁移 V8，Amos 2026-10-25）；正式改名时用新迁移改模板，并改这里的期望值。
  */
 class NotifyFlowTest extends NotifyTestSupport {
 
@@ -50,7 +50,7 @@ class NotifyFlowTest extends NotifyTestSupport {
   void 验证码邮件按邮箱发_中英文各一份_记录已发送() throws Exception {
     User u = register();
     MimeMessage m = mailsTo(u.email()).getFirst();
-    assertThat(m.getSubject()).isEqualTo("Forecast 验证码 | Forecast verification code");
+    assertThat(m.getSubject()).isEqualTo("Quick Come 验证码 | Quick Come verification code");
     assertThat(body(m)).contains("您的验证码是").contains("Your code is").contains("10 分钟内有效");
     assertThat(m.getFrom()[0].toString()).isEqualTo("noreply@forecast.test");
     assertThat(jdbc.queryForObject("SELECT status FROM notify_record WHERE recipient = ? AND template_code = 'EMAIL_CODE'", String.class, u.email())).isEqualTo("SENT");
@@ -202,10 +202,10 @@ class NotifyFlowTest extends NotifyTestSupport {
     assertThat(records(u.id())).as("只有站内信，不推送、不发邮件").containsExactly("INBOX SENT -");
     assertThat(mailsTo(u.email())).as("只有注册验证码一封邮件").hasSize(1);
     String zh = call(get("/api/notifications?lang=zh-CN"), u.cookie(), null).getContentAsString();
-    assertThat(zh).contains("\"total\":1").contains("\"kind\":\"system\"").contains("\"title\":\"欢迎来到 Forecast\"")
+    assertThat(zh).contains("\"total\":1").contains("\"kind\":\"system\"").contains("\"title\":\"欢迎来到 Quick Come\"")
         .contains("完成身份认证").contains("充值 USDT").contains("新手引导");
     String en = call(get("/api/notifications?lang=en"), u.cookie(), null).getContentAsString();
-    assertThat(en).contains("\"title\":\"Welcome to Forecast\"").contains("Verify your identity").contains("Deposit USDT");
+    assertThat(en).contains("\"title\":\"Welcome to Quick Come\"").contains("Verify your identity").contains("Deposit USDT");
     assertThat(call(get("/api/notifications/unread-count"), u.cookie(), null).getContentAsString()).isEqualTo("{\"count\":1}");
   }
 

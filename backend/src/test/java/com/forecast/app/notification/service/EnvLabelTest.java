@@ -45,8 +45,8 @@ class EnvLabelTest {
     when(mapper.template("DEPOSIT_CREDITED")).thenReturn(deposit);
     Rows.TemplateRow code = new Rows.TemplateRow();
     code.code = "EMAIL_CODE";
-    code.titleZh = "Forecast 验证码";
-    code.titleEn = "Forecast verification code";
+    code.titleZh = "Quick Come 验证码";
+    code.titleEn = "Quick Come verification code";
     code.bodyZh = "您的验证码是 {code}";
     code.bodyEn = "Your code is {code}";
     when(mapper.template("EMAIL_CODE")).thenReturn(code);
@@ -93,7 +93,7 @@ class EnvLabelTest {
   void 测试环境的邮件标题按邮件语言加前缀() {
     assertThat(mail("test", ZH_MAIL)).isEqualTo("[测试] 充值已到账");
     assertThat(mail("test", EN_MAIL)).isEqualTo("[TEST] Deposit credited");
-    assertThat(mail("test", CODE_MAIL)).as("中英文各一份的邮件，两段各加各的").isEqualTo("[测试] Forecast 验证码 | [TEST] Forecast verification code");
+    assertThat(mail("test", CODE_MAIL)).as("中英文各一份的邮件，两段各加各的").isEqualTo("[测试] Quick Come 验证码 | [TEST] Quick Come verification code");
     assertThat(mail("test", MANUAL_MAIL)).as("后台手写的不知道语言").isEqualTo("[测试/TEST] 系统维护通知");
   }
 
@@ -102,7 +102,7 @@ class EnvLabelTest {
     for (String label : new String[] {"", "  ", null}) {
       assertThat(mail(label, ZH_MAIL)).isEqualTo("充值已到账");
       assertThat(mail(label, EN_MAIL)).isEqualTo("Deposit credited");
-      assertThat(mail(label, CODE_MAIL)).isEqualTo("Forecast 验证码 | Forecast verification code");
+      assertThat(mail(label, CODE_MAIL)).isEqualTo("Quick Come 验证码 | Quick Come verification code");
       assertThat(mail(label, MANUAL_MAIL)).isEqualTo("系统维护通知");
     }
   }

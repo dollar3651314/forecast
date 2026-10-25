@@ -32,9 +32,9 @@ export default defineConfig(({ mode }) => ({
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
         // 品牌名占位，和 src/lib/brand.ts 一致（品牌待 Amos 确认）
-        name: 'Forecast',
-        short_name: 'Forecast',
-        description: 'Forecast — USDT 预测市场（彩池）',
+        name: 'Quick Come',
+        short_name: 'Quick Come',
+        description: 'Quick Come — USDT 预测市场（彩池）',
         lang: 'zh-CN',
         start_url: '/',
         scope: '/',
