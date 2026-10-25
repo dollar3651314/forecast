@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Alert, App, Button, Card, Empty, Form, Input, Radio, Select, Skeleton, Space, Table, Tag, Upload } from 'antd';
+import { Alert, App, Button, Card, Empty, Form, Input, Radio, Select, Skeleton, Space, Table, Tag, Typography, Upload } from 'antd';
 import { CheckCircleFilled, CloseCircleFilled, LinkOutlined, UploadOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { attachmentUrl, confirmProposal, decideDirect, getCase, getCaseCounts, getEvidence, holdCase, listCases, previewSettle, propose, releaseCase, returnProposal, uploadAttachment, voidMarket } from '../../api';
@@ -144,16 +144,16 @@ function ProposalForm({ d, onDone }: { d: CaseDetail; onDone: () => void }) {
         options={[...d.options.map((o) => ({ value: o.optionNo, label: textOf(o.label, i18n.language) })), { value: 'void', label: t('rs.voidOption') }]}
       />
       <Form layout="vertical" className="rs-form">
-        <Form.Item label={t('rs.basis')}>
-          <Select value={p.basis ?? undefined} onChange={(v) => setP({ ...p, basis: v })} options={(p.voidMarket ? VOID_BASES : RESULT_BASES).map((b) => ({ value: b, label: t(`rs.bases.${b}`) }))} />
+        <Form.Item label={t('rs.basis')} htmlFor="rs-basis">
+          <Select id="rs-basis" value={p.basis ?? undefined} onChange={(v) => setP({ ...p, basis: v })} options={(p.voidMarket ? VOID_BASES : RESULT_BASES).map((b) => ({ value: b, label: t(`rs.bases.${b}`) }))} />
         </Form.Item>
         {d.summary.category === 'FOOTBALL' || d.summary.category === 'NBA' ? (
-          <Form.Item label={t('rs.actualStart')} extra={t('rs.actualStartHint')}>
-            <Input type="datetime-local" suffix="UTC" onChange={(e) => setP({ ...p, actualStartAt: fromInput(e.target.value) || null })} />
+          <Form.Item label={t('rs.actualStart')} extra={t('rs.actualStartHint')} htmlFor="rs-actual-start">
+            <Input id="rs-actual-start" type="datetime-local" suffix="UTC" onChange={(e) => setP({ ...p, actualStartAt: fromInput(e.target.value) || null })} />
           </Form.Item>
         ) : null}
-        <Form.Item label={t('rs.evidence')} required extra={t('rs.evidenceHint')}>
-          <Input.TextArea rows={2} value={links} onChange={(e) => setLinks(e.target.value)} placeholder="https://" />
+        <Form.Item label={t('rs.evidence')} required extra={t('rs.evidenceHint')} htmlFor="rs-evidence">
+          <Input.TextArea id="rs-evidence" rows={2} value={links} onChange={(e) => setLinks(e.target.value)} placeholder="https://" />
         </Form.Item>
         <Form.Item label={t('rs.screens', { n: p.attachmentNos.length })} extra={t('rs.screensHint')}>
           <Upload
@@ -181,8 +181,8 @@ function ProposalForm({ d, onDone }: { d: CaseDetail; onDone: () => void }) {
             ))}
           </Space>
         </Form.Item>
-        <Form.Item label={t('rs.note')} required extra={t('rs.noteHint')}>
-          <Input.TextArea rows={2} maxLength={1000} showCount value={p.note} onChange={(e) => setP({ ...p, note: e.target.value })} />
+        <Form.Item label={t('rs.note')} required extra={t('rs.noteHint')} htmlFor="rs-note">
+          <Input.TextArea id="rs-note" rows={2} maxLength={1000} showCount value={p.note} onChange={(e) => setP({ ...p, note: e.target.value })} />
         </Form.Item>
       </Form>
       {!p.voidMarket ? <Preview p={preview.data ?? undefined} /> : null}
@@ -237,7 +237,7 @@ function Detail({ no, onDone }: { no: string; onDone: () => void }) {
       <div className="rs-meta">
         <Tag>{t(`mk.cats.${s.category}`)}</Tag>
         <Tag color={s.origin === 'auto_failed' ? 'red' : 'blue'}>{t(`rs.origin.${s.origin}`)}</Tag>
-        <Pill tone="info">{t(`rs.tab.${stageOf(s)}`)}</Pill>
+        {stageOf(s) !== 'auto_failed' ? <Pill tone="info">{t(`rs.tab.${stageOf(s)}`)}</Pill> : null}
         <span>
           {t('rs.eventEnd')} <Num>{utc(s.eventEndAt)}</Num>
         </span>
@@ -322,8 +322,19 @@ function Detail({ no, onDone }: { no: string; onDone: () => void }) {
                     locale={{ emptyText: t('rs.noFetch') }}
                     columns={[
                       { title: t('rs.src'), dataIndex: 'source' },
-                      { title: t('rs.result'), key: 'r', render: (_, f) => (f.outcome === 'OK' ? <CheckCircleFilled className="ok" /> : <span className="bad">{f.outcome}</span>) },
-                      { title: t('rs.parsed'), key: 'p', render: (_, f) => <Num>{f.parsed ? JSON.stringify(f.parsed) : f.error ?? '—'}</Num> },
+                      { title: t('rs.fetchOutcome'), key: 'r', render: (_, f) => (f.outcome.toUpperCase() === 'OK' ? <CheckCircleFilled className="ok" /> : <span className="bad">{f.outcome}</span>) },
+                      {
+                        title: t('rs.parsed'),
+                        key: 'p',
+                        render: (_, f) => {
+                          const text = f.parsed ? JSON.stringify(f.parsed) : (f.error ?? '—');
+                          return (
+                            <Typography.Text className="rs-parsed" ellipsis={{ tooltip: text }}>
+                              {text}
+                            </Typography.Text>
+                          );
+                        },
+                      },
                       { title: t('rs.fetchedAt'), dataIndex: 'fetchedAt', render: (v: string) => <Num>{utc(v)}</Num> },
                     ]}
                   />
@@ -336,7 +347,7 @@ function Detail({ no, onDone }: { no: string; onDone: () => void }) {
             {d.records.length ? (
               d.records.map((r) => (
                 <div key={r.id} className="mkd-log">
-                  <Num className="muted">{utc(r.time)}</Num> <b>{t(`rs.kind.${r.kind}`, { defaultValue: r.kind })}</b> {r.optionNo ? `· ${label(r.optionNo)}` : ''} <span className="muted">· {r.actor}</span>
+                  <Num className="muted">{utc(r.time)}</Num> <b>{t(`rs.kind.${r.kind.toUpperCase()}`, { defaultValue: r.kind })}</b> {r.optionNo ? `· ${label(r.optionNo)}` : ''} <span className="muted">· {r.actor}</span>
                   {r.note ? <div className="muted">{r.note}</div> : null}
                 </div>
               ))

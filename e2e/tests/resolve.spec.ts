@@ -122,7 +122,7 @@ test('平台裁决：提议 → 确认 → 公示 → 争议 → 改判 → 直�
       expect(JSON.stringify(d.resolution)).not.toContain('官网更正为');
       expect(await titles(b.api)).toContain('争议有结论');
       expect(await titles(a.api)).toContain('改判');
-      expect(await titles(b.api)).toContain('你赢了');
+      expect(await titles(b.api)).toContain('你押中了');
     });
     await step('发现"是"才对：补偿预览 → 确认（高危）→ A 补 147.50，B 不扣；报表补偿单列', async () => {
       const plan = await json<{ total: string; lines: { amount: string }[] }>(

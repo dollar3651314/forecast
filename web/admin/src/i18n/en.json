@@ -662,7 +662,7 @@
     "order": "Order",
     "path": "Path",
     "permission": "View permission",
-    "sub": "10 top-level menus; every page has an entry",
+    "sub": "Top-level menus match the backend menu table; every page has an entry",
     "title": "Menus",
     "visible": "Visible"
   },
@@ -900,7 +900,7 @@
     "enabled": "Enabled",
     "name": "Name",
     "status": "Status",
-    "sub": "Inbox, push and email copy (Chinese and English)",
+    "sub": "Inbox, push and email copy (customers: Simplified Chinese, English, Traditional Chinese; staff emails: Chinese and English)",
     "title": "Notification templates",
     "titleCol": "Title",
     "titleEn": "Title (English)",
@@ -1835,7 +1835,8 @@
     "parsed": "Parsed",
     "fetchedAt": "Time",
     "shotAlt": "Screenshot {{no}}",
-    "pageOf": "Page {{p}} / {{n}}, {{total}} in total"
+    "pageOf": "Page {{p}} / {{n}}, {{total}} in total",
+    "fetchOutcome": "Fetch"
   },
   "pm": {
     "title": "Parameters",

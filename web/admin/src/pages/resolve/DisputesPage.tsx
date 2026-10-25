@@ -101,8 +101,8 @@ function DecidePanel({ no, onDone }: { no: string; onDone: () => void }) {
             </Space>
           </Radio.Group>
           <Form layout="vertical">
-            <Form.Item label={t('ds.note')} required extra={t('ds.noteHint')}>
-              <Input.TextArea rows={3} maxLength={1000} showCount value={note} onChange={(e) => setNote(e.target.value)} />
+            <Form.Item label={t('ds.note')} required extra={t('ds.noteHint')} htmlFor="ds-note">
+              <Input.TextArea id="ds-note" rows={3} maxLength={1000} showCount value={note} onChange={(e) => setNote(e.target.value)} />
             </Form.Item>
           </Form>
           <PermButton

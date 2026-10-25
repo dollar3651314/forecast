@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletResponse;
 import tools.jackson.databind.JsonNode;
@@ -35,6 +36,19 @@ class AdminS9Test extends AdminTestSupport {
     for (String k : new String[] {"review", "awaitingProposal", "awaitingConfirm", "autoFailed", "overdue", "disputed", "settleAbnormal", "poolReconOpen",
         "withdrawalsPending"}) {
       assertThat(b.get("pending").get(k).isNumber()).as(k).isTrue();
+    }
+  }
+
+  @Test
+  void 参数设置_没人改过的项不给修改时间() throws Exception {
+    Admin a = withRoles(role(Permission.BETTING_PARAMS_EDIT));
+    JsonNode items = body(call(get("/api/admin/params/betting"), a.cookie(), null));
+    assertThat(items.size()).isGreaterThan(0);
+    for (JsonNode it : items) {
+      String key = it.get("key").asString();
+      List<Long> by = jdbc.queryForList("SELECT updated_by FROM common_config WHERE config_key = ?", Long.class, key);
+      boolean edited = !by.isEmpty() && by.getFirst() != null;
+      assertThat(it.get("updatedAt").isNull()).as(key).isEqualTo(!edited);
     }
   }
 
