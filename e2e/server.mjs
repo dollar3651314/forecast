@@ -131,7 +131,19 @@ function serveWww(req, res) {
   if (file.endsWith('.html')) res.end(fs.readFileSync(file, 'utf8').replace('__FC_CLIENT_URL__', `http://127.0.0.1:${PORT}`));
   else fs.createReadStream(file).pipe(res);
 }
-http.createServer(serveWww).listen(SITE_PORT, '127.0.0.1', () => {
+/**
+ * 空闲连接保持 120 秒（Node 默认只有 5 秒）。forecast S3 查到的偶发失败：测试进程的请求上下文空闲约 6 秒后复用同一个连接，
+ * 正好碰上服务器按 5 秒超时关闭它，Playwright 报 "socket hang up"（主流程第 06 步注入充值）。服务器保持得比客户端久就不会出现
+ * （和 Nginx 的 keepalive_timeout 65 秒同一个道理）；headersTimeout 必须大于 keepAliveTimeout。
+ */
+function keepAlive(s) {
+  s.keepAliveTimeout = 120_000;
+  s.headersTimeout = 125_000;
+  return s;
+}
+keepAlive(server);
+
+keepAlive(http.createServer(serveWww)).listen(SITE_PORT, '127.0.0.1', () => {
   console.log(`端到端测试官网 http://127.0.0.1:${SITE_PORT}（/api/health → ${BACKEND.origin}）`);
 });
 
