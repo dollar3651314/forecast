@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 后台查看充值和提现（只读）。只有 wallet 模块使用。 -->
+<mapper namespace="com.forecast.app.wallet.admin.WalletAdminMapper">
+
+  <sql id="depositWhere">
+    <where>
+      <if test="chain != null">AND chain = #{chain}</if>
+      <if test="statuses != null and !statuses.isEmpty()">AND status IN <foreach collection="statuses" item="s" open="(" separator="," close=")">#{s}</foreach></if>
+      <if test="txHash != null">AND tx_hash = #{txHash}</if>
+      <!-- 客户和对外编号是"或"（后台搜索框输入数字时两者都可能） -->
+      <if test="userIds != null or no != null">AND (<trim prefixOverrides="OR">
+        <if test="userIds != null">OR user_id IN <foreach collection="userIds" item="u" open="(" separator="," close=")">#{u}</foreach></if>
+        <if test="no != null">OR public_no = #{no}</if>
+      </trim>)</if>
+    </where>
+  </sql>
+
+  <select id="deposits" resultType="com.forecast.app.wallet.admin.WalletAdminMapper$DepositRow">
+    SELECT id, public_no, user_id, chain, tx_hash, amount, confirmations, status, created_at, credited_at FROM wallet_deposit
+    <include refid="depositWhere"/> ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="countDeposits" resultType="long">SELECT COUNT(*) FROM wallet_deposit <include refid="depositWhere"/></select>
+
+  <!-- 第一次往这个地址提现：之前没有同一客户、同一网络、同一地址（以太坊体系不分大小写）的已完成或上链中的提现 -->
+  <sql id="withdrawalSelect">
+    SELECT w.id, w.public_no, w.user_id, w.amount, w.fee, w.network, w.address, w.status, w.delay_ends_at, w.created_at, w.reviewer_id, w.reject_reason, w.tx_hash,
+      NOT EXISTS (SELECT 1 FROM wallet_withdrawal p WHERE p.user_id = w.user_id AND p.network = w.network AND p.id &lt; w.id
+        AND p.status IN ('BROADCASTING', 'COMPLETED')
+        AND (CASE WHEN w.network = 'TRC20' THEN p.address = w.address ELSE LOWER(p.address) = LOWER(w.address) END)) AS first_use,
+      (SELECT MAX(l.created_at) FROM wallet_whitelist l WHERE l.user_id = w.user_id AND l.network = w.network
+        AND l.address_key = (CASE WHEN w.network = 'TRC20' THEN w.address ELSE LOWER(w.address) END)) AS whitelist_added_at
+    FROM wallet_withdrawal w
+  </sql>
+
+  <!-- v2 自动审批：按最近一次判定（last_check_id）筛选。auto 只来自代码里的固定值（FundsOps 换算后的） -->
+  <sql id="autoReviewWhere">
+    <if test="auto != null">
+      <choose>
+        <when test="auto == 'NONE'">AND w.last_check_id IS NULL</when>
+        <when test="auto == 'AUTO_APPROVED'">AND EXISTS (SELECT 1 FROM wallet_withdraw_rule_check c WHERE c.id = w.last_check_id AND c.outcome = 'AUTO_APPROVED')</when>
+        <when test="auto == 'MANUAL'">AND EXISTS (SELECT 1 FROM wallet_withdraw_rule_check c WHERE c.id = w.last_check_id AND c.outcome IN ('MANUAL', 'ERROR'))</when>
+        <when test="auto == 'MASTER_OFF'">AND EXISTS (SELECT 1 FROM wallet_withdraw_rule_check c WHERE c.id = w.last_check_id AND c.outcome = 'MASTER_OFF')</when>
+        <otherwise>AND EXISTS (SELECT 1 FROM wallet_withdraw_rule_hit h WHERE h.withdrawal_id = w.id AND h.rule_code = #{auto})</otherwise>
+      </choose>
+    </if>
+  </sql>
+
+  <sql id="withdrawalWhere">
+    <where>
+      <if test="statuses != null and !statuses.isEmpty()">AND w.status IN <foreach collection="statuses" item="s" open="(" separator="," close=")">#{s}</foreach></if>
+      <if test="chain != null">AND w.network = #{chain}</if>
+      <if test="min != null">AND w.amount &gt;= #{min}</if>
+      <if test="max != null">AND w.amount &lt;= #{max}</if>
+      <if test="userIds != null or no != null">AND (<trim prefixOverrides="OR">
+        <if test="userIds != null">OR w.user_id IN <foreach collection="userIds" item="u" open="(" separator="," close=")">#{u}</foreach></if>
+        <if test="no != null">OR w.public_no = #{no}</if>
+      </trim>)</if>
+      <if test="id != null">AND w.id = #{id}</if>
+      <include refid="autoReviewWhere"/>
+    </where>
+  </sql>
+
+  <select id="withdrawals" resultType="com.forecast.app.wallet.admin.WalletAdminMapper$WithdrawalRow">
+    <include refid="withdrawalSelect"/> <include refid="withdrawalWhere"/> ORDER BY w.id DESC LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="countWithdrawals" resultType="long">
+    SELECT COUNT(*) FROM wallet_withdrawal w
+    <where>
+      <if test="statuses != null and !statuses.isEmpty()">AND w.status IN <foreach collection="statuses" item="s" open="(" separator="," close=")">#{s}</foreach></if>
+      <if test="chain != null">AND w.network = #{chain}</if>
+      <if test="min != null">AND w.amount &gt;= #{min}</if>
+      <if test="max != null">AND w.amount &lt;= #{max}</if>
+      <if test="userIds != null or no != null">AND (<trim prefixOverrides="OR">
+        <if test="userIds != null">OR w.user_id IN <foreach collection="userIds" item="u" open="(" separator="," close=")">#{u}</foreach></if>
+        <if test="no != null">OR w.public_no = #{no}</if>
+      </trim>)</if>
+      <include refid="autoReviewWhere"/>
+    </where>
+  </select>
+
+  <select id="withdrawalIdByNo" resultType="java.lang.Long">SELECT id FROM wallet_withdrawal WHERE public_no = #{no}</select>
+
+  <select id="openBuckets" resultType="com.forecast.app.wallet.admin.WalletAdminMapper$BucketRow">
+    SELECT status, COUNT(*) AS count, COALESCE(SUM(amount), 0) AS amount FROM wallet_withdrawal
+    WHERE status IN ('COOLING', 'REVIEWING', 'DELAYED') GROUP BY status
+  </select>
+
+  <select id="completedSince" resultType="com.forecast.app.wallet.admin.WalletAdminMapper$BucketRow">
+    SELECT 'COMPLETED' AS status, COUNT(*) AS count, COALESCE(SUM(amount), 0) AS amount FROM wallet_withdrawal
+    WHERE status = 'COMPLETED' AND completed_at &gt;= #{since}
+  </select>
+
+  <select id="totalDeposit" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(amount), 0) FROM wallet_deposit WHERE user_id = #{userId} AND status = 'CREDITED'
+  </select>
+
+  <select id="creditedSince" resultType="com.forecast.app.wallet.admin.WalletAdminMapper$BucketRow">
+    SELECT 'CREDITED' AS status, COUNT(*) AS count, COALESCE(SUM(amount), 0) AS amount FROM wallet_deposit
+    WHERE status = 'CREDITED' AND credited_at &gt;= #{since}
+  </select>
+</mapper>

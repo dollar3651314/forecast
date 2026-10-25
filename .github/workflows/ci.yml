@@ -1,0 +1,529 @@
+# 每个 PR 的自动检查（agents 规则 C54、C74；技术方案/v1-架构方案.md 第 12 节）。按复制源 ci.yml v0.10 改写（forecast S1）。
+# 原则：不需要任何密钥（外部服务用替身）；用到数据库的，用 GitHub 提供的 MySQL、Redis 服务容器在真实数据库上跑（C37）；
+#   测试里的假值用 ci_only_ 前缀，避免被 gitleaks 误报。
+# 结构（第 12.1 节）：changes 判断改动路径 → checks、web (client/admin/site)、backend、e2e、e2e-deployed、contracts、sweep-anvil → ci-ok 汇总。
+#   - PR 上按改动路径决定跑哪些 job（dorny/paths-filter，固定提交号）；没跑的 job 显示"跳过"，检查名字照常上报。改到 .github/ 时全部都跑。
+#   - push 到 staging、main 和手动运行时不看路径，全部都跑。
+#   - ci-ok：任何一项 failure / cancelled 就失败，跳过算通过。分支保护只设它为必须通过（第一次运行变绿后由运维指导 Amos 设置）。
+#   - concurrency：PR 同一分支新推送时取消旧运行；push 不取消，排队依次跑（正在发布的运行不会被打断）。
+#   - 缓存：Maven（setup-java）、npm（setup-node）、Playwright 浏览器（actions/cache）、Docker 构建层（buildx 的 gha 缓存）。
+#   - 定时任务：不开（外部探测见架构方案第 11.7 节）。
+# forecast S1 和复制源的差别：
+#   - 环境变量换成 FC_ 前缀，库名 forecast_*，镜像 forecast-app / forecast-web，后端 wallet 包路径 com/forecast/app。
+#   - checks 加"整个仓库没有旧品牌名"（node scripts/check-brand.mjs --repo，名单在 scripts/brand-check.json）。
+#     架构方案第 12.1 节写的 scripts/check-i18n.mjs 复制源没有这个脚本，S1 不加（三个前端的 i18n 键检查在各自的单元测试里）。
+#   - publish-staging 保留但现在不会触发：仓库还没有 staging 分支，也没有测试服务器（架构方案第 11 节，S14）。
+#     建好 staging 分支和测试服务器以前，push 到 staging 的事件不会发生；仓库 Variables 里的 FC_STAGING_APP_URL 也没设。
+# Actions 用量：公开仓库免费；私有仓库消耗账户的免费额度（复制源私有期间额度用完过，CI 停了）。仓库公开还是私有由 Amos 处理（FQ-12）；
+#   私有时每月检查一次用量，超过 70% 提醒 Amos（C74 第 6 条）。路径过滤、取消旧运行、缓存都是为了省用量。
+name: ci
+on:
+  pull_request:
+    branches: [staging, main]
+  push:
+    branches: [staging, main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pull-requests: read   # 密钥扫描（gitleaks-action）、路径判断（paths-filter）要读取 PR 的提交和文件列表，只读
+concurrency:
+  # PR：按分支分组，新推送取消旧运行。push / 手动运行：按分支分组但不取消——正在跑的（包括正在发布的）跑完，
+  # 排队中的只保留最新一个（中间的提交被最新的包含，最新的会跑全部检查再发布），保证发布顺序不会倒过来。
+  group: ci-${{ github.event_name == 'pull_request' && format('pr-{0}', github.head_ref) || format('{0}-{1}', github.event_name, github.ref) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  # 决定 PR 上跑哪些 job。输出都是 'true' / 'false'；不是 PR（push、手动）或者改到了 .github/ 时全部为 'true'。
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      client: ${{ steps.all.outputs.full == 'true' || steps.f.outputs.client == 'true' || steps.f.outputs.webshared == 'true' }}
+      admin: ${{ steps.all.outputs.full == 'true' || steps.f.outputs.admin == 'true' || steps.f.outputs.webshared == 'true' }}
+      site: ${{ steps.all.outputs.full == 'true' || steps.f.outputs.site == 'true' || steps.f.outputs.webshared == 'true' }}
+      backend: ${{ steps.all.outputs.full == 'true' || steps.f.outputs.backend == 'true' || steps.f.outputs.deploy == 'true' || steps.f.outputs.contracts == 'true' }}
+      e2e: ${{ steps.all.outputs.full == 'true' || steps.f.outputs.backend == 'true' || steps.f.outputs.deploy == 'true' || steps.f.outputs.contracts == 'true' || steps.f.outputs.e2e == 'true' }}
+      deployed: ${{ steps.all.outputs.full == 'true' || steps.f.outputs.deployed == 'true' }}
+      contracts: ${{ steps.all.outputs.full == 'true' || steps.f.outputs.contracts == 'true' }}
+      sweep: ${{ steps.all.outputs.full == 'true' || steps.f.outputs.sweep == 'true' }}
+    steps:
+      - name: 改动路径（只在 PR 上判断；用 GitHub 接口取文件列表，不用 checkout）
+        id: f
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d   # v4.0.1
+        with:
+          filters: |
+            ci:
+              - '.github/**'
+            webshared:
+              - 'scripts/check-no-mocks.mjs'
+              - 'scripts/check-brand.mjs'
+              - 'scripts/brand-check.json'
+            client:
+              - 'web/client/**'
+              - 'vercel.json'
+              # 客户端 lib/pool.test.ts 读后端的赔率测试向量（forecast S4，前后端共用一份）
+              - 'backend/src/test/resources/pool/**'
+            admin:
+              - 'web/admin/**'
+            site:
+              - 'web/site/**'
+              - 'vercel.json'
+            backend:
+              - 'backend/**'
+              - 'scripts/brand-check.json'
+            deploy:
+              - 'deploy/**'
+              - '.dockerignore'
+            contracts:
+              - 'contracts/**'
+              - '.gitmodules'
+            e2e:
+              - 'e2e/*'
+              - 'e2e/tests/**'
+            deployed:
+              - 'deploy/**'
+              - '.dockerignore'
+              - 'e2e/run-deployed.sh'
+              - 'e2e/compose.deployed.yml'
+            sweep:
+              - 'contracts/**'
+              - '.gitmodules'
+              - 'backend/pom.xml'
+              - 'backend/src/main/java/com/forecast/app/wallet/**'
+              - 'backend/src/main/resources/db/**'
+              - 'backend/src/test/java/**/Sweep*'
+      - name: 是否全部都跑
+        id: all
+        env:
+          EVENT: ${{ github.event_name }}
+          CI_CHANGED: ${{ steps.f.outputs.ci }}
+        run: |
+          if [ "$EVENT" != pull_request ] || [ "$CI_CHANGED" = true ]; then full=true; else full=false; fi
+          echo "full=$full" >> "$GITHUB_OUTPUT"
+          echo "全部都跑：$full（事件 $EVENT）"
+  # 基本检查：任何改动都跑（只改文档时只有这一个 job 真正运行）
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: 项目地图和索引检查（C53）
+        run: node scripts/check-project-index.mjs
+      - name: 整个仓库没有旧品牌名、旧环境变量前缀、旧服务器地址（架构方案第 1.4 节 ⑦；名单和排除的文件在 scripts/brand-check.json）
+        run: node scripts/check-brand.mjs --repo
+      - name: 密钥扫描（仓库里不能出现密钥的值）
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  web-client:
+    name: web (client)
+    needs: changes
+    if: needs.changes.outputs.client == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/web-check
+        with:
+          app: client
+          mock-build: 'true'
+  web-admin:
+    name: web (admin)
+    needs: changes
+    if: needs.changes.outputs.admin == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/web-check
+        with:
+          app: admin
+  web-site:
+    name: web (site)
+    needs: changes
+    if: needs.changes.outputs.site == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/web-check
+        with:
+          app: site
+          mock-build: 'true'
+  backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          # 一次性测试容器的密码，只在 CI 里用，不是任何环境的密钥
+          MYSQL_ROOT_PASSWORD: ci_only_not_a_secret
+          MYSQL_DATABASE: forecast_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -uroot -pci_only_not_a_secret --silent"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd="redis-cli ping" --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      FC_DB_URL: jdbc:mysql://127.0.0.1:3306/forecast_test
+      FC_DB_USERNAME: root
+      FC_DB_PASSWORD: ci_only_not_a_secret
+      FC_REDIS_HOST: 127.0.0.1
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+      - name: 单元测试、真实 MySQL 上的集成测试、模块边界检查（ArchUnit）、旧品牌名检查（BrandTextTest）
+        run: mvn -B -ntp verify
+  # 端到端测试：真实模式构建的客户端、后台、官网 + 后端（profile e2e，外部依赖用替身）+ MySQL、Redis 容器，
+  # Playwright（Chromium）跑主流程：注册 → 充值 → KYC → 提现，后台审核（S1 删除了复制源的下单、止盈止损、平仓几步，下注在 S11 以后加回来）；
+  # 另外跑官网用例。失败时上传 trace、截图、录像和后端日志。
+  # 快检查（server.mjs 形态）：PR 上改了后端、部署、合约或 e2e/ 时跑。
+  e2e:
+    needs: changes
+    if: needs.changes.outputs.e2e == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          # 一次性测试容器的密码，只在 CI 里用，不是任何环境的密钥
+          MYSQL_ROOT_PASSWORD: ci_only_not_a_secret
+          MYSQL_DATABASE: forecast_e2e
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -uroot -pci_only_not_a_secret --silent"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd="redis-cli ping" --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      FC_DB_URL: jdbc:mysql://127.0.0.1:3306/forecast_e2e
+      FC_DB_USERNAME: root
+      FC_DB_PASSWORD: ci_only_not_a_secret
+      FC_REDIS_HOST: 127.0.0.1
+      # 第一个超管（后台方案 G1）：一次性测试值，只在 CI 的临时数据库里用，不是任何环境的密钥；测试里首次登录会改成另一个一次性值
+      FC_ADMIN_INIT_USERNAME: e2e_admin
+      FC_ADMIN_INIT_PASSWORD: ci_only_admin_init_1
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            web/client/package-lock.json
+            web/admin/package-lock.json
+            web/site/package-lock.json
+            e2e/package-lock.json
+      - name: 缓存 Playwright 浏览器
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
+      - name: 构建后端
+        run: mvn -B -ntp -f backend package -DskipTests
+      - name: 构建客户端（真实接口模式）
+        working-directory: web/client
+        run: npm ci --no-audit --no-fund && npm run build
+      - name: 构建后台（真实接口模式）
+        working-directory: web/admin
+        run: npm ci --no-audit --no-fund && npm run build
+      - name: 构建官网（真实接口模式；server.mjs 在 4174 端口提供）
+        working-directory: web/site
+        run: npm ci --no-audit --no-fund && npm run build
+      - name: 安装 Playwright 和 Chromium（浏览器有缓存时只装系统依赖）
+        working-directory: e2e
+        env:
+          PW_CACHED: ${{ steps.pw-cache.outputs.cache-hit }}
+        run: |
+          npm ci --no-audit --no-fund
+          if [ "$PW_CACHED" = true ]; then npx playwright install-deps chromium; else npx playwright install --with-deps chromium; fi
+      - name: 启动后端（profile e2e）
+        run: bash e2e/start-backend.sh
+      - name: 端到端测试
+        working-directory: e2e
+        run: npx playwright test
+      - name: 上传失败记录（trace、截图、录像、后端日志）
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-failure
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+            e2e/logs/backend.log
+          retention-days: 14
+      - name: 停止后端
+        if: always()
+        run: kill "$(cat e2e/logs/backend.pid)" 2> /dev/null || true
+  # 部署形态的端到端测试（复制源的端到端测试方案第 9 节）：构建 jar、两个前端、两个镜像（deploy/*.Dockerfile），
+  # 用 deploy/kit/docker-compose.yml + e2e/compose.deployed.yml 起 Nginx、后端（profile e2e）、MySQL、Redis，浏览器经 HTTPS 和两个假域名跑主流程，
+  # 另外检查 Nginx 路由、Service Worker、登录 Cookie 的 Secure、测试环境标识条。密码由脚本随机生成，用完删除。
+  # 重检查：PR 上只在改了 deploy/、.dockerignore、e2e/run-deployed.sh、e2e/compose.deployed.yml 时跑；staging 上每次都跑。
+  e2e-deployed:
+    needs: changes
+    if: needs.changes.outputs.deployed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            web/client/package-lock.json
+            web/admin/package-lock.json
+            web/site/package-lock.json
+            e2e/package-lock.json
+      - name: 缓存 Playwright 浏览器
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
+      - name: 安装 Playwright 和 Chromium（浏览器有缓存时只装系统依赖）
+        working-directory: e2e
+        env:
+          PW_CACHED: ${{ steps.pw-cache.outputs.cache-hit }}
+        run: |
+          npm ci --no-audit --no-fund
+          if [ "$PW_CACHED" = true ]; then npx playwright install-deps chromium; else npx playwright install --with-deps chromium; fi
+      # Docker 构建层缓存：buildx + GitHub Actions 缓存（type=gha），和 publish-staging 用同一个 scope
+      - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd   # v4.0.0
+      - name: 把 Actions 缓存的地址和令牌交给 buildx（脚本里的 docker buildx build 要用）
+        uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487   # v4.0.0
+      - name: 部署形态端到端测试（构建镜像 → compose 启动 → Playwright → 收尾）
+        env:
+          E2E_BUILDX_CACHE: gha
+        run: bash e2e/run-deployed.sh
+      - name: 上传失败记录（trace、截图、录像、各容器日志）
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-deployed-failure
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+            e2e/logs/deployed/
+          retention-days: 14
+  # 资金归集合约（contracts/，复制源的半自动归集方案第 4.14 节"不审计的替代措施"）
+  contracts:
+    needs: changes
+    if: needs.changes.outputs.contracts == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: contracts
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.5.1
+      - name: lib/ 下的 BitGo、OpenZeppelin 源码没有被改过（sha256）
+        run: bash script/check-vendor.sh
+      - name: 编译
+        run: forge build --sizes
+      - name: 测试（含模糊测试 10,000 次、不变量测试、1,000 个 CREATE2 测试向量）
+        run: forge test
+      - name: 批量合约覆盖率必须 100%（行、语句、分支、函数）
+        run: |
+          forge coverage --report summary --no-match-coverage "(test|script|lib)" | tee coverage.txt
+          line=$(grep 'src/SweepBatcher.sol' coverage.txt)
+          echo "$line"
+          test "$(echo "$line" | grep -o '100.00%' | wc -l)" -eq 4
+  # 资金归集本地链端到端：anvil 上部署合约（和 Amos 部署主网同一个脚本）+ 后端真实 JSON-RPC：充值入账 → 归集 → 冷钱包收到
+  # 重检查：PR 上只在改了合约、后端 wallet 包、pom.xml、数据库迁移或 Sweep 测试时跑；staging 上每次都跑。
+  sweep-anvil:
+    needs: changes
+    if: needs.changes.outputs.sweep == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          # 一次性测试容器的密码，只在 CI 里用，不是任何环境的密钥
+          MYSQL_ROOT_PASSWORD: ci_only_not_a_secret
+          MYSQL_DATABASE: forecast_anvil
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -uroot -pci_only_not_a_secret --silent"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd="redis-cli ping" --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      FC_DB_URL: jdbc:mysql://127.0.0.1:3306/forecast_anvil
+      FC_DB_USERNAME: root
+      FC_DB_PASSWORD: ci_only_not_a_secret
+      FC_REDIS_HOST: 127.0.0.1
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.5.1
+      - name: anvil 端到端（部署合约 → 转 USDT → 扫块入账 → 归集 → 冷钱包收到）
+        run: bash contracts/script/anvil-e2e.sh
+      - name: 上传日志
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sweep-anvil-failure
+          path: e2e/logs/
+          retention-days: 14
+  # 汇总：分支保护只设这一个检查为必须通过。任何一项失败或取消就失败；被跳过（PR 上没改到对应路径）算通过。
+  ci-ok:
+    if: always()
+    needs: [changes, checks, web-client, web-admin, web-site, backend, e2e, e2e-deployed, contracts, sweep-anvil]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: 汇总前面各项的结果
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "各项结果：$RESULTS"
+          for r in $RESULTS; do
+            case "$r" in
+              success|skipped) ;;
+              *) echo "有检查没通过（$r）" >&2; exit 1 ;;
+            esac
+          done
+          echo "全部通过（跳过的算通过）"
+  publish-staging:
+    # 只在合并到 staging（push）并且上面的检查全部通过时运行；PR 上不运行。
+    # forecast S1：保留但现在不会触发（还没有 staging 分支和测试服务器，S14 建）。
+    # push 时 changes 的输出全部是 'true'，下面每个 job 都会真正运行；任何一个失败、取消或被跳过，本 job 都不运行（不发布）。
+    if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
+    needs: [checks, web-client, web-admin, web-site, backend, contracts, sweep-anvil, e2e, e2e-deployed]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write   # 推镜像到 GitHub 镜像仓库（ghcr.io），用本次运行自带的临时令牌，不需要另存密钥
+    env:
+      REG: ghcr.io/dollar3651314/forecast
+      SHA: ${{ github.sha }}
+      # 测试环境客户端地址（例如 https://test-app.<域名>），在仓库 Settings → Variables 里设；没设时跳过"等待生效"
+      STAGING_APP_URL: ${{ vars.FC_STAGING_APP_URL }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            web/client/package-lock.json
+            web/admin/package-lock.json
+            web/site/package-lock.json
+      - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd   # v4.0.0
+      - name: 构建后端 jar（测试已在 backend、e2e 里跑过）
+        run: mvn -B -ntp -f backend package -DskipTests
+      - name: 构建三个前端（客户端、后台、官网；真实接口模式，不设 VITE_API_MODE）
+        run: |
+          npm ci --prefix web/client --no-audit --no-fund && npm run build --prefix web/client
+          npm ci --prefix web/admin --no-audit --no-fund && npm run build --prefix web/admin
+          npm ci --prefix web/site --no-audit --no-fund && npm run build --prefix web/site
+      - name: 构建 app 镜像（标签 = 提交号；构建层用 Actions 缓存，和 e2e-deployed 共用）
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294   # v7.0.0
+        with:
+          context: .
+          file: deploy/app.Dockerfile
+          build-args: FC_VERSION=${{ env.SHA }}
+          tags: ${{ env.REG }}-app:${{ env.SHA }}
+          load: true
+          push: false
+          provenance: false
+          cache-from: type=gha,scope=forecast-app
+          cache-to: type=gha,mode=max,scope=forecast-app
+      - name: 构建 web 镜像（标签 = 提交号）
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294   # v7.0.0
+        with:
+          context: .
+          file: deploy/web.Dockerfile
+          build-args: FC_VERSION=${{ env.SHA }}
+          tags: ${{ env.REG }}-web:${{ env.SHA }}
+          load: true
+          push: false
+          provenance: false
+          cache-from: type=gha,scope=forecast-web
+          cache-to: type=gha,mode=max,scope=forecast-web
+      - name: 推送镜像（先推版本号标签，最后才移动 app 的 staging 标签，服务器看到 staging 变化时两个镜像都已就绪）
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker push "$REG-web:$SHA"
+          docker push "$REG-app:$SHA"
+          docker tag "$REG-web:$SHA" "$REG-web:staging" && docker push "$REG-web:staging"
+          docker tag "$REG-app:$SHA" "$REG-app:staging" && docker push "$REG-app:staging"
+      - name: 镜像仓库只保留最近 10 个版本（H4）
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: forecast-app
+          package-type: container
+          min-versions-to-keep: 10
+      - uses: actions/delete-package-versions@v5
+        with:
+          package-name: forecast-web
+          package-type: container
+          min-versions-to-keep: 10
+      - name: 等测试环境换成这个版本（最多 15 分钟；不成功时本次运行失败，GitHub 会发邮件）
+        if: env.STAGING_APP_URL != ''
+        run: |
+          for _ in $(seq 1 90); do
+            v=$(curl -sf --max-time 5 "$STAGING_APP_URL/api/health" | sed -n 's/.*"version":"\([^"]*\)".*/\1/p' || true)
+            if [ "$v" = "$SHA" ]; then echo "测试环境已是 $SHA"; exit 0; fi
+            sleep 10
+          done
+          echo "15 分钟内测试环境没有换成 $SHA（当前：${v:-无法访问}）。服务器上看 /opt/forecast/logs/deploy.log" >&2
+          exit 1

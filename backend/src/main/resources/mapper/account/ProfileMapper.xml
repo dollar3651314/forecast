@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 个人资料。只有 account 模块使用。 -->
+<mapper namespace="com.forecast.app.account.profile.ProfileMapper">
+
+  <select id="find" resultType="com.forecast.app.account.profile.ProfileRow">
+    SELECT u.id AS user_id, u.email, p.first_name, p.middle_name, p.last_name, p.birth_date, p.nationality, u.created_at AS registered_at
+    FROM account_user u JOIN account_profile p ON p.user_id = u.id WHERE u.id = #{userId}
+  </select>
+
+  <update id="update">
+    UPDATE account_profile SET first_name = #{firstName}, middle_name = #{middleName}, last_name = #{lastName}, birth_date = #{birthDate}, nationality = #{nationality}
+    WHERE user_id = #{userId}
+  </update>
+</mapper>

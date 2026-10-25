@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 对账。只有 wallet 模块使用。 -->
+<mapper namespace="com.forecast.app.wallet.recon.ReconMapper">
+
+  <resultMap id="deposit" type="com.forecast.app.wallet.recon.ReconMapper$DepositRow">
+    <constructor>
+      <arg column="id" javaType="_long"/>
+      <arg column="chain" javaType="string"/>
+      <arg column="tx_hash" javaType="string"/>
+      <arg column="log_index" javaType="_int"/>
+      <arg column="user_id" javaType="_long"/>
+      <arg column="amount" javaType="java.math.BigDecimal"/>
+      <arg column="status" javaType="string"/>
+      <arg column="block_number" javaType="_long"/>
+      <arg column="block_hash" javaType="string"/>
+      <arg column="created_at" javaType="java.time.LocalDateTime"/>
+    </constructor>
+  </resultMap>
+
+  <resultMap id="suspense" type="com.forecast.app.wallet.recon.ReconMapper$SuspenseRow">
+    <constructor>
+      <arg column="id" javaType="_long"/>
+      <arg column="user_id" javaType="_long"/>
+      <arg column="deposit_id" javaType="_long"/>
+      <arg column="amount" javaType="java.math.BigDecimal"/>
+      <arg column="status" javaType="string"/>
+    </constructor>
+  </resultMap>
+
+  <resultMap id="withdrawal" type="com.forecast.app.wallet.recon.ReconMapper$WithdrawalRow">
+    <constructor>
+      <arg column="id" javaType="_long"/>
+      <arg column="user_id" javaType="_long"/>
+      <arg column="amount" javaType="java.math.BigDecimal"/>
+      <arg column="status" javaType="string"/>
+    </constructor>
+  </resultMap>
+
+  <resultMap id="issue" type="com.forecast.app.wallet.api.WalletReconApi$Issue">
+    <constructor>
+      <arg column="id" javaType="_long"/>
+      <arg column="kind" javaType="string"/>
+      <arg column="ref_id" javaType="string"/>
+      <arg column="user_id" javaType="java.lang.Long"/>
+      <arg column="expected" javaType="java.math.BigDecimal"/>
+      <arg column="actual" javaType="java.math.BigDecimal"/>
+      <arg column="detail" javaType="string"/>
+      <arg column="status" javaType="string"/>
+      <arg column="created_at" javaType="java.time.LocalDateTime"/>
+      <arg column="resolved_by" javaType="java.lang.Long"/>
+      <arg column="resolved_at" javaType="java.time.LocalDateTime"/>
+      <arg column="note" javaType="string"/>
+    </constructor>
+  </resultMap>
+
+  <sql id="issueCols">id, kind, ref_id, user_id, expected, actual, detail, status, created_at, resolved_by, resolved_at, note</sql>
+
+  <select id="creditedDeposits" resultMap="deposit">
+    SELECT id, chain, tx_hash, log_index, user_id, amount, status, block_number, block_hash, created_at
+    FROM wallet_deposit WHERE status IN ('CREDITED', 'REVERSED')
+  </select>
+
+  <select id="suspenses" resultMap="suspense">
+    SELECT id, user_id, deposit_id, amount, status FROM wallet_suspense
+  </select>
+
+  <select id="withdrawals" resultMap="withdrawal">
+    SELECT id, user_id, amount, status FROM wallet_withdrawal
+  </select>
+
+  <resultMap id="outflow" type="com.forecast.app.wallet.recon.ReconMapper$OutflowRow">
+    <constructor>
+      <arg column="chain" javaType="string"/>
+      <arg column="tx_hash" javaType="string"/>
+      <arg column="log_index" javaType="_int"/>
+      <arg column="user_id" javaType="_long"/>
+      <arg column="from_address" javaType="string"/>
+      <arg column="to_address" javaType="string"/>
+      <arg column="amount" javaType="java.math.BigDecimal"/>
+      <arg column="kind" javaType="string"/>
+    </constructor>
+  </resultMap>
+
+  <resultMap id="swept" type="com.forecast.app.wallet.recon.ReconMapper$SweptRow">
+    <constructor>
+      <arg column="chain" javaType="string"/>
+      <arg column="public_no" javaType="_long"/>
+      <arg column="item_no" javaType="_int"/>
+      <arg column="user_id" javaType="_long"/>
+      <arg column="swept" javaType="java.math.BigDecimal"/>
+      <arg column="outflow" javaType="java.math.BigDecimal"/>
+    </constructor>
+  </resultMap>
+
+  <select id="sweepOutflows" resultMap="outflow">
+    SELECT chain, tx_hash, log_index, user_id, from_address, to_address, amount, kind FROM wallet_sweep_outflow WHERE kind &lt;&gt; 'SWEEP' ORDER BY id
+  </select>
+
+  <!-- 最近 30 天完成的批次；扫块进度已经过了批次所在区块 -->
+  <select id="sweptItems" resultMap="swept">
+    SELECT b.chain, b.public_no, i.item_no, i.user_id, i.swept,
+      (SELECT SUM(o.amount) FROM wallet_sweep_outflow o
+        WHERE o.chain = b.chain AND o.tx_hash = b.tx_hash AND LOWER(o.from_address) = LOWER(i.address)) AS outflow
+    FROM wallet_sweep_item i
+    JOIN wallet_sweep_batch b ON b.id = i.batch_id
+    JOIN wallet_chain_cursor c ON c.chain = b.chain
+    WHERE i.status = 'SWEPT' AND b.block_number IS NOT NULL AND c.last_block &gt;= b.block_number
+      AND b.finished_at &gt;= UTC_TIMESTAMP(3) - INTERVAL 30 DAY
+  </select>
+
+  <select id="issueCount" resultType="int">
+    SELECT COUNT(*) FROM wallet_recon_issue WHERE kind = #{kind} AND ref_id = #{refId}
+  </select>
+
+  <select id="openIssueCount" resultType="int">
+    SELECT COUNT(*) FROM wallet_recon_issue WHERE kind = #{kind} AND ref_id = #{refId} AND status = 'OPEN'
+  </select>
+
+  <insert id="insertIssue">
+    INSERT INTO wallet_recon_issue (kind, ref_id, user_id, expected, actual, detail) VALUES (#{kind}, #{refId}, #{userId}, #{expected}, #{actual}, #{detail})
+  </insert>
+
+  <select id="issues" resultMap="issue">
+    SELECT <include refid="issueCols"/> FROM wallet_recon_issue WHERE status = #{status} ORDER BY id DESC LIMIT #{limit}
+  </select>
+
+  <select id="issuePage" resultMap="issue">
+    SELECT <include refid="issueCols"/> FROM wallet_recon_issue <where><if test="status != null">status = #{status}</if></where>
+    ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="countIssues" resultType="long">
+    SELECT COUNT(*) FROM wallet_recon_issue <where><if test="status != null">status = #{status}</if></where>
+  </select>
+
+  <select id="lockIssue" resultMap="issue">
+    SELECT <include refid="issueCols"/> FROM wallet_recon_issue WHERE id = #{id} FOR UPDATE
+  </select>
+
+  <update id="resolveIssue">
+    UPDATE wallet_recon_issue SET status = 'RESOLVED', resolved_by = #{adminId}, resolved_at = #{at}, note = #{note} WHERE id = #{id} AND status = 'OPEN'
+  </update>
+
+  <update id="resolveSuspense">
+    UPDATE wallet_suspense SET status = 'RESOLVED', resolved_at = #{at}, note = #{note} WHERE id = #{id} AND status = 'OPEN'
+  </update>
+</mapper>

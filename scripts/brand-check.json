@@ -1,0 +1,35 @@
+{
+  "说明": [
+    "旧品牌名和复制残留的检查配置（forecast S1，技术方案/v1-架构方案.md 第 1.4 节 ⑦）。三处共用这一份：",
+    "1) scripts/check-brand.mjs <dist>：前端构建产物（CI 的 web-check）；",
+    "2) scripts/check-brand.mjs --repo：仓库里所有纳入版本管理的文件（CI 的 checks，相当于第 1.4 节 ⑦ 的 git grep）；",
+    "3) 后端测试 BrandTextTest：通知模板（迁移后的数据库）、后端代码里的字符串、src/main/resources 下的文件。",
+    "oldBrands 里 enabled=false 的不检查。FalconX（复制源的名字）一直检查。",
+    "Quick Come 的检查关着（enabled=false），原因：上线前本项目沿用 Quick Come 作为品牌名、用 quickcome.online 的子域名（Amos 2026-10-25：",
+    "'很多项目在上线前我都会用 quick come这个名字，域名也会用quickcome.online的子域名，只有正式上线时，才需要改名和域名'；需求说明书 v1.2 第 0 节、NF-11、AC-73、RQ-19，",
+    "架构方案 v1.1 第 15 节）。正式上线改名时：先把 web/*/src/lib/brand.ts、index.html、PWA 名称、push-sw.js、通知模板（新迁移）改成正式品牌，再把这一项改成 true（讲品牌历史的文档，例如项目地图、开发记录，按需加进 excludePaths），",
+    "这样前端产物、仓库、后端 BrandTextTest、端到端测试都会检查不再出现 Quick Come。",
+    "excludePaths：讲复制过程、竞品和品牌历史的文档，里面出现这些字是正常的（只对 --repo 生效）。",
+    "整合 1（2026-10-25）加了三份：Amos待办.md（写到另一个项目的服务器、Safe、Cloudflare 站点）和市场调研与推广策略（竞品、品牌历史），这两份原来不在有这项检查的分支上；",
+    "部署方案/v1-测试环境与切换.md（AQ-23：测试环境和复制源轮流用同一台服务器，切换步骤必须写出它的目录、定时器名字和服务器 IP）。",
+    "部署脚本（deploy/kit/）里不写另一个项目的名字和 IP，按'别的项目的容器、定时器'通用地检查。"
+  ],
+  "oldBrands": [
+    { "name": "FalconX", "pattern": "falcon ?x", "enabled": true },
+    { "name": "Quick Come", "pattern": "quick ?come|quickcome", "enabled": false }
+  ],
+  "residue": [
+    { "name": "复制源的环境变量前缀 FX_", "pattern": "\\bFX_[A-Z]" },
+    { "name": "复制源的指标、Cookie、存储键前缀 fx_", "pattern": "fx_[a-z]" },
+    { "name": "复制源的测试服务器 IP", "pattern": "47\\.251\\." }
+  ],
+  "excludePaths": [
+    "技术方案/v1-架构方案.md",
+    "需求文档/v1-需求说明书.md",
+    "调研/v1-Polymarket调研报告.md",
+    "scripts/brand-check.json",
+    "Amos待办.md",
+    "市场/v1-市场调研与推广策略.md",
+    "部署方案/v1-测试环境与切换.md"
+  ]
+}

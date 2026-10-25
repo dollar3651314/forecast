@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 账户模块：用户、资料、邮箱验证码、登录会话。只有 account 模块使用（表名以 account_ 开头）。时间一律用数据库的 UTC 时间。 -->
+<mapper namespace="com.forecast.app.account.auth.AuthMapper">
+
+  <select id="findUserByEmail" resultType="com.forecast.app.account.auth.Rows$UserRow">
+    SELECT id, email, password_hash, status FROM account_user WHERE email = #{email}
+  </select>
+
+  <select id="findUserById" resultType="com.forecast.app.account.auth.Rows$UserRow">
+    SELECT id, email, password_hash, status FROM account_user WHERE id = #{id}
+  </select>
+
+  <select id="isStaff" resultType="java.lang.Boolean">
+    SELECT is_staff FROM account_user WHERE id = #{id}
+  </select>
+
+  <select id="staffAmong" resultType="long">
+    SELECT id FROM account_user WHERE is_staff = 1 AND id IN <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
+  </select>
+
+  <insert id="insertUser" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO account_user (email, password_hash) VALUES (#{email}, #{passwordHash})
+  </insert>
+
+  <insert id="insertProfile">
+    INSERT INTO account_profile (user_id, first_name, middle_name, last_name, birth_date, nationality)
+    VALUES (#{userId}, #{firstName}, #{middleName}, #{lastName}, #{birthDate}, #{nationality})
+  </insert>
+
+  <update id="updatePassword">UPDATE account_user SET password_hash = #{passwordHash} WHERE id = #{id}</update>
+
+  <update id="updateStatus">UPDATE account_user SET status = #{status} WHERE id = #{id}</update>
+
+  <!-- 账号安全事件（v2 提现自动审批 R6）：时间由调用方给（注入的时钟），不用数据库时间 -->
+  <insert id="insertSecurityEvent">
+    INSERT INTO account_security_event (user_id, type, created_at) VALUES (#{userId}, #{type}, #{at})
+  </insert>
+
+  <!-- 窗口 (since, 现在]：正好在 since 的不算"内"（方案第 4 节的边界） -->
+  <select id="lastSecurityEventSince" resultType="com.forecast.app.account.api.SecurityEvent">
+    SELECT type, created_at AS at FROM account_security_event WHERE user_id = #{userId} AND created_at &gt; #{since} ORDER BY created_at DESC, id DESC LIMIT 1
+  </select>
+
+  <select id="registeredAt" resultType="java.time.LocalDateTime">SELECT created_at FROM account_user WHERE id = #{id}</select>
+
+  <update id="touchLogin">UPDATE account_user SET last_login_at = UTC_TIMESTAMP(3) WHERE id = #{id}</update>
+
+  <insert id="insertEmailCode">
+    INSERT INTO account_email_code (email, purpose, code_hash, expires_at)
+    VALUES (#{email}, #{purpose}, #{codeHash}, DATE_ADD(UTC_TIMESTAMP(3), INTERVAL #{ttlMinutes} MINUTE))
+  </insert>
+
+  <select id="countEmailCodesSince" resultType="int">
+    SELECT COUNT(*) FROM account_email_code
+    WHERE email = #{email} AND purpose = #{purpose} AND created_at &gt; DATE_SUB(UTC_TIMESTAMP(3), INTERVAL #{hours} HOUR)
+  </select>
+
+  <!-- 发验证码时看最新一条（判断 60 秒内不能重发），**不加锁**：新邮箱查不到记录时 FOR UPDATE 会锁住索引间隙，
+       两个新邮箱同时发验证码，各自的插入互相等对方的间隙锁，MySQL 死锁、接口 500（压测 LT-1）。
+       不加锁的代价：同一邮箱同一瞬间连发两次可能都成功，最多多发一封，仍受每天上限和按 IP 限次约束 -->
+  <select id="latestEmailCodeForSend" resultType="com.forecast.app.account.auth.Rows$EmailCodeRow">
+    SELECT id, code_hash, attempts, expires_at &lt;= UTC_TIMESTAMP(3) AS expired, consumed_at IS NOT NULL AS consumed,
+      TIMESTAMPDIFF(SECOND, created_at, UTC_TIMESTAMP(3)) AS age_seconds
+    FROM account_email_code
+    WHERE email = #{email} AND purpose = #{purpose} ORDER BY id DESC LIMIT 1
+  </select>
+
+  <!-- 校验时用：最新的一条，FOR UPDATE 让同一邮箱的校验排队，尝试次数不会少算（校验不插入，不会死锁） -->
+  <select id="latestEmailCode" resultType="com.forecast.app.account.auth.Rows$EmailCodeRow">
+    SELECT id, code_hash, attempts, expires_at &lt;= UTC_TIMESTAMP(3) AS expired, consumed_at IS NOT NULL AS consumed,
+      TIMESTAMPDIFF(SECOND, created_at, UTC_TIMESTAMP(3)) AS age_seconds
+    FROM account_email_code
+    WHERE email = #{email} AND purpose = #{purpose} ORDER BY id DESC LIMIT 1 FOR UPDATE
+  </select>
+
+  <update id="incrementCodeAttempts">UPDATE account_email_code SET attempts = attempts + 1 WHERE id = #{id}</update>
+
+  <update id="consumeCode">UPDATE account_email_code SET consumed_at = UTC_TIMESTAMP(3) WHERE id = #{id} AND consumed_at IS NULL</update>
+
+  <insert id="insertSession">
+    INSERT INTO account_session (user_id, token_hash, ip, user_agent, created_at, last_seen_at, expires_at)
+    VALUES (#{userId}, #{tokenHash}, #{ip}, #{userAgent}, UTC_TIMESTAMP(3), UTC_TIMESTAMP(3), DATE_ADD(UTC_TIMESTAMP(3), INTERVAL #{ttlHours} HOUR))
+  </insert>
+
+  <!-- 有效会话：没作废、没过期、用户没被冻结 -->
+  <select id="findActiveSession" resultType="com.forecast.app.account.auth.Rows$SessionRow">
+    SELECT s.id, s.user_id, TIMESTAMPDIFF(SECOND, s.last_seen_at, UTC_TIMESTAMP(3)) AS idle_seconds
+    FROM account_session s JOIN account_user u ON u.id = s.user_id
+    WHERE s.token_hash = #{tokenHash} AND s.revoked_at IS NULL AND s.expires_at &gt; UTC_TIMESTAMP(3) AND u.status = 'ACTIVE'
+  </select>
+
+  <update id="extendSession">
+    UPDATE account_session SET last_seen_at = UTC_TIMESTAMP(3), expires_at = DATE_ADD(UTC_TIMESTAMP(3), INTERVAL #{ttlHours} HOUR)
+    WHERE id = #{id} AND revoked_at IS NULL
+  </update>
+
+  <update id="revokeSession">
+    UPDATE account_session SET revoked_at = UTC_TIMESTAMP(3) WHERE token_hash = #{tokenHash} AND revoked_at IS NULL
+  </update>
+
+  <update id="revokeUserSessions">
+    UPDATE account_session SET revoked_at = UTC_TIMESTAMP(3)
+    WHERE user_id = #{userId} AND revoked_at IS NULL
+    <if test="exceptTokenHash != null">AND token_hash &lt;&gt; #{exceptTokenHash}</if>
+  </update>
+</mapper>

@@ -1,0 +1,258 @@
+# 配置只写变量名，值由环境变量提供；密钥只由 Amos 填在服务器上（底线：密钥不经过 AI）。
+# 本文件从 复制源（staging 2583328，见 技术方案/v1-架构方案.md 第 1.1 节）复制（forecast S1）。注释里的 S12、v2、E8、N-08 这类编号和 技术方案/v1-*.md 等文档是 复制源的，
+# forecast 仓库里没有这些文档；forecast 自己的依据是 技术方案/v1-架构方案.md。
+forecast:
+  # 健康检查返回的版本：部署时镜像构建把 git 提交号写进 FC_VERSION；没有时用 Maven 的 project.version（构建时替换 @...@）
+  version: '${FC_VERSION:@project.version@}'
+  # 测试环境标识（S20）：测试环境设 FC_ENV_LABEL=test，生产不设。非空时健康检查返回 env 字段，页面顶部显示"测试环境"标识条，
+  # 邮件和推送标题前加"[测试] / [TEST] "
+  env-label: ${FC_ENV_LABEL:}
+  # 对外编号（雪花 ID，v2 第 11.4 节，common/id/Snowflake）：节点号 0–1023，单实例默认 1；以后多实例时每个实例必须不同
+  id:
+    node: ${FC_ID_NODE:1}
+  # 监控告警（common/health/AlertCheck）：扫块停滞、链节点连不上、邮件连续发送失败。
+  # 健康检查 /api/health 的 alerts 里显示每一项（不影响 status 和 HTTP 状态码，部署脚本不会因此回滚）；异常和恢复时给告警邮箱发邮件。
+  # 告警邮箱 FC_ALERT_EMAILS 逗号分隔，代码里没有默认值（默认值在部署配置 deploy/kit/docker-compose.yml），为空时只记日志
+  alert:
+    enabled: true
+    emails: ${FC_ALERT_EMAILS:}
+    # 同一项告警多长时间内不重复发邮件
+    throttle: 30m
+    # 扫块多长时间没推进（或者落后的区块折合超过这个时间）算"停滞"
+    scan-stall: 10m
+    # 连续几次连不上节点算"节点不通"（扫块每 15 秒一次）
+    node-failures: 3
+    # 连续几封邮件发送失败算"邮件发送失败"
+    mail-failures: 5
+  # 登录参数，默认值沿用现有系统（技术方案/v1-数据库设计.md 2.5–2.7）
+  auth:
+    login-failure-limit: 5
+    lock-minutes: 15
+    session-ttl-hours: 72
+    code-ttl-minutes: 10
+    code-resend-seconds: 60
+    code-max-attempts: 5
+    # 安全审查 SEC-03：同一邮箱同一用途 24 小时最多发 10 次验证码；同一 IP 每小时最多请求 30 次（大陆移动网络很多人共用一个出口 IP，留足余量）
+    code-daily-limit: 10
+    code-ip-hourly-limit: 30
+    cookie-name: fc_session
+    cookie-secure: ${FC_COOKIE_SECURE:true}
+  # 通用限流（功能取舍对照表 P-05，common/ratelimit）：Redis 计数，Redis 不可用时放行。超限返回 429 RATE_LIMITED 和 Retry-After。
+  # Nginx 外层还有一道更宽松的限流（deploy/nginx/site.conf.template）。上限填 0 表示这一层不限。
+  # IP 是 Nginx 传来的真实客户端 IP；大陆移动网络很多人共用一个出口 IP，按 IP 的上限留足余量
+  rate-limit:
+    enabled: true
+    key-prefix: "fc:rl:"
+    # 同一 IP 每分钟最多请求 /api/** 几次（不含 /api/health 和 WebSocket 握手）
+    ip-per-minute: 600
+    # 同一 IP 每分钟最多几次 WebSocket 握手（推给本人的实时事件；只数握手，已建立的连接不受影响）
+    ws-handshake-per-minute: 120
+    # 同一客户每分钟最多几次资金写操作（提现提交、白名单增删，合计；S4 起加上下注、提交争议）
+    user-write-per-minute: 60
+    # 后台登录：同一 IP 15 分钟内最多请求 20 次（成功失败都算，安全审查 SEC-15）
+    admin-login-per-ip: 20
+    admin-login-window: 15m
+    # Redis 出错后 30 秒内不再访问 Redis、直接放行
+    redis-down-skip: 30s
+  # 钱包（S12，技术方案/v1-充值方案.md）。xpub、节点地址、合约地址都由 Amos 填进服务器环境变量，仓库里只有变量名
+  wallet:
+    # TRON 的账户级 xpub（只有公钥），Amos 离线生成助记词后导出（充值方案 D1）。
+    # 以太坊体系（ERC20、BEP20）没有 xpub：充值地址只用 CREATE2 合约地址（下面 sweep.evm 的四个地址），没配时这两条链"暂未开通"
+    tron-xpub: ${FC_WALLET_TRON_XPUB:}
+    # 最小充值 1 USDT（Amos 确认，充值方案 D4）
+    min-deposit: 1
+    # 提现（S13，技术方案/v1-提现方案.md）：限额沿用现有系统（N-08），手续费 Amos 确认（W3），从提现金额里扣
+    withdraw:
+      min-amount: 100 # 需求 RQ-16：默认 100，后台系统配置 withdraw.minAmount 可改（迁移 V7）
+      max-per-tx: 10000
+      daily-limit: 30000
+      large-amount: 3000
+      large-delay: 6h
+      cooling: 2h
+      whitelist-delay: 24h
+      max-whitelist: 10
+      fees:
+        ERC20: 5
+        TRC20: 1
+        BSC: 0.5
+    # 热钱包（S13b，提现方案 W1）：私钥由 Amos 填进服务器环境变量，启动时和地址核对，不出现在日志里
+    hot:
+      eth-private-key: ${FC_WALLET_ETH_HOT_KEY:}
+      eth-address: ${FC_WALLET_ETH_HOT_ADDRESS:}
+      tron-private-key: ${FC_WALLET_TRON_HOT_KEY:}
+      tron-address: ${FC_WALLET_TRON_HOT_ADDRESS:}
+      # chainId：ERC20 主网 1 / Sepolia 11155111；BSC 主网 56 / 测试网 97
+      erc20-chain-id: ${FC_WALLET_ERC20_CHAIN_ID:}
+      bsc-chain-id: ${FC_WALLET_BSC_CHAIN_ID:}
+      gas-limit: 100000
+      tron-fee-limit-sun: 30000000
+      stuck-after: 30m
+      max-replacements: 3
+    # 热钱包余额查询（2026-10-17，技术方案/v1-提现方案.md 第 6 节）：每 5 分钟查一次已配置热钱包的 USDT 和手续费币余额，后台对账页显示。
+    # 告警下限不在这里：在后台"系统配置"页（hotWallet.*，迁移 V25），默认 0 = 不告警（Amos 2026-10-17）
+    hot-balance:
+      enabled: true
+      interval: 5m
+    # 以太坊体系充值地址和资金归集（开发记录/钱包-合约地址方案.md；复制源 v2 半自动归集第一阶段；以太坊、BSC，TRON 方案 B 不用合约）。
+    # 四个合约相关地址都是公开地址，Amos 部署合约后填（部署方案/v1-归集合约部署.md）：都配了 → ERC20、BEP20 充值地址 = CREATE2 合约地址；
+    # 没配齐或检查不通过 → 这两条链"暂未开通"（不退回 xpub 派生），健康检查 alerts 的 deposit.evm 报 DOWN，status 不变。
+    # 发起账户私钥只由 Amos 填，启动时和地址核对；没配或对不上只是不能执行归集，不影响启动和健康检查
+    sweep:
+      evm:
+        factory: ${FC_SWEEP_EVM_FACTORY:}
+        implementation: ${FC_SWEEP_EVM_IMPLEMENTATION:}
+        parent: ${FC_SWEEP_EVM_PARENT:}
+        batcher: ${FC_SWEEP_EVM_BATCHER:}
+        operator-address: ${FC_SWEEP_EVM_OPERATOR_ADDRESS:}
+        operator-key: ${FC_SWEEP_EVM_OPERATOR_KEY:}
+        # 和提现共用 chainId
+        erc20-chain-id: ${FC_WALLET_ERC20_CHAIN_ID:}
+        bsc-chain-id: ${FC_WALLET_BSC_CHAIN_ID:}
+        retired-scan-days: 30
+        migrate-on-start: true
+        max-batch-size: 100
+        # 预估手续费用的 gas（Foundry 和 anvil 本地链实测见 contracts/README.md 第 5 节，取整往上留了余量）
+        deploy-gas: 160000
+        flush-gas: 45000
+        base-gas: 40000
+        priority-fee-gwei: 0.05
+        stuck-after: 30m
+        max-replacements: 3
+        balance-interval: 5m
+    chains:
+      ERC20:
+        rpc-url: ${FC_WALLET_ETH_RPC_URL:}
+        usdt-contract: ${FC_WALLET_ERC20_USDT_CONTRACT:}
+        usdt-decimals: 6
+        confirmations: 12
+        block-seconds: 12
+        # 主网 USDT 每个区块有上百笔转账，每次少扫一些，避免节点服务的返回条数上限
+        scan-batch: 20
+      BSC:
+        rpc-url: ${FC_WALLET_BSC_RPC_URL:}
+        usdt-contract: ${FC_WALLET_BSC_USDT_CONTRACT:}
+        # BSC 上的 USDT 是 18 位小数，按需求要上链实测确认（S20）
+        usdt-decimals: 18
+        confirmations: 15
+        # BSC 出块已经缩短到约 0.45 秒（2026-10-21 在测试网和主网各取 1,000 个区块实测：450 秒），原来按 3 秒配置，
+        # 每 15 秒只扫 50 个区块，几乎追不上出块，停机后积压永远补不完（scan.BSC 一直 DOWN）。
+        # 每 15 秒扫 150 个区块 ≈ 10 个/秒，是出块速度（约 2.2 个/秒）的 4 倍多；主网 USDT 转账多，一次不扫太多区块
+        block-seconds: 0.45
+        scan-batch: 150
+      TRC20:
+        rpc-url: ${FC_WALLET_TRON_RPC_URL:}
+        usdt-contract: ${FC_WALLET_TRC20_USDT_CONTRACT:}
+        usdt-decimals: 6
+        confirmations: 19
+        block-seconds: 3
+        # TRON 按区块逐个查，每个区块 2 次请求
+        scan-batch: 10
+  # 通知（S15a，技术方案/v1-通知方案.md）。邮件用 SMTP（N1），服务商待定（N-05）；没有配置 FC_MAIL_HOST 时邮件只记录、不发送。
+  # 密码只由 Amos 填进服务器环境变量
+  notify:
+    worker-enabled: true
+    # 给运营、财务人员的业务告警（充值冲正挂账、归集失败或卡住、入金对账差异、热钱包余额低），逗号分隔，Amos 提供；为空时只记日志。
+    # 复制源时这项属于已删除的 risk 模块，复制时搬到通知模块（S1）
+    staff-alert-emails: ${FC_RISK_ALERT_EMAILS:}
+    mail:
+      host: ${FC_MAIL_HOST:}
+      port: ${FC_MAIL_PORT:587}
+      username: ${FC_MAIL_USERNAME:}
+      password: ${FC_MAIL_PASSWORD:}
+      from: ${FC_MAIL_FROM:}
+      # STARTTLS（587 端口）或 SSL（465 端口）
+      security: ${FC_MAIL_SECURITY:STARTTLS}
+    # Web Push（S15b，通知方案 N2）：VAPID 密钥由 Amos 在自己电脑上生成（例如 npx web-push generate-vapid-keys）后填进服务器；
+    # 私钥只由 Amos 填。测试和生产各用一对，生成后不要换（换了所有客户要重新订阅）。没填时不发推送
+    push:
+      vapid-public-key: ${FC_PUSH_VAPID_PUBLIC_KEY:}
+      vapid-private-key: ${FC_PUSH_VAPID_PRIVATE_KEY:}
+      vapid-subject: ${FC_PUSH_VAPID_SUBJECT:}
+      ttl: 24h
+      max-devices: 10
+  # 后台（S16a，技术方案/v1-后台方案.md）。登录锁定次数和时长、IP 白名单在后台的系统配置里改
+  admin:
+    session-ttl: 8h
+    idle-timeout: 30m
+    cookie-name: fc_admin_session
+    cookie-secure: ${FC_COOKIE_SECURE:true}
+    # 第一个超级管理员（G1）：系统里还没有管理员时启动会用它建；密码只由 Amos 填，建好后可以删掉这两个变量
+    init-username: ${FC_ADMIN_INIT_USERNAME:}
+    init-password: ${FC_ADMIN_INIT_PASSWORD:}
+  # 市场（forecast S3，技术方案/v1-架构方案.md 第 5.2、5.3 节）：截止任务每 5 秒、事件结束任务每 15 秒，用数据库租约 common_job_lease 防多实例重复。
+  # 后端测试里关闭（测试直接调用）。费率、下注限额、争议窗口等参数在后台"参数设置"（common_config，迁移 V10），不在这里
+  market:
+    clock-enabled: true
+  # 结算（forecast S5，settle/run/SettleProperties）。batch-size：派彩时每批的持仓数（退款时每批的下注数）；
+  # 500（默认）= 先算好、落结算单，再每批一个事务分批派彩、可以续跑（架构方案第 4.3 节方案 B，AQ-3 Amos 2026-10-25 定）；
+  # 0 = 计算和派彩在同一个事务里一次完成（保留为可配置项）。派彩任务每 2 秒推进分批派彩的单（提交后也立即跑一轮）；彩池对账每天 UTC 00:30。
+  settle:
+    batch-size: ${FC_SETTLE_BATCH_SIZE:500}
+    worker-enabled: true
+    recon-enabled: true
+  # 对象存储（证件照片）。现在是本地目录，正式环境在 S20 换成对象存储服务
+  storage:
+    local-dir: ${FC_STORAGE_DIR:./data/storage}
+
+server:
+  port: ${FC_HTTP_PORT:8080}
+  # 客户端真实 IP 取自 Nginx 传来的 X-Forwarded-For，只信任内网地址的代理（登录失败按 IP 计数要用）
+  forward-headers-strategy: native
+
+spring:
+  application:
+    name: forecast
+  datasource:
+    url: ${FC_DB_URL}
+    username: ${FC_DB_USERNAME}
+    password: ${FC_DB_PASSWORD}
+    hikari:
+      # 每个连接都用 UTC，数据库默认时间和 UTC_TIMESTAMP() 一致
+      connection-init-sql: SET time_zone = '+00:00'
+      # 定时任务 + 接口请求共用；默认 10 不够。空闲时只保留 5 个（单实例估算见 技术方案/v1-架构方案.md 第 4.2 节）
+      maximum-pool-size: ${FC_DB_POOL_SIZE:30}
+      minimum-idle: 5
+      # MySQL 驱动在本地记住会话状态（autocommit、隔离级别、只读）：不加时每条 INSERT / UPDATE 前都多一次 SELECT @@session.transaction_read_only，
+      # 切换隔离级别前多一次查询（forecast S4 下注预压测实测：每笔下注约 46 条语句里有 10 条是这种查询，开发记录/S4-下注奖池.md 第 6 节）。
+      # 状态只经驱动的方法改（Spring 事务、连接池），代码里没有直接执行 SET SESSION 的地方，所以本地记的状态和服务器一致
+      data-source-properties:
+        useLocalSessionState: true
+  data:
+    redis:
+      host: ${FC_REDIS_HOST:localhost}
+      port: ${FC_REDIS_PORT:6379}
+      password: ${FC_REDIS_PASSWORD:}
+      # Redis 只用于限次计数（登录失败、发验证码、通用限流）和健康检查；卡住时 2 秒就放弃，不让请求一直等（默认 60 秒）
+      timeout: 2s
+      connect-timeout: 2s
+  # KYC 每张图最大 2MB（AC-05），一次提交 3 张
+  servlet:
+    multipart:
+      max-file-size: 2MB
+      max-request-size: 7MB
+  # 表结构只通过 Flyway 迁移脚本修改（src/main/resources/db/migration），表结构说明见 技术方案/v1-数据库设计.md
+  flyway:
+    locations: classpath:db/migration
+
+mybatis:
+  mapper-locations: classpath:mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+# 日志：级别后面带追踪号（v2 E9，common/trace/TraceId）：[32 位十六进制]（HTTP 请求和 WebSocket 连接，和响应头 X-Request-Id 相同）、
+# [job-…]（定时任务每次执行一个），没有时是 [-]。按追踪号查一个请求的全部日志：grep 追踪号
+logging:
+  pattern:
+    correlation: "[%X{traceId:--}] "
+
+# 应用管理端点只在内网端口监听，Nginx 不转发（修复 fxsystem S3）。
+# 指标（v2 E10）：GET http://127.0.0.1:8081/actuator/prometheus（Prometheus 格式）、/actuator/metrics；自定义指标都以 fc_ 开头，
+# 见 部署方案/v1-部署方案.md 第 15 节。只在服务器本机（容器里）能访问，不对外
+management:
+  server:
+    port: ${FC_MANAGEMENT_PORT:8081}
+    address: 127.0.0.1
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus

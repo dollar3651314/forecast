@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  市场（forecast S3）。只有 market 模块使用（表名以 market_ 开头）。
+  - 题目、规则、选项、时间、裁决来源的修改只对草稿生效（WHERE status = 'DRAFT'，AC-12）。
+  - 状态跳转都是带旧状态的条件更新（WHERE status = #{from}），同一事务写 market_status_log。
+  - market_status_log、market_clarification、market_fee_change 只增不改：这里没有它们的 UPDATE、DELETE（MarketAppendOnlyTest 检查）。
+-->
+<mapper namespace="com.forecast.app.market.core.MarketMapper">
+
+  <sql id="marketCols">
+    id, public_no, category, title_en, title_zh_cn, title_zh_tw, rules_en, rules_zh_cn, rules_zh_tw, resolution_mode, source_primary, source_backup,
+    source_ref, status, submitted_for_listing, settle_phase, winning_option_id, actual_start_at, resolved_by, open_at, close_at, event_start_at, event_end_at, fee_rate, user_cap, dispute_window_min,
+    void_reason, cancel_reason, cover_path, created_by, listed_by, deleted_at, version, created_at, updated_at
+  </sql>
+
+  <insert id="insertMarket" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO market_question (public_no, category, title_en, title_zh_cn, title_zh_tw, rules_en, rules_zh_cn, rules_zh_tw, resolution_mode,
+      source_primary, source_backup, source_ref, status, open_at, close_at, event_start_at, event_end_at, fee_rate, user_cap, dispute_window_min,
+      cover_path, created_by, created_at, updated_at)
+    VALUES (#{publicNo}, #{category}, #{titleEn}, #{titleZhCn}, #{titleZhTw}, #{rulesEn}, #{rulesZhCn}, #{rulesZhTw}, #{resolutionMode},
+      #{sourcePrimary}, #{sourceBackup}, #{sourceRef}, 'DRAFT', #{openAt}, #{closeAt}, #{eventStartAt}, #{eventEndAt}, #{feeRate}, #{userCap},
+      #{disputeWindowMin}, #{coverPath}, #{createdBy}, #{createdAt}, #{updatedAt})
+  </insert>
+
+  <!-- 品类可以改，但费率不在这里（费率只能经 updateFee 改，并写修改记录） -->
+  <update id="updateDraft">
+    UPDATE market_question SET category = #{category}, title_en = #{titleEn}, title_zh_cn = #{titleZhCn}, title_zh_tw = #{titleZhTw},
+      rules_en = #{rulesEn}, rules_zh_cn = #{rulesZhCn}, rules_zh_tw = #{rulesZhTw}, resolution_mode = #{resolutionMode},
+      source_primary = #{sourcePrimary}, source_backup = #{sourceBackup}, source_ref = #{sourceRef}, open_at = #{openAt}, close_at = #{closeAt},
+      event_start_at = #{eventStartAt}, event_end_at = #{eventEndAt}, user_cap = #{userCap}, dispute_window_min = #{disputeWindowMin},
+      cover_path = #{coverPath}, version = version + 1, updated_at = #{updatedAt}
+    WHERE id = #{id} AND status = 'DRAFT' AND deleted_at IS NULL
+  </update>
+
+  <update id="softDeleteDraft">
+    UPDATE market_question SET deleted_at = #{now}, submitted_for_listing = 0, version = version + 1, updated_at = #{now}
+    WHERE id = #{id} AND status = 'DRAFT' AND deleted_at IS NULL
+  </update>
+
+  <insert id="insertOption" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO market_option (public_no, market_id, seq, label_en, label_zh_cn, label_zh_tw, win_condition, created_at)
+    VALUES (#{publicNo}, #{marketId}, #{seq}, #{labelEn}, #{labelZhCn}, #{labelZhTw}, #{winCondition}, #{createdAt})
+  </insert>
+
+  <delete id="deleteDraftOptions">
+    DELETE o FROM market_option o JOIN market_question q ON q.id = o.market_id
+    WHERE o.market_id = #{marketId} AND q.status = 'DRAFT' AND q.deleted_at IS NULL
+  </delete>
+
+  <select id="findByPublicNo" resultType="com.forecast.app.market.core.MarketRows$Market">
+    SELECT <include refid="marketCols"/> FROM market_question WHERE public_no = #{publicNo} AND deleted_at IS NULL
+  </select>
+
+  <select id="findById" resultType="com.forecast.app.market.core.MarketRows$Market">
+    SELECT <include refid="marketCols"/> FROM market_question WHERE id = #{id}
+  </select>
+
+  <select id="findByIds" resultType="com.forecast.app.market.core.MarketRows$Market">
+    SELECT <include refid="marketCols"/> FROM market_question WHERE id IN
+    <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
+  </select>
+
+  <select id="lockById" resultType="com.forecast.app.market.core.MarketRows$Market">
+    SELECT <include refid="marketCols"/> FROM market_question WHERE id = #{id} FOR UPDATE
+  </select>
+
+  <select id="lockByPublicNo" resultType="com.forecast.app.market.core.MarketRows$Market">
+    SELECT <include refid="marketCols"/> FROM market_question WHERE public_no = #{publicNo} FOR UPDATE
+  </select>
+
+  <select id="lockForShareByPublicNo" resultType="com.forecast.app.market.core.MarketRows$Market">
+    SELECT <include refid="marketCols"/> FROM market_question WHERE public_no = #{publicNo} AND deleted_at IS NULL FOR SHARE
+  </select>
+
+  <sql id="optionCols">id, public_no, market_id, seq, label_en, label_zh_cn, label_zh_tw, win_condition, created_at</sql>
+
+  <select id="options" resultType="com.forecast.app.market.core.MarketRows$Option">
+    SELECT <include refid="optionCols"/> FROM market_option WHERE market_id = #{marketId} ORDER BY seq
+  </select>
+
+  <select id="optionsOf" resultType="com.forecast.app.market.core.MarketRows$Option">
+    SELECT <include refid="optionCols"/> FROM market_option WHERE market_id IN
+    <foreach collection="marketIds" item="m" open="(" separator="," close=")">#{m}</foreach>
+    ORDER BY market_id, seq
+  </select>
+
+  <select id="optionsByIds" resultType="com.forecast.app.market.core.MarketRows$Option">
+    SELECT <include refid="optionCols"/> FROM market_option WHERE id IN
+    <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
+  </select>
+
+  <select id="option" resultType="com.forecast.app.market.core.MarketRows$Option">
+    SELECT <include refid="optionCols"/> FROM market_option WHERE market_id = #{marketId} AND public_no = #{publicNo}
+  </select>
+
+  <update id="transition">
+    UPDATE market_question SET status = #{to}, version = version + 1, updated_at = #{now}
+      <if test="listedBy != null">, listed_by = #{listedBy}, submitted_for_listing = 0</if>
+      <if test="cancelReason != null">, cancel_reason = #{cancelReason}</if>
+      <if test="voidReason != null">, void_reason = #{voidReason}</if>
+    WHERE id = #{id} AND status = #{from} AND deleted_at IS NULL
+  </update>
+
+  <insert id="insertStatusLog" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO market_status_log (market_id, from_status, to_status, actor, reason, created_at)
+    VALUES (#{marketId}, #{fromStatus}, #{toStatus}, #{actor}, #{reason}, #{createdAt})
+  </insert>
+
+  <select id="statusLog" resultType="com.forecast.app.market.core.MarketRows$StatusLog">
+    SELECT id, market_id, from_status, to_status, actor, reason, created_at FROM market_status_log WHERE market_id = #{marketId} ORDER BY id
+  </select>
+
+  <update id="setSubmitted">
+    UPDATE market_question SET submitted_for_listing = #{submitted}, version = version + 1, updated_at = #{now}
+    WHERE id = #{id} AND status = 'DRAFT' AND deleted_at IS NULL
+  </update>
+
+  <!-- 结算（S5）：写结果，只在结算还没开始时（settle_phase = NONE）；市场行已经由结算事务加了排他锁 -->
+  <update id="setResult">
+    UPDATE market_question SET winning_option_id = #{winningOptionId}, actual_start_at = #{actualStartAt}, resolved_by = #{resolvedBy},
+      version = version + 1, updated_at = #{now}
+    WHERE id = #{id} AND settle_phase = 'NONE' AND deleted_at IS NULL
+  </update>
+
+  <!-- 结算阶段（不是需求状态机里的状态，第 4.3 节）：带旧值的条件更新 -->
+  <update id="casSettlePhase">
+    UPDATE market_question SET settle_phase = #{to}, version = version + 1, updated_at = #{now} WHERE id = #{id} AND settle_phase = #{from}
+  </update>
+
+  <update id="updateFee">
+    UPDATE market_question SET fee_rate = #{rate}, version = version + 1, updated_at = #{now}
+    WHERE id = #{id} AND settle_phase = 'NONE' AND status NOT IN ('SETTLED', 'CANCELLED', 'VOIDED') AND deleted_at IS NULL
+  </update>
+
+  <insert id="insertFeeChange" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO market_fee_change (market_id, old_rate, new_rate, reason, changed_by, changed_at, notified)
+    VALUES (#{marketId}, #{oldRate}, #{newRate}, #{reason}, #{changedBy}, #{changedAt}, #{notified})
+  </insert>
+
+  <select id="feeChanges" resultType="com.forecast.app.market.core.MarketRows$FeeChange">
+    SELECT id, market_id, old_rate, new_rate, reason, changed_by, changed_at, notified FROM market_fee_change WHERE market_id = #{marketId} ORDER BY id
+  </select>
+
+  <insert id="insertClarification" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO market_clarification (market_id, text_en, text_zh_cn, text_zh_tw, created_by, created_at)
+    VALUES (#{marketId}, #{textEn}, #{textZhCn}, #{textZhTw}, #{createdBy}, #{createdAt})
+  </insert>
+
+  <select id="clarifications" resultType="com.forecast.app.market.core.MarketRows$Clarification">
+    SELECT id, market_id, text_en, text_zh_cn, text_zh_tw, created_by, created_at FROM market_clarification WHERE market_id = #{marketId} ORDER BY id
+  </select>
+
+  <update id="advanceClose">
+    UPDATE market_question SET close_at = #{closeAt}, version = version + 1, updated_at = #{now}
+    WHERE id = #{id} AND status IN ('LISTED', 'PAUSED') AND close_at &gt; #{closeAt} AND open_at &lt; #{closeAt} AND deleted_at IS NULL
+  </update>
+
+  <select id="dueToClose" resultType="long">
+    SELECT id FROM market_question WHERE status IN ('LISTED', 'PAUSED') AND close_at &lt;= #{now} ORDER BY close_at, id LIMIT #{limit}
+  </select>
+
+  <select id="dueToEnd" resultType="long">
+    SELECT id FROM market_question WHERE status = 'CLOSED' AND event_end_at &lt;= #{now} ORDER BY event_end_at, id LIMIT #{limit}
+  </select>
+
+  <sql id="adminWhere">
+    <where>
+      deleted_at IS NULL
+      <if test="status != null">AND status = #{status}</if>
+      <if test="category != null">AND category = #{category}</if>
+      <if test="submitted != null">AND submitted_for_listing = #{submitted}</if>
+      <if test="keyword != null">
+        AND (title_en LIKE CONCAT('%', #{keyword}, '%') OR title_zh_cn LIKE CONCAT('%', #{keyword}, '%') OR title_zh_tw LIKE CONCAT('%', #{keyword}, '%')
+        <if test="no != null">OR public_no = #{no}</if>)
+      </if>
+    </where>
+  </sql>
+
+  <select id="adminList" resultType="com.forecast.app.market.core.MarketRows$Market">
+    SELECT <include refid="marketCols"/> FROM market_question <include refid="adminWhere"/> ORDER BY id DESC LIMIT #{offset}, #{limit}
+  </select>
+
+  <select id="adminCount" resultType="long">
+    SELECT COUNT(*) FROM market_question <include refid="adminWhere"/>
+  </select>
+
+  <sql id="clientWhere">
+    WHERE deleted_at IS NULL AND status IN <foreach collection="statuses" item="s" open="(" separator="," close=")">#{s}</foreach>
+    <if test="category != null">AND category = #{category}</if>
+  </sql>
+
+  <select id="clientList" resultType="com.forecast.app.market.core.MarketRows$Market">
+    SELECT <include refid="marketCols"/> FROM market_question <include refid="clientWhere"/>
+    <choose>
+      <when test="sort == 'newest'">ORDER BY id DESC</when>
+      <otherwise>ORDER BY close_at, id</otherwise>
+    </choose>
+    LIMIT #{offset}, #{limit}
+  </select>
+
+  <select id="clientCount" resultType="long">
+    SELECT COUNT(*) FROM market_question <include refid="clientWhere"/>
+  </select>
+</mapper>

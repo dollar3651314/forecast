@@ -1,0 +1,38 @@
+# 端到端测试配置（从复制源复制）。只在 Spring profile e2e 下加载：
+#   SPRING_PROFILES_ACTIVE=e2e FC_E2E_ENABLED=true java -jar forecast.jar
+# e2e profile 会打开不需要登录的 /api/e2e/**（取验证码、注入充值、推进提现），
+# 只能用于 CI 和本机。common.e2e.E2eGuard 在启动时检查：没有 FC_E2E_ENABLED=true、带了 prod/production/staging profile、
+# 配置了热钱包私钥、链节点或 SMTP 时拒绝启动。
+forecast:
+  e2e:
+    enabled: ${FC_E2E_ENABLED:false}
+  # 通用限流（P-05）：端到端测试和压测（e2e/load/，同样用 e2e profile）的所有请求都来自同一个 IP，压测几十个客户集中写入，上限放大。
+  # 限流本身在后端 RateLimitTest 里单独测；Nginx 那一层见 deploy/nginx/site.conf.template
+  rate-limit:
+    ip-per-minute: 1000000
+    ws-handshake-per-minute: 1000000
+    user-write-per-minute: 1000000
+    admin-login-per-ip: 1000000
+  # 钱包：TRON 的 xpub 来自 BIP39 公开的测试助记词（"abandon … about"，人人都知道，没有任何价值）；
+  # USDT 合约地址是三条链官方 USDT 合约的公开地址。不配置节点地址：扫块和广播由 e2e 的链替身代替，不连任何真实节点。
+  # ERC20、BEP20 的充值地址只用 CREATE2 合约地址（开发记录/钱包-合约地址方案.md）：下面四个地址就是 contracts/script/anvil-e2e.sh
+  # 在 anvil 本地链上用 Deploy.s.sol 部署出的地址（anvil 0 号公开测试账户 nonce 0、1、2 依次部署实现合约、工厂、批量合约；parent 是 anvil 1 号账户），
+  # 后端照常按 CREATE2 公式算出每个客户的地址，链替身只记转账。不配发起账户（私钥在 e2e 里不允许，E2eGuard），所以 sweep.config 告警是 DOWN，不影响用例
+  wallet:
+    sweep:
+      evm:
+        implementation: "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+        factory: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+        batcher: "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0"
+        parent: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+    tron-xpub: xpub6D1AabNHCupeiLM65ZR9UStMhJ1vCpyV4XbZdyhMZBiJXALQtmn9p42VTQckoHVn8WNqS7dqnJokZHAHcHGoaQgmv8D45oNUKx6DZMNZBCd
+    chains:
+      ERC20:
+        usdt-contract: "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+      BSC:
+        usdt-contract: "0x55d398326f99059fF775485246999027B3197955"
+      TRC20:
+        usdt-contract: TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t
+  # 证件照片放在临时目录
+  storage:
+    local-dir: ${FC_STORAGE_DIR:${java.io.tmpdir}/forecast-e2e-storage}

@@ -1,0 +1,63 @@
+# 一个前端的全部检查（ci.yml 的 web-client、web-admin、web-site 三个 job 共用；CI v0.10 起由矩阵改成三个 job，
+# 这样只改某个前端时，另外两个 job 显示"跳过"，检查名字仍然是 web (client)、web (admin)、web (site)）。
+# 调用前要先 actions/checkout。
+name: web-check
+description: 一个前端的 lint、单元测试、构建、不含模拟层、没有旧品牌名、（可选）原型模式构建、依赖安全检查
+inputs:
+  app:
+    description: web/ 下的目录名（client、admin、site）
+    required: true
+  mock-build:
+    description: 是否再按原型模式（VITE_API_MODE=mock）构建一次（客户端和官网要，Vercel 原型站用）
+    required: false
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v5
+      with:
+        node-version: 22
+        cache: npm
+        cache-dependency-path: web/${{ inputs.app }}/package-lock.json
+    - name: 安装依赖
+      shell: bash
+      working-directory: web/${{ inputs.app }}
+      run: npm ci --no-audit --no-fund
+    - name: lint
+      shell: bash
+      working-directory: web/${{ inputs.app }}
+      run: npm run lint
+    - name: 单元测试
+      shell: bash
+      working-directory: web/${{ inputs.app }}
+      run: npm test
+    - name: 构建
+      shell: bash
+      working-directory: web/${{ inputs.app }}
+      run: npm run build
+    - name: 真实接口模式的构建不含原型模拟层（src/mocks/）
+      shell: bash
+      working-directory: web/${{ inputs.app }}
+      # forecast S1：官网删除公开行情后没有模拟层（src/mocks/ 不存在），这一步跳过
+      run: |
+        if [ -d src/mocks ]; then node ../../scripts/check-no-mocks.mjs src/mocks dist; else echo "没有 src/mocks/，跳过"; fi
+    - name: 构建产物里没有旧品牌名（scripts/brand-check.json）
+      shell: bash
+      working-directory: web/${{ inputs.app }}
+      run: node ../../scripts/check-brand.mjs dist
+    - name: 原型模式构建（VITE_API_MODE=mock，Vercel 原型站用）
+      if: inputs.mock-build == 'true'
+      shell: bash
+      working-directory: web/${{ inputs.app }}
+      env:
+        VITE_API_MODE: mock
+      run: npm run build
+    - name: 原型模式的构建产物里也没有旧品牌名
+      if: inputs.mock-build == 'true'
+      shell: bash
+      working-directory: web/${{ inputs.app }}
+      run: node ../../scripts/check-brand.mjs dist
+    - name: 依赖安全检查（高危漏洞不允许）
+      shell: bash
+      working-directory: web/${{ inputs.app }}
+      run: npm audit --audit-level=high --omit=dev

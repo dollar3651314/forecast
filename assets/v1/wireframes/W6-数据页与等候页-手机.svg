@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" font-family="sans-serif" font-size="13">
+<rect width="390" height="844" fill="#fff" stroke="#999"/>
+<text x="16" y="28" font-size="11" fill="#888">W6 数据页 / 上线前等候页（手机 390 宽，低保真，v1.3）</text>
+<rect x="0" y="40" width="390" height="48" fill="#f2f2f2"/><text x="16" y="70" font-weight="bold">品牌 Logo · 数据</text><text x="300" y="70">中 / EN ▾</text>
+<text x="16" y="114" font-weight="bold">① BTC 实时和每小时涨跌统计</text>
+<g transform="translate(16,124)"><rect width="358" height="110" rx="8" fill="none" stroke="#888"/>
+<text x="12" y="26">BTC/USDT　67,850.12</text>
+<text x="12" y="50" font-size="12">过去 720 小时：每小时收盘 ≥ 开盘 52%（375 / 720）</text>
+<text x="12" y="72" font-size="12">北京时间 21:00 这一小时：涨 53%（16 / 30）</text>
+<text x="12" y="96" font-size="11" fill="#666">数据：币安现货公开行情 · 更新于 12:05 UTC</text></g>
+<text x="16" y="262" font-weight="bold">② Polymarket 同类题的概率</text>
+<g transform="translate(16,272)"><rect width="358" height="130" rx="8" fill="none" stroke="#888"/>
+<text x="12" y="26" font-size="12">BTC 今天 13:00 UTC 这一小时涨？　55%</text>
+<text x="12" y="50" font-size="12">维拉 vs 曼城（客胜）　41%</text>
+<text x="12" y="74" font-size="12">美联储 12 月维持利率　63%</text>
+<text x="12" y="100" font-size="11" fill="#666">数据来自 Polymarket 公开接口，非 Polymarket 官方</text>
+<text x="12" y="118" font-size="11" fill="#666">更新于 12:05 UTC · 取不到时显示"暂时取不到"</text></g>
+<text x="16" y="430" font-weight="bold">③ 我们今天的场次</text>
+<g transform="translate(16,440)"><rect width="358" height="120" rx="8" fill="none" stroke="#888"/>
+<text x="12" y="26" font-size="12" fill="#999">上线前：L 日开场，敬请订阅</text>
+<text x="12" y="52" font-size="12">上线后：BTC 13:00 场　看涨 12 人 58% ｜ 看跌 8 人 42%</text>
+<text x="12" y="76" font-size="12">　　　　焦点战　大 2.5　61% ｜ 小 2.5　39%</text>
+<text x="12" y="104" font-size="11" fill="#666">点进市场详情（不登录可看）</text></g>
+<g transform="translate(16,580)"><rect width="358" height="150" rx="8" fill="#f8f8f8" stroke="#888"/>
+<text x="12" y="26" font-weight="bold">订阅开场提醒（通知 #23）</text>
+<rect x="12" y="40" width="334" height="36" rx="6" fill="#e8eefc" stroke="#46c"/><text x="90" y="63">用 Telegram 机器人订阅</text>
+<rect x="12" y="86" width="230" height="36" rx="6" fill="#fff" stroke="#aaa"/><text x="22" y="109" fill="#999">邮箱</text>
+<rect x="252" y="86" width="94" height="36" rx="6" fill="#e8eefc" stroke="#46c"/><text x="274" y="109">订阅</text>
+<text x="12" y="140" font-size="11" fill="#666">只在你订阅的场次开场时提醒，随时退订</text></g>
+<text x="16" y="760" font-size="11" fill="#999">页脚：怎么玩 · 怎么充 · 怎么提（满 100 USDT 可提，提现前需认证） · 开奖记录 · 文章</text>
+<text x="16" y="780" font-size="11" fill="#999">不放 X 情绪数据；不登录可看，可被搜索收录（NF-14）</text>
+</svg>

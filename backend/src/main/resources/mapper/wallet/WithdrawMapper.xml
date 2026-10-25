@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 白名单、提现单、提现事件。只有 wallet 模块使用。 -->
+<mapper namespace="com.forecast.app.wallet.withdraw.WithdrawMapper">
+
+  <sql id="wlCols">id, user_id, network, address, address_key, label, active_at, created_at</sql>
+  <sql id="wdCols">id, public_no, user_id, network, address, amount, fee, status, cooling_ends_at, delay_ends_at, tx_hash, reject_reason, created_at, last_check_id</sql>
+
+  <select id="whitelist" resultType="com.forecast.app.wallet.withdraw.WhitelistRow">
+    SELECT <include refid="wlCols"/> FROM wallet_whitelist WHERE user_id = #{userId} ORDER BY id
+  </select>
+
+  <select id="whitelistById" resultType="com.forecast.app.wallet.withdraw.WhitelistRow">
+    SELECT <include refid="wlCols"/> FROM wallet_whitelist WHERE user_id = #{userId} AND id = #{id}
+  </select>
+
+  <select id="countWhitelist" resultType="int">
+    SELECT COUNT(*) FROM wallet_whitelist WHERE user_id = #{userId}
+  </select>
+
+  <insert id="insertWhitelist" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO wallet_whitelist (user_id, network, address, address_key, label, active_at, created_at)
+    VALUES (#{userId}, #{network}, #{address}, #{addressKey}, #{label}, #{activeAt}, #{createdAt})
+  </insert>
+
+  <delete id="deleteWhitelist">
+    DELETE FROM wallet_whitelist WHERE user_id = #{userId} AND id = #{id}
+  </delete>
+
+  <insert id="insertWithdrawal" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO wallet_withdrawal (public_no, user_id, network, address, amount, fee, status, cooling_ends_at, created_at)
+    VALUES (#{publicNo}, #{userId}, #{network}, #{address}, #{amount}, #{fee}, #{status}, #{coolingEndsAt}, #{createdAt})
+  </insert>
+
+  <select id="lock" resultType="com.forecast.app.wallet.withdraw.WithdrawalRow">
+    SELECT <include refid="wdCols"/> FROM wallet_withdrawal WHERE id = #{id} FOR UPDATE
+  </select>
+
+  <select id="byId" resultType="com.forecast.app.wallet.withdraw.WithdrawalRow">
+    SELECT <include refid="wdCols"/> FROM wallet_withdrawal WHERE id = #{id}
+  </select>
+
+  <!-- 对外编号 → 内部 id（只查这个客户的） -->
+  <select id="idByNo" resultType="java.lang.Long">
+    SELECT id FROM wallet_withdrawal WHERE public_no = #{no} AND user_id = #{userId}
+  </select>
+
+  <select id="idByPublicNo" resultType="java.lang.Long">
+    SELECT id FROM wallet_withdrawal WHERE public_no = #{no}
+  </select>
+
+  <select id="byUser" resultType="com.forecast.app.wallet.withdraw.WithdrawalRow">
+    SELECT <include refid="wdCols"/> FROM wallet_withdrawal WHERE user_id = #{userId} ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="countByUser" resultType="long">
+    SELECT COUNT(*) FROM wallet_withdrawal WHERE user_id = #{userId}
+  </select>
+
+  <select id="usedSince" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(amount), 0) FROM wallet_withdrawal
+    WHERE user_id = #{userId} AND created_at &gt;= #{from} AND status NOT IN ('CANCELLED', 'REJECTED', 'FAILED_REFUNDED')
+  </select>
+
+  <update id="transit">
+    UPDATE wallet_withdrawal SET status = #{to} WHERE id = #{id} AND status = #{from}
+  </update>
+
+  <update id="setReview">
+    UPDATE wallet_withdrawal SET reviewer_id = #{reviewerId}, reviewed_at = #{at}, reject_reason = #{reason}, delay_ends_at = #{delayEndsAt}, review_mode = 'MANUAL'
+    WHERE id = #{id}
+  </update>
+
+  <update id="setTx">
+    UPDATE wallet_withdrawal SET tx_hash = #{txHash} WHERE id = #{id}
+  </update>
+
+  <update id="setCompleted">
+    UPDATE wallet_withdrawal SET completed_at = #{at} WHERE id = #{id}
+  </update>
+
+  <!-- timeColumn 只来自代码里的固定值（cooling_ends_at / delay_ends_at），不拼接外部输入 -->
+  <select id="due" resultType="long">
+    SELECT id FROM wallet_withdrawal WHERE status = #{status} AND ${timeColumn} &lt;= #{now} ORDER BY id
+  </select>
+
+  <select id="withStatus" resultType="long">
+    SELECT id FROM wallet_withdrawal WHERE status = #{status} ORDER BY id
+  </select>
+
+  <insert id="insertEvent">
+    INSERT INTO wallet_withdraw_event (withdrawal_id, from_status, to_status, actor, note) VALUES (#{withdrawalId}, #{from}, #{to}, #{actor}, #{note})
+  </insert>
+</mapper>

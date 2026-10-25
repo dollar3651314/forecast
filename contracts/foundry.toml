@@ -1,0 +1,30 @@
+# 资金归集合约（技术方案/v2-半自动归集.md 第 4.1、4.14 节）。
+# 编译参数和 BitGo eth-multisig-v4 的 hardhat.config.ts 一致：solc 0.8.20、evmVersion paris、优化器 1000 次。
+# BitGo 和 OpenZeppelin 的源码在 lib/ 下原样保存（来源提交号和 sha256 见 README.md、lib/SHA256SUMS），一行不改。
+[profile.default]
+src = "src"
+test = "test"
+script = "script"
+out = "out"
+cache_path = "cache"
+libs = ["lib"]
+solc_version = "0.8.20"
+evm_version = "paris"
+optimizer = true
+optimizer_runs = 1000
+remappings = [
+  "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+  "bitgo/=lib/eth-multisig-v4/contracts/",
+  "forge-std/=lib/forge-std/src/",
+]
+# 测试向量（CREATE2 地址）放在后端的测试资源里，Java 和 Foundry 读同一份文件
+fs_permissions = [{ access = "read-write", path = "../backend/src/test/resources/wallet" }]
+
+[fuzz]
+# 方案第 4.14 节：每个模糊测试至少 10,000 次
+runs = 10000
+
+[invariant]
+runs = 256
+depth = 64
+fail_on_revert = false

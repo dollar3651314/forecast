@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 账户和账本。只有 ledger 模块使用（表名以 ledger_ 开头）。ledger_entry 只增不改：这里没有它的 UPDATE、DELETE 语句（LedgerAppendOnlyTest 检查）。 -->
+<mapper namespace="com.forecast.app.ledger.service.LedgerMapper">
+
+  <sql id="accountCols">id, kind, user_id, available, bet_locked, withdraw_frozen</sql>
+
+  <insert id="insertAccountIfAbsent">
+    INSERT IGNORE INTO ledger_account (kind, user_id) VALUES ('USER', #{userId})
+  </insert>
+
+  <select id="lockAccount" resultType="com.forecast.app.ledger.service.AccountRow">
+    SELECT <include refid="accountCols"/> FROM ledger_account WHERE user_id = #{userId} FOR UPDATE
+  </select>
+
+  <select id="findAccount" resultType="com.forecast.app.ledger.service.AccountRow">
+    SELECT <include refid="accountCols"/> FROM ledger_account WHERE user_id = #{userId}
+  </select>
+
+  <!-- 平台账户：platform_key 是生成列（user_id 为空时等于 kind），上面有唯一键 -->
+  <select id="lockPlatformAccount" resultType="com.forecast.app.ledger.service.AccountRow">
+    SELECT <include refid="accountCols"/> FROM ledger_account WHERE platform_key = #{kind} FOR UPDATE
+  </select>
+
+  <select id="findPlatformAccount" resultType="com.forecast.app.ledger.service.AccountRow">
+    SELECT <include refid="accountCols"/> FROM ledger_account WHERE platform_key = #{kind}
+  </select>
+
+  <!-- column 只会是 LedgerService.column() 给出的固定列名之一 -->
+  <update id="updateBucket">
+    UPDATE ledger_account SET ${column} = #{value} WHERE id = #{accountId}
+  </update>
+
+  <select id="findEntry" resultType="com.forecast.app.ledger.service.LedgerRow">
+    SELECT id, account_id, amount, value_after FROM ledger_entry
+    WHERE biz_type = #{bizType} AND biz_id = #{bizId} AND entry_type = #{entryType} AND bucket = #{bucket}
+  </select>
+
+  <insert id="insertEntry" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO ledger_entry (account_id, bucket, entry_type, amount, value_after, biz_type, biz_id, ref_market_id, remark)
+    VALUES (#{accountId}, #{bucket}, #{entryType}, #{amount}, #{valueAfter}, #{bizType}, #{bizId}, #{refMarketId}, #{remark})
+  </insert>
+
+  <!-- 批量记账（LedgerApi.applyBatch，forecast S5）：一批几百个账户，几条语句 -->
+  <select id="lockAccounts" resultType="com.forecast.app.ledger.service.AccountRow">
+    SELECT <include refid="accountCols"/> FROM ledger_account WHERE user_id IN
+    <foreach collection="userIds" item="u" open="(" separator="," close=")">#{u}</foreach>
+    ORDER BY user_id FOR UPDATE
+  </select>
+
+  <select id="findEntries" resultType="com.forecast.app.ledger.service.LedgerMapper$EntryKeyRow">
+    SELECT id, account_id, biz_id, entry_type, bucket, amount FROM ledger_entry
+    WHERE biz_type = #{bizType} AND biz_id IN <foreach collection="bizIds" item="b" open="(" separator="," close=")">#{b}</foreach>
+  </select>
+
+  <update id="updateAccounts">
+    UPDATE ledger_account SET
+      available = CASE id <foreach collection="rows" item="r">WHEN #{r.id} THEN #{r.available} </foreach>END,
+      bet_locked = CASE id <foreach collection="rows" item="r">WHEN #{r.id} THEN #{r.betLocked} </foreach>END,
+      withdraw_frozen = CASE id <foreach collection="rows" item="r">WHEN #{r.id} THEN #{r.withdrawFrozen} </foreach>END
+    WHERE id IN <foreach collection="rows" item="r" open="(" separator="," close=")">#{r.id}</foreach>
+  </update>
+
+  <insert id="insertEntries">
+    INSERT INTO ledger_entry (account_id, bucket, entry_type, amount, value_after, biz_type, biz_id, ref_market_id, remark) VALUES
+    <foreach collection="entries" item="e" separator=",">
+      (#{e.accountId}, #{e.bucket}, #{e.entryType}, #{e.amount}, #{e.valueAfter}, #{e.bizType}, #{e.bizId}, #{e.refMarketId}, #{e.remark})
+    </foreach>
+  </insert>
+
+  <resultMap id="keyAmount" type="com.forecast.app.ledger.service.LedgerMapper$KeyAmount">
+    <constructor>
+      <arg column="k" javaType="string"/>
+      <arg column="amount" javaType="java.math.BigDecimal"/>
+    </constructor>
+  </resultMap>
+
+  <select id="totals" resultMap="keyAmount">
+    SELECT biz_id AS k, SUM(amount) AS amount FROM ledger_entry
+    WHERE biz_type = #{bizType} AND entry_type = #{entryType} AND bucket = #{bucket} GROUP BY biz_id
+  </select>
+
+  <select id="withdrawFrozen" resultMap="keyAmount">
+    SELECT CAST(user_id AS CHAR) AS k, withdraw_frozen AS amount FROM ledger_account WHERE kind = 'USER' AND withdraw_frozen &lt;&gt; 0
+  </select>
+
+  <!-- 不变量：每个账户每一项的账本合计 = 账户上的金额。一条语句读出，账户行和账本是同一个快照 -->
+  <select id="balanceMismatches" resultType="com.forecast.app.ledger.service.LedgerMapper$BalanceCheckRow">
+    SELECT * FROM (
+      SELECT a.id, a.kind, a.user_id, a.available, a.bet_locked, a.withdraw_frozen,
+        COALESCE(SUM(CASE WHEN l.bucket = 'AVAILABLE' THEN l.amount END), 0) AS sum_available,
+        COALESCE(SUM(CASE WHEN l.bucket = 'BET_LOCKED' THEN l.amount END), 0) AS sum_bet_locked,
+        COALESCE(SUM(CASE WHEN l.bucket = 'WITHDRAW_FROZEN' THEN l.amount END), 0) AS sum_withdraw_frozen,
+        COUNT(CASE WHEN l.bucket NOT IN ('AVAILABLE', 'BET_LOCKED', 'WITHDRAW_FROZEN') THEN 1 END) AS unknown_buckets
+      FROM ledger_account a LEFT JOIN ledger_entry l ON l.account_id = a.id
+      GROUP BY a.id, a.kind, a.user_id, a.available, a.bet_locked, a.withdraw_frozen
+    ) t
+    WHERE t.sum_available &lt;&gt; t.available OR t.sum_bet_locked &lt;&gt; t.bet_locked OR t.sum_withdraw_frozen &lt;&gt; t.withdraw_frozen
+      OR t.unknown_buckets &gt; 0
+    ORDER BY t.id
+  </select>
+
+  <select id="marketTotals" resultType="com.forecast.app.ledger.service.LedgerMapper$MarketTotalRow">
+    SELECT entry_type, bucket, SUM(amount) AS amount FROM ledger_entry WHERE ref_market_id = #{marketId} GROUP BY entry_type, bucket
+  </select>
+
+  <!-- 充值 − 冲正（冲正在账本里是负数），以及最早一笔充值的入账时间（提现自动审批 R8、R9、R10） -->
+  <select id="depositsSince" resultType="com.forecast.app.ledger.service.LedgerMapper$DepositRow">
+    SELECT COALESCE(SUM(l.amount), 0) AS net, MIN(CASE WHEN l.entry_type = 'DEPOSIT' THEN l.created_at END) AS first_at
+    FROM ledger_entry l JOIN ledger_account a ON a.id = l.account_id
+    WHERE a.user_id = #{userId} AND l.bucket = 'AVAILABLE' AND l.entry_type IN ('DEPOSIT', 'DEPOSIT_REVERSAL')
+    <if test="since != null">AND l.created_at &gt;= #{since}</if>
+  </select>
+
+  <sql id="entryCols">l.id, l.entry_type, l.amount, l.value_after, l.biz_type, l.biz_id, l.remark, l.ref_market_id, l.created_at</sql>
+
+  <select id="balanceLedger" resultType="com.forecast.app.ledger.service.LedgerMapper$EntryRow">
+    SELECT <include refid="entryCols"/>
+    FROM ledger_entry l JOIN ledger_account a ON a.id = l.account_id
+    WHERE a.user_id = #{userId} AND l.bucket = 'AVAILABLE' ORDER BY l.id DESC LIMIT #{limit}
+  </select>
+
+  <sql id="userLedgerWhere">
+    FROM ledger_entry l JOIN ledger_account a ON a.id = l.account_id
+    WHERE a.user_id = #{userId} AND l.bucket = 'AVAILABLE'
+      AND l.entry_type IN <foreach collection="types" item="t" open="(" separator="," close=")">#{t}</foreach>
+      <if test="since != null">AND l.created_at &gt;= #{since}</if>
+  </sql>
+
+  <select id="userLedger" resultType="com.forecast.app.ledger.service.LedgerMapper$EntryRow">
+    SELECT <include refid="entryCols"/> <include refid="userLedgerWhere"/>
+    ORDER BY l.id DESC LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="countUserLedger" resultType="long">SELECT COUNT(*) <include refid="userLedgerWhere"/></select>
+
+  <select id="balances" resultType="com.forecast.app.ledger.service.LedgerMapper$UserAmount">
+    SELECT user_id, available + bet_locked AS amount FROM ledger_account
+    WHERE user_id IN <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
+  </select>
+</mapper>

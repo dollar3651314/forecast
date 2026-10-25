@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 资金归集（v2，迁移 V28）。只有 wallet 模块使用。 -->
+<mapper namespace="com.forecast.app.wallet.sweep.SweepMapper">
+
+  <resultMap id="candidate" type="com.forecast.app.wallet.sweep.SweepMapper$CandidateRow">
+    <constructor>
+      <arg column="id" javaType="_long"/>
+      <arg column="user_id" javaType="_long"/>
+      <arg column="address" javaType="string"/>
+      <arg column="address_key" javaType="string"/>
+      <arg column="salt" javaType="string"/>
+      <arg column="scheme_ver" javaType="_int"/>
+      <arg column="deployed" javaType="_boolean"/>
+      <arg column="pending_deposit" javaType="_boolean"/>
+      <arg column="last_credited_block" javaType="java.lang.Long"/>
+      <arg column="in_batch" javaType="_boolean"/>
+    </constructor>
+  </resultMap>
+
+  <resultMap id="item" type="com.forecast.app.wallet.sweep.SweepMapper$ItemRow">
+    <constructor>
+      <arg column="id" javaType="_long"/>
+      <arg column="batch_id" javaType="_long"/>
+      <arg column="item_no" javaType="_int"/>
+      <arg column="address_id" javaType="_long"/>
+      <arg column="user_id" javaType="_long"/>
+      <arg column="address" javaType="string"/>
+      <arg column="salt" javaType="string"/>
+      <arg column="deploy" javaType="_boolean"/>
+      <arg column="balance_before" javaType="java.math.BigDecimal"/>
+      <arg column="est_fee" javaType="java.math.BigDecimal"/>
+      <arg column="swept" javaType="java.math.BigDecimal"/>
+      <arg column="status" javaType="string"/>
+      <arg column="fail_reason" javaType="string"/>
+      <arg column="tx_hash" javaType="string"/>
+    </constructor>
+  </resultMap>
+
+  <resultMap id="tx" type="com.forecast.app.wallet.sweep.SweepMapper$TxRow">
+    <constructor>
+      <arg column="id" javaType="_long"/>
+      <arg column="batch_id" javaType="_long"/>
+      <arg column="chain" javaType="string"/>
+      <arg column="attempt" javaType="_int"/>
+      <arg column="nonce" javaType="_long"/>
+      <arg column="tx_hash" javaType="string"/>
+      <arg column="raw_tx" javaType="string"/>
+      <arg column="gas_limit" javaType="_long"/>
+      <arg column="max_fee" javaType="java.math.BigDecimal"/>
+      <arg column="priority_fee" javaType="java.math.BigDecimal"/>
+      <arg column="status" javaType="string"/>
+      <arg column="created_at" javaType="java.time.LocalDateTime"/>
+    </constructor>
+  </resultMap>
+
+  <resultMap id="event" type="com.forecast.app.wallet.sweep.SweepMapper$EventRow">
+    <constructor>
+      <arg column="created_at" javaType="java.time.LocalDateTime"/>
+      <arg column="actor" javaType="string"/>
+      <arg column="text" javaType="string"/>
+    </constructor>
+  </resultMap>
+
+  <sql id="batchCols">
+    id, public_no, chain, mode, status, trigger_type, active_chain, scheme_ver, token, destination, executor, created_by, reason, retry_of, address_count,
+    expected_usdt, swept_usdt, fee_paid, fee_asset, params_json, tx_hash, block_number, fail_reason, created_at, sent_at, finished_at, expires_at
+  </sql>
+
+  <!-- 收到过这条链充值的合约地址（正在用和已停用的都算：停用的地址里的钱也只能去 parent） -->
+  <select id="candidates" resultMap="candidate">
+    SELECT a.id, a.user_id, a.address, a.address_key, a.salt, a.scheme_ver, a.deployed_at IS NOT NULL AS deployed,
+      EXISTS (SELECT 1 FROM wallet_deposit d WHERE d.chain = #{chain} AND d.to_address = a.address_key AND d.status = 'PENDING') AS pending_deposit,
+      (SELECT MAX(d.block_number) FROM wallet_deposit d WHERE d.chain = #{chain} AND d.to_address = a.address_key AND d.status = 'CREDITED') AS last_credited_block,
+      EXISTS (SELECT 1 FROM wallet_sweep_item i WHERE i.active_key = CONCAT(#{chain}, ':', a.address_key)) AS in_batch
+    FROM wallet_address a
+    WHERE a.family = 'ETH' AND a.scheme = 'FORWARDER'
+      AND EXISTS (SELECT 1 FROM wallet_deposit d WHERE d.chain = #{chain} AND d.to_address = a.address_key)
+    ORDER BY a.id
+  </select>
+
+  <insert id="insertBatch" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO wallet_sweep_batch (public_no, chain, mode, status, trigger_type, active_chain, scheme_ver, token, destination, executor, created_by, reason,
+      retry_of, address_count, expected_usdt, fee_asset, params_json, created_at)
+    VALUES (#{publicNo}, #{chain}, #{mode}, #{status}, #{triggerType}, #{activeChain}, #{schemeVer}, #{token}, #{destination}, #{executor}, #{createdBy},
+      #{reason}, #{retryOf}, #{addressCount}, #{expectedUsdt}, #{feeAsset}, #{paramsJson}, #{createdAt})
+  </insert>
+
+  <insert id="insertItem">
+    INSERT INTO wallet_sweep_item (batch_id, item_no, address_id, user_id, address, salt, deploy, balance_before, est_fee, status, active_key)
+    VALUES (#{batchId}, #{itemNo}, #{addressId}, #{userId}, #{address}, #{salt}, #{deploy}, #{balance}, #{estFee}, 'PENDING', #{activeKey})
+  </insert>
+
+  <select id="batch" resultType="com.forecast.app.wallet.sweep.SweepMapper$BatchRow">
+    SELECT <include refid="batchCols"/> FROM wallet_sweep_batch WHERE id = #{id}
+  </select>
+
+  <select id="lockBatch" resultType="com.forecast.app.wallet.sweep.SweepMapper$BatchRow">
+    SELECT <include refid="batchCols"/> FROM wallet_sweep_batch WHERE id = #{id} FOR UPDATE
+  </select>
+
+  <select id="batchByNo" resultType="com.forecast.app.wallet.sweep.SweepMapper$BatchRow">
+    SELECT <include refid="batchCols"/> FROM wallet_sweep_batch WHERE public_no = #{no}
+  </select>
+
+  <select id="page" resultType="com.forecast.app.wallet.sweep.SweepMapper$BatchRow">
+    SELECT <include refid="batchCols"/> FROM wallet_sweep_batch
+    <where><if test="chain != null">chain = #{chain}</if></where>
+    ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="count" resultType="long">
+    SELECT COUNT(*) FROM wallet_sweep_batch <where><if test="chain != null">chain = #{chain}</if></where>
+  </select>
+
+  <select id="inFlight" resultType="long">
+    SELECT id FROM wallet_sweep_batch WHERE status = #{status} AND mode = 'CONTRACT' ORDER BY id
+  </select>
+
+  <select id="activeBatch" resultType="com.forecast.app.wallet.sweep.SweepMapper$BatchRow">
+    SELECT <include refid="batchCols"/> FROM wallet_sweep_batch WHERE active_chain = #{chain}
+  </select>
+
+  <select id="lastFinished" resultType="com.forecast.app.wallet.sweep.SweepMapper$BatchRow">
+    SELECT <include refid="batchCols"/> FROM wallet_sweep_batch WHERE chain = #{chain} AND finished_at IS NOT NULL ORDER BY finished_at DESC, id DESC LIMIT 1
+  </select>
+
+  <select id="lastSweptAt" resultType="java.time.LocalDateTime">
+    SELECT MAX(finished_at) FROM wallet_sweep_batch WHERE chain = #{chain} AND status IN ('CONFIRMED', 'PARTIAL')
+  </select>
+
+  <update id="sendBatch">
+    UPDATE wallet_sweep_batch SET status = 'SENT', tx_hash = #{txHash}, sent_at = #{at} WHERE id = #{id} AND status = 'PENDING'
+  </update>
+
+  <update id="finishBatch">
+    UPDATE wallet_sweep_batch SET status = #{status}, swept_usdt = #{swept}, fee_paid = #{fee}, tx_hash = COALESCE(#{txHash}, tx_hash),
+      block_number = #{blockNumber}, fail_reason = #{failReason}, finished_at = #{at}, active_chain = NULL
+    WHERE id = #{id} AND status IN ('PENDING', 'SENT')
+  </update>
+
+  <select id="items" resultMap="item">
+    SELECT id, batch_id, item_no, address_id, user_id, address, salt, deploy, balance_before, est_fee, swept, status, fail_reason, tx_hash
+    FROM wallet_sweep_item WHERE batch_id = #{batchId} ORDER BY item_no
+  </select>
+
+  <update id="finishItem">
+    UPDATE wallet_sweep_item SET status = #{status}, swept = #{swept}, fail_reason = #{failReason}, tx_hash = #{txHash}, active_key = NULL WHERE id = #{id}
+  </update>
+
+  <update id="releaseItems">
+    UPDATE wallet_sweep_item SET active_key = NULL WHERE batch_id = #{batchId}
+  </update>
+
+  <insert id="insertTx">
+    INSERT INTO wallet_sweep_tx (batch_id, chain, attempt, nonce, tx_hash, raw_tx, gas_limit, max_fee, priority_fee, status, created_at)
+    VALUES (#{batchId}, #{chain}, #{attempt}, #{nonce}, #{txHash}, #{raw}, #{gasLimit}, #{maxFee}, #{priorityFee}, 'SENT', #{at})
+  </insert>
+
+  <select id="txs" resultMap="tx">
+    SELECT id, batch_id, chain, attempt, nonce, tx_hash, raw_tx, gas_limit, max_fee, priority_fee, status, created_at
+    FROM wallet_sweep_tx WHERE batch_id = #{batchId} ORDER BY attempt DESC
+  </select>
+
+  <update id="setTxStatus">
+    UPDATE wallet_sweep_tx SET status = #{status} WHERE id = #{id}
+  </update>
+
+  <select id="batchOfTx" resultType="long">
+    SELECT batch_id FROM wallet_sweep_tx WHERE chain = #{chain} AND tx_hash = #{txHash} LIMIT 1
+  </select>
+
+  <select id="lockNonce" resultType="long">
+    SELECT next_nonce FROM wallet_sweep_nonce WHERE chain = #{chain} AND operator = #{operator} FOR UPDATE
+  </select>
+
+  <insert id="saveNonce">
+    INSERT INTO wallet_sweep_nonce (chain, operator, next_nonce) VALUES (#{chain}, #{operator}, #{nonce})
+    ON DUPLICATE KEY UPDATE next_nonce = VALUES(next_nonce)
+  </insert>
+
+  <insert id="insertEvent">
+    INSERT INTO wallet_sweep_event (batch_id, actor, text, created_at) VALUES (#{batchId}, #{actor}, #{text}, #{at})
+  </insert>
+
+  <select id="events" resultMap="event">
+    SELECT created_at, actor, text FROM wallet_sweep_event WHERE batch_id = #{batchId} ORDER BY id
+  </select>
+
+  <insert id="insertOutflow">
+    INSERT IGNORE INTO wallet_sweep_outflow (chain, tx_hash, log_index, block_number, from_address, to_address, amount, address_id, user_id, kind, batch_id)
+    VALUES (#{chain}, #{txHash}, #{logIndex}, #{blockNumber}, #{from}, #{to}, #{amount}, #{addressId}, #{userId}, #{kind}, #{batchId})
+  </insert>
+
+  <select id="openOutflows" resultType="long">
+    SELECT COUNT(*) FROM wallet_sweep_outflow o
+    WHERE o.kind &lt;&gt; 'SWEEP' AND NOT EXISTS (
+      SELECT 1 FROM wallet_recon_issue r
+      WHERE r.ref_id = CONCAT(o.chain, ':', o.tx_hash, ':', o.log_index) AND r.kind IN ('SWEEP_UNKNOWN_OUTFLOW', 'SWEEP_DEST_MISMATCH') AND r.status = 'RESOLVED')
+  </select>
+</mapper>

@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 充值地址和合约地址参数（v2 归集，迁移 V28）。只有 wallet 模块使用。 -->
+<mapper namespace="com.forecast.app.wallet.address.AddressMapper">
+
+  <resultMap id="row" type="com.forecast.app.wallet.address.AddressMapper$AddressRow">
+    <constructor>
+      <arg column="id" javaType="_long"/>
+      <arg column="user_id" javaType="_long"/>
+      <arg column="family" javaType="string"/>
+      <arg column="scheme" javaType="string"/>
+      <arg column="scheme_ver" javaType="_int"/>
+      <arg column="address_index" javaType="_int"/>
+      <arg column="address" javaType="string"/>
+      <arg column="salt" javaType="string"/>
+      <arg column="status" javaType="string"/>
+      <arg column="retired_at" javaType="java.time.LocalDateTime"/>
+      <arg column="deployed_at" javaType="java.time.LocalDateTime"/>
+    </constructor>
+  </resultMap>
+
+  <resultMap id="scheme" type="com.forecast.app.wallet.address.AddressMapper$SchemeRow">
+    <constructor>
+      <arg column="ver" javaType="_int"/>
+      <arg column="factory" javaType="string"/>
+      <arg column="implementation" javaType="string"/>
+      <arg column="parent" javaType="string"/>
+      <arg column="fee_address" javaType="string"/>
+    </constructor>
+  </resultMap>
+
+  <sql id="cols">id, user_id, family, scheme, scheme_ver, address_index, address, salt, status, retired_at, deployed_at</sql>
+
+  <select id="byUser" resultMap="row">
+    SELECT <include refid="cols"/> FROM wallet_address WHERE user_id = #{userId} ORDER BY family, status, id DESC
+  </select>
+
+  <select id="lockActive" resultMap="row">
+    SELECT <include refid="cols"/> FROM wallet_address WHERE active_key = CONCAT(#{userId}, ':', #{family}) FOR UPDATE
+  </select>
+
+  <select id="findActive" resultMap="row">
+    SELECT <include refid="cols"/> FROM wallet_address WHERE active_key = CONCAT(#{userId}, ':', #{family})
+  </select>
+
+  <select id="shareActive" resultMap="row">
+    SELECT <include refid="cols"/> FROM wallet_address WHERE active_key = CONCAT(#{userId}, ':', #{family}) FOR SHARE
+  </select>
+
+  <insert id="insertActive">
+    INSERT IGNORE INTO wallet_address (user_id, family, scheme, scheme_ver, address_index, address, address_key, salt, status, active_key)
+    VALUES (#{userId}, #{family}, #{scheme}, #{schemeVer}, #{index}, #{address}, #{key}, #{salt}, 'ACTIVE', CONCAT(#{userId}, ':', #{family}))
+  </insert>
+
+  <update id="reactivate">
+    UPDATE wallet_address SET status = 'ACTIVE', active_key = CONCAT(#{userId}, ':', #{family}), retired_at = NULL
+    WHERE user_id = #{userId} AND family = #{family} AND scheme = #{scheme} AND scheme_ver = #{schemeVer} AND status = 'RETIRED'
+  </update>
+
+  <update id="retire">
+    UPDATE wallet_address SET status = 'RETIRED', active_key = NULL, retired_at = #{now} WHERE id = #{id} AND status = 'ACTIVE'
+  </update>
+
+  <select id="userOf" resultType="long">
+    SELECT user_id FROM wallet_address
+    WHERE family = #{family} AND address_key = #{key} AND (status = 'ACTIVE' OR retired_at &gt;= #{retiredSince})
+  </select>
+
+  <select id="ownerOf" resultMap="row">
+    SELECT <include refid="cols"/> FROM wallet_address WHERE family = #{family} AND address_key = #{key}
+  </select>
+
+  <select id="usersToMigrate" resultType="long">
+    SELECT user_id FROM wallet_address
+    WHERE family = #{family} AND status = 'ACTIVE' AND NOT (scheme = 'FORWARDER' AND scheme_ver = #{schemeVer}) AND user_id &gt; #{afterUser}
+    ORDER BY user_id LIMIT #{limit}
+  </select>
+
+  <update id="markDeployed">
+    UPDATE wallet_address SET deployed_at = #{now} WHERE id = #{id} AND deployed_at IS NULL
+  </update>
+
+  <insert id="insertSchemeIgnore">
+    INSERT IGNORE INTO wallet_address_scheme (family, scheme, factory, implementation, parent, fee_address, params_key)
+    VALUES (#{family}, 'FORWARDER', #{factory}, #{implementation}, #{parent}, #{feeAddress}, #{key})
+  </insert>
+
+  <select id="schemeByKey" resultMap="scheme">
+    SELECT ver, factory, implementation, parent, fee_address FROM wallet_address_scheme WHERE params_key = #{key}
+  </select>
+
+  <select id="schemeByVer" resultMap="scheme">
+    SELECT ver, factory, implementation, parent, fee_address FROM wallet_address_scheme WHERE ver = #{ver}
+  </select>
+
+  <select id="schemes" resultMap="scheme">
+    SELECT ver, factory, implementation, parent, fee_address FROM wallet_address_scheme ORDER BY ver
+  </select>
+</mapper>

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 热钱包 nonce 和提现广播记录。只有 wallet 模块使用。 -->
+<mapper namespace="com.forecast.app.wallet.withdraw.WithdrawTxMapper">
+
+  <resultMap id="tx" type="com.forecast.app.wallet.withdraw.WithdrawTxMapper$TxRow">
+    <constructor>
+      <arg column="id" javaType="_long"/>
+      <arg column="withdrawal_id" javaType="_long"/>
+      <arg column="chain" javaType="string"/>
+      <arg column="attempt" javaType="_int"/>
+      <arg column="nonce" javaType="java.lang.Long"/>
+      <arg column="tx_hash" javaType="string"/>
+      <arg column="raw_tx" javaType="string"/>
+      <arg column="fee_price" javaType="_long"/>
+      <arg column="expires_at" javaType="java.time.LocalDateTime"/>
+      <arg column="status" javaType="string"/>
+      <arg column="created_at" javaType="java.time.LocalDateTime"/>
+    </constructor>
+  </resultMap>
+
+  <select id="publicNo" resultType="java.lang.Long">
+    SELECT public_no FROM wallet_withdrawal WHERE id = #{withdrawalId}
+  </select>
+
+  <select id="lockNonce" resultType="long">
+    SELECT next_nonce FROM wallet_chain_nonce WHERE chain = #{chain} FOR UPDATE
+  </select>
+
+  <insert id="saveNonce">
+    INSERT INTO wallet_chain_nonce (chain, next_nonce) VALUES (#{chain}, #{nonce}) ON DUPLICATE KEY UPDATE next_nonce = VALUES(next_nonce)
+  </insert>
+
+  <insert id="insert">
+    INSERT INTO wallet_withdraw_tx (withdrawal_id, chain, attempt, nonce, tx_hash, raw_tx, fee_price, expires_at, status, created_at)
+    VALUES (#{withdrawalId}, #{chain}, #{attempt}, #{nonce}, #{txHash}, #{rawTx}, #{feePrice}, #{expiresAt}, 'SENT', #{createdAt})
+  </insert>
+
+  <update id="setStatus">
+    UPDATE wallet_withdraw_tx SET status = #{status} WHERE id = #{id}
+  </update>
+
+  <select id="attempts" resultMap="tx">
+    SELECT id, withdrawal_id, chain, attempt, nonce, tx_hash, raw_tx, fee_price, expires_at, status, created_at
+    FROM wallet_withdraw_tx WHERE withdrawal_id = #{withdrawalId} ORDER BY attempt DESC
+  </select>
+</mapper>

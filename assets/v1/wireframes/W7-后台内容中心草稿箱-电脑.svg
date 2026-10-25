@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="760" viewBox="0 0 1280 760" font-family="sans-serif" font-size="13">
+<rect width="1280" height="760" fill="#fff" stroke="#999"/>
+<text x="16" y="24" font-size="11" fill="#888">W7 后台 · 内容中心 · 草稿箱（电脑 1280 宽，低保真，v1.3）</text>
+<rect x="0" y="36" width="200" height="724" fill="#f2f2f2"/>
+<text x="20" y="66" font-weight="bold">后台</text>
+<text x="20" y="100">仪表盘</text><text x="20" y="126">市场管理</text><text x="20" y="152">裁决台</text><text x="20" y="178">…</text>
+<text x="20" y="214" font-weight="bold">内容中心</text>
+<rect x="12" y="224" width="176" height="26" fill="#dde6fb"/><text x="32" y="242">草稿箱（12 待审核）</text>
+<text x="32" y="270">卡片模板</text><text x="32" y="296">事件候选</text><text x="32" y="322">发布渠道和开关</text><text x="32" y="348">工具（对照图 · 回复）</text><text x="32" y="374">日志</text><text x="32" y="400">用量和设置</text>
+<text x="20" y="436">来源统计</text>
+<rect x="200" y="36" width="1080" height="44" fill="#fafafa"/>
+<text x="220" y="64">Gemini：已配置 · 今日 46 / 300 次 · 本月估算 3.1 美元</text>
+<text x="700" y="64">自动发布：Telegram 中 ✓ 英 ✓ · X 中 ✓ 英 ✕ · 网站 ✓</text>
+<rect x="1130" y="46" width="130" height="26" rx="4" fill="#fde8e8" stroke="#c44"/><text x="1150" y="64" fill="#a22">紧急停止</text>
+<text x="220" y="108">状态：待审核 ▾　类型：全部 ▾　语言：全部 ▾　渠道：全部 ▾</text>
+<g transform="translate(220,120)">
+<rect width="520" height="30" fill="#eee"/><text x="8" y="20" font-weight="bold">类型</text><text x="110" y="20" font-weight="bold">语言</text><text x="160" y="20" font-weight="bold">生成 / 过期</text><text x="300" y="20" font-weight="bold">校验</text><text x="420" y="20" font-weight="bold">状态</text>
+<rect y="30" width="520" height="30" fill="#e8eefc"/><text x="8" y="50">行情短文</text><text x="110" y="50">中 / 英</text><text x="160" y="50">08:00 / 明天 08:00</text><text x="300" y="50" fill="#a22">数字 1 处标红</text><text x="420" y="50">待审核</text>
+<text x="8" y="80">数据卡 ×3</text><text x="110" y="80">中 / 英</text><text x="160" y="80">08:00 / 明天 08:00</text><text x="300" y="80" fill="#383">通过</text><text x="420" y="80">待审核</text>
+<text x="8" y="110">赛前短文</text><text x="110" y="110">中 / 英</text><text x="160" y="110">08:00 / 19:55 开赛</text><text x="300" y="110" fill="#383">通过</text><text x="420" y="110">待审核</text>
+<text x="8" y="140">回复草稿</text><text x="110" y="140">中</text><text x="160" y="140">10:12 / 明天 10:12</text><text x="300" y="140" fill="#383">通过</text><text x="420" y="140">只能复制</text>
+<text x="8" y="170">教程文章</text><text x="110" y="170">中 / 英</text><text x="160" y="170">周一 / —</text><text x="300" y="170" fill="#a22">禁用词 1 处</text><text x="420" y="170">生成失败 · 重试</text>
+</g>
+<g transform="translate(760,96)"><rect width="500" height="650" rx="6" fill="none" stroke="#888"/>
+<text x="16" y="28" font-weight="bold">行情短文 · 中文　｜　English</text>
+<rect x="16" y="42" width="468" height="170" fill="#fafafa" stroke="#ccc"/>
+<text x="28" y="68" font-size="12">今晚 21:00 BTC 场开盘。过去 30 天的 21 点这一小时，</text>
+<text x="28" y="88" font-size="12">BTC 收盘不低于开盘的有 16 天（53%）。目前看涨 12 人、</text>
+<text x="28" y="108" font-size="12"><tspan fill="#a22" text-decoration="underline">85%</tspan>，看跌 8 人。最终赔率以截止时为准。</text>
+<text x="28" y="140" font-size="11" fill="#a22">标红：85% 不在引用的数据里（数据为 58%），改正后才能发布</text>
+<text x="28" y="196" font-size="11" fill="#666">（不写倾向、不建议押哪边，EQ-8）</text>
+<text x="16" y="240" font-weight="bold">引用的数据</text>
+<text x="16" y="264" font-size="12">币安 BTC/USDT 1 小时 K 线 · 30 天 · 查询 07:58 UTC · 16 / 30</text>
+<text x="16" y="286" font-size="12">本站 BTC 13:00 场 · 看涨 12 人 58% · 看跌 8 人 42% · 07:59 UTC</text>
+<text x="16" y="320" font-weight="bold">发布到</text>
+<text x="16" y="344" font-size="12">☑ Telegram 中文频道　☑ X 中文号　☐ 网站</text>
+<rect x="16" y="372" width="140" height="36" rx="6" fill="#ddd" stroke="#aaa"/><text x="40" y="395" fill="#888">发布（不可用）</text>
+<rect x="166" y="372" width="100" height="36" rx="6" fill="#fff" stroke="#888"/><text x="190" y="395">改后发布</text>
+<rect x="276" y="372" width="80" height="36" rx="6" fill="#fff" stroke="#888"/><text x="300" y="395">驳回</text>
+<rect x="366" y="372" width="80" height="36" rx="6" fill="#fff" stroke="#888"/><text x="390" y="395">复制</text>
+<text x="16" y="440" font-size="11" fill="#666">发布需要 content:publish（默认只有超管）；过期后不能发布</text>
+<text x="16" y="460" font-size="11" fill="#666">X 没配置凭据时："复制文字 + 下载图片 + 打开发帖页"</text>
+<text x="16" y="480" font-size="11" fill="#666">发布结果和帖子链接写进日志</text>
+</g>
+</svg>

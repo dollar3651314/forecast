@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  结算、退款、彩池对账（forecast S5，技术方案/v1-架构方案.md 第 3.3、4.3、4.4 节）。只有 settle 模块使用（表名以 settle_ 开头）。
+  - 加锁顺序：市场行（market 模块 lockForSettle）→ 结算单行（lockRun）→ 客户账户行（ledger，按 user_id 升序）→ pool 的行 → 平台账户行。
+  - 明细的金额列写入后不改：只有改 status / done_at 的语句（SettleAppendOnlyTest 扫描）。
+-->
+<mapper namespace="com.forecast.app.settle.run.SettleMapper">
+
+  <sql id="runCols">
+    id, public_no, market_id, kind, reason, winning_option_id, fee_rate, pool_total, winner_pool, loser_pool, sum_gross, sum_fee, dust, sum_payout,
+    winner_positions, loser_positions, item_count, conservation_ok, status, abnormal_reason, batch_size, resolved_by, calculated_at, done_at, version
+  </sql>
+
+  <insert id="insertRun" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO settle_run (public_no, market_id, kind, reason, winning_option_id, fee_rate, pool_total, winner_pool, loser_pool, sum_gross, sum_fee,
+      dust, sum_payout, winner_positions, loser_positions, item_count, conservation_ok, status, abnormal_reason, batch_size, resolved_by, calculated_at)
+    VALUES (#{publicNo}, #{marketId}, #{kind}, #{reason}, #{winningOptionId}, #{feeRate}, #{poolTotal}, #{winnerPool}, #{loserPool}, #{sumGross},
+      #{sumFee}, #{dust}, #{sumPayout}, #{winnerPositions}, #{loserPositions}, #{itemCount}, #{conservationOk}, #{status}, #{abnormalReason},
+      #{batchSize}, #{resolvedBy}, #{calculatedAt})
+  </insert>
+
+  <select id="runByMarket" resultType="com.forecast.app.settle.run.SettleRows$Run">
+    SELECT <include refid="runCols"/> FROM settle_run WHERE market_id = #{marketId} AND kind = #{kind}
+  </select>
+
+  <select id="runById" resultType="com.forecast.app.settle.run.SettleRows$Run">
+    SELECT <include refid="runCols"/> FROM settle_run WHERE id = #{id}
+  </select>
+
+  <select id="runByPublicNo" resultType="com.forecast.app.settle.run.SettleRows$Run">
+    SELECT <include refid="runCols"/> FROM settle_run WHERE public_no = #{publicNo}
+  </select>
+
+  <select id="lockRun" resultType="com.forecast.app.settle.run.SettleRows$Run">
+    SELECT <include refid="runCols"/> FROM settle_run WHERE id = #{id} FOR UPDATE
+  </select>
+
+  <select id="payingRuns" resultType="long">
+    SELECT id FROM settle_run WHERE status = 'PAYING' ORDER BY id LIMIT #{limit}
+  </select>
+
+  <update id="casRunStatus">
+    UPDATE settle_run SET status = #{to}, version = version + 1
+      <if test="abnormalReason != null">, abnormal_reason = #{abnormalReason}</if>
+      <if test="doneAt != null">, done_at = #{doneAt}</if>
+    WHERE id = #{id} AND status = #{from}
+  </update>
+
+  <update id="recalculated">
+    UPDATE settle_run SET winning_option_id = #{winningOptionId}, fee_rate = #{feeRate}, pool_total = #{poolTotal}, winner_pool = #{winnerPool},
+      loser_pool = #{loserPool}, sum_gross = #{sumGross}, sum_fee = #{sumFee}, dust = #{dust}, sum_payout = #{sumPayout},
+      winner_positions = #{winnerPositions}, loser_positions = #{loserPositions}, item_count = #{itemCount}, conservation_ok = #{conservationOk},
+      status = #{status}, abnormal_reason = #{abnormalReason}, batch_size = #{batchSize}, calculated_at = #{calculatedAt}, version = version + 1
+    WHERE id = #{id} AND status = 'ABNORMAL' AND item_count = 0
+  </update>
+
+  <sql id="runWhere">
+    <where>
+      <if test="status != null">status = #{status}</if>
+      <if test="kind != null">AND kind = #{kind}</if>
+    </where>
+  </sql>
+
+  <select id="listRuns" resultType="com.forecast.app.settle.run.SettleRows$Run">
+    SELECT <include refid="runCols"/> FROM settle_run <include refid="runWhere"/> ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="countRuns" resultType="long">
+    SELECT COUNT(*) FROM settle_run <include refid="runWhere"/>
+  </select>
+
+  <!-- ===================== 结算明细 ===================== -->
+
+  <sql id="itemCols">id, run_id, market_id, position_id, user_id, option_id, win, stake, gross, fee, payout, status, done_at</sql>
+
+  <insert id="insertItems">
+    INSERT INTO settle_item (run_id, market_id, position_id, user_id, option_id, win, stake, gross, fee, payout, status) VALUES
+    <foreach collection="items" item="i" separator=",">
+      (#{i.runId}, #{i.marketId}, #{i.positionId}, #{i.userId}, #{i.optionId}, #{i.win}, #{i.stake}, #{i.gross}, #{i.fee}, #{i.payout}, 'PENDING')
+    </foreach>
+  </insert>
+
+  <select id="pendingItems" resultType="com.forecast.app.settle.run.SettleRows$Item">
+    SELECT <include refid="itemCols"/> FROM settle_item WHERE run_id = #{runId} AND status = 'PENDING' ORDER BY user_id, id LIMIT #{limit}
+  </select>
+
+  <select id="pendingItemsOfUsers" resultType="com.forecast.app.settle.run.SettleRows$Item">
+    SELECT <include refid="itemCols"/> FROM settle_item WHERE run_id = #{runId} AND status = 'PENDING'
+      AND user_id IN <foreach collection="userIds" item="u" open="(" separator="," close=")">#{u}</foreach>
+    ORDER BY user_id, id
+  </select>
+
+  <update id="markItemsDone">
+    UPDATE settle_item SET status = 'DONE', done_at = #{now}
+    WHERE id IN <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach> AND status = 'PENDING'
+  </update>
+
+  <select id="countPendingItems" resultType="long">
+    SELECT COUNT(*) FROM settle_item WHERE run_id = #{runId} AND status = 'PENDING'
+  </select>
+
+  <select id="pendingStake" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(stake), 0) FROM settle_item WHERE run_id = #{runId} AND status = 'PENDING'
+  </select>
+
+  <select id="items" resultType="com.forecast.app.settle.run.SettleRows$Item">
+    SELECT <include refid="itemCols"/> FROM settle_item WHERE run_id = #{runId} ORDER BY win DESC, user_id, id LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <!-- ===================== 退款明细 ===================== -->
+
+  <sql id="refundCols">id, run_id, market_id, bet_id, user_id, amount, reason, status, created_at, done_at</sql>
+
+  <insert id="insertRefunds">
+    INSERT INTO settle_refund_item (run_id, market_id, bet_id, user_id, amount, reason, status, created_at) VALUES
+    <foreach collection="refunds" item="r" separator=",">
+      (#{r.runId}, #{r.marketId}, #{r.betId}, #{r.userId}, #{r.amount}, #{r.reason}, 'PENDING', #{r.createdAt})
+    </foreach>
+  </insert>
+
+  <select id="pendingRefunds" resultType="com.forecast.app.settle.run.SettleRows$Refund">
+    SELECT <include refid="refundCols"/> FROM settle_refund_item WHERE run_id = #{runId} AND status = 'PENDING' ORDER BY user_id, id LIMIT #{limit}
+  </select>
+
+  <select id="pendingRefundsOfUsers" resultType="com.forecast.app.settle.run.SettleRows$Refund">
+    SELECT <include refid="refundCols"/> FROM settle_refund_item WHERE run_id = #{runId} AND status = 'PENDING'
+      AND user_id IN <foreach collection="userIds" item="u" open="(" separator="," close=")">#{u}</foreach>
+    ORDER BY user_id, id
+  </select>
+
+  <select id="refundsByBets" resultType="com.forecast.app.settle.run.SettleRows$Refund">
+    SELECT <include refid="refundCols"/> FROM settle_refund_item
+    WHERE bet_id IN <foreach collection="betIds" item="b" open="(" separator="," close=")">#{b}</foreach>
+    ORDER BY user_id, id
+  </select>
+
+  <update id="markRefundsDone">
+    UPDATE settle_refund_item SET status = 'DONE', done_at = #{now}
+    WHERE id IN <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach> AND status = 'PENDING'
+  </update>
+
+  <select id="countPendingRefunds" resultType="long">
+    SELECT COUNT(*) FROM settle_refund_item WHERE run_id = #{runId} AND status = 'PENDING'
+  </select>
+
+  <select id="pendingRefundAmount" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(amount), 0) FROM settle_refund_item WHERE run_id = #{runId} AND status = 'PENDING'
+  </select>
+
+  <select id="refundedAmount" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(amount), 0) FROM settle_refund_item WHERE market_id = #{marketId} AND status = 'DONE'
+  </select>
+
+  <select id="refundItems" resultType="com.forecast.app.settle.run.SettleRows$Refund">
+    SELECT <include refid="refundCols"/> FROM settle_refund_item WHERE run_id = #{runId} ORDER BY user_id, id LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <!-- ===================== 彩池对账差异 ===================== -->
+
+  <sql id="issueCols">
+    id, ref_key, market_id, check_date, kind, source, expected, actual, diff, detail, status, resolved_by, resolved_at, note, created_at
+  </sql>
+
+  <insert id="insertIssue">
+    INSERT IGNORE INTO settle_pool_recon_issue (ref_key, market_id, check_date, kind, source, expected, actual, diff, detail, status, created_at)
+    VALUES (#{refKey}, #{marketId}, #{checkDate}, #{kind}, #{source}, #{expected}, #{actual}, #{diff}, #{detail}, 'OPEN', #{createdAt})
+  </insert>
+
+  <select id="openIssueCount" resultType="long">
+    SELECT COUNT(*) FROM settle_pool_recon_issue WHERE ref_key = #{refKey} AND kind = #{kind} AND status = 'OPEN'
+  </select>
+
+  <select id="openIssuesOfMarket" resultType="long">
+    SELECT COUNT(*) FROM settle_pool_recon_issue WHERE market_id = #{marketId} AND status = 'OPEN'
+  </select>
+
+  <select id="openIssues" resultType="long">
+    SELECT COUNT(*) FROM settle_pool_recon_issue WHERE status = 'OPEN'
+  </select>
+
+  <select id="listIssues" resultType="com.forecast.app.settle.run.SettleRows$Issue">
+    SELECT <include refid="issueCols"/> FROM settle_pool_recon_issue <if test="status != null">WHERE status = #{status}</if>
+    ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="countIssues" resultType="long">
+    SELECT COUNT(*) FROM settle_pool_recon_issue <if test="status != null">WHERE status = #{status}</if>
+  </select>
+
+  <select id="issue" resultType="com.forecast.app.settle.run.SettleRows$Issue">
+    SELECT <include refid="issueCols"/> FROM settle_pool_recon_issue WHERE id = #{id}
+  </select>
+
+  <update id="resolveIssue">
+    UPDATE settle_pool_recon_issue SET status = 'RESOLVED', resolved_by = #{by}, resolved_at = #{now}, note = #{note} WHERE id = #{id} AND status = 'OPEN'
+  </update>
+
+  <select id="runsForRecon" resultType="com.forecast.app.settle.run.SettleRows$Run">
+    SELECT <include refid="runCols"/> FROM settle_run WHERE status = 'PAYING' OR (status = 'DONE' AND done_at &gt;= #{since}) ORDER BY id
+  </select>
+</mapper>
