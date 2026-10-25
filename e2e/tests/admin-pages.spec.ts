@@ -143,7 +143,8 @@ test('后台页面：待上架 → 裁决台提议、确认 → 争议处理 →
 
     await step('参数设置：时事默认费率 5% → 6%（高危，前 → 后），新草稿用 6%；再改回 5%', async () => {
       await page.goto('/admin/params');
-      const edit = page.getByRole('button', { name: '编辑 时事' }).first();
+      // "时事"在费率组和争议窗口组都有：限定在费率那张卡片里（两组分别加载，先后不定）
+      const edit = page.locator('.ant-card').filter({ hasText: '品类默认费率' }).getByRole('button', { name: '编辑 时事' });
       for (const [to, back] of [
         ['6', false],
         ['5', true],
