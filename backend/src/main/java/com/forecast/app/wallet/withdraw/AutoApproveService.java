@@ -5,6 +5,8 @@ import com.forecast.app.account.api.KycStatus;
 import com.forecast.app.account.api.SecurityEvent;
 import com.forecast.app.common.config.SystemConfig;
 import com.forecast.app.ledger.api.CustomerFlowApi;
+import com.forecast.app.pool.api.PoolApi;
+import com.forecast.app.riskalert.api.RiskAlertApi;
 import com.forecast.app.settle.api.SettleApi;
 import com.forecast.app.wallet.api.AutoApprove;
 import com.forecast.app.wallet.api.AutoApprove.Settings;
@@ -55,12 +57,14 @@ public class AutoApproveService implements AutoApproveAdminApi {
   private final CustomerFlowApi flows;
   private final HotWalletApi hot;
   private final SettleApi settle;
+  private final PoolApi pool;
+  private final RiskAlertApi risk;
   private final ObjectMapper json;
   private final TransactionTemplate tx;
   private final Clock clock;
 
   AutoApproveService(AutoApproveMapper mapper, WithdrawMapper withdrawals, SystemConfig config, AccountApi account, CustomerFlowApi flows,
-      HotWalletApi hot, SettleApi settle, ObjectMapper json, TransactionTemplate tx, Clock clock) {
+      HotWalletApi hot, SettleApi settle, PoolApi pool, RiskAlertApi risk, ObjectMapper json, TransactionTemplate tx, Clock clock) {
     this.mapper = mapper;
     this.withdrawals = withdrawals;
     this.config = config;
@@ -68,6 +72,8 @@ public class AutoApproveService implements AutoApproveAdminApi {
     this.flows = flows;
     this.hot = hot;
     this.settle = settle;
+    this.pool = pool;
+    this.risk = risk;
     this.json = json;
     this.tx = tx;
     this.clock = clock;
@@ -196,8 +202,8 @@ public class AutoApproveService implements AutoApproveAdminApi {
     }
 
     @Override
-    public BigDecimal openedNotionalSince(long userId, LocalDateTime since) {
-      return flows.openedNotionalSince(userId, since);
+    public BigDecimal effectiveStakeSince(long userId, LocalDateTime since) {
+      return pool.effectiveStakeSince(userId, since);
     }
 
     @Override
@@ -211,13 +217,18 @@ public class AutoApproveService implements AutoApproveAdminApi {
     }
 
     @Override
-    public BigDecimal realizedPnl(long userId, LocalDateTime since) {
-      return flows.realizedPnl(userId, since);
+    public CustomerFlowApi.Realized realized(long userId, LocalDateTime since) {
+      return flows.realized(userId, since);
     }
 
     @Override
-    public CustomerFlowApi.NetProfit netProfit(long userId) {
-      return flows.netProfit(userId);
+    public RiskAlertApi.LinkedOpposite linkedOpposite(long userId, LocalDateTime since) {
+      return risk.linkedOpposite(userId, since);
+    }
+
+    @Override
+    public long openSuspiciousAlerts(long userId, LocalDateTime since) {
+      return risk.openSuspiciousAlerts(userId, since);
     }
 
     @Override

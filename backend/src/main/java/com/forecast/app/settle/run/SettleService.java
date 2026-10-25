@@ -107,10 +107,12 @@ public class SettleService {
   private final SettleFaults faults;
   private final PayoutKick kick;
   private final TransactionTemplate tx;
+  private final org.springframework.context.ApplicationEventPublisher events;
 
   SettleService(SettleMapper mapper, MarketApi markets, PoolSettleApi pool, LedgerApi ledger, PlatformLedgerApi platform, LedgerQueryApi ledgerQuery,
       AccountApi accounts, NotifyApi notify, StaffAlertApi staff, Snowflake ids, Clock clock, SettleProperties props, SettleFaults faults,
-      PayoutKick kick, PlatformTransactionManager tm) {
+      PayoutKick kick, PlatformTransactionManager tm, org.springframework.context.ApplicationEventPublisher events) {
+    this.events = events;
     this.mapper = mapper;
     this.markets = markets;
     this.pool = pool;
@@ -458,6 +460,9 @@ public class SettleService {
       throw new IllegalStateException("市场状态变了，不能进入已结算：" + run.marketId);
     }
     if (mapper.casRunStatus(run.id, PAYING, DONE, null, now()) != 1) throw new IllegalStateException("结算单状态变了：" + run.id);
+    // forecast S10：派彩完成（风控在事务提交后检查"新账户押中冷门"，SettleApi.PayoutDone）
+    events.publishEvent(new com.forecast.app.settle.api.SettleApi.PayoutDone(new com.forecast.app.settle.api.SettleApi.SettledRun(run.id, run.marketId,
+        run.winningOptionId, run.poolTotal, run.winnerPool, run.feeRate, now())));
     log.info("市场 {} 已结算：派彩 {}，抽成 {}，尾差 {}", t.publicNo(), money(run.sumPayout), money(run.sumFee), money(run.dust));
     return true;
   }
@@ -655,6 +660,42 @@ public class SettleService {
     }
     return p;
   }
+
+  /** E15 补登员工时可以当场退回下注的市场状态：结算还没开始、也没有取消 / 作废（取消、作废由退款单全额退） */
+  static final Set<MarketStatus> STAFF_REFUNDABLE = EnumSet.of(MarketStatus.LISTED, MarketStatus.PAUSED, MarketStatus.CLOSED,
+      MarketStatus.PENDING_RESOLUTION, MarketStatus.PUBLICIZING, MarketStatus.DISPUTED);
+
+  /**
+   * 员工补登（forecast S10，需求第 3.6 节 E15、第 8.1 节）：退回这个客户在<b>结算还没开始</b>的市场里的有效下注（不参与结算），每个市场一个事务：
+   * 锁市场行（排他，和下注、截止、结算排队）→ 结算阶段是 NONE、状态在 {@link #STAFF_REFUNDABLE} 里、这个客户此刻仍是员工 → 退回（和 E14 同样的单笔退款，
+   * 同步扣持仓、奖池和截止后定格的奖池；员工的退回没有客户通知）。已经在结算中、已结算的市场不动（不回滚已派的钱）；
+   * 和登记同时进行、没被这里退到的下注，结算时还会按 E15 再退一次（{@link #calculate}）。
+   *
+   * @return 退了几个市场、几笔、合计多少
+   */
+  public StaffRefund refundStaffBets(long userId) {
+    int marketCount = 0;
+    int bets = 0;
+    BigDecimal amount = BigDecimal.ZERO;
+    for (Long marketId : pool.marketsWithActiveBets(userId)) {
+      List<PoolSettleApi.Bet> done = tx.execute(st -> {
+        MarketApi.SettleTarget t = markets.lockForSettle(marketId);
+        if (t.settlePhase() != SettlePhase.NONE || !STAFF_REFUNDABLE.contains(t.status())) return List.<PoolSettleApi.Bet>of();
+        if (!accounts.isStaff(userId)) return List.<PoolSettleApi.Bet>of();
+        List<PoolSettleApi.Bet> list = pool.activeBetsOfUsers(marketId, List.of(userId));
+        refundNow(t, list, "STAFF", null, now());
+        return list;
+      });
+      if (done == null || done.isEmpty()) continue;
+      marketCount++;
+      bets += done.size();
+      amount = amount.add(done.stream().map(PoolSettleApi.Bet::amount).reduce(BigDecimal.ZERO, BigDecimal::add));
+    }
+    return new StaffRefund(marketCount, bets, amount);
+  }
+
+  /** 员工补登时退回的结果 */
+  public record StaffRefund(int markets, int bets, BigDecimal amount) {}
 
   /**
    * 截止时间被提前（{@link SettleMarketListener}，市场行已加排他锁）：新截止时间之后收到的下注全额退回（需求第 3.2 节第 4 条，和 E14 同样的逻辑，通知 #14）。

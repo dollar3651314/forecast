@@ -38,6 +38,12 @@ import type {
   SettleRunDetail,
   SportsTemplate,
   SyncResult,
+  CustomerLink,
+  RiskAlert,
+  RiskAlertCounts,
+  RiskAlertQuery,
+  RiskAlertStatus,
+  StaffRefund,
 } from './fcTypes';
 
 const enc = encodeURIComponent;
@@ -158,3 +164,15 @@ export const compensate = (no: string, correctOptionNo: string, reason: string):
 export const listCompensations = (page: number, pageSize: number): Promise<Page<Compensation>> => request('/settle/compensations', { query: { page, pageSize } });
 export const getCompensation = (no: string): Promise<Compensation> => request(`/settle/compensations/${enc(no)}`);
 export const getReport = (from: string, to: string): Promise<Report> => request('/reports/settle', { query: { from, to } });
+
+// ---- 风控告警、员工账户、关联账户（forecast S10，后端 admin/ops/RiskAdminController、OpsController） ----
+export const listRiskAlerts = (q: RiskAlertQuery): Promise<Page<RiskAlert>> =>
+  request('/risk-alerts', { query: { kind: q.kind, status: q.status, keyword: q.keyword, page: q.page, pageSize: q.pageSize } });
+export const getRiskAlertCounts = (): Promise<RiskAlertCounts> => request('/risk-alerts/counts');
+/** 改处理状态；已处理、误报要写处理说明（后端校验） */
+export const setRiskAlertStatus = (id: string, status: RiskAlertStatus, note: string | null): Promise<RiskAlert> =>
+  request(`/risk-alerts/${enc(id)}/status`, { method: 'POST', body: { status, note } });
+export const getCustomerLinks = (id: number): Promise<CustomerLink[]> => request(`/customers/${id}/links`);
+/** 登记 / 取消登记员工账户（customer:edit，高危，原因必填）；登记时退回已有下注（E15），返回退回的结果 */
+export const setCustomerStaff = async (id: number, staff: boolean, reason: string): Promise<StaffRefund> =>
+  (await request<{ refunded: StaffRefund }>(`/customers/${id}/staff`, { method: 'POST', body: { staff, reason } })).refunded;

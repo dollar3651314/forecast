@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 注册、登录时的设备号和 IP（forecast S10）。只有 account 模块使用。 -->
+<mapper namespace="com.forecast.app.account.device.DeviceMapper">
+
+  <insert id="insert">
+    INSERT INTO account_device (user_id, kind, device_hash, ip, created_at) VALUES (#{userId}, #{kind}, #{deviceHash}, #{ip}, #{at})
+  </insert>
+
+  <select id="after" resultType="com.forecast.app.account.device.DeviceMapper$Row">
+    SELECT id, user_id, kind, device_hash, ip, created_at FROM account_device
+    WHERE id &gt; #{afterId} ORDER BY id LIMIT #{limit}
+  </select>
+</mapper>

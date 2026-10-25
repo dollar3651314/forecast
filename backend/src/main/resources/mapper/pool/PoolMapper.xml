@@ -180,6 +180,33 @@
     WHERE b.user_id = #{userId} AND b.received_at &gt;= #{since} AND b.status = 'ACTIVE' AND m.status NOT IN ('CANCELLED', 'VOIDED')
   </select>
 
+  <!-- forecast S10：风控扫描、关联账户对押、押中冷门、员工补登 -->
+  <select id="betsAfter" resultType="com.forecast.app.pool.bet.PoolRows$Bet">
+    SELECT <include refid="betCols"/> FROM pool_bet b WHERE b.id &gt; #{afterId} ORDER BY b.id LIMIT #{limit}
+  </select>
+
+  <select id="optionsOf" resultType="com.forecast.app.pool.bet.PoolMapper$UserOption">
+    SELECT DISTINCT user_id, option_id FROM pool_bet
+    WHERE market_id = #{marketId} AND status = 'ACTIVE'
+      AND user_id IN <foreach collection="userIds" item="u" open="(" separator="," close=")">#{u}</foreach>
+  </select>
+
+  <select id="commonMarkets" resultType="long">
+    SELECT DISTINCT a.market_id FROM pool_bet a
+    WHERE a.user_id = #{a} AND a.status = 'ACTIVE' AND a.received_at &gt;= #{since}
+      AND EXISTS (SELECT 1 FROM pool_bet b WHERE b.user_id = #{b} AND b.market_id = a.market_id AND b.status = 'ACTIVE' AND b.received_at &gt;= #{since})
+    ORDER BY a.market_id
+  </select>
+
+  <select id="activeBetsOn" resultType="com.forecast.app.pool.bet.PoolRows$Bet">
+    SELECT <include refid="betCols"/> FROM pool_bet b
+    WHERE b.market_id = #{marketId} AND b.option_id = #{optionId} AND b.status = 'ACTIVE' AND b.amount &gt;= #{minAmount} ORDER BY b.id
+  </select>
+
+  <select id="marketsWithActiveBets" resultType="long">
+    SELECT DISTINCT market_id FROM pool_bet WHERE user_id = #{userId} AND status = 'ACTIVE' ORDER BY market_id
+  </select>
+
   <select id="sumActiveBets" resultType="java.math.BigDecimal">
     SELECT COALESCE(SUM(amount), 0) FROM pool_bet WHERE market_id = #{marketId} AND status = 'ACTIVE'
   </select>

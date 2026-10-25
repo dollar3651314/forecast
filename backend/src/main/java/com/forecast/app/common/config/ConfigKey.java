@@ -74,6 +74,12 @@ public enum ConfigKey {
   AUTO_APPROVE_R11_MAX_COUNT("withdraw.autoApprove.R11.maxCount", Unit.COUNT, "autoApprove", BigDecimal.ZERO, false),
   /** R13 盈利客户的门槛（累计净盈利 &gt; 它就转人工），默认 0，可以是 0 */
   AUTO_APPROVE_R13_MAX_NET_PROFIT("withdraw.autoApprove.R13.maxNetProfit", Unit.USDT, "autoApprove", BigDecimal.ZERO, false),
+  /** forecast S10（需求第 8.2 节）：R14 关联账户对押（近 N 天、盈利门槛）、R15 可疑押中（近 N 天）；迁移 V19 */
+  AUTO_APPROVE_R14_ENABLED("withdraw.autoApprove.R14.enabled", Unit.BOOL, "autoApprove", null, false),
+  AUTO_APPROVE_R14_DAYS("withdraw.autoApprove.R14.days", Unit.COUNT, "autoApprove", BigDecimal.ZERO, false),
+  AUTO_APPROVE_R14_MIN_PROFIT("withdraw.autoApprove.R14.minProfit", Unit.USDT, "autoApprove", BigDecimal.ZERO, false),
+  AUTO_APPROVE_R15_ENABLED("withdraw.autoApprove.R15.enabled", Unit.BOOL, "autoApprove", null, false),
+  AUTO_APPROVE_R15_DAYS("withdraw.autoApprove.R15.days", Unit.COUNT, "autoApprove", BigDecimal.ZERO, false),
   /**
    * 资金归集（v2，技术方案/v2-半自动归集.md 第 4.5、4.9、4.14 节，迁移 V28）：门槛、手续费占比上限（Amos 10-20 SW-6：后台可改，默认 100 / 10 / 100 USDT、3%）、
    * 以太坊 / BSC 上线初期金额上限（每个地址 5,000、每批 20,000 USDT，0 = 不限；Amos 10-20 保留）、发起账户余额告警下限（0 = 不告警）、版本号。
@@ -139,7 +145,18 @@ public enum ConfigKey {
   SPORTS_EVENT_MINUTES_FOOTBALL("sports.eventMinutes.FOOTBALL", Unit.MINUTES, "sports", BigDecimal.valueOf(60), BigDecimal.valueOf(1440), 0, Params.BETTING),
   SPORTS_EVENT_MINUTES_NBA("sports.eventMinutes.NBA", Unit.MINUTES, "sports", BigDecimal.valueOf(60), BigDecimal.valueOf(1440), 0, Params.BETTING),
   /** KYC 阈值（RQ-10）：累计充值超过它、没有通过证件 + 人脸认证的客户不能新下注（S10 起用） */
-  KYC_DEPOSIT_THRESHOLD("kyc.depositThreshold", Unit.USDT, "kyc", BigDecimal.ZERO, new BigDecimal("1000000000"), 2, Params.BETTING);
+  KYC_DEPOSIT_THRESHOLD("kyc.depositThreshold", Unit.USDT, "kyc", BigDecimal.ZERO, new BigDecimal("1000000000"), 2, Params.BETTING),
+  /*
+   * ---------- forecast S10：风控告警（需求第 8.1 节，迁移 V19 的初始值；参数设置页"风控"一组，betting_params:edit） ----------
+   * 尾盘大额：截止前 N 分钟内、单笔 ≥ 下注后奖池的 X%；新账户押中冷门：注册 N 天内、单笔 ≥ 金额、押中的赔率（扣费后）≥ 倍数；
+   * 关联账户：同一个设备号 / IP / 地址的客户超过这么多个时不再按它关联（公共网络、交易所地址，超出要求的部分，见开发记录 S10）
+   */
+  RISK_LATE_BET_MINUTES("risk.lateBet.minutes", Unit.MINUTES, "risk", BigDecimal.ONE, BigDecimal.valueOf(1440), 0, Params.BETTING),
+  RISK_LATE_BET_POOL_PCT("risk.lateBet.poolPct", Unit.PERCENT, "risk", BigDecimal.ONE, BigDecimal.valueOf(100), 2, Params.BETTING),
+  RISK_LONGSHOT_ACCOUNT_DAYS("risk.longshot.accountDays", Unit.COUNT, "risk", BigDecimal.ONE, BigDecimal.valueOf(365), 0, Params.BETTING),
+  RISK_LONGSHOT_MIN_AMOUNT("risk.longshot.minAmount", Unit.USDT, "risk", new BigDecimal("0.01"), new BigDecimal("1000000000"), 2, Params.BETTING),
+  RISK_LONGSHOT_MIN_ODDS("risk.longshot.minOdds", Unit.MULTIPLE, "risk", BigDecimal.ONE, BigDecimal.valueOf(1000), 2, Params.BETTING),
+  RISK_LINK_MAX_USERS("risk.link.maxUsersPerKey", Unit.COUNT, "risk", BigDecimal.valueOf(2), BigDecimal.valueOf(1000), 0, Params.BETTING);
 
   /**
    * 参数设置页的哪一组（决定改它要哪个权限点）；{@link #NONE} 不在参数设置页。

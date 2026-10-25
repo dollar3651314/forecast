@@ -18,7 +18,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * 提现自动审批的 13 条规则判定（技术方案/v2-提现自动审批.md 第 4 节）。纯计算：数据经 {@link Facts} 取，测试里可以换成假的。
+ * 提现自动审批的 15 条规则判定（复制源的技术方案 v2-提现自动审批 第 4 节；forecast S10 按需求说明书第 8.2 节改 R8～R10、R13，加 R14、R15）。纯计算：数据经 {@link Facts} 取，测试里可以换成假的。
  * <ul>
  *   <li>"现在"= 判定时刻（UTC）。时间窗口都是滚动的，R11 例外（按 UTC 日历日）。金额都用 {@link BigDecimal} 精确比较。</li>
  *   <li>边界：写"≤"的等于算通过，写"≥"的等于算通过；"N 小时内没有"指 (现在 − N 小时, 现在] 里没有，正好 N 小时前的不算"内"。</li>
@@ -85,8 +85,8 @@ final class AutoApproveEngine {
     /** 从 since 起入账的充值：净额（扣冲正）和最早一笔的入账时间 */
     com.forecast.app.ledger.api.CustomerFlowApi.Deposits depositsSince(long userId, LocalDateTime since);
 
-    /** 交易量（S1 过渡：恒为 0，S10 改成有效下注本金） */
-    BigDecimal openedNotionalSince(long userId, LocalDateTime since);
+    /** 从 since 起（按收到下注的时间）的有效下注本金（退回的、取消 / 作废市场里的不算；R8） */
+    BigDecimal effectiveStakeSince(long userId, LocalDateTime since);
 
     /** 不是驳回、撤销、失败已退回的提现金额合计（含本笔和进行中的） */
     BigDecimal withdrawnTotal(long userId);
@@ -94,11 +94,14 @@ final class AutoApproveEngine {
     /** 累计充值 − 冲正 */
     BigDecimal netDeposits(long userId);
 
-    /** 已实现盈亏；since 为空表示全部时间（S1 过渡：恒为 0） */
-    BigDecimal realizedPnl(long userId, LocalDateTime since);
+    /** 已结算的盈亏（派彩、补偿、已结算本金、抽成）；since 为空表示从开户到现在（R9、R10、R13） */
+    com.forecast.app.ledger.api.CustomerFlowApi.Realized realized(long userId, LocalDateTime since);
 
-    /** 从开户到现在的累计净盈利（S1 过渡：恒为 0，见 ledger.api.CustomerFlowApi） */
-    com.forecast.app.ledger.api.CustomerFlowApi.NetProfit netProfit(long userId);
+    /** R14：从 since 起有派彩、且有关联账户押了其他选项的市场和这部分盈利 */
+    com.forecast.app.riskalert.api.RiskAlertApi.LinkedOpposite linkedOpposite(long userId, LocalDateTime since);
+
+    /** R15：从 since 起还没处理的"新账户押中冷门""尾盘大额"告警条数 */
+    long openSuspiciousAlerts(long userId, LocalDateTime since);
 
     /** 已完成提现的金额合计 */
     BigDecimal completedAmount(long userId);
@@ -215,7 +218,7 @@ final class AutoApproveEngine {
         if (d.net().signum() <= 0 || d.firstAt() == null) {
           yield new Checked(true, vals("volume", "0", "deposit", p(d.net().max(BigDecimal.ZERO)), "ratio", "—", "limit", p(multiple), "note", "noDeposit"));
         }
-        BigDecimal volume = f.openedNotionalSince(w.userId(), d.firstAt());
+        BigDecimal volume = f.effectiveStakeSince(w.userId(), d.firstAt());
         BigDecimal ratio = volume.divide(d.net(), 2, RoundingMode.DOWN);
         yield new Checked(volume.compareTo(d.net().multiply(multiple)) >= 0,
             vals("volume", p(volume), "deposit", p(d.net()), "ratio", p(ratio), "limit", p(multiple)));
@@ -223,14 +226,14 @@ final class AutoApproveEngine {
       case R9 -> {
         BigDecimal withdrawn = f.withdrawnTotal(w.userId());
         BigDecimal deposit = f.netDeposits(w.userId());
-        BigDecimal pnl = f.realizedPnl(w.userId(), null);
+        BigDecimal pnl = f.realized(w.userId(), null).net();
         BigDecimal cap = deposit.add(pnl);
         yield new Checked(withdrawn.compareTo(cap) <= 0, vals("withdrawn", p(withdrawn), "deposit", p(deposit), "pnl", p(pnl), "cap", p(cap)));
       }
       case R10 -> {
         BigDecimal limitAbs = param(s, r, "maxProfit7d");
         BigDecimal limitPct = param(s, r, "maxProfitPct");
-        BigDecimal profit = f.realizedPnl(w.userId(), now.minusDays(7));
+        BigDecimal profit = f.realized(w.userId(), now.minusDays(7)).net();
         BigDecimal principal = f.netDeposits(w.userId()).subtract(f.completedAmount(w.userId())).max(BigDecimal.ZERO);
         BigDecimal pctCap = principal.multiply(limitPct).divide(BigDecimal.valueOf(100));
         boolean ok = profit.signum() <= 0 || profit.compareTo(limitAbs) <= 0 || profit.compareTo(pctCap) <= 0;
@@ -262,12 +265,26 @@ final class AutoApproveEngine {
         yield new Checked(issues.isEmpty(), v);
       }
       case R13 -> {
-        // 累计净盈利（S1 过渡：恒为 0，S10 改口径）；"> 门槛"不通过，等于门槛算通过
+        // 累计净盈利 = 派彩 + 补偿 − 已结算本金 − 抽成（S10）；"> 门槛"不通过，等于门槛算通过
         BigDecimal limit = param(s, r, "maxNetProfit");
-        var np = f.netProfit(w.userId());
+        var np = f.realized(w.userId(), null);
         BigDecimal net = np.net();
-        yield new Checked(net.compareTo(limit) <= 0,
-            vals("net", p(net), "realized", p(np.realized()), "fee", p(np.fee()), "swap", p(np.swap()), "limit", p(limit)));
+        yield new Checked(net.compareTo(limit) <= 0, vals("net", p(net), "payout", p(np.payout()), "compensation", p(np.compensation()), "stake",
+            p(np.stake()), "fee", p(np.fee()), "limit", p(limit)));
+      }
+      case R14 -> {
+        // 关联账户对押（S10）："这部分盈利 > 门槛"不通过，等于门槛算通过；没有这样的市场算通过
+        BigDecimal days = param(s, r, "days");
+        BigDecimal limit = param(s, r, "minProfit");
+        var lo = f.linkedOpposite(w.userId(), now.minusDays(days.longValueExact()));
+        yield new Checked(lo.profit().compareTo(limit) <= 0, vals("profit", p(lo.profit()), "markets", String.valueOf(lo.marketIds().size()), "linked",
+            String.valueOf(lo.linkedUsers().size()), "days", p(days), "limit", p(limit)));
+      }
+      case R15 -> {
+        // 可疑押中（S10）：近 N 天有还没处理的"新账户押中冷门""尾盘大额"告警 → 不通过
+        BigDecimal days = param(s, r, "days");
+        long n = f.openSuspiciousAlerts(w.userId(), now.minusDays(days.longValueExact()));
+        yield new Checked(n == 0, vals("count", String.valueOf(n), "days", p(days)));
       }
     };
   }

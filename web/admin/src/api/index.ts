@@ -236,6 +236,12 @@ export const compensate: typeof rf.compensate = IS_MOCK ? fm.compensate : rf.com
 export const listCompensations: typeof rf.listCompensations = IS_MOCK ? fm.listCompensations : rf.listCompensations;
 export const getCompensation: typeof rf.getCompensation = IS_MOCK ? fm.getCompensation : rf.getCompensation;
 export const getReport: typeof rf.getReport = IS_MOCK ? fm.getReport : rf.getReport;
+// forecast S10：风控告警、员工账户、关联账户
+export const listRiskAlerts: typeof rf.listRiskAlerts = IS_MOCK ? fm.listRiskAlerts : rf.listRiskAlerts;
+export const getRiskAlertCounts: typeof rf.getRiskAlertCounts = IS_MOCK ? fm.getRiskAlertCounts : rf.getRiskAlertCounts;
+export const setRiskAlertStatus: typeof rf.setRiskAlertStatus = IS_MOCK ? fm.setRiskAlertStatus : rf.setRiskAlertStatus;
+export const getCustomerLinks: typeof rf.getCustomerLinks = IS_MOCK ? fm.getCustomerLinks : rf.getCustomerLinks;
+export const setCustomerStaff: typeof rf.setCustomerStaff = IS_MOCK ? fm.setCustomerStaff : rf.setCustomerStaff;
 
 // ---- 原型场景（只在 mock 模式下有界面入口） ----
 // 真实接口模式下恒为"正常数据"、版本号恒为 0；按编译期常量选，real 构建不打包模拟层（vite.config.ts 的 mockFree）

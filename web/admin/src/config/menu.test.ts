@@ -1,11 +1,11 @@
-/** AC-35：后台每个页面都能从菜单进入；forecast S9 按需求第 6.1 节有 11 个一级菜单（和后端 Menus.java、迁移 V17 一致） */
+/** AC-35：后台每个页面都能从菜单进入；forecast S9 按需求第 6.1 节有 11 个一级菜单，S10 加风控告警成 12 个（和后端 Menus.java、迁移 V17、V19 一致） */
 import { MENU, flattenMenu, findMenuByPath, visibleMenu, type ServerMenuNode } from './menu';
 import { APP_ROUTES } from './routes';
 import { ALL_PERMISSION_CODES } from './permissions';
 
 describe('菜单', () => {
-  it('一级菜单共 11 个，顺序和后端 Menus.java 一致', () => {
-    expect(MENU.map((m) => m.key)).toEqual(['dashboard', 'market', 'judge', 'settle', 'reports', 'params', 'customers', 'kyc', 'funds', 'notify', 'system']);
+  it('一级菜单共 12 个，顺序和后端 Menus.java 一致', () => {
+    expect(MENU.map((m) => m.key)).toEqual(['dashboard', 'market', 'judge', 'settle', 'reports', 'params', 'customers', 'kyc', 'funds', 'risk-alerts', 'notify', 'system']);
   });
 
   it('每个页面路由都对应一个菜单入口', () => {

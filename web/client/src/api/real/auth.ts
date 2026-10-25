@@ -17,11 +17,11 @@ const PURPOSE: Record<EmailCodePurpose, string> = { register: 'REGISTER', resetP
 const DEFAULT_RESEND_SECONDS = 60;
 
 export async function login(email: string, password: string): Promise<Session> {
-  return toSession(await post<SessionView>('/api/auth/login', { email, password }, { quiet401: true }));
+  return toSession(await post<SessionView>('/api/auth/login', { email, password }, { quiet401: true, device: true }));
 }
 
 export async function register(req: RegisterRequest): Promise<Session> {
-  return toSession(await post<SessionView>('/api/auth/register', req, { codeFields: { CODE_INVALID: 'code', EMAIL_TAKEN: 'email' } }));
+  return toSession(await post<SessionView>('/api/auth/register', req, { codeFields: { CODE_INVALID: 'code', EMAIL_TAKEN: 'email' }, device: true }));
 }
 
 /**

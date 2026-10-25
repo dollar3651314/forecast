@@ -42,10 +42,18 @@ import type {
   SettleRunDetail,
   SportsTemplate,
   SyncResult,
+  CustomerLink,
+  RiskAlert,
+  RiskAlertCounts,
+  RiskAlertKind,
+  RiskAlertQuery,
+  RiskAlertStatus,
+  StaffRefund,
 } from '../api/fcTypes';
 import { MARKET_STATUSES } from '../api/fcTypes';
 import { fromScaled, toScaled } from '../utils/money';
 import { emptyPage, matches, mutate, paginate, respond } from './runtime';
+import { customers as mockCustomers } from './data/db';
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -1317,4 +1325,111 @@ export function resetFcMocks(): void {
   seedCases();
   runs = seedRuns();
   seedComp();
+  riskAlerts = seedRisk();
+}
+
+// ---------------------------------------------------------------- 风控告警、员工账户（forecast S10，和后端 RiskOps 字段一致）
+
+const RISK_DETAIL: Record<RiskAlertKind, (i: number) => Record<string, string>> = {
+  late_large_bet: (i) => ({ betNo: `20${4810 + i}`, optionId: '3', poolAfter: '6420.00', pct: `${32 + (i % 9)}.5`, limitPct: '30', secondsBeforeClose: `${60 + i * 7}`, limitMinutes: '5' }),
+  linked_opposite: (i) => ({ linkedUsers: String(100489 + (i % 3) * 7), options: '1', linkedOptions: `${100489 + (i % 3) * 7}:2` }),
+  new_account_longshot: () => ({ betNo: '204899', odds: '6.82', limitOdds: '5', limitAmount: '1000.00', accountDays: '2', limitDays: '7' }),
+  deposit_no_bet: (i) => ({ withdrawalNo: `30${7700 + i}`, deposit: '2000.00', stake: `${120 + i}.00`, multiple: '1' }),
+};
+const RISK_STATUSES: RiskAlertStatus[] = ['new', 'new', 'seen', 'new', 'handled', 'false_positive'];
+
+const seedRisk = (): RiskAlert[] => Array.from({ length: 26 }, (_, i): RiskAlert => {
+  const kind = (['late_large_bet', 'linked_opposite', 'new_account_longshot', 'deposit_no_bet'] as const)[i % 4];
+  const c = mockCustomers[(i * 5) % mockCustomers.length];
+  const status = RISK_STATUSES[i % RISK_STATUSES.length];
+  const done = status === 'handled' || status === 'false_positive';
+  return {
+    id: String(500 - i),
+    kind,
+    userId: String(c.id),
+    customer: c.name,
+    marketNo: kind === 'deposit_no_bet' ? null : `10790000000${String(10 + (i % 6)).padStart(3, '0')}`,
+    market: kind === 'deposit_no_bet' ? null : ['BTC 15 分钟涨跌 · 13:00', '曼城 vs 利物浦 · 胜平负', '美联储 11 月议息：降息 25 基点？'][i % 3],
+    amount: kind === 'linked_opposite' ? null : kind === 'deposit_no_bet' ? '1800' : kind === 'new_account_longshot' ? '1200' : '2400',
+    detail: RISK_DETAIL[kind](i),
+    status,
+    note: done ? (status === 'handled' ? '已联系客户，正常' : '同一家庭的两个账户，已核实') : null,
+    handledBy: status === 'new' ? null : 'amos',
+    handledAt: status === 'new' ? null : iso(BASE - i * HOUR + 30 * MIN),
+    createdAt: iso(BASE - i * HOUR),
+  };
+});
+let riskAlerts = seedRisk();
+
+export function listRiskAlerts(q: RiskAlertQuery): Promise<Page<RiskAlert>> {
+  return respond(
+    () =>
+      paginate(
+        riskAlerts.filter((a) => (!q.kind || a.kind === q.kind) && (!q.status || a.status === q.status) && matches(q.keyword, a.userId, a.customer)),
+        q.page,
+        q.pageSize,
+      ),
+    { empty: () => emptyPage<RiskAlert>(q.page, q.pageSize) },
+  );
+}
+
+export function getRiskAlertCounts(): Promise<RiskAlertCounts> {
+  const count = (list: RiskAlert[]): RiskAlertCounts => {
+    const openList = list.filter((a) => a.status === 'new' || a.status === 'seen');
+    return {
+      open: openList.length,
+      openByKind: {
+        late_large_bet: openList.filter((a) => a.kind === 'late_large_bet').length,
+        linked_opposite: openList.filter((a) => a.kind === 'linked_opposite').length,
+        new_account_longshot: openList.filter((a) => a.kind === 'new_account_longshot').length,
+        deposit_no_bet: openList.filter((a) => a.kind === 'deposit_no_bet').length,
+      },
+      byStatus: {
+        new: list.filter((a) => a.status === 'new').length,
+        seen: list.filter((a) => a.status === 'seen').length,
+        handled: list.filter((a) => a.status === 'handled').length,
+        false_positive: list.filter((a) => a.status === 'false_positive').length,
+      },
+    };
+  };
+  return respond(() => count(riskAlerts), { empty: () => count([]) });
+}
+
+export function setRiskAlertStatus(id: string, status: RiskAlertStatus, note: string | null): Promise<RiskAlert> {
+  return mutate(() => {
+    const n = note?.trim() || null;
+    if (!n && (status === 'handled' || status === 'false_positive')) {
+      throw new ApiError('errors.validationFailed', undefined, { status: 400, code: 'VALIDATION_FAILED', fields: [{ field: 'note', code: 'required' }] });
+    }
+    const a = riskAlerts.find((x) => x.id === id);
+    if (!a) throw new ApiError('errors.notFound', undefined, { status: 404, code: 'NOT_FOUND' });
+    Object.assign(a, { status, note: n, handledBy: 'amos', handledAt: iso(Date.now()) });
+    return a;
+  });
+}
+
+export function getCustomerLinks(id: number): Promise<CustomerLink[]> {
+  const others = mockCustomers.filter((c) => c.id !== id).slice(0, 3);
+  return respond(
+    (): CustomerLink[] =>
+      id % 2 === 0
+        ? [
+            { userId: String(others[0].id), customer: others[0].name, reason: 'device', evidence: '9f3c…e21a', firstSeenAt: iso(BASE - 3 * DAY) },
+            { userId: String(others[0].id), customer: others[0].name, reason: 'ip', evidence: '45.77.12.9', firstSeenAt: iso(BASE - 3 * DAY) },
+            { userId: String(others[1].id), customer: others[1].name, reason: 'withdraw_to', evidence: 'TRC20:TQ5xV…k9Pd', firstSeenAt: iso(BASE - DAY) },
+          ]
+        : [],
+    { empty: () => [] },
+  );
+}
+
+export function setCustomerStaff(id: number, staff: boolean, reason: string): Promise<StaffRefund> {
+  return mutate(() => {
+    needReason(reason);
+    const c = mockCustomers.find((x) => x.id === id);
+    if (!c) throw new ApiError('errors.notFound', undefined, { status: 404, code: 'NOT_FOUND' });
+    const was = c.staff;
+    c.staff = staff;
+    return staff && !was ? { markets: 2, bets: 3, amount: '450.00' } : { markets: 0, bets: 0, amount: '0.00' };
+  });
 }

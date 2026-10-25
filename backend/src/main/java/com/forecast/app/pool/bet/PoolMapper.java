@@ -91,6 +91,23 @@ interface PoolMapper {
   /** 提现自动审批 R8：从 since 起的有效下注本金（退回的、取消 / 作废市场里的不算） */
   BigDecimal effectiveStakeSince(@Param("userId") long userId, @Param("since") LocalDateTime since);
 
+  // ---------- forecast S10：风控、员工账户 ----------
+
+  List<PoolRows.Bet> betsAfter(@Param("afterId") long afterId, @Param("limit") int limit);
+
+  class UserOption {
+    long userId;
+    long optionId;
+  }
+
+  List<UserOption> optionsOf(@Param("marketId") long marketId, @Param("userIds") java.util.Collection<Long> userIds);
+
+  List<Long> commonMarkets(@Param("a") long userA, @Param("b") long userB, @Param("since") LocalDateTime since);
+
+  List<PoolRows.Bet> activeBetsOn(@Param("marketId") long marketId, @Param("optionId") long optionId, @Param("minAmount") BigDecimal minAmount);
+
+  List<Long> marketsWithActiveBets(@Param("userId") long userId);
+
   /** 这个客户在这个市场的有效持仓个数（S7：能不能提交争议） */
   int hasPosition(@Param("userId") long userId, @Param("marketId") long marketId);
 

@@ -1,6 +1,7 @@
 /**
  * 后台菜单。每个页面都必须在这里有入口（由单元测试检查），和后端 admin/security/Menus.java 一致（后端测试 AdminSystemTest 核对）。
- * forecast S1：复制源的交易、风控、品种行情、交易参数四组删除；S9 按需求说明书第 6.1 节加上市场管理、裁决、结算与补偿、报表、参数设置（11 个一级菜单）。
+ * forecast S1：复制源的交易、风控、品种行情、交易参数四组删除；S9 按需求说明书第 6.1 节加上市场管理、裁决、结算与补偿、报表、参数设置（11 个一级菜单）；
+ * S10 加风控告警（12 个）。
  */
 import type { ReactNode } from 'react';
 import {
@@ -12,6 +13,7 @@ import {
   FundOutlined,
   IdcardOutlined,
   ReconciliationOutlined,
+  SafetyOutlined,
   SettingOutlined,
   TeamOutlined,
   WalletOutlined,
@@ -27,13 +29,13 @@ export interface MenuItemDef {
   /** 查看该页面需要的权限点 */
   permission?: PermissionCode;
   /** 菜单角标：对应 MenuBadges 的字段 */
-  badge?: 'kyc' | 'withdrawals' | 'review';
+  badge?: 'kyc' | 'withdrawals' | 'review' | 'riskAlerts';
   children?: MenuItemDef[];
 }
 
 export const MENU: MenuItemDef[] = [
   { key: 'dashboard', labelKey: 'menu.dashboard', icon: <AppstoreOutlined />, path: '/dashboard', permission: 'dashboard:view' },
-  // forecast S9：需求第 6.1 节（内容中心、来源统计不在 S9；风控告警在 S10）。顺序和后端 Menus.java、迁移 V17 的 admin_menu 一致
+  // forecast S9：需求第 6.1 节（内容中心、来源统计还没有；风控告警 S10）。顺序和后端 Menus.java、迁移 V17 的 admin_menu 一致
   {
     key: 'market',
     labelKey: 'menu.market',
@@ -79,6 +81,8 @@ export const MENU: MenuItemDef[] = [
       { key: 'tasks', labelKey: 'menu.tasks', path: '/funds/tasks', permission: 'task:view' },
     ],
   },
+  // forecast S10：风控告警（需求第 6.1 节；迁移 V19 写默认顺序）
+  { key: 'risk-alerts', labelKey: 'menu.riskAlerts', icon: <SafetyOutlined />, path: '/risk/alerts', permission: 'risk_alert:view', badge: 'riskAlerts' },
   {
     key: 'notify',
     labelKey: 'menu.notify',

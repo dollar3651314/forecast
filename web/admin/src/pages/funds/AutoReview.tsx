@@ -21,8 +21,9 @@ export function fmtUsdt(v: string | undefined): string {
   return formatAmount(v).replace(/\.00$/, '');
 }
 
-const AMOUNT_KEYS = new Set(['amount', 'used', 'total', 'volume', 'deposit', 'withdrawn', 'pnl', 'cap', 'profit', 'limitAbs', 'principal', 'balance', 'need', 'net', 'realized', 'fee', 'swap']);
-const AMOUNT_LIMIT: AutoRuleCode[] = ['R1', 'R2', 'R3', 'R13'];
+// forecast S10：R13 的组成改成 payout / compensation / stake / fee（复制源的 realized、swap 不再有）；R14 的 limit 是金额
+const AMOUNT_KEYS = new Set(['amount', 'used', 'total', 'volume', 'deposit', 'withdrawn', 'pnl', 'cap', 'profit', 'limitAbs', 'principal', 'balance', 'need', 'net', 'payout', 'compensation', 'stake', 'fee']);
+const AMOUNT_LIMIT: AutoRuleCode[] = ['R1', 'R2', 'R3', 'R13', 'R14'];
 
 /** 一条规则的判定说明，例如"单笔 800 > 上限 500" */
 export function ruleLine(t: TFunction, r: AutoRuleResult): string {

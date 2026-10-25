@@ -22,6 +22,7 @@ interface Call {
   method: string;
   body?: unknown;
   credentials?: string;
+  headers?: Record<string, string>;
 }
 
 let calls: Call[] = [];
@@ -37,6 +38,7 @@ function stubFetch(...responses: Array<{ status?: number; body?: unknown } | Err
         url,
         method: init.method ?? 'GET',
         credentials: init.credentials,
+        headers: init.headers as Record<string, string>,
         body: typeof init.body === 'string' ? JSON.parse(init.body) : init.body,
       });
       const r = queue.shift() ?? { status: 200 };
@@ -97,6 +99,19 @@ describe('HTTP：同源、Cookie、错误转换', () => {
     const s = await auth.login('a@b.com', 'password1');
     expect(s).toEqual({ userId: '7', email: 'a@b.com' });
     expect(calls[0]).toMatchObject({ url: '/api/auth/login', method: 'POST', credentials: 'same-origin', body: { email: 'a@b.com', password: 'password1' } });
+  });
+
+  it('登录、注册带设备号（S10 关联账户）：本机第一次生成、以后不变；别的接口不带', async () => {
+    localStorage.removeItem('fc.device');
+    stubFetch({ body: { userId: '7', email: 'a@b.com' } }, { body: { userId: '7', email: 'a@b.com' } }, { status: 204 });
+    await auth.login('a@b.com', 'password1');
+    const id = calls[0].headers?.['X-Device-Id'];
+    expect(id).toMatch(/^[A-Za-z0-9_-]{16,64}$/);
+    expect(localStorage.getItem('fc.device')).toBe(id);
+    await auth.register({ email: 'a@b.com', password: 'password1', code: '123456' } as Parameters<typeof auth.register>[0]);
+    expect(calls[1].headers?.['X-Device-Id']).toBe(id);
+    await auth.sendEmailCode('a@b.com', 'register');
+    expect(calls[2].headers?.['X-Device-Id']).toBeUndefined();
   });
 
   it('验证码用途换成后端的枚举；返回 204 时按 60 秒倒计时', async () => {

@@ -38,10 +38,12 @@ class OpsController {
   private final NotifyOps notify;
   private final AutoApproveOps autoApprove;
   private final com.forecast.app.market.api.MarketAdminApi markets;
+  private final RiskOps risk;
 
   OpsController(DashboardOps dashboard, CustomerOps customers, FundsOps funds, NotifyOps notify, AutoApproveOps autoApprove,
-      com.forecast.app.market.api.MarketAdminApi markets) {
+      com.forecast.app.market.api.MarketAdminApi markets, RiskOps risk) {
     this.markets = markets;
+    this.risk = risk;
     this.dashboard = dashboard;
     this.customers = customers;
     this.funds = funds;
@@ -49,13 +51,14 @@ class OpsController {
     this.autoApprove = autoApprove;
   }
 
-  /** 菜单角标：待审核的 KYC、出金；S9 加待上架的草稿（review，要 market:publish）。没有查看权限的记 0 */
+  /** 菜单角标：待审核的 KYC、出金；S9 加待上架的草稿（review，要 market:publish）；S10 加待处理的风控告警（riskAlerts，要 risk_alert:view）。没有查看权限的记 0 */
   @AdminLoginOnly
   @GetMapping("/api/admin/menu-badges")
   Map<String, Long> badges() {
     AdminContext ctx = AdminContext.current();
     Map<String, Long> m = new java.util.LinkedHashMap<>(funds.badges(ctx));
     m.put("review", ctx.has(com.forecast.app.admin.security.Permission.MARKET_PUBLISH) ? markets.counts().review() : 0L);
+    m.put("riskAlerts", ctx.has(com.forecast.app.admin.security.Permission.RISK_ALERT_VIEW) ? (Long) risk.counts().get("open") : 0L);
     return m;
   }
 
@@ -87,6 +90,13 @@ class OpsController {
   CustomerOps.Detail freeze(@PathVariable long id, @RequestBody FreezeBody body) {
     customers.setFrozen(id, body != null && Boolean.TRUE.equals(body.frozen()), body == null ? null : body.reason());
     return customers.detail(id);
+  }
+
+  /** forecast S10：登记 / 取消登记员工账户（高危，原因必填）；登记时退回已有下注（E15） */
+  @RequiresPermission(Permission.CUSTOMER_EDIT)
+  @PostMapping("/api/admin/customers/{id}/staff")
+  CustomerOps.StaffResult setStaff(@PathVariable long id, @RequestBody(required = false) CustomerOps.StaffBody body) {
+    return customers.setStaff(id, body);
   }
 
   /** v2 E1：编辑客户资料（高危，必须填原因）；邮箱、状态不能在这里改 */

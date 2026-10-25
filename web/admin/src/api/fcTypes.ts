@@ -617,3 +617,59 @@ export interface MarketDashboard {
   pending: DashPending;
   updatedAt: string;
 }
+
+// ---------------------------------------------------------------- 风控告警、员工账户（forecast S10，后端 admin/ops/RiskOps、CustomerOps）
+
+/** 告警类型：尾盘大额、关联账户对押、新账户押中冷门、充了不玩就提（需求第 8.1 节） */
+export type RiskAlertKind = 'late_large_bet' | 'linked_opposite' | 'new_account_longshot' | 'deposit_no_bet';
+export const RISK_ALERT_KINDS: RiskAlertKind[] = ['late_large_bet', 'linked_opposite', 'new_account_longshot', 'deposit_no_bet'];
+/** 处理状态：新、已查看、已处理、误报 */
+export type RiskAlertStatus = 'new' | 'seen' | 'handled' | 'false_positive';
+
+export interface RiskAlert {
+  id: string;
+  kind: RiskAlertKind;
+  userId: string;
+  customer: string | null;
+  marketNo: string | null;
+  market: string | null;
+  amount: string | null;
+  /** 判定时的数字（键随类型：poolAfter / pct / limitPct / secondsBeforeClose；linkedUsers / options；odds / accountDays；deposit / stake / multiple / withdrawalNo） */
+  detail: Record<string, string>;
+  status: RiskAlertStatus;
+  note: string | null;
+  handledBy: string | null;
+  handledAt: string | null;
+  createdAt: string;
+}
+
+export interface RiskAlertQuery {
+  kind?: RiskAlertKind;
+  status?: RiskAlertStatus;
+  keyword?: string;
+  page: number;
+  pageSize: number;
+}
+
+export interface RiskAlertCounts {
+  /** 待处理（新 + 已查看）合计 */
+  open: number;
+  openByKind: Record<RiskAlertKind, number>;
+  byStatus: Record<RiskAlertStatus, number>;
+}
+
+/** 关联账户的一行（客户详情） */
+export interface CustomerLink {
+  userId: string;
+  customer: string | null;
+  reason: 'device' | 'ip' | 'deposit_from' | 'withdraw_to';
+  evidence: string;
+  firstSeenAt: string;
+}
+
+/** 员工登记的结果：退回的下注（E15，只有登记时有） */
+export interface StaffRefund {
+  markets: number;
+  bets: number;
+  amount: string;
+}

@@ -183,7 +183,9 @@
     "customer": {
       "edit": "编辑客户资料",
       "freeze": "冻结客户",
-      "unfreeze": "解冻客户"
+      "unfreeze": "解冻客户",
+      "staff": "登记员工账户",
+      "unstaff": "取消员工账户"
     },
     "holiday": {
       "create": "新增假期",
@@ -226,6 +228,9 @@
       "settings_update": "修改归集参数",
       "target_request": "提交冷钱包地址修改",
       "target_cancel": "取消冷钱包地址修改"
+    },
+    "risk_alert": {
+      "status": "处理风控告警"
     }
   },
   "auth": {
@@ -405,7 +410,29 @@
     "time": "时间",
     "title": "客户",
     "unfreeze": "解冻客户",
-    "unfreezeImpact": "解冻后客户可以重新登录和提现。"
+    "unfreezeImpact": "解冻后客户可以重新登录和提现。",
+    "staffTag": "员工",
+    "staffOn": "登记为员工",
+    "staffOff": "取消员工登记",
+    "staffOnImpact": "登记后这个账户不能下注；已有的下注里，结算还没开始的会当场全额退回（E15），已结算的不变。",
+    "staffOffImpact": "取消后可以下注；已经退回的下注不会恢复。",
+    "confirmStaffOn": "确认登记",
+    "confirmStaffOff": "确认取消",
+    "staffRefunded": "已退回 {{markets}} 个市场的 {{bets}} 笔下注，合计 {{amount}} USDT",
+    "staffNoRefund": "没有需要退回的下注",
+    "staffBanner": "这是登记的员工账户：不能下注",
+    "linksTitle": "关联账户",
+    "noLinks": "没有发现关联账户",
+    "linkedCustomer": "客户",
+    "linkReason": "关联原因",
+    "linkEvidence": "共同的值",
+    "linkSince": "发现时间",
+    "linkReasons": {
+      "device": "同设备",
+      "ip": "同 IP（注册 / 登录）",
+      "deposit_from": "同充值来源地址",
+      "withdraw_to": "同提现地址"
+    }
   },
   "dashboard": {
     "failedTasks": "失败任务",
@@ -652,7 +679,8 @@
     "settleRuns": "结算记录",
     "compensations": "补偿",
     "reports": "报表",
-    "poolRecon": "彩池对账"
+    "poolRecon": "彩池对账",
+    "riskAlerts": "风控告警"
   },
   "menus": {
     "group": "分组",
@@ -1131,24 +1159,24 @@
     },
     "R8": {
       "name": "充值后的下注量",
-      "desc": "近 30 天入账的充值，在最早那笔入账之后的下注金额 ≥ 充值合计 × N 倍（S1 还没有下注功能，下注金额记为 0：有充值的客户提现都转人工）",
+      "desc": "近 30 天入账的充值，在最早那笔入账之后的有效下注本金 ≥ 充值合计 × N 倍（取消、作废、晚于开赛、员工的退回不算）",
       "param": {
         "multiple": "倍数"
       },
-      "pass": "充值后下注量 {{volume}} / 充值 {{deposit}} = {{ratio}} 倍 ≥ {{limit}} 倍",
-      "fail": "充值后下注量 {{volume}} / 充值 {{deposit}} = {{ratio}} 倍 < {{limit}} 倍",
+      "pass": "充值后有效下注 {{volume}} / 充值 {{deposit}} = {{ratio}} 倍 ≥ {{limit}} 倍",
+      "fail": "充值后有效下注 {{volume}} / 充值 {{deposit}} = {{ratio}} 倍 < {{limit}} 倍",
       "noDeposit": "近 30 天没有充值，不检查"
     },
     "R9": {
       "name": "提现不超过充值 + 盈亏",
-      "desc": "累计提现（含本笔，含进行中的）≤ 累计充值 + 已实现盈亏；超过就人工（S1 还没有下注功能，已实现盈亏记为 0）",
+      "desc": "累计提现（含本笔，含进行中的）≤ 累计充值 + 已结算盈亏（派彩 + 补偿 − 已结算本金 − 抽成）；超过就人工",
       "fixed": "没有数值：超过就人工",
       "pass": "累计提现 {{withdrawn}} ≤ 充值 {{deposit}} + 盈亏 {{pnl}} = {{cap}}",
       "fail": "累计提现 {{withdrawn}} > 充值 {{deposit}} + 盈亏 {{pnl}} = {{cap}}"
     },
     "R10": {
       "name": "近 7 天盈利",
-      "desc": "近 7 天（滚动）已实现盈利不超过金额上限，或不超过本金的 N%（满足其一即通过）",
+      "desc": "近 7 天（滚动）已结算盈利不超过金额上限，或不超过本金的 N%（满足其一即通过）",
       "param": {
         "maxProfit7d": "金额上限",
         "maxProfitPct": "或本金的"
@@ -1179,12 +1207,31 @@
     },
     "R13": {
       "name": "盈利客户",
-      "desc": "从开户到现在的累计净盈利（已实现盈亏 − 手续费）不超过门槛；超过就人工，等于门槛算通过（S1 还没有下注功能，记为 0）",
+      "desc": "从开户到现在的累计净盈利（派彩 + 补偿 − 已结算本金 − 抽成；退回的、没结算的下注不算）不超过门槛；超过就人工，等于门槛算通过",
       "param": {
         "maxNetProfit": "门槛"
       },
-      "pass": "累计净盈利 {{net}} = 已实现 {{realized}} − 手续费 {{fee}} − 隔夜费 {{swap}}，门槛 {{limit}}（未超过）",
-      "fail": "累计净盈利 {{net}} = 已实现 {{realized}} − 手续费 {{fee}} − 隔夜费 {{swap}}，门槛 {{limit}}（超过，转人工）"
+      "pass": "累计净盈利 {{net}} = 派彩 {{payout}} + 补偿 {{compensation}} − 本金 {{stake}} − 抽成 {{fee}}，门槛 {{limit}}（未超过）",
+      "fail": "累计净盈利 {{net}} = 派彩 {{payout}} + 补偿 {{compensation}} − 本金 {{stake}} − 抽成 {{fee}}，门槛 {{limit}}（超过，转人工）"
+    },
+    "R14": {
+      "name": "关联账户对押",
+      "desc": "近 N 天本客户有派彩的市场里，有关联账户（同设备、同 IP、同充值来源 / 提现地址）押了其他选项的，这部分盈利不超过门槛；超过就人工",
+      "param": {
+        "days": "近",
+        "minProfit": "盈利门槛"
+      },
+      "pass": "近 {{days}} 天关联账户对押的市场 {{markets}} 个，盈利 {{profit}} ≤ {{limit}}",
+      "fail": "近 {{days}} 天关联账户对押的市场 {{markets}} 个（关联账户 {{linked}} 个），盈利 {{profit}} > {{limit}}"
+    },
+    "R15": {
+      "name": "可疑押中",
+      "desc": "近 N 天没有还没处理（新 / 已查看）的\"新账户押中冷门\"\"尾盘大额\"风控告警；有就人工",
+      "param": {
+        "days": "近"
+      },
+      "pass": "近 {{days}} 天没有没处理的可疑告警",
+      "fail": "近 {{days}} 天有 {{count}} 条没处理的可疑告警（到\"风控告警\"处理）"
     }
   },
   "autoReview": {
@@ -1840,7 +1887,7 @@
   },
   "pm": {
     "title": "参数设置",
-    "sub": "品类默认费率、下注限额、争议窗口、KYC 阈值、单笔最小提现",
+    "sub": "品类默认费率、下注限额、争议窗口、KYC 阈值、单笔最小提现、风控告警阈值",
     "hint": "修改是高危操作：原因必填、显示前 → 后、写审计。改品类默认费率只影响之后新建的市场。",
     "group": {
       "fee": "品类默认费率",
@@ -1850,7 +1897,8 @@
       "crypto": "加密市场时间",
       "dispute": "争议窗口（平台裁决）",
       "resolve": "裁决时限（平台裁决）",
-      "sports": "体育赛程"
+      "sports": "体育赛程",
+      "risk": "风控告警"
     },
     "key": {
       "market_fee_FOOTBALL": "足球",
@@ -1885,7 +1933,13 @@
       "sports_closeLeadMinutes_FOOTBALL": "足球：开赛前几分钟截止",
       "sports_closeLeadMinutes_NBA": "NBA：开赛前几分钟截止",
       "sports_eventMinutes_FOOTBALL": "足球：事件时长",
-      "sports_eventMinutes_NBA": "NBA：事件时长"
+      "sports_eventMinutes_NBA": "NBA：事件时长",
+      "risk_lateBet_minutes": "尾盘大额：截止前多少分钟内",
+      "risk_lateBet_poolPct": "尾盘大额：单笔占下注后奖池",
+      "risk_longshot_accountDays": "押中冷门：注册多少天内算新账户",
+      "risk_longshot_minAmount": "押中冷门：单笔不少于",
+      "risk_longshot_minOdds": "押中冷门：赔率不低于",
+      "risk_link_maxUsersPerKey": "关联账户：同一设备 / IP / 地址最多几个客户"
     },
     "hours": "{{n}} 小时",
     "minutes": "{{n}} 分钟",
@@ -1903,7 +1957,16 @@
     "feeNote": "只对赢家的盈利部分抽成；单个市场的费率在市场管理里改。",
     "noPerm": "没有权限（{{perm}}）",
     "resolveNote": "超过时限裁决台标红并提醒（按角色发邮件）",
-    "sportsNote": "从赛程生成草稿时用：开赛前几分钟截止、事件结束 = 开赛 + 多少分钟"
+    "sportsNote": "从赛程生成草稿时用：开赛前几分钟截止、事件结束 = 开赛 + 多少分钟",
+    "countUnit": {
+      "risk_longshot_accountDays": "{{n}} 天",
+      "risk_link_maxUsersPerKey": "{{n}} 个"
+    },
+    "multiple": "{{n}} 倍",
+    "pctUnit": "%",
+    "usdtUnit": "USDT",
+    "multUnit": "倍",
+    "riskNote": "赔率是扣抽成后的（和客户看到的一样）；同一个值的客户超过上限时（公共网络、交易所地址）不再按它关联。"
   },
   "dash": {
     "sub": "今日 / 近 7 天按 UTC；待处理事项点进去处理",
@@ -2291,5 +2354,52 @@
     "date": "日期",
     "byMarket": "按市场（已完成的结算单）",
     "noRuns": "还没有完成的结算单"
+  },
+  "ra": {
+    "title": "风控告警",
+    "sub": "尾盘大额、关联账户对押、新账户押中冷门、充了不玩就提；新告警会发邮件，核对后标记处理结果",
+    "kindAll": "全部类型",
+    "kindAllN": "全部类型 · {{n}}",
+    "kind": {
+      "late_large_bet": "尾盘大额",
+      "linked_opposite": "关联账户对押",
+      "new_account_longshot": "新账户押中冷门",
+      "deposit_no_bet": "充了不玩就提"
+    },
+    "status": {
+      "new": "新",
+      "seen": "已查看",
+      "handled": "已处理",
+      "false_positive": "误报"
+    },
+    "statusAll": "全部状态",
+    "keyword": "客户",
+    "keywordPh": "客户编号、邮箱或姓名",
+    "emptyNew": "没有新的告警",
+    "empty": "没有告警",
+    "emptyFiltered": "没有符合筛选条件的告警",
+    "time": "告警时间（UTC）",
+    "kindCol": "类型",
+    "customer": "客户",
+    "market": "市场",
+    "amount": "金额",
+    "detailCol": "判定依据",
+    "statusCol": "处理状态",
+    "to": {
+      "seen": "标记已查看",
+      "handled": "已处理",
+      "false_positive": "误报"
+    },
+    "noteLabel": "处理说明（必填，写进审计）",
+    "notePh": {
+      "handled": "例如：已联系客户核实，限制提现",
+      "false_positive": "例如：同一家庭的两个账户，已核实"
+    },
+    "detail": {
+      "late_large_bet": "截止前 {{sec}} 秒下注，占下注后奖池 {{pct}}%（奖池 {{pool}}；阈值：截止前 {{limitMinutes}} 分钟内、≥ {{limitPct}}%）",
+      "linked_opposite": "关联账户 {{users}} 在同一市场押了不同的选项",
+      "new_account_longshot": "注册第 {{days}} 天押中 {{odds}} 倍的结果（阈值：注册 {{limitDays}} 天内）",
+      "deposit_no_bet": "近 30 天充值 {{deposit}}，之后有效下注 {{stake}}（要求 {{multiple}} 倍）就申请提现 {{no}}"
+    }
   }
 }

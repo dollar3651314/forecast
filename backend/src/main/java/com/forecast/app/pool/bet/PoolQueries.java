@@ -244,6 +244,37 @@ public class PoolQueries implements PoolApi, PoolAdminApi {
 
   @Override
   @Transactional(readOnly = true)
+  public List<BetSignal> betsAfter(long afterId, int limit) {
+    return mapper.betsAfter(afterId, limit).stream().map(b -> {
+      Snapshot snap = snapshot(b.snapshot);
+      BigDecimal after = snap == null ? b.amount : snap.total();
+      return new BetSignal(b.id, b.publicNo, b.userId, b.marketId, b.optionId, b.amount, b.receivedAt, after);
+    }).toList();
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public Map<Long, Set<Long>> optionsOf(long marketId, java.util.Collection<Long> userIds) {
+    Map<Long, Set<Long>> out = new LinkedHashMap<>();
+    if (userIds == null || userIds.isEmpty()) return out;
+    for (PoolMapper.UserOption o : mapper.optionsOf(marketId, userIds)) out.computeIfAbsent(o.userId, k -> new java.util.TreeSet<>()).add(o.optionId);
+    return out;
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public List<Long> commonMarkets(long userA, long userB, LocalDateTime since) {
+    return mapper.commonMarkets(userA, userB, since);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public List<ActiveBet> activeBetsOn(long marketId, long optionId, BigDecimal minAmount) {
+    return mapper.activeBetsOn(marketId, optionId, minAmount).stream().map(b -> new ActiveBet(b.id, b.publicNo, b.userId, b.amount, b.receivedAt)).toList();
+  }
+
+  @Override
+  @Transactional(readOnly = true)
   public List<Long> bettors(long marketId) {
     return mapper.bettors(marketId);
   }

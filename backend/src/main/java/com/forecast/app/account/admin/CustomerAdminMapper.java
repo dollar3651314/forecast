@@ -28,6 +28,7 @@ interface CustomerAdminMapper {
     String docNumber;
     LocalDateTime kycReviewedAt;
     String kycRejectReason;
+    boolean staff;
   }
 
   class KycRow {
@@ -69,6 +70,11 @@ interface CustomerAdminMapper {
   long countCustomers(@Param("keyword") String keyword, @Param("id") Long id, @Param("status") String status, @Param("kycStatus") String kycStatus);
 
   List<CustomerRow> byIds(@Param("ids") Collection<Long> ids);
+
+  /** 锁住客户行，返回 is_staff；客户不存在时为空 */
+  Boolean lockStaff(@Param("id") long id);
+
+  int setStaff(@Param("id") long id, @Param("staff") boolean staff);
 
   void setFrozenReason(@Param("id") long id, @Param("reason") String reason);
 

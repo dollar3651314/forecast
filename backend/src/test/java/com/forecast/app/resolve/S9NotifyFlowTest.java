@@ -91,7 +91,7 @@ class S9NotifyFlowTest extends PlatformTestSupport {
     assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM notify_template WHERE audience IN ('USER', 'ANY')", Integer.class)).isEqualTo(20);
     // 员工模板都配了按角色的收件人或者明确发告警邮箱（复用的）
     assertThat(jdbc.queryForList("SELECT code FROM notify_template WHERE audience = 'STAFF' AND staff_perms <> '' ORDER BY code", String.class))
-        .containsExactly("DISPUTE_NEW", "MARKET_SUBMITTED", "POOL_RECON_DIFF", "RESOLVE_AUTO_FAILED", "RESOLVE_OVERDUE", "RESOLVE_PROPOSED", "SETTLE_ABNORMAL",
+        .containsExactly("DISPUTE_NEW", "MARKET_SUBMITTED", "POOL_RECON_DIFF", "RESOLVE_AUTO_FAILED", "RESOLVE_OVERDUE", "RESOLVE_PROPOSED", "RISK_ALERT", "SETTLE_ABNORMAL",
             "SPORTS_AUTO_FAILED", "SPORTS_KICKOFF_CHANGED");
   }
 
@@ -191,20 +191,21 @@ class S9NotifyFlowTest extends PlatformTestSupport {
   }
 
   @Test
-  void 后台菜单表_V17写了每个菜单的默认顺序() throws Exception {
+  void 后台菜单表_迁移写了每个菜单的默认顺序() throws Exception {
     List<String> keys = new ArrayList<>();
     collect(Menus.TREE, keys);
     // 迁移脚本里每个菜单都有默认顺序（库里的行别的测试会改，例如 AdminSystemTest 删掉 audit 看兜底，所以查脚本本身）
+    // S9 的菜单在 V17，S10 的风控告警在 V19
     String v17;
-    try (var in = getClass().getResourceAsStream("/db/migration/V17__s9_admin_notify.sql")) {
-      v17 = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+    try (var in = getClass().getResourceAsStream("/db/migration/V17__s9_admin_notify.sql"); var in19 = getClass().getResourceAsStream("/db/migration/V19__s10_riskalert.sql")) {
+      v17 = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8) + new String(in19.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
     }
-    for (String k : keys) assertThat(v17).as("V17 里的菜单 " + k).contains("('" + k + "', ");
+    for (String k : keys) assertThat(v17).as("V17 / V19 里的菜单 " + k).contains("('" + k + "', ");
     List<String> saved = jdbc.queryForList("SELECT menu_key FROM admin_menu", String.class);
     assertThat(saved).containsAll(keys.stream().filter(k -> !k.equals("audit")).toList());
-    // 一级菜单的默认顺序：仪表盘、市场管理、裁决、结算与补偿、报表、参数设置、客户、KYC、资金、通知、系统
+    // 一级菜单的默认顺序：仪表盘、市场管理、裁决、结算与补偿、报表、参数设置、客户、KYC、资金、风控告警（S10）、通知、系统
     assertThat(Menus.TREE.stream().map(Menus.Item::key).toList()).containsExactly("dashboard", "market", "judge", "settle", "reports", "params", "customers", "kyc",
-        "funds", "notify", "system");
+        "funds", "risk-alerts", "notify", "system");
   }
 
   static void collect(List<Menus.Item> items, List<String> out) {

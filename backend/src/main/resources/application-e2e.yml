@@ -33,6 +33,9 @@ forecast:
         usdt-contract: "0x55d398326f99059fF775485246999027B3197955"
       TRC20:
         usdt-contract: TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t
+  # 风控扫描（S10）：端到端用 /api/e2e/riskalert/scan 立即扫；写入的行马上就能处理
+  riskalert:
+    scan-lag: 0s
   # 证件照片放在临时目录
   storage:
     local-dir: ${FC_STORAGE_DIR:${java.io.tmpdir}/forecast-e2e-storage}

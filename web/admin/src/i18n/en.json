@@ -183,7 +183,9 @@
     "customer": {
       "edit": "Edit customer profile",
       "freeze": "Froze customer",
-      "unfreeze": "Unfroze customer"
+      "unfreeze": "Unfroze customer",
+      "staff": "Register staff account",
+      "unstaff": "Unregister staff account"
     },
     "holiday": {
       "create": "Added holiday",
@@ -226,6 +228,9 @@
       "settings_update": "Update sweep parameters",
       "target_request": "Request cold wallet change",
       "target_cancel": "Cancel cold wallet change"
+    },
+    "risk_alert": {
+      "status": "Handle risk alert"
     }
   },
   "auth": {
@@ -405,7 +410,29 @@
     "time": "Time",
     "title": "Customers",
     "unfreeze": "Unfreeze customer",
-    "unfreezeImpact": "The customer can sign in and withdraw again."
+    "unfreezeImpact": "The customer can sign in and withdraw again.",
+    "staffTag": "Staff",
+    "staffOn": "Register as staff",
+    "staffOff": "Unregister staff",
+    "staffOnImpact": "Once registered, this account cannot bet. Its existing bets in markets not yet being settled are refunded in full right away (E15); settled markets are not changed.",
+    "staffOffImpact": "After unregistering the account can bet again; refunded bets are not restored.",
+    "confirmStaffOn": "Register",
+    "confirmStaffOff": "Unregister",
+    "staffRefunded": "Refunded {{bets}} bets in {{markets}} markets, {{amount}} USDT in total",
+    "staffNoRefund": "No bets needed refunding",
+    "staffBanner": "This is a registered staff account: it cannot bet",
+    "linksTitle": "Linked accounts",
+    "noLinks": "No linked accounts found",
+    "linkedCustomer": "Customer",
+    "linkReason": "Reason",
+    "linkEvidence": "Shared value",
+    "linkSince": "First seen",
+    "linkReasons": {
+      "device": "Same device",
+      "ip": "Same IP (sign-up / login)",
+      "deposit_from": "Same deposit source address",
+      "withdraw_to": "Same withdrawal address"
+    }
   },
   "dashboard": {
     "failedTasks": "Failed tasks",
@@ -652,7 +679,8 @@
     "settleRuns": "Settlement runs",
     "compensations": "Compensation",
     "reports": "Reports",
-    "poolRecon": "Pool reconciliation"
+    "poolRecon": "Pool reconciliation",
+    "riskAlerts": "Risk alerts"
   },
   "menus": {
     "group": "Group",
@@ -1131,24 +1159,24 @@
     },
     "R8": {
       "name": "Betting after deposit",
-      "desc": "Bet amount since the earliest deposit credited in the last 30 days ≥ those deposits × N (S1 has no betting yet, so the amount is 0 and customers with deposits go to manual review)",
+      "desc": "Effective bets placed after the earliest deposit of the last 30 days ≥ deposits × N (refunded bets — cancelled, voided, late, staff — do not count)",
       "param": {
         "multiple": "Multiple"
       },
-      "pass": "Bets {{volume}} / deposits {{deposit}} = {{ratio}}× ≥ {{limit}}×",
-      "fail": "Bets {{volume}} / deposits {{deposit}} = {{ratio}}× < {{limit}}×",
+      "pass": "Effective bets {{volume}} / deposits {{deposit}} = {{ratio}}x ≥ {{limit}}x",
+      "fail": "Effective bets {{volume}} / deposits {{deposit}} = {{ratio}}x < {{limit}}x",
       "noDeposit": "No deposits in the last 30 days; not checked"
     },
     "R9": {
       "name": "Withdrawals within deposits + P&L",
-      "desc": "Total withdrawals (this and in-progress included) ≤ total deposits + realized P&L; otherwise manual (S1 has no betting yet, realized P&L is 0)",
+      "desc": "Total withdrawals (incl. this one and in-progress ones) ≤ total deposits + settled P&L (payouts + compensation − settled stakes − fees); otherwise manual",
       "fixed": "No value: manual when exceeded",
       "pass": "Withdrawn {{withdrawn}} ≤ deposits {{deposit}} + P&L {{pnl}} = {{cap}}",
       "fail": "Withdrawn {{withdrawn}} > deposits {{deposit}} + P&L {{pnl}} = {{cap}}"
     },
     "R10": {
       "name": "7-day profit",
-      "desc": "Realized profit in the last 7 days (rolling) is within the amount cap, or within N% of principal (either one passes)",
+      "desc": "Settled profit in the last 7 days (rolling) ≤ the amount cap, or ≤ N% of principal (either passes)",
       "param": {
         "maxProfit7d": "Amount cap",
         "maxProfitPct": "Or % of principal"
@@ -1179,12 +1207,31 @@
     },
     "R13": {
       "name": "Profitable customer",
-      "desc": "Cumulative net profit since account opening (realized P&L − fees) must not exceed the threshold; equal passes (S1 has no betting yet, counted as 0)",
+      "desc": "Net profit since sign-up (payouts + compensation − settled stakes − fees; refunded and unsettled bets excluded) ≤ threshold; above it goes manual, equal passes",
       "param": {
         "maxNetProfit": "Threshold"
       },
-      "pass": "Net profit {{net}} = realized {{realized}} − fees {{fee}} − swaps {{swap}}, threshold {{limit}} (not exceeded)",
-      "fail": "Net profit {{net}} = realized {{realized}} − fees {{fee}} − swaps {{swap}}, threshold {{limit}} (exceeded, manual review)"
+      "pass": "Net profit {{net}} = payouts {{payout}} + compensation {{compensation}} − stakes {{stake}} − fees {{fee}}, threshold {{limit}} (not above)",
+      "fail": "Net profit {{net}} = payouts {{payout}} + compensation {{compensation}} − stakes {{stake}} − fees {{fee}}, threshold {{limit}} (above: manual)"
+    },
+    "R14": {
+      "name": "Linked accounts on opposite options",
+      "desc": "In markets that paid this customer in the last N days where a linked account (same device, IP, deposit source or withdrawal address) bet on another option, the profit from them ≤ threshold; above it goes manual",
+      "param": {
+        "days": "Last",
+        "minProfit": "Profit threshold"
+      },
+      "pass": "{{markets}} market(s) with linked opposite bets in {{days}} days, profit {{profit}} ≤ {{limit}}",
+      "fail": "{{markets}} market(s) with linked opposite bets in {{days}} days ({{linked}} linked account(s)), profit {{profit}} > {{limit}}"
+    },
+    "R15": {
+      "name": "Suspicious wins",
+      "desc": "No unhandled (new / seen) \"new account won a long shot\" or \"large late bet\" risk alerts in the last N days; otherwise manual",
+      "param": {
+        "days": "Last"
+      },
+      "pass": "No unhandled suspicious alerts in {{days}} days",
+      "fail": "{{count}} unhandled suspicious alert(s) in {{days}} days (handle them under Risk alerts)"
     }
   },
   "autoReview": {
@@ -1840,7 +1887,7 @@
   },
   "pm": {
     "title": "Parameters",
-    "sub": "Default fees, bet limits, dispute windows, KYC threshold, minimum withdrawal",
+    "sub": "Category fees, bet limits, dispute windows, KYC threshold, minimum withdrawal, risk alert thresholds",
     "hint": "Changes are high-risk: a reason is required and before → after is audited. Default fees only apply to markets created afterwards.",
     "group": {
       "fee": "Default fee by category",
@@ -1850,7 +1897,8 @@
       "crypto": "Crypto market timing",
       "dispute": "Dispute window (platform resolution)",
       "resolve": "Resolution deadlines (platform)",
-      "sports": "Sports fixtures"
+      "sports": "Sports fixtures",
+      "risk": "Risk alerts"
     },
     "key": {
       "market_fee_FOOTBALL": "Football",
@@ -1885,7 +1933,13 @@
       "sports_closeLeadMinutes_FOOTBALL": "Football: close before kick-off",
       "sports_closeLeadMinutes_NBA": "NBA: close before kick-off",
       "sports_eventMinutes_FOOTBALL": "Football: event length",
-      "sports_eventMinutes_NBA": "NBA: event length"
+      "sports_eventMinutes_NBA": "NBA: event length",
+      "risk_lateBet_minutes": "Large late bet: within minutes before close",
+      "risk_lateBet_poolPct": "Large late bet: share of the pool after the bet",
+      "risk_longshot_accountDays": "Long shot: account age counted as new",
+      "risk_longshot_minAmount": "Long shot: single bet at least",
+      "risk_longshot_minOdds": "Long shot: odds at least",
+      "risk_link_maxUsersPerKey": "Linked accounts: max customers per device / IP / address"
     },
     "hours": "{{n}} h",
     "minutes": "{{n}} min",
@@ -1903,7 +1957,16 @@
     "feeNote": "Charged on winners’ profit only; per-market fees are edited in Markets.",
     "noPerm": "No permission ({{perm}})",
     "resolveNote": "Overdue items are flagged on the resolution desk and emailed to the responsible roles",
-    "sportsNote": "Used when generating drafts from fixtures: close N minutes before kick-off; event end = kick-off + N minutes"
+    "sportsNote": "Used when generating drafts from fixtures: close N minutes before kick-off; event end = kick-off + N minutes",
+    "countUnit": {
+      "risk_longshot_accountDays": "{{n}} days",
+      "risk_link_maxUsersPerKey": "{{n}}"
+    },
+    "multiple": "{{n}}x",
+    "pctUnit": "%",
+    "usdtUnit": "USDT",
+    "multUnit": "x",
+    "riskNote": "Odds are after the fee (as customers see them); a value shared by more customers than the limit (public networks, exchange addresses) no longer links them."
   },
   "dash": {
     "sub": "Today / last 7 days in UTC; open an item to handle it",
@@ -2291,5 +2354,52 @@
     "date": "Date",
     "byMarket": "By market (completed payout runs)",
     "noRuns": "No completed runs yet"
+  },
+  "ra": {
+    "title": "Risk alerts",
+    "sub": "Large late bets, linked accounts on opposite options, new accounts winning long shots, withdrawals without betting; new alerts are emailed — mark the outcome after review",
+    "kindAll": "All types",
+    "kindAllN": "All types · {{n}}",
+    "kind": {
+      "late_large_bet": "Large late bet",
+      "linked_opposite": "Linked accounts, opposite options",
+      "new_account_longshot": "New account won a long shot",
+      "deposit_no_bet": "Withdrawal without betting"
+    },
+    "status": {
+      "new": "New",
+      "seen": "Seen",
+      "handled": "Handled",
+      "false_positive": "False positive"
+    },
+    "statusAll": "All statuses",
+    "keyword": "Customer",
+    "keywordPh": "Customer ID, email or name",
+    "emptyNew": "No new alerts",
+    "empty": "No alerts",
+    "emptyFiltered": "No alerts match the filters",
+    "time": "Raised (UTC)",
+    "kindCol": "Type",
+    "customer": "Customer",
+    "market": "Market",
+    "amount": "Amount",
+    "detailCol": "Why",
+    "statusCol": "Status",
+    "to": {
+      "seen": "Mark seen",
+      "handled": "Handled",
+      "false_positive": "False positive"
+    },
+    "noteLabel": "Note (required, recorded in the audit log)",
+    "notePh": {
+      "handled": "e.g. Contacted the customer and restricted withdrawals",
+      "false_positive": "e.g. Two accounts of the same household, verified"
+    },
+    "detail": {
+      "late_large_bet": "Bet {{sec}} s before close, {{pct}}% of the pool after the bet (pool {{pool}}; threshold: within {{limitMinutes}} min, ≥ {{limitPct}}%)",
+      "linked_opposite": "Linked account(s) {{users}} bet on a different option in the same market",
+      "new_account_longshot": "Won {{odds}}x on day {{days}} after sign-up (threshold: within {{limitDays}} days)",
+      "deposit_no_bet": "Deposited {{deposit}} in 30 days, effective bets only {{stake}} (required {{multiple}}x), then requested withdrawal {{no}}"
+    }
   }
 }

@@ -7,6 +7,7 @@ import com.forecast.app.account.auth.AuthRequests.ResetPassword;
 import com.forecast.app.account.auth.AuthRequests.SendCode;
 import com.forecast.app.account.auth.AuthRequests.SessionView;
 import com.forecast.app.account.auth.Rows.UserRow;
+import com.forecast.app.account.device.DeviceLog;
 import com.forecast.app.common.web.CurrentUser;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -27,11 +28,13 @@ class AuthController {
   private final AuthService auth;
   private final SessionService sessions;
   private final AuthProperties props;
+  private final DeviceLog devices;
 
-  AuthController(AuthService auth, SessionService sessions, AuthProperties props) {
+  AuthController(AuthService auth, SessionService sessions, AuthProperties props, DeviceLog devices) {
     this.auth = auth;
     this.sessions = sessions;
     this.props = props;
+    this.devices = devices;
   }
 
   /** 发验证码的结果：还要等多少秒才能重发，客户端按它倒计时（60 秒内重发是 429，错误响应体也带剩余的 cooldownSeconds） */
@@ -45,12 +48,12 @@ class AuthController {
   @PostMapping("/api/auth/register")
   SessionView register(@Valid @RequestBody Register r, HttpServletRequest req, HttpServletResponse res) {
     long userId = auth.register(r);
-    return startSession(auth.user(userId), req, res);
+    return startSession(auth.user(userId), "REGISTER", req, res);
   }
 
   @PostMapping("/api/auth/login")
   SessionView login(@Valid @RequestBody Login r, HttpServletRequest req, HttpServletResponse res) {
-    return startSession(auth.login(r.email(), r.password(), req.getRemoteAddr()), req, res);
+    return startSession(auth.login(r.email(), r.password(), req.getRemoteAddr()), "LOGIN", req, res);
   }
 
   @PostMapping("/api/auth/logout")
@@ -78,8 +81,10 @@ class AuthController {
     return new SessionView(String.valueOf(u.id()), u.email());
   }
 
-  private SessionView startSession(UserRow u, HttpServletRequest req, HttpServletResponse res) {
+  /** 建登录会话；forecast S10 同时记下设备号和 IP（关联账户的线索，{@link DeviceLog}） */
+  private SessionView startSession(UserRow u, String kind, HttpServletRequest req, HttpServletResponse res) {
     String token = sessions.create(u.id(), req.getRemoteAddr(), req.getHeader(HttpHeaders.USER_AGENT));
+    devices.record(u.id(), kind, req.getHeader(DeviceLog.HEADER), req.getRemoteAddr());
     res.addHeader(HttpHeaders.SET_COOKIE, cookie(token, Duration.ofHours(props.sessionTtlHours())));
     return new SessionView(String.valueOf(u.id()), u.email());
   }

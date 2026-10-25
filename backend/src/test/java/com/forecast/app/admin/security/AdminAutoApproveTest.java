@@ -75,7 +75,7 @@ class AdminAutoApproveTest extends AdminTestSupport {
     Admin s = superAdmin();
     JsonNode cur = body(call(get("/api/admin/withdraw-auto-approve"), s.cookie(), null));
     assertThat(cur.get("masterEnabled").asBoolean()).isFalse();
-    assertThat(cur.get("rules")).hasSize(13);
+    assertThat(cur.get("rules")).hasSize(15);
     // R13 盈利客户（Amos 2026-10-18）：默认开启、门槛 0（迁移 V27）
     assertThat(cur.get("rules").get(12).toString()).isEqualTo("{\"code\":\"R13\",\"enabled\":true,\"params\":{\"maxNetProfit\":\"0\"}}");
     assertThat(cur.get("rules").get(0).get("code").asString()).isEqualTo("R1");
@@ -205,7 +205,7 @@ class AdminAutoApproveTest extends AdminTestSupport {
     assertThat(body(call(get("/api/admin/withdrawals?autoReview=R5" + kw), s.cookie(), null)).get("total").asLong()).isZero();
     assertThat(body(call(get("/api/admin/withdrawals?autoReview=auto_approved" + kw), s.cookie(), null)).get("total").asLong()).as("预判通过不算，看最近一次").isZero();
     assertThat(body(call(get("/api/admin/withdrawals?autoReview=none" + kw), s.cookie(), null)).get("total").asLong()).isZero();
-    assertThat(call(get("/api/admin/withdrawals?autoReview=R14"), s.cookie(), null).getStatus()).isEqualTo(400);
+    assertThat(call(get("/api/admin/withdrawals?autoReview=R16"), s.cookie(), null).getStatus()).isEqualTo(400);
     assertThat(body(call(get("/api/admin/withdrawals?autoReview=R13" + kw), s.cookie(), null)).get("total").asLong()).isZero();
     // 全部触发了 R6 的都真的触发了 R6
     JsonNode r6 = body(call(get("/api/admin/withdrawals?autoReview=R6&pageSize=100"), s.cookie(), null));

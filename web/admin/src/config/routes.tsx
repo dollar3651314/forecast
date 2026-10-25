@@ -39,6 +39,7 @@ import { CompensationsPage } from '../pages/settle/CompensationsPage';
 import { PoolReconPage } from '../pages/funds/PoolReconPage';
 import { ReportsPage } from '../pages/reports/ReportsPage';
 import { ParamsPage } from '../pages/params/ParamsPage';
+import { RiskAlertsPage } from '../pages/risk/RiskAlertsPage';
 
 export interface RouteDef {
   path: string;
@@ -77,6 +78,7 @@ export const APP_ROUTES: RouteDef[] = [
   { path: '/funds/reconciliation/sweep/settings', menuKey: 'reconciliation', element: <SweepSettingsPage /> },
   { path: '/funds/pool-recon', menuKey: 'pool-recon', element: <PoolReconPage /> },
   { path: '/funds/tasks', menuKey: 'tasks', element: <TasksPage /> },
+  { path: '/risk/alerts', menuKey: 'risk-alerts', element: <RiskAlertsPage /> },
   { path: '/notify/templates', menuKey: 'templates', element: <TemplatesPage /> },
   { path: '/notify/send', menuKey: 'send', element: <SendPage /> },
   { path: '/notify/records', menuKey: 'records', element: <RecordsPage /> },

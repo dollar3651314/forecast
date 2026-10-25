@@ -50,6 +50,12 @@ class SettleAdmin implements SettleAdminApi, SettleApi {
     return mapper.openIssues();
   }
 
+  @Override
+  public StaffRefund refundStaffBets(long userId) {
+    SettleService.StaffRefund r = settle.refundStaffBets(userId);
+    return new StaffRefund(r.markets(), r.bets(), r.amount().setScale(2, RoundingMode.DOWN).toPlainString());
+  }
+
   private MarketApi.MarketRef market(long marketNo) {
     MarketApi.MarketRef m = markets.find(marketNo).orElseThrow(() -> new BizException("NOT_FOUND", "市场不存在"));
     if (m.status() == MarketStatus.DRAFT) throw new BizException("NOT_FOUND", "市场不存在");
