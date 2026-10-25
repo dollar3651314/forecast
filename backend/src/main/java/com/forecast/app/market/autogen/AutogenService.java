@@ -340,7 +340,7 @@ public class AutogenService implements MarketAutogenAdminApi {
     slots.sort(String::compareTo);
     int rolling = in.rollingCount() == null ? (period.equals("15M") ? 4 : 3) : in.rollingCount();
     if (rolling < 1 || rolling > 96) errs.add("rollingCount", "invalid");
-    int ahead = in.generateAheadMinutes() == null ? 60 : in.generateAheadMinutes();
+    int ahead = in.generateAheadMinutes() == null ? 1440 : in.generateAheadMinutes();
     if (ahead < 0 || ahead > 10_080) errs.add("generateAheadMinutes", "invalid");
     AutogenRows.Template t = null;
     if (in.templateNo() == null || in.templateNo().isBlank()) {

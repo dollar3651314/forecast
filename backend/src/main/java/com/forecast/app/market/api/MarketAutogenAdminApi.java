@@ -25,7 +25,7 @@ public interface MarketAutogenAdminApi {
    * @param mode schedule / rolling
    * @param slots schedule：每天的窗口开始时间（UTC，"HH:mm"），15M 要是 15 分钟的整数倍、1H 要是整点；不能重复
    * @param rollingCount rolling：未来至少几个窗口（1～96；为空时 15M 用 4、1H 用 3，需求第 4.2 节）
-   * @param generateAheadMinutes schedule：开放下注前多少分钟生成（0～10080；为空用 60）
+   * @param generateAheadMinutes schedule：开放下注前多少分钟生成（0～10080；为空用 1440，F-I2-1：AC-80 接下来 24 小时的场次都已生成）
    * @param templateNo 规则文本模板编号；为空用第一个加密涨跌模板
    * @param userCap 单客户单市场上限；为空用品类默认值，只能调低
    */
