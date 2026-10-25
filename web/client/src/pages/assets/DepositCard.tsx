@@ -1,5 +1,6 @@
 /**
- * 充值（效果图 M3）：先选网络，再显示地址、二维码、复制按钮和警示（含最小充值金额，AC-41）。ERC20 与 BSC 是同一个地址。
+ * 充值（效果图 M3）：先选网络，再显示地址、二维码、复制按钮和警示（含最小充值金额，AC-41）。ERC20 与 BSC 是同一个地址（CREATE2 合约地址）。
+ * 后端没返回的链（还没开通）显示"暂未开通"；三条链都没开通时后端返回 WALLET_NOT_READY，同样显示"暂未开通"。
  * 下方是最近的充值记录（待确认显示确认进度；低于最小充值金额的不入账，AC-41）。
  */
 import { useState } from 'react';
@@ -63,7 +64,9 @@ export function DepositCard() {
       ) : (
         <AsyncView state={s} rows={4}>
           {(list) => {
-            const a = list.find((x) => x.network === net)!;
+            const a = list.find((x) => x.network === net);
+            // 后端只返回已开通的链：ERC20、BEP20 只用合约地址，服务器还没配置合约时这两条链"暂未开通"，TRC20 照常（开发记录/钱包-合约地址方案.md）
+            if (!a) return <EmptyState compact title={t('deposit.notOpenTitle')} hint={t('deposit.notOpenHint')} />;
             return (
               <>
                 <div className="qr-wrap">

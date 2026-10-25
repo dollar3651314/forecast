@@ -48,7 +48,7 @@ class HotBalanceMailTest extends NotifyTestSupport {
     server.start();
     try {
       String url = "http://127.0.0.1:" + server.getAddress().getPort();
-      WalletProperties wallet = new WalletProperties(null, null, BigDecimal.ONE,
+      WalletProperties wallet = new WalletProperties(null, BigDecimal.ONE,
           Map.of(Chain.ERC20, new WalletProperties.ChainConfig(url, "0xdAC17F958D2ee523a2206206994597C13D831ec7", 6, 12, 12, 20, null)));
       MutableClock clock = new MutableClock();
       HotBalanceMonitor hot = new HotBalanceMonitor(wallet, ETH_HOT, null, HotBalanceProperties.defaults(),

@@ -1,6 +1,6 @@
 /**
  * 主流程（复制源的 S19 主流程，forecast S1 删除了下单、止盈止损、平仓几步，剩下账户、充值、KYC、提现）：
- * 客户在 390px 宽的手机上：注册（邮箱验证码）→ 退出后登录 → 充值到账 → 提交 KYC → 加白名单 → 提现；
+ * 客户在 390px 宽的手机上：注册（邮箱验证码）→ 退出后登录 → 充值到账（TRC20 xpub 地址；ERC20、BEP20 CREATE2 合约地址）→ 提交 KYC → 加白名单 → 提现；
  * 超管在电脑上：首次登录改密码 → 审核 KYC → 出金审核 → 查看客户；广播成功、链上确认后客户看到提现已完成。
  * 品牌：标题、页面文字、邮件标题是现在的品牌名（web/client/src/lib/brand.ts），没有旧品牌名（scripts/brand-check.json）。
  * 注册后第一次进来弹出新手引导（这里点"跳过"）。
@@ -141,7 +141,8 @@ test('客户主流程（手机 390px）和后台审核', async ({ browser }) => 
     });
 
     let address = '';
-    await step('客户：三条链的充值地址（ERC20 和 BSC 相同）', async () => {
+    let evmAddress = '';
+    await step('客户：三条链的充值地址（ERC20 和 BSC 相同，是 CREATE2 合约地址）', async () => {
       await page.goto('/assets');
       const addr = page.locator('.qr-wrap .addr .num');
       const read = async (net: string) => {
@@ -154,6 +155,7 @@ test('客户主流程（手机 390px）和后台审核', async ({ browser }) => 
       address = await read('TRC20');
       expect(erc20, 'ERC20 地址').toMatch(/^0x[0-9a-fA-F]{40}$/);
       expect(bsc, 'ERC20 和 BSC 是同一个地址（AC-06）').toBe(erc20);
+      evmAddress = erc20;
       expect(address, 'TRC20 地址').toMatch(/^T[1-9A-HJ-NP-Za-km-z]{33}$/);
       await expectNoHorizontalScroll(page, '资产页');
     });
@@ -173,6 +175,21 @@ test('客户主流程（手机 390px）和后台审核', async ({ browser }) => 
       // S2：资产页显示三项（可用、下注中、提现冻结），还没有下注时下注中是 0
       await expect(page.locator('.overview').getByText('下注中')).toBeVisible();
       await expect(page.locator('.overview .ov-row > div').filter({ hasText: '下注中' }).locator('.num')).toHaveText('0.00');
+    }, 90_000);
+
+    // ERC20、BEP20 的充值地址只用 CREATE2 合约地址（开发记录/钱包-合约地址方案.md）：后端按 application-e2e.yml 里 anvil 部署出的合约参数算地址，
+    // 链替身只记转账；收款地址的方案必须是 FORWARDER（不是 xpub 派生）。合约本身的行为由 contracts/script/anvil-e2e.sh（SweepAnvilTest）在 anvil 真链上测
+    await step('客户：ERC20、BEP20 转入合约地址，确认数够了到账', async () => {
+      const erc = await e2e.deposit(request, 'ERC20', evmAddress, '20');
+      expect(erc.scheme, 'ERC20 收款地址是合约地址').toBe('FORWARDER');
+      expect(erc.status).toBe('PENDING');
+      await e2e.mine(request, 'ERC20', 13);
+      await expect(page.getByText('已到账 · ERC20')).toBeVisible();
+      const bsc = await e2e.deposit(request, 'BSC', evmAddress, '10');
+      expect(bsc.scheme, 'BSC 收款地址是同一个合约地址').toBe('FORWARDER');
+      await e2e.mine(request, 'BSC', 16);
+      await expect(page.getByText('已到账 · BSC')).toBeVisible();
+      await expect(page.locator('.assets-hero, .card').getByText('1,030.00').first()).toBeVisible();
     }, 90_000);
 
     await step('客户：提交 KYC（护照 + 3 张照片）', async () => {

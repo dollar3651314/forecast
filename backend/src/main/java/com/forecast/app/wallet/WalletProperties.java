@@ -8,13 +8,15 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 /**
  * 钱包参数（application.yml 的 forecast.wallet），值由 Amos 填进服务器环境变量，仓库里只有变量名（底线）。
  *
- * @param ethXpub 以太坊体系的账户级 xpub（m/44'/60'/0'），只有公钥，服务器动不了充值地址里的钱（充值方案 D1）
- * @param tronXpub TRON 的账户级 xpub（m/44'/195'/0'）
+ * <p>以太坊体系（ERC20、BEP20）的充值地址<b>只用 CREATE2 合约转发地址</b>（{@link SweepEvmProperties}，开发记录/钱包-合约地址方案.md），
+ * 不再有以太坊体系的 xpub：合约地址参数没配时这两条链显示"暂未开通"，不退回 xpub 派生。TRON 不能用这套 EVM 合约，仍用 xpub 派生（方案 B）。
+ *
+ * @param tronXpub TRON 的账户级 xpub（m/44'/195'/0'），只有公钥，服务器动不了充值地址里的钱（充值方案 D1）
  * @param minDeposit 最小充值金额，低于它的不入账（Amos 确认 1 USDT，充值方案 D4）
  * @param chains 每条链的节点、USDT 合约、精度、确认数
  */
 @ConfigurationProperties("forecast.wallet")
-public record WalletProperties(String ethXpub, String tronXpub, @DefaultValue("1") BigDecimal minDeposit, Map<Chain, ChainConfig> chains) {
+public record WalletProperties(String tronXpub, @DefaultValue("1") BigDecimal minDeposit, Map<Chain, ChainConfig> chains) {
 
   /**
    * 一条链的配置。

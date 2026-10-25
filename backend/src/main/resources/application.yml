@@ -56,8 +56,8 @@ forecast:
     redis-down-skip: 30s
   # 钱包（S12，技术方案/v1-充值方案.md）。xpub、节点地址、合约地址都由 Amos 填进服务器环境变量，仓库里只有变量名
   wallet:
-    # 账户级 xpub（只有公钥），Amos 离线生成助记词后导出（充值方案 D1）
-    eth-xpub: ${FC_WALLET_ETH_XPUB:}
+    # TRON 的账户级 xpub（只有公钥），Amos 离线生成助记词后导出（充值方案 D1）。
+    # 以太坊体系（ERC20、BEP20）没有 xpub：充值地址只用 CREATE2 合约地址（下面 sweep.evm 的四个地址），没配时这两条链"暂未开通"
     tron-xpub: ${FC_WALLET_TRON_XPUB:}
     # 最小充值 1 USDT（Amos 确认，充值方案 D4）
     min-deposit: 1
@@ -93,9 +93,10 @@ forecast:
     hot-balance:
       enabled: true
       interval: 5m
-    # v2 资金归集第一阶段（技术方案/v2-半自动归集.md v1.2 第 4.4、4.6 节；以太坊、BSC，TRON 下一阶段）。
-    # 四个合约相关地址都是公开地址，Amos 部署合约后填（部署方案/v2-归集合约部署.md）：都配了 → 新的以太坊体系充值地址用 CREATE2 合约地址，老的 xpub 地址停用、继续扫块 30 天；
-    # 一个都没配 → 照旧 xpub 派生（测试环境不中断）。发起账户私钥只由 Amos 填，启动时和地址核对；没配或对不上只是不能执行归集，不影响启动和健康检查
+    # 以太坊体系充值地址和资金归集（开发记录/钱包-合约地址方案.md；复制源 v2 半自动归集第一阶段；以太坊、BSC，TRON 方案 B 不用合约）。
+    # 四个合约相关地址都是公开地址，Amos 部署合约后填（部署方案/v1-归集合约部署.md）：都配了 → ERC20、BEP20 充值地址 = CREATE2 合约地址；
+    # 没配齐或检查不通过 → 这两条链"暂未开通"（不退回 xpub 派生），健康检查 alerts 的 deposit.evm 报 DOWN，status 不变。
+    # 发起账户私钥只由 Amos 填，启动时和地址核对；没配或对不上只是不能执行归集，不影响启动和健康检查
     sweep:
       evm:
         factory: ${FC_SWEEP_EVM_FACTORY:}

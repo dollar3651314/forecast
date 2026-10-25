@@ -12,9 +12,10 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * 以太坊、BSC 资金归集（application.yml 的 forecast.wallet.sweep.evm，技术方案/v2-半自动归集.md 第 4.4、4.6、4.9 节）。
  * 四个合约相关地址都是公开地址，由 Amos 部署合约后填进服务器 .env；<b>发起账户私钥只由 Amos 填</b>，{@link #toString()} 不输出它。
  * <ul>
- *   <li>工厂、实现合约、parent、批量合约<b>四个都配了</b>：新的以太坊体系充值地址用 CREATE2 算（合约转发地址）；老的 xpub 地址标"已停用"，继续扫块
- *       {@code retiredScanDays} 天（SW-9）。</li>
- *   <li>一个都没配：沿用 xpub 派生（测试环境不中断）。只配了一部分：当作没配，告警项 {@code sweep.config} 报出来。</li>
+ *   <li>工厂、实现合约、parent、批量合约<b>四个都配了</b>：以太坊体系（ERC20、BEP20）的充值地址用 CREATE2 算（合约转发地址）。
+ *       换一套参数时老地址标"已停用"，继续扫块 {@code retiredScanDays} 天（SW-9）。</li>
+ *   <li>没配齐（一个没配、只配了一部分、格式不对）：ERC20、BEP20 充值<b>"暂未开通"，不退回 xpub 派生</b>（开发记录/钱包-合约地址方案.md）；
+ *       健康检查 {@code alerts} 的 {@code deposit.evm} 报 DOWN（{@code status} 不变），配错时 {@code sweep.config} 另外写原因。</li>
  *   <li>发起账户（地址 + 私钥）：启动时用私钥算出地址和配置的地址核对，对不上或没配时只是不能执行归集，<b>不影响启动和健康检查</b>。</li>
  * </ul>
  *
@@ -27,7 +28,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param erc20ChainId ERC20 网络的 chainId（和提现共用 {@code FC_WALLET_ERC20_CHAIN_ID}）
  * @param bscChainId BSC 网络的 chainId（和提现共用 {@code FC_WALLET_BSC_CHAIN_ID}）
  * @param retiredScanDays 停用的老地址继续扫块多少天（SW-9：30 天）
- * @param migrateOnStart 启动时把已有用户的 xpub 地址换成合约地址（老地址停用、继续扫块）
+ * @param migrateOnStart 启动时把已有用户不是当前这一套的以太坊体系地址（以前的 xpub 地址或老一套合约地址）换成当前合约地址（老地址停用、继续扫块）
  * @param schedulerEnabled 是否定时推进批次和查余额（测试里关掉，直接调用）
  * @param maxBatchSize 每批最多多少个地址（方案第 4.5 节：100）
  * @param deployGas 预估：一个未部署地址"部署 + 归集"的 gas（Foundry 实测约 13 万，见 contracts/README.md）

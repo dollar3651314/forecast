@@ -45,18 +45,24 @@ class WalletController {
     }).toList();
   }
 
-  /** 三条链的充值地址、需要的确认数、预计到账分钟数、最小充值金额（AC-06、AC-41） */
+  /**
+   * 已开通的链的充值地址、需要的确认数、预计到账分钟数、最小充值金额（AC-06、AC-41）。
+   * <b>没开通的链不出现在列表里</b>，客户端那条链显示"暂未开通"：ERC20、BEP20 只用合约地址，合约地址参数没配好时不开通（不退回 xpub，
+   * 开发记录/钱包-合约地址方案.md）；TRC20 要配了 xpub。三条链都没开通时返回 {@code WALLET_NOT_READY}（和以前一样）。
+   */
   @GetMapping("/api/wallet/addresses")
   List<DepositAddressView> addresses() {
     long uid = CurrentUser.id();
     List<DepositAddressView> out = new ArrayList<>();
     for (Chain c : Chain.values()) {
       WalletProperties.ChainConfig cfg = props.chain(c);
-      String address = addresses.addressOf(uid, c).orElseThrow(() -> new BizException("WALLET_NOT_READY", "充值地址暂不可用"));
+      String address = addresses.addressOf(uid, c).orElse(null);
+      if (address == null) continue;
       int conf = cfg == null ? 0 : confirmations.of(c);
       int eta = cfg == null ? 0 : (int) Math.ceil(conf * cfg.blockSeconds() / 60.0);
       out.add(new DepositAddressView(c.name(), address, conf, eta, props.minDeposit().stripTrailingZeros().toPlainString()));
     }
+    if (out.isEmpty()) throw new BizException("WALLET_NOT_READY", "充值地址暂不可用");
     return out;
   }
 }

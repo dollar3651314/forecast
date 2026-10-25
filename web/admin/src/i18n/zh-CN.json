@@ -1382,8 +1382,8 @@
     "nextPhaseSettings": "TRON 冷钱包地址、能量租赁、自动归集、以太坊 gas 上限、提醒下限是下一阶段，这里先不显示。",
     "priceMissing": "查不到 ETH / BNB 的价格：这次没有检查手续费占比上限。",
     "checkedAt": "金额查询时间",
-    "contractsProblem": "合约地址配置有问题，充值地址仍用 xpub 派生：{{problem}}",
-    "contractsMissing": "还没有配置归集合约地址（FC_SWEEP_EVM_*）：充值地址仍用 xpub 派生，不能执行归集。部署见 contracts/README.md。",
+    "contractsProblem": "合约地址配置有问题，ERC20、BEP20 充值暂未开通（不会退回 xpub 地址）：{{problem}}",
+    "contractsMissing": "还没有配置归集合约地址（FC_SWEEP_EVM_*）：ERC20、BEP20 充值暂未开通，不能执行归集。部署见 部署方案/v1-归集合约部署.md。",
     "operatorProblem": "发起账户不能用：{{problem}}",
     "batchFailReason": "原因"
   },

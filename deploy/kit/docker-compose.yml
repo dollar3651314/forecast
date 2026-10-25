@@ -64,7 +64,6 @@ services:
       # 结算派彩每批的持仓数（forecast S5）：500（默认）= 先算好再分批派彩（AQ-3 已定：B）；0 = 计算和派彩同一个事务
       FC_SETTLE_BATCH_SIZE: ${FC_SETTLE_BATCH_SIZE:-500}
       # 区块链（D4 第二步才填，全部用测试网）；没配置的链不扫块
-      FC_WALLET_ETH_XPUB: ${FC_WALLET_ETH_XPUB:-}
       FC_WALLET_TRON_XPUB: ${FC_WALLET_TRON_XPUB:-}
       FC_WALLET_ETH_RPC_URL: ${FC_WALLET_ETH_RPC_URL:-}
       FC_WALLET_BSC_RPC_URL: ${FC_WALLET_BSC_RPC_URL:-}
@@ -78,7 +77,7 @@ services:
       FC_WALLET_TRON_HOT_KEY: ${FC_WALLET_TRON_HOT_KEY:-}
       FC_WALLET_ETH_HOT_ADDRESS: ${FC_WALLET_ETH_HOT_ADDRESS:-}
       FC_WALLET_TRON_HOT_ADDRESS: ${FC_WALLET_TRON_HOT_ADDRESS:-}
-      # 资金归集（v2 第一阶段：以太坊、BSC）：合约地址都是公开地址，发起账户私钥只由 Amos 填；都不填时和以前一样（xpub 地址、不能归集）
+      # ERC20、BEP20 充值地址和资金归集：合约地址都是公开地址，发起账户私钥只由 Amos 填；四个合约地址没填齐时 ERC20、BEP20 暂未开通（不退回 xpub）
       FC_SWEEP_EVM_FACTORY: ${FC_SWEEP_EVM_FACTORY:-}
       FC_SWEEP_EVM_IMPLEMENTATION: ${FC_SWEEP_EVM_IMPLEMENTATION:-}
       FC_SWEEP_EVM_PARENT: ${FC_SWEEP_EVM_PARENT:-}

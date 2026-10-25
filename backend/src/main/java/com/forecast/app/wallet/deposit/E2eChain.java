@@ -26,7 +26,9 @@ import org.springframework.web.bind.annotation.RestController;
  * 端到端测试的链替身（S19，只在 profile e2e 下存在）：三条链各一条内存里的"链"，启动时注册给扫块（{@link ChainClients}）。
  * 充值照常走真实的扫块 → 确认 → 入账（{@link DepositService#run}），只是区块和转账由测试制造。
  * <ul>
- *   <li>{@code POST /api/e2e/wallet/deposit {chain, address, amount}}：在下一个区块里向 address 转 amount 个 USDT（配置好的合约），扫一次块，返回交易哈希（此时是待确认）</li>
+ *   <li>{@code POST /api/e2e/wallet/deposit {chain, address, amount}}：在下一个区块里向 address 转 amount 个 USDT（配置好的合约），扫一次块，返回交易哈希（此时是待确认）
+ *       和收款地址的方案 {@code scheme}。ERC20、BSC 的地址是后端按 CREATE2 公式算出的合约地址（application-e2e.yml 配的是 anvil 上部署出的固定地址），
+ *       替身只记"向这个地址转了多少"，不需要链上真的有合约：合约本身的行为由 SweepAnvilTest 在 anvil 真链上测</li>
  *   <li>{@code POST /api/e2e/wallet/mine {chain, blocks}}：再出 blocks 个区块并扫块确认（够确认数就入账）</li>
  * </ul>
  */
@@ -118,6 +120,8 @@ class E2eChain {
       out.put("txHash", tx);
       out.put("userId", String.valueOf(user.get()));
       out.put("status", status(e2e, user.get(), tx));
+      // 收款地址的方案：ERC20、BSC 是 FORWARDER（CREATE2 合约地址，用例核对不是 xpub 地址），TRC20 是 XPUB
+      out.put("scheme", e2e.addresses.owner(chain, d.address()).map(AddressService.OwnAddress::scheme).orElse(null));
       return ResponseEntity.ok(out);
     }
 

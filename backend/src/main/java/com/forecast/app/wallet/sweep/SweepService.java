@@ -136,7 +136,7 @@ public class SweepService implements SweepAdminApi {
   Optional<String> unavailable(Chain chain) {
     if (chain.family != Chain.Family.ETH) return Optional.of("TRON 归集（离线签名 + 租能量）是下一阶段");
     Optional<ForwarderScheme> s = schemes.current();
-    if (s.isEmpty()) return Optional.of(schemes.problem().orElse("没有配置归集合约地址（FC_SWEEP_EVM_FACTORY / IMPLEMENTATION / PARENT / BATCHER），充值地址仍用 xpub 派生"));
+    if (s.isEmpty()) return Optional.of(schemes.problem().orElse("没有配置归集合约地址（FC_SWEEP_EVM_FACTORY / IMPLEMENTATION / PARENT / BATCHER），ERC20、BEP20 充值暂未开通"));
     if (operator.problem().isPresent()) return operator.problem();
     WalletProperties.ChainConfig cfg = wallet.chain(chain);
     if (cfg == null || cfg.rpcUrl() == null || cfg.rpcUrl().isBlank() || !cfg.scanReady()) return Optional.of(chain + " 没有配置节点或 USDT 合约");

@@ -201,7 +201,7 @@ class DepositFlowTest {
 
   @Test
   void 没有配置USDT合约的链不扫块_F3() {
-    var noContract = new WalletProperties(props.ethXpub(), props.tronXpub(), props.minDeposit(),
+    var noContract = new WalletProperties(props.tronXpub(), props.minDeposit(),
         Map.of(Chain.ERC20, new WalletProperties.ChainConfig(null, "", 6, 12, 12, 200, null)));
     DepositService service = new DepositService(mapper, clients, addresses, ledger, noContract, tx, funds, staff, notify, confirmations, events);
     FakeChain f = chain(Chain.ERC20, 8000);
@@ -365,6 +365,13 @@ class DepositFlowTest {
     String body = mvc.perform(get("/api/wallet/addresses").cookie(c)).andReturn().getResponse().getContentAsString();
     String eth = addresses.addressOf(uid, Chain.ERC20).orElseThrow();
     String tron = addresses.addressOf(uid, Chain.TRC20).orElseThrow();
+    // 以太坊体系只用 CREATE2 合约地址（开发记录/钱包-合约地址方案.md）：就是 application-test.yml 那套参数按公式算出的地址，不是 xpub 派生
+    assertThat(eth).isEqualTo(com.forecast.app.wallet.address.Create2.forwarderAddress("0x1111111111111111111111111111111111111111",
+        "0x2222222222222222222222222222222222222222", "0x5afe00000000000000000000000000000000a001", "0xba7c000000000000000000000000000000000001",
+        com.forecast.app.wallet.address.Create2.salt(uid)));
+    assertThat(jdbc.queryForList("SELECT CONCAT(family, ':', scheme) FROM wallet_address WHERE user_id = ? ORDER BY family", String.class, uid))
+        .containsExactly("ETH:FORWARDER", "TRON:XPUB");
+    assertThat(mvc.perform(get("/api/health")).andReturn().getResponse().getContentAsString()).as("配好了合约地址：ERC20、BEP20 已开通").contains("\"deposit.evm\":\"UP\"");
     assertThat(body).contains("{\"network\":\"ERC20\",\"address\":\"" + eth + "\",\"confirmations\":12,\"etaMinutes\":3,\"minDeposit\":\"1\"}")
         .contains("{\"network\":\"BSC\",\"address\":\"" + eth + "\",\"confirmations\":15,\"etaMinutes\":1,\"minDeposit\":\"1\"}")
         .contains("{\"network\":\"TRC20\",\"address\":\"" + tron + "\",\"confirmations\":19,\"etaMinutes\":1,\"minDeposit\":\"1\"}");

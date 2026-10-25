@@ -5,7 +5,10 @@ import org.bouncycastle.jcajce.provider.digest.Keccak;
 import org.bouncycastle.math.ec.ECPoint;
 import org.bouncycastle.util.encoders.Hex;
 
-/** 公钥 → 链上地址。以太坊和 TRON 都是：Keccak-256(未压缩公钥去掉 04) 的后 20 字节。 */
+/**
+ * 地址格式工具。公钥 → TRON 地址：Keccak-256(未压缩公钥去掉 04) 的后 20 字节加 0x41。以太坊体系的充值地址不从公钥派生（只用 CREATE2 合约地址，{@link Create2}），
+ * 这里只给它做 EIP-55 大小写校验和匹配键。
+ */
 final class Addresses {
 
   private Addresses() {}
@@ -15,11 +18,6 @@ final class Addresses {
     Keccak.Digest256 k = new Keccak.Digest256();
     byte[] h = k.digest(Arrays.copyOfRange(pub, 1, pub.length));
     return Arrays.copyOfRange(h, 12, 32);
-  }
-
-  /** 以太坊（也用于 BSC）：0x + EIP-55 大小写校验 */
-  static String eth(ECPoint p) {
-    return checksum(Hex.toHexString(hash20(p)));
   }
 
   /** EIP-55：按小写地址的 Keccak 决定每一位字母大小写 */

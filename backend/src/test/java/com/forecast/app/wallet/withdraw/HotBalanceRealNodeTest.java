@@ -31,7 +31,7 @@ class HotBalanceRealNodeTest {
     m.put(Chain.BSC, new WalletProperties.ChainConfig("https://bsc-testnet-rpc.publicnode.com", BSC_TEST_USDT, 18, 15, 3, 50, null));
     m.put(Chain.TRC20, new WalletProperties.ChainConfig("https://nile.trongrid.io", NILE_USDT, 6, 19, 3, 10, null));
     // 以太坊体系两条链用同一个"热钱包地址"：这里用 Sepolia 测试 USDT 合约地址（BSC 上它是普通地址，余额多半是 0）
-    HotBalanceMonitor mon = new HotBalanceMonitor(new WalletProperties(null, null, BigDecimal.ONE, m), SEPOLIA_USDT, NILE_USDT, HotBalanceProperties.defaults(),
+    HotBalanceMonitor mon = new HotBalanceMonitor(new WalletProperties(null, BigDecimal.ONE, m), SEPOLIA_USDT, NILE_USDT, HotBalanceProperties.defaults(),
         (c, gas) -> BigDecimal.ZERO, new MutableClock(), new ObjectMapper());
     mon.refresh();
     for (HotWalletApi.Balance b : mon.hotBalances()) {

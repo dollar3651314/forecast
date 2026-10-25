@@ -19,14 +19,17 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * 充值地址。两种方案（表 {@code wallet_address} 的 {@code scheme}，迁移 V28）：
+ * 充值地址（开发记录/钱包-合约地址方案.md）。每个体系只有一种方案（表 {@code wallet_address} 的 {@code scheme}）：
  * <ul>
- *   <li>{@code XPUB}（充值方案 D1）：用 Amos 配置的账户级 xpub 按 BIP44 派生，序号 = 用户 ID。服务器只有公钥，动不了地址里的钱。TRON 一直用它。</li>
- *   <li>{@code FORWARDER}（v2 归集，技术方案/v2-半自动归集.md 第 4.4、4.13 节）：以太坊体系配好了合约地址参数（{@link ForwarderSchemes}）时，
- *       地址 = BitGo 工厂的 CREATE2 地址（{@link Create2}），里面的钱只能去 parent（Safe）。服务器同样动不了这些钱。</li>
+ *   <li>以太坊体系（ERC20、BEP20 共用一个地址）<b>只用</b> {@code FORWARDER}：地址 = BitGo 工厂的 CREATE2 地址（{@link Create2}，
+ *       参数见 {@link ForwarderSchemes}），里面的钱只能去 parent（Safe 冷钱包），服务器动不了。合约地址参数没配齐或检查不通过时
+ *       这两条链<b>"暂未开通"</b>：不分配、客户端不显示地址，<b>不退回 xpub 派生</b>（Amos 2026-10-25）。</li>
+ *   <li>TRON 用 {@code XPUB}（充值方案 D1，方案 B）：Amos 配置的账户级 xpub 按 BIP44 派生，序号 = 用户 ID，服务器只有公钥。
+ *       TRON 不是 EVM，不能用 BitGo 转发合约和 CREATE2 公式，归集走离线签名（下一阶段加租能量）。</li>
  * </ul>
- * 每个用户每个体系同时只有一个"正在用"（ACTIVE）的地址，客户端只显示它；换成合约地址时原来的地址改成"停用"（RETIRED），
- * 继续扫块 {@code retiredScanDays} 天、照常入账（SW-9）。合约地址参数没配时：已经有合约地址的保持不变，没有地址的用 xpub 派生。
+ * 每个用户每个体系同时只有一个"正在用"（ACTIVE）的地址，客户端只显示它；换一套合约参数时原来的地址改成"停用"（RETIRED），
+ * 继续扫块 {@code retiredScanDays} 天、照常入账（SW-9）。表里以前留下的以太坊体系 {@code XPUB} 地址（只可能来自改方案之前的测试环境）
+ * 不再显示给客户，但仍然扫块入账：配好合约参数后由 {@link #migrateAll()} 停用、继续扫块 {@code retiredScanDays} 天。
  */
 @Service
 @EnableConfigurationProperties({WalletProperties.class, SweepEvmProperties.class})
@@ -70,22 +73,24 @@ public class AddressService implements WalletApi {
   @Transactional
   public void allocateAddresses(long userId) {
     if (userId <= 0 || userId > Integer.MAX_VALUE) throw new IllegalArgumentException("用户 ID 超出派生序号范围");
-    for (Chain.Family f : Chain.Family.values()) {
-      Optional<ForwarderScheme> scheme = f == Chain.Family.ETH ? schemes.current() : Optional.empty();
-      if (scheme.isPresent()) {
-        useForwarder(userId, scheme.get());
-        continue;
-      }
-      if (mapper.findActive(userId, f.name()) != null) continue; // 已经有正在用的地址（可能是合约地址：配置去掉后保持不变）
-      String xpub = xpub(f);
-      if (xpub == null) {
-        log.warn("没有配置 {} 的 xpub，暂不分配充值地址 user={}", f, userId);
-        continue;
-      }
-      int index = (int) userId;
-      String address = derive(f, xpub, index);
-      mapper.insertActive(userId, f.name(), XPUB, 0, index, address, Addresses.key(f, address), null); // 别的请求刚插了同一个：唯一键挡住，返回 0
+    // 以太坊体系只用合约地址：参数没配好时不分配（"暂未开通"），不退回 xpub
+    schemes.current().ifPresent(s -> useForwarder(userId, s));
+    Chain.Family tron = Chain.Family.TRON;
+    if (mapper.findActive(userId, tron.name()) != null) return;
+    String xpub = props.tronXpub();
+    if (xpub == null || xpub.isBlank()) {
+      log.warn("没有配置 TRON 的 xpub，暂不分配 TRC20 充值地址 user={}", userId);
+      return;
     }
+    int index = (int) userId;
+    String address = deriveTron(xpub, index);
+    mapper.insertActive(userId, tron.name(), XPUB, 0, index, address, Addresses.key(tron, address), null); // 别的请求刚插了同一个：唯一键挡住，返回 0
+  }
+
+  /** 这条链能不能充值（有地址可以给客户）：以太坊体系要合约地址参数配好，TRON 要 xpub */
+  public boolean open(Chain chain) {
+    if (chain.family == Chain.Family.ETH) return schemes.current().isPresent();
+    return props.tronXpub() != null && !props.tronXpub().isBlank();
   }
 
   private static boolean isCurrent(AddressMapper.AddressRow a, ForwarderScheme s) {
@@ -141,6 +146,7 @@ public class AddressService implements WalletApi {
 
   /**
    * 用户在这条链上正在用的充值地址；还没分配（或者以太坊体系还不是当前这一套合约地址）时先分配。
+   * 以太坊体系的合约地址参数没配好时为空（"暂未开通"），即使表里有以前的地址也不给客户显示。
    * <p>不包在一个大事务里（SQ-8）：可重复读的快照建在第一次读时，同一客户另一个请求刚提交的地址在快照里看不到，分配完再读会读成"没有"。
    * 现在每次读都是最新提交的数据；分配单独一个事务，事务开头先锁这个客户的账户行（{@link LedgerApi#lock}，下注、提现也从这一行排队）：
    * 同一客户几个请求同时到时排队分配，后面的读到前面刚提交的地址就不再插入。不锁的话，两个插入同时撞上唯一键的事务会在主键末尾各留一个间隙锁，
@@ -148,6 +154,7 @@ public class AddressService implements WalletApi {
    * 万一仍被判死锁（例如账户行被长事务占着以外的情况），重试，最多 3 次、间隔逐次加长。
    */
   public Optional<String> addressOf(long userId, Chain chain) {
+    if (!open(chain)) return Optional.empty();
     Optional<AddressMapper.AddressRow> a = active(userId, chain.family);
     boolean stale = chain.family == Chain.Family.ETH && schemes.current().map(s -> a.isEmpty() || !FORWARDER.equals(a.get().scheme())
         || a.get().schemeVer() != s.ver()).orElse(false);
@@ -220,13 +227,8 @@ public class AddressService implements WalletApi {
     return mapper.byUser(userId).stream().filter(r -> r.family().equals(family.name()) && "ACTIVE".equals(r.status())).findFirst();
   }
 
-  private String xpub(Chain.Family f) {
-    String x = f == Chain.Family.ETH ? props.ethXpub() : props.tronXpub();
-    return x == null || x.isBlank() ? null : x;
-  }
-
-  static String derive(Chain.Family f, String xpub, int index) {
-    var point = Bip32.receiving(xpub, index);
-    return f == Chain.Family.ETH ? Addresses.eth(point) : Addresses.tron(point);
+  /** TRON 充值地址：账户级 xpub → /0/序号（以太坊体系不用 xpub，见类说明） */
+  static String deriveTron(String xpub, int index) {
+    return Addresses.tron(Bip32.receiving(xpub, index));
   }
 }

@@ -1382,8 +1382,8 @@
     "nextPhaseSettings": "TRON cold wallet, energy rental, auto-sweep, Ethereum gas cap and reminders are the next phase and are hidden for now.",
     "priceMissing": "No ETH / BNB price available: the fee-ratio cap was not checked this time.",
     "checkedAt": "Balances checked at",
-    "contractsProblem": "Contract address configuration problem; deposit addresses still use xpub derivation: {{problem}}",
-    "contractsMissing": "Sweep contract addresses are not configured (FC_SWEEP_EVM_*): deposit addresses still use xpub derivation and sweeping is unavailable.",
+    "contractsProblem": "Contract address configuration problem; ERC20 / BEP20 deposits are not open (no fallback to xpub addresses): {{problem}}",
+    "contractsMissing": "Sweep contract addresses are not configured (FC_SWEEP_EVM_*): ERC20 / BEP20 deposits are not open and sweeping is unavailable.",
     "operatorProblem": "Operator account unavailable: {{problem}}",
     "batchFailReason": "Reason"
   },

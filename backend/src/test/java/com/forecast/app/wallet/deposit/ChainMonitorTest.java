@@ -23,7 +23,7 @@ class ChainMonitorTest {
   final SimpleMeterRegistry metrics = new SimpleMeterRegistry();
 
   /** ERC20 配了合约（12 秒一个块），BSC 没配合约，TRC20 配了合约（3 秒一个块） */
-  final WalletProperties props = new WalletProperties(null, null, BigDecimal.ONE, Map.of(
+  final WalletProperties props = new WalletProperties(null, BigDecimal.ONE, Map.of(
       Chain.ERC20, new WalletProperties.ChainConfig("http://node", "0xdAC17F958D2ee523a2206206994597C13D831ec7", 6, 12, 12, 20, null),
       Chain.BSC, new WalletProperties.ChainConfig("http://node", "", 18, 15, 3, 50, null),
       Chain.TRC20, new WalletProperties.ChainConfig("http://node", "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", 6, 19, 3, 10, null)));

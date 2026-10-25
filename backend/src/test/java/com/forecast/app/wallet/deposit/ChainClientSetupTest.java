@@ -13,7 +13,7 @@ import tools.jackson.databind.ObjectMapper;
 class ChainClientSetupTest {
 
   WalletProperties props(String rpc, String contract) {
-    return new WalletProperties(null, null, BigDecimal.ONE, Map.of(Chain.ERC20, new WalletProperties.ChainConfig(rpc, contract, 6, 12, 12, 20, null)));
+    return new WalletProperties(null, BigDecimal.ONE, Map.of(Chain.ERC20, new WalletProperties.ChainConfig(rpc, contract, 6, 12, 12, 20, null)));
   }
 
   @Test

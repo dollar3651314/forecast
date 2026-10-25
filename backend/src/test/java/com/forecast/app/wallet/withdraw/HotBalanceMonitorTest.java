@@ -106,7 +106,7 @@ class HotBalanceMonitorTest {
         case TRC20 -> m.put(c, new WalletProperties.ChainConfig(base + "/tron", USDT_TRC20, 6, 19, 3, 10, null));
       }
     }
-    return new WalletProperties(null, null, BigDecimal.ONE, m);
+    return new WalletProperties(null, BigDecimal.ONE, m);
   }
 
   HotBalanceMonitor monitor(WalletProperties wallet, String eth, String tron) {
@@ -232,7 +232,7 @@ class HotBalanceMonitorTest {
 
     // 配了节点没配合约（scanReady 为 false）：不查
     Map<Chain, WalletProperties.ChainConfig> noContract = Map.of(Chain.ERC20, new WalletProperties.ChainConfig(base + "/eth", " ", 6, 12, 12, 20, null));
-    HotBalanceMonitor nc = monitor(new WalletProperties(null, null, BigDecimal.ONE, noContract), ETH_HOT, TRON_HOT);
+    HotBalanceMonitor nc = monitor(new WalletProperties(null, BigDecimal.ONE, noContract), ETH_HOT, TRON_HOT);
     nc.refresh();
     assertThat(requests).isEmpty();
   }

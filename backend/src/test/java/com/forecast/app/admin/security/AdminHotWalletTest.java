@@ -52,7 +52,7 @@ class AdminHotWalletTest extends AdminTestSupport {
     server.start();
     Admin s = superAdmin();
     try {
-      WalletProperties wallet = new WalletProperties(null, null, BigDecimal.ONE, Map.of(Chain.ERC20, new WalletProperties.ChainConfig(
+      WalletProperties wallet = new WalletProperties(null, BigDecimal.ONE, Map.of(Chain.ERC20, new WalletProperties.ChainConfig(
           "http://127.0.0.1:" + server.getAddress().getPort(), "0xdAC17F958D2ee523a2206206994597C13D831ec7", 6, 12, 12, 20, null)));
       // 下限读真实的系统配置（和应用里的 Spring 构造一样）
       HotBalanceMonitor hot = new HotBalanceMonitor(wallet, "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf", null, HotBalanceProperties.defaults(),

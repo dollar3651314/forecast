@@ -13,10 +13,18 @@ forecast:
     ws-handshake-per-minute: 1000000
     user-write-per-minute: 1000000
     admin-login-per-ip: 1000000
-  # 钱包：和后端测试同一组公开数据。xpub 来自 BIP39 公开的测试助记词（"abandon … about"，人人都知道，没有任何价值）；
-  # 合约地址是三条链官方 USDT 合约的公开地址。不配置节点地址：扫块和广播由 e2e 的链替身代替，不连任何真实节点
+  # 钱包：TRON 的 xpub 来自 BIP39 公开的测试助记词（"abandon … about"，人人都知道，没有任何价值）；
+  # USDT 合约地址是三条链官方 USDT 合约的公开地址。不配置节点地址：扫块和广播由 e2e 的链替身代替，不连任何真实节点。
+  # ERC20、BEP20 的充值地址只用 CREATE2 合约地址（开发记录/钱包-合约地址方案.md）：下面四个地址就是 contracts/script/anvil-e2e.sh
+  # 在 anvil 本地链上用 Deploy.s.sol 部署出的地址（anvil 0 号公开测试账户 nonce 0、1、2 依次部署实现合约、工厂、批量合约；parent 是 anvil 1 号账户），
+  # 后端照常按 CREATE2 公式算出每个客户的地址，链替身只记转账。不配发起账户（私钥在 e2e 里不允许，E2eGuard），所以 sweep.config 告警是 DOWN，不影响用例
   wallet:
-    eth-xpub: xpub6DCoCpSuQZB2jawqnGMEPS63ePKWkwWPH4TU45Q7LPXWuNd8TMtVxRrgjtEshuqpK3mdhaWHPFsBngh5GFZaM6si3yZdUsT8ddYM3PwnATt
+    sweep:
+      evm:
+        implementation: "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+        factory: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+        batcher: "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0"
+        parent: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
     tron-xpub: xpub6D1AabNHCupeiLM65ZR9UStMhJ1vCpyV4XbZdyhMZBiJXALQtmn9p42VTQckoHVn8WNqS7dqnJokZHAHcHGoaQgmv8D45oNUKx6DZMNZBCd
     chains:
       ERC20:

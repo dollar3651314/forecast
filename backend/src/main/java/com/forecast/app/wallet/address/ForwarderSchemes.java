@@ -16,7 +16,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * 当前生效的合约地址参数（方案第 4.13 节）。四个地址都配了、格式对、parent 不是我们自己的地址时，第一次用到就登记进 {@code wallet_address_scheme}
- * 拿到套号；否则当作没配（继续用 xpub），问题由 {@link #problem()} 给告警和后台。
+ * 拿到套号；否则当作没配：ERC20、BEP20 充值"暂未开通"（<b>不退回 xpub</b>），问题由 {@link #problem()} 给告警（{@code deposit.evm}、{@code sweep.config}）和后台。
  * 后端额外检查（方案第 4.7 节）：parent 不能是 USDT 合约、热钱包或我们的充值地址（Amos 10-19 把合约地址当收款地址的教训）。
  */
 @Component
@@ -49,7 +49,7 @@ public class ForwarderSchemes {
     }
   }
 
-  /** 合约地址参数配齐并且检查通过时的当前一套；否则为空（用 xpub） */
+  /** 合约地址参数配齐并且检查通过时的当前一套；否则为空（以太坊体系暂未开通） */
   public Optional<ForwarderScheme> current() {
     if (!resolved) resolve();
     return Optional.ofNullable(current);
@@ -115,7 +115,7 @@ public class ForwarderSchemes {
     problem = why;
     current = null;
     resolved = true;
-    log.error("合约充值地址的配置有问题，继续用 xpub 派生地址：{}", why);
+    log.error("合约充值地址的配置有问题，ERC20、BEP20 充值暂未开通：{}", why);
   }
 
   /** 测试用：配置变了以后重新判断 */

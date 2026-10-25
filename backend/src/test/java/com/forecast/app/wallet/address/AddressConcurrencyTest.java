@@ -89,14 +89,14 @@ class AddressConcurrencyTest {
     }
   }
 
-  /** 每个客户每个体系恰好一个正在用的地址，就是按序号（= 用户 ID）派生的那个 */
+  /** 每个客户每个体系恰好一个正在用的地址：以太坊体系是 CREATE2 合约地址（盐 = 用户 ID），TRON 是按序号（= 用户 ID）派生的 xpub 地址 */
   void exactlyOneDerived(List<Long> users) {
     for (long uid : users) {
       for (Chain.Family f : Chain.Family.values()) {
         List<Map<String, Object>> rows = jdbc.queryForList("SELECT scheme, address_index, address FROM wallet_address WHERE user_id = ? AND family = ? AND status = 'ACTIVE'",
             uid, f.name());
         assertThat(rows).as("客户 %d %s 正在用的地址", uid, f).hasSize(1);
-        assertThat(rows.get(0).get("scheme")).isEqualTo("XPUB");
+        assertThat(rows.get(0).get("scheme")).as("以太坊体系只用合约地址，TRON 用 xpub").isEqualTo(f == Chain.Family.ETH ? "FORWARDER" : "XPUB");
         assertThat(((Number) rows.get(0).get("address_index")).longValue()).isEqualTo(uid);
       }
     }

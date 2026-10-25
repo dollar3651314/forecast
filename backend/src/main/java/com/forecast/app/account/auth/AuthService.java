@@ -102,7 +102,7 @@ class AuthService {
     }
     mapper.insertProfile(new Profile(u.id, r.firstName().trim(), r.middleName() == null ? "" : r.middleName().trim(), r.lastName().trim(), r.birthDate(), r.nationality()));
     ledger.openAccount(u.id);
-    // 注册时同步分配充值地址（需求 4.4-1）；服务器还没配置 xpub 时跳过，打开资产页时补分配
+    // 注册时同步分配充值地址（需求 4.4-1）；服务器还没配置合约地址参数（ERC20、BEP20）或 TRON xpub 时那个体系跳过，打开资产页时补分配
     wallet.allocateAddresses(u.id);
     // 欢迎站内信（体验优化 1021 UX-9）：内容和客户端新手引导一致，下一步是认证 → 充值；模板 WELCOME 只发站内信，不推送、不发邮件
     notify.toUser(u.id, "WELCOME", Map.of());

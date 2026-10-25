@@ -64,7 +64,7 @@ class Create2Test {
   }
 
   static WalletProperties wallet(String usdt) {
-    return new WalletProperties(null, null, BigDecimal.ONE, Map.of(Chain.ERC20, new WalletProperties.ChainConfig("http://x", usdt, 6, 12, 12, 20, null)));
+    return new WalletProperties(null, BigDecimal.ONE, Map.of(Chain.ERC20, new WalletProperties.ChainConfig("http://x", usdt, 6, 12, 12, 20, null)));
   }
 
   @Test

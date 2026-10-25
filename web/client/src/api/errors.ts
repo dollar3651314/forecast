@@ -78,7 +78,7 @@ export function isApiError(e: unknown): e is ApiError {
 /**
  * 把任意错误转换成 i18n 键。字段校验失败（validationFailed）且页面没有逐个字段显示时，显示第一个字段错误的原因。
  */
-/** 充值地址暂不可用（后端 WALLET_NOT_READY：服务器还没有配置这条链的 xpub，例如测试环境没接测试网）：页面显示"暂未开通"，不显示成加载失败 */
+/** 充值地址暂不可用（后端 WALLET_NOT_READY：三条链都没开通，例如服务器还没配置合约地址和 TRON xpub）：页面显示"暂未开通"，不显示成加载失败 */
 export function isWalletNotReady(e: unknown): boolean {
   return e instanceof ApiError && e.reason === 'walletNotReady';
 }
