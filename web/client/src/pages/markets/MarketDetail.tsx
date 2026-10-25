@@ -8,12 +8,14 @@
  * 状态变了（截止、公示、结算）重新取详情。结算信息 settle（后端 S11）、"结算中"、还没开放的市场可以订阅开赛提醒（#23，SQ-20）。
  * S13（MF-4，AC-84）：不登录也能看（没有"我的下注"、本人的结果）；点"押注"先去登录 / 注册，登录后回到这个市场并选中原来的选项
  * （地址带 ?opt=，手机直接打开下注抽屉）；电脑右栏是"登录后押注"。
+ * S14（MF-5，AC-86、AC-87）：标题旁"分享"（市场卡；已结束的市场是开奖卡）；下注成功后弹出挑战卡（"我押了 X，谁敢押 Y？"，可以关掉，W5）。
  */
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { errorKey } from '../../api/errors';
 import { getMarket, subscribePools, subscribeReminder, unsubscribeReminder } from '../../api/markets';
+import { createShare, getShare } from '../../api/share';
 import type { BetResult, MarketDetail as Detail, OptionPool, ReminderState } from '../../api/types';
 import { useAuth, useToast } from '../../app/contexts';
 import { GuestGate } from '../../components/GuestGate';
@@ -22,6 +24,8 @@ import { ErrorState, Loading } from '../../components/AsyncView';
 import { Icon } from '../../components/Icon';
 import { BetPanel, BetSheet } from '../../components/market/BetForm';
 import { DisputeDialog } from '../../components/market/DisputeDialog';
+import { ShareButton } from '../../components/share/ShareButton';
+import { ShareDialog } from '../../components/share/ShareDialog';
 import { CategoryIcon, ProbFill, StatusTag, TimePair } from '../../components/market/parts';
 import { useAsync } from '../../hooks/useAsync';
 import { useLang, useRemainText } from '../../hooks/useLang';
@@ -123,6 +127,7 @@ function Header({ m, now, onReminder }: { m: Detail; now: number; onReminder: (r
         <CategoryIcon category={m.category} size={15} />
         <span>{pickText(m.league, lang) || t(`mk.cats.${m.category}`)}</span>
         {upcomingOf(m) ? <span className="mk-status s-wait">{t('mk.status.upcoming')}</span> : <StatusTag status={m.status} />}
+        <ShareButton className="md-share" title={t('share.title')} cacheKey={`market|${m.publicNo}|${m.status}|${lang}`} load={() => getShare({ kind: 'market', no: m.publicNo }, lang)} />
       </div>
       <h1 className="md-title">{pickText(m.title, lang)}</h1>
       {upcoming && (
@@ -799,9 +804,12 @@ export default function MarketDetail() {
     next.set('opt', no);
     setParams(next, { replace: true });
   };
+  // S14：下注成功后弹出挑战卡（可以关掉）
+  const [challenge, setChallenge] = useState<{ optionNo: string; n: number } | null>(null);
   const placed = (r: BetResult) => {
     s.setData((prev) => (prev ? { ...prev, pool: r.pool } : prev));
     s.reload();
+    setChallenge((c) => ({ optionNo: r.optionNo, n: (c?.n ?? 0) + 1 }));
   };
 
   const back = (
@@ -879,6 +887,14 @@ export default function MarketDetail() {
         main
       )}
       {!desktop && sheet && !guest && <BetSheet market={m} optionNo={sheet} onClose={() => setSheet(null)} onPlaced={placed} />}
+      {challenge && (
+        <ShareDialog
+          title={t('share.challengeTitle')}
+          cacheKey={`challenge|${m.publicNo}|${challenge.optionNo}|${challenge.n}|${lang}`}
+          load={() => createShare({ kind: 'challenge', marketNo: m.publicNo, optionNo: challenge.optionNo }, lang)}
+          onClose={() => setChallenge(null)}
+        />
+      )}
       {dispute && (
         <DisputeDialog
           market={m}

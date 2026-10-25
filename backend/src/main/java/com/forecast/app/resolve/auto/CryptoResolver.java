@@ -44,7 +44,9 @@ import tools.jackson.databind.ObjectMapper;
  *   <li>不一致或拿不到：每分钟重试；过了转人工的时间仍不行 → MANUAL，写 AUTO_FAILED（带两个来源的数据），建平台裁决的进度行（S7 的裁决台"自动裁决失败"），
  *       邮件告警。市场留在待裁决，由人按首选来源判定（提议 → 确认 → 公示）或作废。</li>
  * </ol>
- * 进度行的每次改动都是带旧状态和版本号的条件更新：多实例、重复执行只生效一次。
+ * 进度行的每次改动都是带旧状态和版本号的条件更新：多实例、重复执行只生效一次。<b>取数之前先认领</b>（S14，{@code ResolveMapper.claim}：
+ * 版本号 + 1、下一次时间推到认领期之后），同时到的两个触发只有一个去取数，原始返回存档只有一组（端到端 crypto.spec.ts 偶发失败的根因，
+ * 见开发记录/S14-分享卡片.md 第 2 节）。
  */
 @Service
 public class CryptoResolver {
@@ -95,7 +97,7 @@ public class CryptoResolver {
   /**
    * 跑一轮：到时间的市场逐个处理（不在事务里）。
    *
-   * @return 这一轮各市场的处理结果（市场 id → settled / retry / manual / closed …），给测试和日志看
+   * @return 这一轮各市场的处理结果（市场 id → settled / retry / manual / closed / busy（别的触发正在取数）…），给测试和日志看
    */
   public Map<Long, String> resolveDue() {
     Map<Long, String> out = new LinkedHashMap<>();
@@ -123,6 +125,9 @@ public class CryptoResolver {
       mapper.close(marketId, "市场已不在待裁决（" + (m == null ? "不存在" : m.status().api()) + "）", now);
       return "closed";
     }
+    // S14：先认领这一次尝试再取数。定时任务、端到端触发、另一个实例同时到时只有一个认领到，另一个不取数（不多存一组原始返回、不多打一次外部接口）
+    if (mapper.claim(marketId, t.version, now, now.plus(props.getClaimTtl())) != 1) return "busy";
+    t.version++;
     CandleQuery q = new CandleQuery(t.symbol, instant(t.windowStart), instant(t.windowEnd));
     SourceGateway.Result[] pb = fetchBoth(q, marketId);
     SourceGateway.Result p = pb[0];

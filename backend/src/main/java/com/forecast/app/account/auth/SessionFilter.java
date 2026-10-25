@@ -40,9 +40,11 @@ class SessionFilter extends OncePerRequestFilter {
    * forecast S13（MF-4，需求第 5.1 节虚线框、AC-84）：不登录也能看的接口（只有 GET）。开关 {@code forecast.public-browse.enabled}（默认开，
    * 需求 v1.3 要求打开）打开时：有有效会话就照常带上用户（详情里有本人的持仓），没有会话也放行（只返回公开数据）；关掉时和以前一样要登录。
    * 下注、我的下注、资产等其他接口照样要登录（401）。奖池推送 {@code /api/ws/markets} 的握手也在这里（推送内容不含个人数据）。
+   * S14（MF-5）：分享卡片的图片 {@code /api/public/cards/**.png} 和分享信息 {@code /api/public/share}（登录了链接带分享人 ref，没登录不带）。
    */
   static final java.util.regex.Pattern PUBLIC_BROWSE = java.util.regex.Pattern.compile(
-      "^/api/markets(/today|/\\d{1,19})?$|^/api/public/(results|weekly(/[^/]+)?|pages/how-to-play)$|^/api/ws/markets$");
+      "^/api/markets(/today|/\\d{1,19})?$|^/api/public/(results|weekly(/[^/]+)?|pages/how-to-play|share)$|^/api/ws/markets$"
+          + "|^/api/public/cards/[a-z]+/[A-Za-z0-9_-]{1,32}\\.png$");
 
   private final SessionService sessions;
   private final AuthProperties props;

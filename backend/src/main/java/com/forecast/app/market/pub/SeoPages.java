@@ -1,6 +1,8 @@
 package com.forecast.app.market.pub;
 
 import com.forecast.app.market.api.I18nText;
+import com.forecast.app.market.card.CardModel;
+import com.forecast.app.market.card.CardService;
 import com.forecast.app.market.core.ClientViews;
 import com.forecast.app.market.core.MarketPublicService;
 import com.forecast.app.market.core.MarketService;
@@ -17,6 +19,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -48,17 +51,34 @@ public class SeoPages {
   private final PublicContent content;
   private final ObjectMapper json;
   private final Clock clock;
+  private final CardService cards;
+  private final boolean publicBrowse;
 
-  SeoPages(MarketService markets, MarketPublicService pub, PublicContent content, ObjectMapper json, Clock clock) {
+  SeoPages(MarketService markets, MarketPublicService pub, PublicContent content, ObjectMapper json, Clock clock, CardService cards,
+      @Value("${forecast.public-browse.enabled:true}") boolean publicBrowse) {
     this.markets = markets;
     this.pub = pub;
     this.content = content;
     this.json = json;
     this.clock = clock;
+    this.cards = cards;
+    this.publicBrowse = publicBrowse;
   }
 
-  /** 页面地址拆成路径和语言（只认 lang 参数，其余参数例如 src、ref 不影响内容） */
-  record Page(String path, String lang, boolean explicitLang) {
+  /**
+   * 页面地址拆成路径和语言（只认 lang 参数，其余参数例如 src、ref 不影响内容）。S14：分享链接还带 {@code cl}（卡片的语言）和 {@code card}（客户生成的卡片凭证），
+   * 只影响链接预览（Open Graph 的标题、描述、图片），不影响正文。
+   */
+  record Page(String path, String lang, boolean explicitLang, String cardLang, String card) {
+
+    Page(String path, String lang, boolean explicitLang) {
+      this(path, lang, explicitLang, null, null);
+    }
+
+    /** 链接预览用的语言：地址里明确写了 lang 用它，否则用分享卡片的语言 cl，都没有用英文（x-default） */
+    String previewLang() {
+      return explicitLang || cardLang == null ? lang : cardLang;
+    }
 
     static Page of(String uri) {
       String u = uri == null || uri.isBlank() ? "/" : uri.strip();
@@ -76,10 +96,16 @@ public class SeoPages {
       }
       if (path == null || path.isEmpty() || path.equals("/index.html")) path = "/";
       String lang = null;
+      String cl = null;
+      String card = null;
       for (String kv : query.split("&")) {
         if (kv.startsWith("lang=")) lang = kv.substring(5);
+        else if (kv.startsWith("cl=")) cl = kv.substring(3);
+        else if (kv.startsWith("card=")) card = kv.substring(5);
       }
-      return new Page(path, PublicContent.lang(lang), lang != null && !lang.isBlank());
+      String cardLang = cl == null || cl.isBlank() ? null : PublicContent.lang(cl);
+      String token = card != null && card.matches("[A-Za-z0-9_-]{22}") ? card : null;
+      return new Page(path, PublicContent.lang(lang), lang != null && !lang.isBlank(), cardLang, token);
     }
   }
 
@@ -160,9 +186,10 @@ public class SeoPages {
   /** 头部（{@code <head>} 里的部分） */
   public String head(String uri, String base) {
     Page p = Page.of(uri);
+    Page preview = new Page(p.path(), p.previewLang(), p.explicitLang(), p.cardLang(), p.card());
     Meta meta;
     try {
-      meta = meta(p);
+      meta = meta(preview);
     } catch (RuntimeException e) {
       log.warn("公开页面 {} 的标题生成失败，用品牌标题", p.path(), e);
       meta = new Meta(content.brand(), "", false);
@@ -186,9 +213,48 @@ public class SeoPages {
     h.append("<meta property=\"og:title\" content=\"").append(esc(meta.title())).append("\">\n");
     h.append("<meta property=\"og:description\" content=\"").append(esc(meta.description())).append("\">\n");
     h.append("<meta property=\"og:url\" content=\"").append(esc(self)).append("\">\n");
-    h.append("<meta property=\"og:locale\" content=\"").append(p.lang().replace('-', '_').replace("en", "en_US")).append("\">\n");
-    h.append("<meta name=\"twitter:card\" content=\"summary\">\n");
+    h.append("<meta property=\"og:locale\" content=\"").append(preview.lang().replace('-', '_').replace("en", "en_US")).append("\">\n");
+    Card card = publicBrowse ? card(preview, b) : null;
+    if (card == null) {
+      h.append("<meta name=\"twitter:card\" content=\"summary\">\n");
+      return h.toString();
+    }
+    // S14（MF-5、AC-86）：分享卡片图片。Telegram、X 的链接预览显示它（1200 × 630，X 的大图卡片）
+    h.append("<meta property=\"og:image\" content=\"").append(esc(card.url())).append("\">\n");
+    h.append("<meta property=\"og:image:type\" content=\"image/png\">\n");
+    h.append("<meta property=\"og:image:width\" content=\"").append(CardService.WIDTH).append("\">\n");
+    h.append("<meta property=\"og:image:height\" content=\"").append(CardService.HEIGHT).append("\">\n");
+    h.append("<meta property=\"og:image:alt\" content=\"").append(esc(card.alt())).append("\">\n");
+    h.append("<meta name=\"twitter:card\" content=\"summary_large_image\">\n");
+    h.append("<meta name=\"twitter:title\" content=\"").append(esc(card.title() != null ? card.title() : meta.title())).append("\">\n");
+    h.append("<meta name=\"twitter:description\" content=\"").append(esc(meta.description())).append("\">\n");
+    h.append("<meta name=\"twitter:image\" content=\"").append(esc(card.url())).append("\">\n");
     return h.toString();
+  }
+
+  /** 页面的分享卡片：图片地址、说明文字、标题（挑战卡、开奖卡用卡片上的那句大字） */
+  record Card(String url, String alt, String title) {}
+
+  private Card card(Page p, String base) {
+    String l = p.lang();
+    Matcher m = MARKET.matcher(p.path());
+    if (m.matches()) {
+      Optional<Long> no = marketNo(m.group(1));
+      if (no.isEmpty()) return null;
+      if (p.card() != null && cards.tokenMarket(p.card()).filter(no.get()::equals).isPresent()) {
+        Optional<CardModel> tm = cards.tokenCard(p.card(), l);
+        if (tm.isPresent()) {
+          return new Card(base + "/api/public/cards/s/" + p.card() + ".png?lang=" + l, tm.get().title(), tm.get().headline() + " · " + tm.get().title());
+        }
+      }
+      return cards.publicCard("market", no.get(), l).map(c -> new Card(base + "/api/public/cards/market/" + no.get() + ".png?lang=" + l, c.title(), null))
+          .orElse(null);
+    }
+    Matcher w = WEEK.matcher(p.path());
+    if (w.matches()) {
+      return cards.weeklyCard(w.group(1), l).map(c -> new Card(base + "/api/public/cards/weekly/" + w.group(1) + ".png?lang=" + l, c.title(), null)).orElse(null);
+    }
+    return null;
   }
 
   /** 正文（{@code #root} 里的部分）；没有公开内容的页面返回空 */

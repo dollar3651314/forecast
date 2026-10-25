@@ -530,3 +530,24 @@
 
 /* 电脑右栏（没登录）："登录后押注" */
 .bet-panel.guest .bet-panel-foot { display: flex; flex-direction: column; gap: 6px; }
+
+/* ---------- S14 分享卡片（MF-5）：分享按钮、分享弹窗（卡片预览 + 主操作在弹窗底部，C79） ---------- */
+.share-btn { gap: 5px; }
+.md-meta .md-share { margin-left: auto; color: var(--muted); }
+.md-meta .md-share:hover { color: var(--text); }
+.mb-share { display: flex; justify-content: flex-end; padding: 0 8px 8px; }
+.mb-table td.r .share-btn { margin-top: 4px; }
+.share-body { display: flex; flex-direction: column; gap: 12px; }
+.share-frame { position: relative; width: 100%; aspect-ratio: 1200 / 630; border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; background: var(--surface); }
+.share-img { display: block; width: 100%; height: 100%; object-fit: contain; opacity: 0; }
+.share-frame.ok .share-img { opacity: 1; }
+.share-skeleton { position: absolute; inset: 0; background: var(--surface-2); }
+.share-img-err { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; margin: 0; text-align: center; color: var(--muted); font-size: 13px; background: var(--surface); }
+.share-amount { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+.share-amount input { width: 18px; height: 18px; accent-color: var(--primary); }
+.share-link input { width: 100%; padding: 8px 10px; font-size: 13px; color: var(--muted); background: var(--field); border: 1px solid var(--border); border-radius: var(--r-sm); }
+.share-note { margin: 0; font-size: 12.5px; }
+.share-actions { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.share-actions .btn { gap: 6px; }
+.share-actions.is-d { flex-direction: row; flex-wrap: wrap; align-items: center; }
+.share-actions.is-d .share-links { display: flex; gap: 4px; margin-left: auto; }

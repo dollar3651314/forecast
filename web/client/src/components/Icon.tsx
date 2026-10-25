@@ -50,6 +50,8 @@ const PATHS = {
   ticket: 'M4 6h16v3.5a2.5 2.5 0 0 0 0 5V18H4v-3.5a2.5 2.5 0 0 0 0-5zM14.5 6v2M14.5 11v2M14.5 16v2',
   sort: 'M7 4v16M4 17l3 3 3-3M17 20V4M14 7l3-3 3 3',
   trophy: 'M8 4h8v5a4 4 0 0 1-8 0zM8 6H5v1a3 3 0 0 0 3 3M16 6h3v1a3 3 0 0 1-3 3M12 13v4M8 20h8M10 17h4',
+  // forecast S14：分享（三个点连线）
+  share: 'M18 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 22a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM8.6 13.5l6.8 4M15.4 6.5l-6.8 4',
 } as const;
 
 export type IconName = keyof typeof PATHS;

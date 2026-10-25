@@ -55,6 +55,8 @@ export type ApiErrorReason =
   | 'reminderNotAvailable'
   | 'reminderLoginRequired'
   | 'reminderTooMany'
+  // 分享卡片（forecast S14，market/card/CardController）：只能为自己押过、还在下注期的选项生成挑战卡，为押中的已结算市场生成开奖卡
+  | 'cardNotAvailable'
   | 'validationFailed'
   | 'badRequest'
   | 'forbidden'
@@ -145,6 +147,7 @@ export const SERVER_CODES: Record<string, ApiErrorReason> = {
   REMINDER_NOT_AVAILABLE: 'reminderNotAvailable',
   REMINDER_LOGIN_REQUIRED: 'reminderLoginRequired',
   REMINDER_TOO_MANY: 'reminderTooMany',
+  CARD_NOT_AVAILABLE: 'cardNotAvailable',
   // 钱包
   WALLET_NOT_READY: 'walletNotReady',
   WHITELIST_FULL: 'whitelistFull',

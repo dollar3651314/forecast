@@ -150,6 +150,14 @@ public class MarketPublicService {
     return new ClientViews.Page<>(resultsOf(rows), mapper.endedCount(sts, c, f, t), p, size);
   }
 
+  /** 一个已结束市场的开奖记录（S14 开奖卡用，和开奖记录列表同一份数字，AC-88）；没结束、草稿、不存在的为空 */
+  @Transactional(readOnly = true)
+  public java.util.Optional<Result> result(long publicNo) {
+    MarketRows.Market m = mapper.findByPublicNo(publicNo);
+    if (m == null || !ENDED.contains(MarketService.status(m).name())) return java.util.Optional.empty();
+    return java.util.Optional.of(resultsOf(List.of(m)).get(0));
+  }
+
   private List<Result> resultsOf(List<MarketRows.Market> rows) {
     if (rows.isEmpty()) return List.of();
     List<Long> ids = rows.stream().map(r -> r.id).toList();

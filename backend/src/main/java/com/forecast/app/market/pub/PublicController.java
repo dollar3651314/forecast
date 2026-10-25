@@ -100,7 +100,9 @@ class PublicController {
     if (!publicBrowse) {
       sb.append("Disallow: /\n");
     } else {
-      // 登录后才能看的页面不收录；/assets 下的构建文件（脚本、样式）要留给搜索引擎渲染页面，只挡资产页本身
+      // 登录后才能看的页面不收录；/assets 下的构建文件（脚本、样式）要留给搜索引擎渲染页面，只挡资产页本身。
+      // S14：分享卡片的图片要让 X（Twitterbot 遵守 robots.txt）、Telegram 等取得到，比 Disallow: /api/ 更具体，放在前面
+      sb.append("Allow: /api/public/cards/\n");
       for (String p : List.of("/assets$", "/assets/ledger", "/assets/withdraw", "/assets/whitelist", "/bets", "/me", "/login", "/register",
           "/forgot-password", "/unsubscribe", "/api/", "/admin/")) {
         sb.append("Disallow: ").append(p).append('\n');

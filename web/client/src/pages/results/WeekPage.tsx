@@ -1,16 +1,19 @@
 /**
  * 一周的周报（S13，MF-6，AC-88）：场数、有效场数、作废和取消的场数和原因、奖池合计、派彩合计、抽成合计、尾差、退款合计；
- * 下面是这一周结束的市场（和开奖记录同一个样子）。不登录可看。周报卡片图片放到 MF-5。
+ * 下面是这一周结束的市场（和开奖记录同一个样子）。不登录可看。S14（MF-5）：页头"分享"生成周报卡。
  */
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 import { isApiError } from '../../api/errors';
 import { getWeek } from '../../api/public';
+import { getShare } from '../../api/share';
 import { EmptyState, ErrorState, Loading } from '../../components/AsyncView';
 import { GuestGate } from '../../components/GuestGate';
 import { PageHeader } from '../../components/Layout';
 import { PublicLinks } from '../../components/PublicLinks';
+import { ShareButton } from '../../components/share/ShareButton';
 import { useAsync } from '../../hooks/useAsync';
+import { useLang } from '../../hooks/useLang';
 import { useIsDesktop } from '../../hooks/useMediaQuery';
 import { useTitle } from '../../hooks/useTitle';
 import { formatAmount } from '../../lib/format';
@@ -20,6 +23,7 @@ import { ResultCard, ResultTable, WeekStats } from './parts';
 export default function WeekPage() {
   const { t } = useTranslation();
   const desktop = useIsDesktop();
+  const lang = useLang();
   const { week = '' } = useParams();
   useTitle(t('wk.oneTitle', { week }));
   const s = useAsync(() => getWeek(week), `week|${week}`);
@@ -29,7 +33,11 @@ export default function WeekPage() {
 
   return (
     <div className="page page-week">
-      <PageHeader title={t('wk.oneTitle', { week })} back="/results/weekly" />
+      <PageHeader
+        title={t('wk.oneTitle', { week })}
+        back="/results/weekly"
+        right={w ? <ShareButton title={t('share.weeklyTitle')} cacheKey={`weekly|${week}|${lang}`} load={() => getShare({ kind: 'weekly', week }, lang)} /> : undefined}
+      />
       <GuestGate error={s.error} />
       {invalid ? (
         <section className="card">

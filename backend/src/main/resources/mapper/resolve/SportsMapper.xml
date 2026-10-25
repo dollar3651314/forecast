@@ -130,6 +130,12 @@
     ORDER BY next_attempt_at, market_id LIMIT #{limit}
   </select>
 
+  <!-- S14：取数前认领这一次尝试（同时到的两个触发只有一个改到 1 行） -->
+  <update id="claim">
+    UPDATE resolve_sports_task SET next_attempt_at = #{until}, last_attempt_at = #{now}, version = version + 1, updated_at = #{now}
+    WHERE market_id = #{marketId} AND status = 'PENDING' AND version = #{version} AND next_attempt_at &lt;= #{now}
+  </update>
+
   <update id="retryLater">
     UPDATE resolve_sports_task SET attempts = attempts + 1, next_attempt_at = #{next}, last_reason = #{reason}, last_attempt_at = #{now},
       version = version + 1, updated_at = #{now}

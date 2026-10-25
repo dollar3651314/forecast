@@ -666,3 +666,27 @@ export interface DisputeReceipt {
   status: string;
   receivedAt: string;
 }
+
+/**
+ * 分享卡片（S14，MF-5；需求第 5.2 节"分享卡片和挑战卡"、AC-86、AC-87；后端 `market/card/CardController`）。
+ * kind：market 市场卡 / result 开奖卡 / challenge 挑战卡 / win 押中的开奖卡 / countdown 封盘倒计时卡 / weekly 周报卡。
+ * url 带 src=share、cmp=card-<种类>、登录了还有分享人 ref（客户编号，只用于来源统计，不发奖励）；imageUrl 是服务器生成的 1200 × 630 图片（Open Graph 用的同一张）；
+ * text 是卡片上的文字（和图片同一份数字），系统分享、复制时附带。
+ */
+export type ShareKind = 'market' | 'result' | 'challenge' | 'win' | 'countdown' | 'weekly';
+
+export interface ShareCard {
+  kind: ShareKind;
+  url: string;
+  imageUrl: string;
+  title: string;
+  text: string;
+}
+
+/** 生成挑战卡 / 押中的开奖卡（要登录）：挑战卡要 optionNo（自己押过的选项）；开奖卡的 showAmount 默认 false（金额默认不显示，AC-86） */
+export interface ShareCreate {
+  kind: 'challenge' | 'win';
+  marketNo: string;
+  optionNo?: string;
+  showAmount?: boolean;
+}

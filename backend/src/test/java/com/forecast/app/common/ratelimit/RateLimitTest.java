@@ -178,12 +178,14 @@ class RateLimitTest {
       if (m.hasMethodAnnotation(UserWriteLimited.class)) limited.add(info.getMethodsCondition().getMethods() + " " + info.getPathPatternsCondition().getPatternValues());
     });
     // 复制源还有下单、改单、撤单、平仓、改止盈止损、追加保证金（forecast S1 删除）；S4 加下注、S7 加提交争议（技术方案/v1-架构方案.md 第 2.4 节）；
-    // S11 加 #23 开赛提醒的订阅、退订（会写库、发邮件，同样按客户限流）
+    // S11 加 #23 开赛提醒的订阅、退订（会写库、发邮件，同样按客户限流）；S14 加生成分享卡片的凭证
     assertThat(limited).containsExactlyInAnyOrder(
         "[POST] [/api/markets/{publicNo}/bets]",
         "[POST] [/api/markets/{publicNo}/disputes]",
         "[POST] [/api/markets/{publicNo}/reminder]",
         "[DELETE] [/api/markets/{publicNo}/reminder]",
+        // S14：生成挑战卡、押中的开奖卡（写库）
+        "[POST] [/api/me/share]",
         "[POST] [/api/wallet/withdrawals]",
         "[POST] [/api/wallet/whitelist]",
         "[DELETE] [/api/wallet/whitelist/{id}]");

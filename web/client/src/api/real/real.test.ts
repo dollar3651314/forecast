@@ -9,6 +9,7 @@ import * as account from './account';
 import { handleUserMessage, subscribeEvents } from './events';
 import * as notifications from './notifications';
 import * as pub from './public';
+import * as share from './share';
 import { setLoggedIn } from './session';
 import * as user from './user';
 import * as wallet from './wallet';
@@ -426,5 +427,33 @@ describe('S13 不登录也能看的接口（MF-1、MF-3、MF-4、MF-6）', () =>
     await auth.register({ email: 'a@b.c', code: '123456', password: 'abc12345', firstName: 'A', middleName: '', lastName: 'B', birthDate: '1990-01-01', nationality: 'CN',
       adultConfirmed: true, attribution: { first: { src: 'x', at: '2026-10-01T00:00:00.000Z' }, last: { src: 'tg', at: '2026-10-03T00:00:00.000Z' } } });
     expect(calls[0].body).toMatchObject({ attribution: { first: { src: 'x' }, last: { src: 'tg' } } });
+  });
+});
+
+describe('S14 分享卡片（MF-5）', () => {
+  it('市场卡、周报卡：GET /api/public/share（401 不当成登录失效）；挑战卡、押中的开奖卡：POST /api/me/share 带语言；CARD_NOT_AVAILABLE 有翻译', async () => {
+    let lost = 0;
+    const off = onUnauthorized(() => lost++);
+    const card = { kind: 'market', url: 'u', imageUrl: 'i', title: 't', text: 'x' };
+    stubFetch({ body: card }, { body: card }, { body: card }, { body: card }, { status: 401, body: { code: 'UNAUTHORIZED', message: 'x', fields: [] } },
+      { status: 400, body: { code: 'CARD_NOT_AVAILABLE', message: 'x', fields: [] } });
+    await share.getShare({ kind: 'market', no: '107' }, 'zh-CN');
+    await share.getShare({ kind: 'weekly', week: '2026-W43' }, 'en');
+    await share.createShare({ kind: 'challenge', marketNo: '107', optionNo: '108' }, 'zh-TW');
+    await share.createShare({ kind: 'win', marketNo: '107', showAmount: true }, 'zh-CN');
+    await expect(share.getShare({ kind: 'market', no: '107' }, 'en')).rejects.toMatchObject({ reason: 'unauthorized' });
+    await expect(share.createShare({ kind: 'win', marketNo: '107' }, 'en')).rejects.toMatchObject({ reason: 'cardNotAvailable' });
+    expect(calls.map((c) => `${c.method} ${c.url}`)).toEqual([
+      'GET /api/public/share?kind=market&no=107&lang=zh-CN',
+      'GET /api/public/share?kind=weekly&week=2026-W43&lang=en',
+      'POST /api/me/share',
+      'POST /api/me/share',
+      'GET /api/public/share?kind=market&no=107&lang=en',
+      'POST /api/me/share',
+    ]);
+    expect(calls[2].body).toEqual({ kind: 'challenge', marketNo: '107', optionNo: '108', lang: 'zh-TW' });
+    expect(calls[3].body).toEqual({ kind: 'win', marketNo: '107', showAmount: true, lang: 'zh-CN' });
+    expect(lost).toBe(0);
+    off();
   });
 });

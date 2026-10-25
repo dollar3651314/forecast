@@ -443,7 +443,8 @@
     "disputeExists": "你已经对这个市场提交过争议",
     "reminderNotAvailable": "这个市场已经开放下注或已经结束，不能再订阅开赛提醒。",
     "reminderLoginRequired": "开赛提醒只对用邮箱和密码登录过的账户开放：退出后重新登录一次即可订阅。",
-    "reminderTooMany": "订阅中的开赛提醒太多了（最多 100 个），请先在\"通知偏好\"里退订一些。"
+    "reminderTooMany": "订阅中的开赛提醒太多了（最多 100 个），请先在\"通知偏好\"里退订一些。",
+    "cardNotAvailable": "这张卡片现在不能生成：挑战卡只能为自己押过、还在下注期的选项生成，开奖卡只能为押中的已结算市场生成。"
   },
   "validation": {
     "fixAll": "请修改以上标红的内容后再提交",
@@ -965,5 +966,23 @@
     "reasons": "作废和取消的原因",
     "marketsTitle": "这一周结束的市场",
     "noMarkets": "这一周没有结束的市场"
+  },
+  "share": {
+    "button": "分享",
+    "title": "分享卡片",
+    "challengeTitle": "下注成功 · 挑战卡",
+    "winTitle": "分享开奖卡",
+    "weeklyTitle": "分享周报",
+    "native": "分享",
+    "copy": "复制链接",
+    "copied": "链接已复制",
+    "copyFail": "复制失败，请长按链接手动复制",
+    "download": "下载图片",
+    "telegram": "发到 Telegram",
+    "x": "发到 X",
+    "link": "分享链接",
+    "showAmount": "在卡片上显示我的派彩金额",
+    "imageError": "卡片图片暂时显示不出来，链接仍然可以分享",
+    "refNote": "链接里带你的客户编号，只用于统计来源，不发任何奖励"
   }
 }

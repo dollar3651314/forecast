@@ -443,7 +443,8 @@
     "disputeExists": "你已經對這個市場提交過爭議",
     "reminderNotAvailable": "這個市場已經開放下注或已經結束，不能再訂閱開賽提醒。",
     "reminderLoginRequired": "開賽提醒只對用郵箱和密碼登入過的帳戶開放：登出後重新登入一次即可訂閱。",
-    "reminderTooMany": "訂閱中的開賽提醒太多了（最多 100 個），請先在「通知偏好」裡退訂一些。"
+    "reminderTooMany": "訂閱中的開賽提醒太多了（最多 100 個），請先在「通知偏好」裡退訂一些。",
+    "cardNotAvailable": "這張卡片現在不能生成：挑戰卡只能為自己押過、還在下注期的選項生成，開獎卡只能為押中的已結算市場生成。"
   },
   "validation": {
     "fixAll": "請修改以上標紅的內容後再提交",
@@ -965,5 +966,23 @@
     "reasons": "作廢和取消的原因",
     "marketsTitle": "這一週結束的市場",
     "noMarkets": "這一週沒有結束的市場"
+  },
+  "share": {
+    "button": "分享",
+    "title": "分享卡片",
+    "challengeTitle": "下注成功 · 挑戰卡",
+    "winTitle": "分享開獎卡",
+    "weeklyTitle": "分享週報",
+    "native": "分享",
+    "copy": "複製連結",
+    "copied": "連結已複製",
+    "copyFail": "複製失敗，請長按連結手動複製",
+    "download": "下載圖片",
+    "telegram": "發到 Telegram",
+    "x": "發到 X",
+    "link": "分享連結",
+    "showAmount": "在卡片上顯示我的派彩金額",
+    "imageError": "卡片圖片暫時顯示不出來，連結仍然可以分享",
+    "refNote": "連結裡帶你的客戶編號，只用於統計來源，不發任何獎勵"
   }
 }

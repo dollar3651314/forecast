@@ -198,6 +198,13 @@ forecast:
   # 公开页面（搜索引擎看到的标题、说明页）里的品牌名（S13；上线前沿用 Quick Come，正式上线改名时和前端 brand.ts 一起改，约定 17）
   public:
     brand-name: Quick Come
+  # 分享卡片（S14，MF-5，market/card）：服务器用 Java2D 画 1200 × 630 的 PNG。字体在这些目录里找（DejaVu Sans + 文泉驿正黑，镜像 deploy/app.Dockerfile 安装）；
+  # 找不到中文字体时健康检查 alerts 报 cards.font（不影响 status）。同时最多画 max-concurrent 张，按内容缓存最近 cache-size 张（每张约 30～80 KB）
+  cards:
+    font-dirs: /usr/share/fonts,/usr/local/share/fonts
+    font-alert: true
+    max-concurrent: 2
+    cache-size: 64
   # 结算（forecast S5，settle/run/SettleProperties）。batch-size：派彩时每批的持仓数（退款时每批的下注数）；
   # 500（默认）= 先算好、落结算单，再每批一个事务分批派彩、可以续跑（架构方案第 4.3 节方案 B，AQ-3 Amos 2026-10-25 定）；
   # 0 = 计算和派彩在同一个事务里一次完成（保留为可配置项）。派彩任务每 2 秒推进分批派彩的单（提交后也立即跑一轮）；彩池对账每天 UTC 00:30。
@@ -222,6 +229,8 @@ forecast:
     first-delay: 60s
     retry-interval: 60s
     give-up-after: 30m
+    # 认领期（S14）：取数前先认领这一次尝试（条件更新），定时任务和别的触发同时到时只有一个去取数；要比一轮取数长（约 27 秒，第三源补位约 54 秒）
+    claim-ttl: 2m
     gateway:
       connect-timeout: 3s
       read-timeout: 5s
@@ -289,6 +298,8 @@ forecast:
     give-up-after: 30m
     unfinished-limit: 6h
     kickoff-tolerance: 15m
+    # 认领期（S14，同上）：主备先后各一次、每次限频排队最多 30 秒，一轮约 2 分钟
+    claim-ttl: 5m
     interactive-queue-wait: 10s
   # 对象存储（证件照片）。现在是本地目录，正式环境在 S20 换成对象存储服务
   storage:

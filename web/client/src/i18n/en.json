@@ -443,7 +443,8 @@
     "disputeExists": "You have already disputed this market",
     "reminderNotAvailable": "Betting on this market has opened or it has ended, so reminders are no longer available.",
     "reminderLoginRequired": "Reminders are available once you have signed in with your email and password: sign out and sign in again to subscribe.",
-    "reminderTooMany": "You have too many active reminders (100 max). Unsubscribe from some under Notification settings first."
+    "reminderTooMany": "You have too many active reminders (100 max). Unsubscribe from some under Notification settings first.",
+    "cardNotAvailable": "This card can't be created now: challenge cards are for options you have bet on while betting is open; result cards are for settled markets you won."
   },
   "validation": {
     "fixAll": "Please fix the highlighted fields",
@@ -965,5 +966,23 @@
     "reasons": "Why markets were voided or cancelled",
     "marketsTitle": "Markets that ended this week",
     "noMarkets": "No market ended this week"
+  },
+  "share": {
+    "button": "Share",
+    "title": "Share card",
+    "challengeTitle": "Bet placed · Challenge card",
+    "winTitle": "Share result card",
+    "weeklyTitle": "Share weekly report",
+    "native": "Share",
+    "copy": "Copy link",
+    "copied": "Link copied",
+    "copyFail": "Copy failed. Long-press the link to copy it.",
+    "download": "Download image",
+    "telegram": "Telegram",
+    "x": "X",
+    "link": "Share link",
+    "showAmount": "Show my payout on the card",
+    "imageError": "The card image can't be shown right now; you can still share the link",
+    "refNote": "The link includes your customer number, used only to count where visitors come from. No rewards are paid."
   }
 }

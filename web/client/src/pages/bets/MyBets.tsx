@@ -3,15 +3,19 @@
  * 每条：市场、选项、金额、下注时间、状态、赔率（下注时 / 截止后最终）、派彩 / 抽成 / 退款；点进市场详情。
  * 手机是卡片列表，电脑是表格（C64）。
  * S11：接后端的 result（按持仓的派彩、抽成：同一选项几笔下注合在一起结算，写明"本选项 n 笔合计"）、finalMult、totals；一页 20 条，"加载更多"（C52）。
+ * S14（MF-5，AC-86）：押中的已结算下注可以分享开奖卡（"我押中了 X"），派彩金额默认不显示，弹窗里勾选后才显示。
+ * 分享按钮放在卡片链接的外面（弹窗里的点击会沿 React 树冒泡，放在链接里会触发跳转）。
  */
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
 import { listMyBets } from '../../api/markets';
+import { createShare } from '../../api/share';
 import type { MyBet, MyBetTab, MyBets as Data } from '../../api/types';
 import { EmptyState, ErrorState, LoadMore, Loading } from '../../components/AsyncView';
 import { Icon } from '../../components/Icon';
 import { PageHeader } from '../../components/Layout';
 import { CategoryIcon, StatusTag } from '../../components/market/parts';
+import { ShareButton } from '../../components/share/ShareButton';
 import { useLang } from '../../hooks/useLang';
 import { useIsDesktop } from '../../hooks/useMediaQuery';
 import { usePaged } from '../../hooks/usePaged';
@@ -74,10 +78,27 @@ function Result({ b }: { b: MyBet }) {
   return <span className="muted">—</span>;
 }
 
+/** 押中的已结算下注：分享开奖卡（金额默认不显示） */
+function WinShare({ b }: { b: MyBet }) {
+  const { t } = useTranslation();
+  const lang = useLang();
+  if (b.tab !== 'settled' || !b.result?.won) return null;
+  return (
+    <ShareButton
+      title={t('share.winTitle')}
+      amountToggle
+      cacheKey={`win|${b.marketNo}|${lang}`}
+      load={({ showAmount }) => createShare({ kind: 'win', marketNo: b.marketNo, showAmount }, lang)}
+      testId="share-win"
+    />
+  );
+}
+
 function BetCard({ b }: { b: MyBet }) {
   const lang = useLang();
+  const won = b.tab === 'settled' && !!b.result?.won;
   return (
-    <li className="mb-card">
+    <li className={`mb-card${won ? ' has-share' : ''}`}>
       <Link to={`/markets/${b.marketNo}`} className="mb-card-link">
         <div className="mb-r1">
           {b.category && <CategoryIcon category={b.category} size={13} />}
@@ -99,6 +120,11 @@ function BetCard({ b }: { b: MyBet }) {
           </div>
         )}
       </Link>
+      {won && (
+        <div className="mb-share">
+          <WinShare b={b} />
+        </div>
+      )}
     </li>
   );
 }
@@ -139,6 +165,7 @@ function BetTable({ items }: { items: MyBet[] }) {
             </td>
             <td className="r">
               <Result b={b} />
+              <WinShare b={b} />
             </td>
           </tr>
         ))}

@@ -23,6 +23,11 @@ public class ResolveProperties {
   private Duration retryInterval = Duration.ofMinutes(1);
   /** 第一次取数以后多久仍不行就转人工（30 分钟） */
   private Duration giveUpAfter = Duration.ofMinutes(30);
+  /**
+   * 认领期（S14）：取数前把这一次尝试认领下来，认领期内别的触发不再取数。要比一轮取数的最长时间长：主备并行一轮最多
+   * 3 ×（连接 3 秒 + 读取 5 秒）+ 退避 1 + 2 秒 ≈ 27 秒，第三源补位再加一轮 ≈ 54 秒，所以 2 分钟；进程在取数中途退出时，2 分钟后下一轮接着取
+   */
+  private Duration claimTtl = Duration.ofMinutes(2);
   private Gateway gateway = new Gateway();
   private Map<String, Source> sources = new LinkedHashMap<>();
 
@@ -286,6 +291,14 @@ public class ResolveProperties {
 
   public void setRetryInterval(Duration v) {
     retryInterval = v;
+  }
+
+  public Duration getClaimTtl() {
+    return claimTtl;
+  }
+
+  public void setClaimTtl(Duration v) {
+    claimTtl = v;
   }
 
   public Duration getGiveUpAfter() {

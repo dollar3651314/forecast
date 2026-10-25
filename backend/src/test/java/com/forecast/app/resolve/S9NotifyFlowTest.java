@@ -161,6 +161,9 @@ class S9NotifyFlowTest extends PlatformTestSupport {
 
   @Test
   void 提交上架_提醒有上架权限的人_再提交不重复() throws Exception {
+    // S14：自己建一个有上架权限的管理员（C80：不依赖别的测试先建过管理员；单独跑这个类时原来会因为没有收件人失败）
+    String tag = "pub" + System.nanoTime();
+    admin(tag, "market:publish");
     Market m = platformMarket(2, 2);
     // 已经上架的市场换一个草稿测：新建 → 提交
     var in = new com.forecast.app.market.api.MarketAdminApi.DraftInput("MACRO", tx("草稿待上架"), tx("规则"), "PLATFORM", "a", "b", null,
@@ -172,7 +175,7 @@ class S9NotifyFlowTest extends PlatformTestSupport {
     admin.submit(Long.parseLong(no));
     admin.submit(Long.parseLong(no));
     List<String> to = staffMailsTo("MARKET_SUBMITTED", no);
-    assertThat(to).isNotEmpty().doesNotHaveDuplicates();
+    assertThat(to).contains(tag + "@staff.test").doesNotHaveDuplicates();
     assertThat(m.no()).isNotEqualTo(no);
   }
 

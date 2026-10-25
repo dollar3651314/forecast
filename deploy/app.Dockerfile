@@ -14,6 +14,8 @@ ENV FC_VERSION=${FC_VERSION} \
     TZ=UTC \
     MALLOC_ARENA_MAX=2 \
     JAVA_TOOL_OPTIONS="-Xms256m -Xmx400m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=64m -XX:MaxDirectMemorySize=64m -Xss512k -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError"
+# 分享卡片（S14，MF-5）：服务器画卡片图片要中文字体（简体、繁体）。文泉驿正黑约 16 MB；拉丁字母用镜像自带的 DejaVu（market/card/CardFonts）
+RUN apt-get update && apt-get install -y --no-install-recommends fonts-wqy-zenhei && rm -rf /var/lib/apt/lists/*
 RUN useradd --system --uid 10001 --home /app forecast && mkdir -p /app /data/storage && chown -R forecast /app /data
 COPY backend/target/forecast-*.jar /app/app.jar
 USER forecast

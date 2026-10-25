@@ -28,7 +28,9 @@ class S13PublicBrowseOffTest {
   @Test
   void 关掉以后公开接口都要登录_robots禁止收录() throws Exception {
     for (String url : new String[] {"/api/markets", "/api/markets/today", "/api/markets/123", "/api/public/results", "/api/public/weekly",
-        "/api/public/weekly/2026-W44", "/api/public/pages/how-to-play", "/api/ws/markets"}) {
+        "/api/public/weekly/2026-W44", "/api/public/pages/how-to-play", "/api/ws/markets",
+        // S14：分享卡片的图片和分享信息跟着开关走
+        "/api/public/cards/market/123.png", "/api/public/cards/weekly/2026-W44.png", "/api/public/share?kind=market&no=123"}) {
       assertThat(status(url)).as(url).isEqualTo(401);
     }
     String robots = mvc.perform(get("/api/public/robots.txt")).andReturn().getResponse().getContentAsString();

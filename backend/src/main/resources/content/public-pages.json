@@ -79,7 +79,10 @@
     },
     "reasons": {
       "NOT_ENOUGH_OPTIONS": "Only one side had bets at close",
-      "NO_WINNER": "Nobody bet on the result"
+      "NO_WINNER": "Nobody bet on the result",
+      "POSTPONED_48H": "Match postponed for more than 48 hours",
+      "ABANDONED_48H": "Abandoned with no result within 48 hours",
+      "NO_POOL": "Pool was empty after refunds"
     },
     "howto": {
       "title": "How to play, deposit and withdraw | {brand}",
@@ -196,7 +199,10 @@
     },
     "reasons": {
       "NOT_ENOUGH_OPTIONS": "截止时只有一个选项有人押",
-      "NO_WINNER": "没有人押中结果"
+      "NO_WINNER": "没有人押中结果",
+      "POSTPONED_48H": "比赛延期超过 48 小时",
+      "ABANDONED_48H": "比赛中断后 48 小时内没有结果",
+      "NO_POOL": "退回后奖池为 0"
     },
     "howto": {
       "title": "怎么玩、怎么充、怎么提 | {brand}",
@@ -313,7 +319,10 @@
     },
     "reasons": {
       "NOT_ENOUGH_OPTIONS": "截止時只有一個選項有人押",
-      "NO_WINNER": "沒有人押中結果"
+      "NO_WINNER": "沒有人押中結果",
+      "POSTPONED_48H": "比賽延期超過 48 小時",
+      "ABANDONED_48H": "比賽中斷後 48 小時內沒有結果",
+      "NO_POOL": "退回後獎池為 0"
     },
     "howto": {
       "title": "怎麼玩、怎麼充、怎麼提 | {brand}",

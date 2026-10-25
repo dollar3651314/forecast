@@ -20,6 +20,12 @@ interface ResolveMapper {
   /** 到时间该处理的（等待取数、正在结算的） */
   List<Long> dueTasks(@Param("now") LocalDateTime now, @Param("limit") int limit);
 
+  /**
+   * 认领这一次尝试（S14）：PENDING、版本号没变、到了时间的才认领到 —— 下一次时间推到 {@code until}（认领期，比一轮取数长）、版本号 + 1。
+   * 只有认领到的一方去取数；同时到的另一方（定时任务 / 端到端触发 / 另一个实例）改到 0 行，不取数。认领后进程退出：认领期过了下一轮接着取。
+   */
+  int claim(@Param("marketId") long marketId, @Param("version") int version, @Param("now") LocalDateTime now, @Param("until") LocalDateTime until);
+
   /** 这一轮没定下来：次数 + 1、下一次的时间 */
   int retryLater(@Param("marketId") long marketId, @Param("version") int version, @Param("next") LocalDateTime next, @Param("reason") String reason,
       @Param("now") LocalDateTime now);

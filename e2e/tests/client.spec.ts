@@ -115,7 +115,11 @@ test('手机 390：注册 → 充值 → 抽屉下注 → 奖池实时更新 →
       await expect(sheet.getByText('赢了约回')).toBeVisible();
       await expectInViewport(page, 'bet-confirm', '390×844 下注抽屉');
       await sheet.getByTestId('bet-confirm').click();
-      await expect(page.getByText('下注成功')).toBeVisible();
+      await expect(page.getByText('下注成功', { exact: true })).toBeVisible();
+      // S14（MF-5，P3）：抽屉关闭、弹出挑战卡（可以关掉）
+      const challenge = page.getByRole('dialog', { name: '下注成功 · 挑战卡' });
+      await expect(challenge).toBeVisible();
+      await challenge.getByRole('button', { name: '关闭' }).click();
       await expect(page.getByRole('dialog')).toHaveCount(0);
     });
     await step('另一个客户押"否" 100：详情页的总奖池 2 秒内自动变成 150.00（WS 推送，AC-17），不用刷新', async () => {

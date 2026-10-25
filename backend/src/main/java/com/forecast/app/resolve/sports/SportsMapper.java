@@ -62,6 +62,9 @@ interface SportsMapper {
 
   List<Long> dueTasks(@Param("now") LocalDateTime now, @Param("limit") int limit);
 
+  /** 认领这一次尝试（S14，同 resolve.auto.ResolveMapper.claim）：认领到的才取数，同时到的另一个触发不取数、不多存原始返回 */
+  int claim(@Param("marketId") long marketId, @Param("version") int version, @Param("now") LocalDateTime now, @Param("until") LocalDateTime until);
+
   int retryLater(@Param("marketId") long marketId, @Param("version") int version, @Param("next") LocalDateTime next, @Param("reason") String reason,
       @Param("now") LocalDateTime now);
 
