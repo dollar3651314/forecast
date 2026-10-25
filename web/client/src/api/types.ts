@@ -68,17 +68,19 @@ export interface NotifyPrefs {
 
 // ---------- 账户 ----------
 /**
- * 账户（GET /api/ledger/account）。forecast S1：复制源的挂单冻结、净值、保证金删除；S1 时 available = balance，
- * S2 起拆成可用余额、下注锁定、提现冻结三项（技术方案/v1-架构方案.md 第 3.2 节）。
+ * 账户（GET /api/ledger/account）。forecast S2：三项余额（技术方案/v1-架构方案.md 第 3.2 节）——可用、下注中（下注锁定）、提现冻结；
+ * balance = available + betLocked（不含提现冻结）。
  */
 export interface Account {
   currency: 'USDT';
-  /** 余额（不含提现冻结） */
+  /** 余额 = 可用 + 下注中（不含提现冻结） */
   balance: string;
-  /** 提现冻结 */
-  withdrawFrozen: string;
   /** 可用（可以提现、S4 起可以下注的金额） */
   available: string;
+  /** 下注中：已下注、还没结算或退回的本金 */
+  betLocked: string;
+  /** 提现冻结 */
+  withdrawFrozen: string;
 }
 
 // ---------- 资金 ----------

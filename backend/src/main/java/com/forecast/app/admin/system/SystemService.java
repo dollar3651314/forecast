@@ -124,8 +124,41 @@ class SystemService {
     return config.list().stream().filter(e -> e.key().configPage).map(e -> new ConfigView(e.key().key, e.value(), e.key().unit.api(), e.key().group, AdminUserService.time(e.updatedAt()))).toList();
   }
 
+  /** 三条链的提现手续费（网络名 → 配置项），和 wallet.Chain 的三条链一致 */
+  static final Map<String, ConfigKey> WITHDRAW_FEES = new java.util.LinkedHashMap<>();
+
+  static {
+    WITHDRAW_FEES.put("ERC20", ConfigKey.WITHDRAW_FEE_ERC20);
+    WITHDRAW_FEES.put("TRC20", ConfigKey.WITHDRAW_FEE_TRC20);
+    WITHDRAW_FEES.put("BSC", ConfigKey.WITHDRAW_FEE_BSC);
+  }
+
   /**
-   * 改系统配置（高危，必须填原因）。值按单位校验；充值确认数不能低于现在的默认值；
+   * 单笔最小提现金额必须大于每条链的提现手续费（需求 RQ-16、第 3.11 节、AC-61），否则到账为 0 或负数。改最小金额时和三条链的手续费比，
+   * 改某条链的手续费时和最小金额比；不满足时拒绝保存，字段错误里写明是哪条链（field = 网络名，code = minNotAboveFee / feeNotBelowMin）。
+   * 先锁最小金额、再锁手续费（两种改法的锁顺序相同，不会死锁）；读的是数据库里的值，不走缓存。
+   * 某一项在数据库里没有行（迁移 V1 都已建好，正常不会发生）时跳过这一项：提现时 WithdrawService 还会检查"金额必须大于手续费"。
+   */
+  private void checkWithdrawMinAboveFees(ConfigKey k, String newValue) {
+    boolean isMin = k == ConfigKey.WITHDRAW_MIN_AMOUNT;
+    boolean isFee = WITHDRAW_FEES.containsValue(k);
+    if (!isMin && !isFee) return;
+    String minText = isMin ? newValue : config.lockedValue(ConfigKey.WITHDRAW_MIN_AMOUNT);
+    if (isMin) config.lockedValue(ConfigKey.WITHDRAW_MIN_AMOUNT);
+    if (minText == null) return;
+    java.math.BigDecimal min = new java.math.BigDecimal(minText);
+    ValidationException.Collector errs = new ValidationException.Collector();
+    for (Map.Entry<String, ConfigKey> e : WITHDRAW_FEES.entrySet()) {
+      if (isFee && e.getValue() != k) continue;
+      String feeText = e.getValue() == k ? newValue : config.lockedValue(e.getValue());
+      if (feeText == null) continue;
+      if (min.compareTo(new java.math.BigDecimal(feeText)) <= 0) errs.add(e.getKey(), isMin ? "minNotAboveFee" : "feeNotBelowMin");
+    }
+    errs.throwIfAny();
+  }
+
+  /**
+   * 改系统配置（高危，必须填原因）。单笔最小提现和三条链的手续费互相校验（{@link #checkWithdrawMinAboveFees}）。值按单位校验；充值确认数不能低于现在的默认值；
    * IP 白名单每一项都要是合法的 IP 或网段，并且<b>必须包含当前操作人的 IP</b>，防止把自己锁在外面（G3）。
    */
   @Transactional
@@ -134,6 +167,7 @@ class SystemService {
     return audit.run("config.update", key, true, r, () -> {
       ConfigKey k = ConfigKey.of(key).filter(x -> x.configPage).orElseThrow(() -> new BizException("NOT_FOUND", "配置项不存在"));
       String v = k.normalize(value).orElseThrow(() -> new ValidationException(List.of(new ValidationException.Field("value", "invalid"))));
+      checkWithdrawMinAboveFees(k, v);
       if (k == ConfigKey.ADMIN_IP_WHITELIST && !v.isEmpty()) {
         IpRanges ranges = IpRanges.parse(v).orElseThrow(() -> new ValidationException(List.of(new ValidationException.Field("value", "invalid"))));
         if (!ranges.contains(actor.ip())) throw new BizException("WHITELIST_EXCLUDES_SELF", "白名单不包含你当前的 IP，保存后你会无法访问后台");

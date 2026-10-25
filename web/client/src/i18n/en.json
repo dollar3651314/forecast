@@ -112,6 +112,7 @@
     "actions": "Funding actions",
     "balance": "USDT balance",
     "frozenWithdraw": "Frozen (withdrawals)",
+    "betLocked": "In bets",
     "showAmounts": "Show amounts",
     "hideAmounts": "Hide amounts"
   },

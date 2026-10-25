@@ -40,7 +40,7 @@ class AdminOpsTest extends AdminTestSupport {
         id, name);
     ledger.openAccount(id);
     if (new BigDecimal(balance).signum() > 0) {
-      ledger.apply(new LedgerCommand(id, Bucket.BALANCE, new BigDecimal(balance), LedgerEntryType.DEPOSIT, "TEST", "dep-" + id, "测试入金"));
+      ledger.apply(new LedgerCommand(id, Bucket.AVAILABLE, new BigDecimal(balance), LedgerEntryType.DEPOSIT, "TEST", "dep-" + id, "测试入金"));
     }
     return id;
   }
@@ -53,13 +53,13 @@ class AdminOpsTest extends AdminTestSupport {
         -System.nanoTime(), uid, "0x" + "ab".repeat(20), new BigDecimal(amount), status, now, now);
     long id = jdbc.queryForObject("SELECT MAX(id) FROM wallet_withdrawal WHERE user_id = ?", Long.class, uid);
     jdbc.update("UPDATE wallet_withdrawal SET public_no = id WHERE id = ?", id);
-    ledger.apply(new LedgerCommand(uid, Bucket.BALANCE, new BigDecimal(amount).negate(), LedgerEntryType.WITHDRAW_FREEZE, "WITHDRAW", String.valueOf(id), "提现冻结"));
+    ledger.apply(new LedgerCommand(uid, Bucket.AVAILABLE, new BigDecimal(amount).negate(), LedgerEntryType.WITHDRAW_FREEZE, "WITHDRAW", String.valueOf(id), "提现冻结"));
     ledger.apply(new LedgerCommand(uid, Bucket.WITHDRAW_FROZEN, new BigDecimal(amount), LedgerEntryType.WITHDRAW_FREEZE, "WITHDRAW", String.valueOf(id), "提现冻结"));
     return id;
   }
 
   BigDecimal balance(long uid) {
-    return jdbc.queryForObject("SELECT balance FROM ledger_account WHERE user_id = ?", BigDecimal.class, uid);
+    return jdbc.queryForObject("SELECT available FROM ledger_account WHERE user_id = ?", BigDecimal.class, uid);
   }
 
   @Test

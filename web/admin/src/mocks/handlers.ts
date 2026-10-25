@@ -280,7 +280,8 @@ export function getCustomer(id: number): Promise<CustomerDetail> {
         reviewedAt: kyc?.reviewedAt ?? null,
         rejectReason: kyc?.rejectReason ?? null,
       },
-      account: { balance: c.balance, available: compareAmounts(avail, '0') < 0 ? '0.00' : avail, frozenWithdraw: frozenWd },
+      // 原型的客户还没有下注（S4 起），下注中为 0
+      account: { balance: c.balance, available: compareAmounts(avail, '0') < 0 ? '0.00' : avail, betLocked: '0.00', frozenWithdraw: frozenWd },
       ledger: ledgerFor(c, false),
     };
   });
@@ -893,6 +894,21 @@ export function updateSystemConfig(key: string, value: string, reason: string): 
     const r = requireReason(reason);
     const c = db.systemConfigs.find((x) => x.key === key);
     if (!c) throw new ApiError('errors.notFound');
+    // 单笔最小提现必须大于每条链的提现手续费（RQ-16、AC-61，和后端 SystemService 一致）
+    const cfg = (k: string) => db.systemConfigs.find((x) => x.key === k)?.value;
+    const chains = ['ERC20', 'TRC20', 'BSC'];
+    const feeChain = chains.find((ch) => key === `withdraw.fee.${ch}`);
+    if (key === 'withdraw.minAmount' || feeChain) {
+      const min = key === 'withdraw.minAmount' ? value : cfg('withdraw.minAmount');
+      const bad = chains
+        .filter((ch) => !feeChain || ch === feeChain)
+        .filter((ch) => {
+          const fee = ch === feeChain ? value : cfg(`withdraw.fee.${ch}`);
+          return min !== undefined && fee !== undefined && compareAmounts(min, fee) <= 0;
+        })
+        .map((ch) => ({ field: ch, code: feeChain ? 'feeNotBelowMin' : 'minNotAboveFee' }));
+      if (bad.length) throw fieldError(bad);
+    }
     const before = c.value;
     c.value = value;
     c.updatedAt = nowString();

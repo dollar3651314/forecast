@@ -8,11 +8,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
- * 提现参数（application.yml 的 forecast.wallet.withdraw），默认值沿用现有系统（N-08）和 Amos 确认的手续费（提现方案 W3）。S16 后台可改。
+ * 提现参数（application.yml 的 forecast.wallet.withdraw），默认值沿用复制源和 Amos 确认的手续费；后台系统配置有值时以后台为准（{@link WithdrawLimits}）。
+ * 单笔最小提现默认 100 USDT（需求 RQ-16，S2；后台保存时必须大于每条链的手续费，见 admin.system.SystemService）。
  */
 @ConfigurationProperties("forecast.wallet.withdraw")
 record WithdrawProperties(
-    @DefaultValue("10") BigDecimal minAmount,
+    @DefaultValue("100") BigDecimal minAmount,
     @DefaultValue("10000") BigDecimal maxPerTx,
     @DefaultValue("30000") BigDecimal dailyLimit,
     @DefaultValue("3000") BigDecimal largeAmount,

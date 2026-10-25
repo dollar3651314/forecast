@@ -111,8 +111,8 @@ export interface CustomerQuery extends PageQuery {
   kycStatus?: KycStatus;
 }
 
-/** 资金流水类型（forecast S1 只有充值、提现、退回；S2 起加下注、派彩、退款、补偿）；没有对应的用小写原名 */
-export type LedgerType = 'deposit' | 'withdraw' | 'refund' | string;
+/** 资金流水类型（可用余额的变动）：充值、提现、提现退回；S2 起后端还会给出下注、派彩、抽成、下注退回、补偿（S4 起才有记录）；没有对应的用小写原名 */
+export type LedgerType = 'deposit' | 'withdraw' | 'refund' | 'bet' | 'payout' | 'fee' | 'betRefund' | 'compensation' | string;
 
 export interface LedgerEntry {
   id: string;
@@ -139,10 +139,11 @@ export interface CustomerDetail extends CustomerSummary {
     reviewedAt: string | null;
     rejectReason: string | null;
   };
-  /** S1：available = 可提金额（没有下注锁定）；S2 起加下注锁定 */
+  /** S2：余额 = 可用 + 下注中；available = 可提金额（= 可用余额）；betLocked = 下注中（下注锁定）；frozenWithdraw = 提现冻结 */
   account: {
     balance: string;
     available: string;
+    betLocked: string;
     frozenWithdraw: string;
   };
   ledger: LedgerEntry[];

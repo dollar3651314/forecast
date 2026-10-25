@@ -45,7 +45,7 @@ class AdminV2Test extends AdminTestSupport {
     jdbc.update("INSERT INTO account_profile (user_id, first_name, middle_name, last_name, birth_date, nationality) VALUES (?, 'Lin', '', 'Wang', '1990-01-02', 'SG')",
         id);
     ledger.openAccount(id);
-    ledger.apply(new LedgerCommand(id, Bucket.BALANCE, new BigDecimal(balance), LedgerEntryType.DEPOSIT, "TEST", "dep-" + id, "测试入金"));
+    ledger.apply(new LedgerCommand(id, Bucket.AVAILABLE, new BigDecimal(balance), LedgerEntryType.DEPOSIT, "TEST", "dep-" + id, "测试入金"));
     String token = UUID.randomUUID().toString();
     String hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8)));
     jdbc.update("INSERT INTO account_session (user_id, token_hash, ip, created_at, last_seen_at, expires_at) VALUES (?, ?, ?, UTC_TIMESTAMP(3), UTC_TIMESTAMP(3), "

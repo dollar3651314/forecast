@@ -112,6 +112,7 @@
     "actions": "资金操作",
     "balance": "USDT 余额",
     "frozenWithdraw": "冻结（提现中）",
+    "betLocked": "下注中",
     "showAmounts": "显示金额",
     "hideAmounts": "隐藏金额"
   },

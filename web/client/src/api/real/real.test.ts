@@ -175,7 +175,7 @@ describe('HTTP：同源、Cookie、错误转换', () => {
 describe('账户、钱包、通知接口', () => {
   it('账户、资金流水：GET /api/ledger/*；流水的类型"全部"不带 type 参数；余额不足显示"可用余额不足"', async () => {
     stubFetch(
-      { body: { currency: 'USDT', balance: '100', withdrawFrozen: '0', available: '100' } },
+      { body: { currency: 'USDT', balance: '100', available: '100', betLocked: '0', withdrawFrozen: '0' } },
       { body: { items: [], total: 0, page: 2, pageSize: 20 } },
       { body: { items: [], total: 0, page: 1, pageSize: 20 } },
       { status: 400, body: { code: 'INSUFFICIENT_FUNDS', fields: [] } },

@@ -31,8 +31,8 @@ class CustomerOps {
 
   record Kyc(String status, String docType, String docNumber, String reviewedAt, String rejectReason) {}
 
-  /** S1：available = 可提金额（没有下注锁定）；S2 起加"下注锁定" */
-  record Account(String balance, String available, String frozenWithdraw) {}
+  /** 账户（S2）：余额 = 可用 + 下注锁定；available 是可提金额（= 可用余额）；betLocked 下注锁定；frozenWithdraw 提现冻结 */
+  record Account(String balance, String available, String betLocked, String frozenWithdraw) {}
 
   record LedgerView(String id, String type, String amount, String balanceAfter, String ref, String time) {}
 
@@ -97,7 +97,7 @@ class CustomerOps {
     List<LedgerView> lines = ledgerAdmin.balanceLedger(id, 50).stream().map(l -> new LedgerView(String.valueOf(l.id()), ledgerType(l.type()), Ops.money(l.amount()),
         Ops.money(l.balanceAfter()), l.bizType() + ":" + l.bizId(), Ops.time(l.time()))).toList();
     Kyc kyc = new Kyc(apiStatus(c.kycStatus()), docType(d.docType()), d.docNumber(), Ops.time(d.kycReviewedAt()), d.kycRejectReason());
-    Account account = new Account(Ops.money(a.balance()), Ops.money(funds.withdrawable(id)), Ops.money(a.withdrawFrozen()));
+    Account account = new Account(Ops.money(a.balance()), Ops.money(funds.withdrawable(id)), Ops.money(a.betLocked()), Ops.money(a.withdrawFrozen()));
     LocalDate birth = d.birthDate();
     return new Detail(c.id(), c.name(), c.email(), c.nationality(), apiStatus(c.status()), apiStatus(c.kycStatus()), Ops.money(a.balance()),
         Ops.time(c.registeredAt()), Ops.time(c.lastLoginAt()), d.lastLoginIp(), Ops.time(d.lastLoginIpAt()), d.firstName(), d.middleName(), d.lastName(),
@@ -153,12 +153,21 @@ class CustomerOps {
     return db == null ? null : "ID_CARD".equals(db) ? "id_card" : db.toLowerCase();
   }
 
-  /** 账本类型 → 原型的流水类型；没有对应的用小写原名 */
+  /**
+   * 账本类型 → 后台的流水类型（web/admin 的 ledger.* 翻译）。这里只会出现可用余额一项的记录（{@link LedgerAdminApi#balanceLedger}）；
+   * 彩池的类型（S2 定义，S4 起才有记录）先给出名字，平台账户的类型不会出现在客户流水里。
+   */
   static String ledgerType(LedgerEntryType t) {
     return switch (t) {
       case DEPOSIT, DEPOSIT_REVERSAL -> "deposit";
       case WITHDRAW_FREEZE, WITHDRAW_PAYOUT -> "withdraw";
       case WITHDRAW_UNFREEZE -> "refund";
+      case BET_LOCK, BET_SETTLE, BET_LOST -> "bet";
+      case PAYOUT -> "payout";
+      case FEE -> "fee";
+      case REFUND -> "betRefund";
+      case COMPENSATION -> "compensation";
+      case FEE_INCOME, SETTLE_DUST, COMPENSATION_EXPENSE -> t.name().toLowerCase();
     };
   }
 

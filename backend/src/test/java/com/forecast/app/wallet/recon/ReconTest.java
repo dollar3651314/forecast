@@ -66,7 +66,7 @@ class ReconTest {
     long uid = jdbc.queryForObject("SELECT COALESCE(MAX(id), 0) + 1 + FLOOR(RAND() * 1000) FROM account_user", Long.class);
     jdbc.update("INSERT INTO account_user (id, email, status) VALUES (?, ?, 'ACTIVE')", uid, "rc" + uid + "@example.com");
     ledger.openAccount(uid);
-    if (new BigDecimal(balance).signum() > 0) post(uid, Bucket.BALANCE, balance, LedgerEntryType.DEPOSIT, "TEST", "seed-" + uid);
+    if (new BigDecimal(balance).signum() > 0) post(uid, Bucket.AVAILABLE, balance, LedgerEntryType.DEPOSIT, "TEST", "seed-" + uid);
     return uid;
   }
 
@@ -92,10 +92,10 @@ class ReconTest {
   void 一致的充值不报_没入账的_账本有但钱包没有的_都报出来() {
     long uid = user("0");
     String ok = deposit(uid, "100", "CREDITED", null);
-    post(uid, Bucket.BALANCE, "100", LedgerEntryType.DEPOSIT, "DEPOSIT", ok);
+    post(uid, Bucket.AVAILABLE, "100", LedgerEntryType.DEPOSIT, "DEPOSIT", ok);
     String missing = deposit(uid, "70", "CREDITED", null);
     String unknown = "ERC20:0x" + UUID.randomUUID().toString().replace("-", "") + ":0";
-    post(uid, Bucket.BALANCE, "30", LedgerEntryType.DEPOSIT, "DEPOSIT", unknown);
+    post(uid, Bucket.AVAILABLE, "30", LedgerEntryType.DEPOSIT, "DEPOSIT", unknown);
     recon.run();
     assertThat(recon.issues("OPEN", 500)).noneMatch(i -> i.refId().equals(ok));
     assertThat(open("DEPOSIT_LEDGER_MISMATCH", missing)).singleElement().satisfies(i -> {
@@ -111,12 +111,12 @@ class ReconTest {
     long uid = user("0");
     long[] id = new long[1];
     String good = deposit(uid, "100", "REVERSED", id);
-    post(uid, Bucket.BALANCE, "100", LedgerEntryType.DEPOSIT, "DEPOSIT", good);
-    post(uid, Bucket.BALANCE, "-20", LedgerEntryType.DEPOSIT_REVERSAL, "DEPOSIT", good);
+    post(uid, Bucket.AVAILABLE, "100", LedgerEntryType.DEPOSIT, "DEPOSIT", good);
+    post(uid, Bucket.AVAILABLE, "-20", LedgerEntryType.DEPOSIT_REVERSAL, "DEPOSIT", good);
     jdbc.update("INSERT INTO wallet_suspense (user_id, deposit_id, amount) VALUES (?, ?, 80)", uid, id[0]);
     String bad = deposit(uid, "100", "REVERSED", null);
-    post(uid, Bucket.BALANCE, "100", LedgerEntryType.DEPOSIT, "DEPOSIT", bad);
-    post(uid, Bucket.BALANCE, "-30", LedgerEntryType.DEPOSIT_REVERSAL, "DEPOSIT", bad);
+    post(uid, Bucket.AVAILABLE, "100", LedgerEntryType.DEPOSIT, "DEPOSIT", bad);
+    post(uid, Bucket.AVAILABLE, "-30", LedgerEntryType.DEPOSIT_REVERSAL, "DEPOSIT", bad);
     recon.run();
     assertThat(open("DEPOSIT_REVERSAL_MISMATCH", good)).isEmpty();
     assertThat(open("DEPOSIT_REVERSAL_MISMATCH", bad)).singleElement().satisfies(i -> assertThat(i.actual()).isEqualByComparingTo("30"));
@@ -167,7 +167,7 @@ class ReconTest {
         + "VALUES (?, ?, 'ERC20', '0xa', 100, 5, 'COMPLETED', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3))", com.forecast.app.common.id.Snowflake.shared(1).next(), uid);
     long wid = jdbc.queryForObject("SELECT MAX(id) FROM wallet_withdrawal WHERE user_id = ?", Long.class, uid);
     // 有冻结，没有转出
-    post(uid, Bucket.BALANCE, "-100", LedgerEntryType.WITHDRAW_FREEZE, "WITHDRAW", String.valueOf(wid));
+    post(uid, Bucket.AVAILABLE, "-100", LedgerEntryType.WITHDRAW_FREEZE, "WITHDRAW", String.valueOf(wid));
     post(uid, Bucket.WITHDRAW_FROZEN, "100", LedgerEntryType.WITHDRAW_FREEZE, "WITHDRAW", String.valueOf(wid));
     recon.run();
     assertThat(open("WITHDRAW_LEDGER_MISMATCH", String.valueOf(wid))).hasSize(1);
@@ -181,7 +181,7 @@ class ReconTest {
   void 近期入账的充值去链上核对_区块哈希变了就报() {
     long uid = user("0");
     String key = deposit(uid, "10", "CREDITED", null);
-    post(uid, Bucket.BALANCE, "10", LedgerEntryType.DEPOSIT, "DEPOSIT", key);
+    post(uid, Bucket.AVAILABLE, "10", LedgerEntryType.DEPOSIT, "DEPOSIT", key);
     clients.register(Chain.ERC20, new ChainClient() {
       public long headBlock() { return 1000; }
       public List<TokenTransfer> transfers(long f, long t, String c) { return List.of(); }

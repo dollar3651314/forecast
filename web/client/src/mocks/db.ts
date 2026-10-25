@@ -33,8 +33,8 @@ export interface Db {
   password: string;
   kyc: KycInfo & { rejectReasonI18n?: { zh: string; en: string } };
   prefs: NotifyPrefs;
-  /** 账户余额和提现冻结（可用 = 余额，S1；mocks/account.ts 按它返回） */
-  account: { balance: string; withdrawFrozen: string };
+  /** 账户三项（S2）：可用、下注中、提现冻结；余额 = 可用 + 下注中（mocks/account.ts 按它返回） */
+  account: { available: string; betLocked: string; withdrawFrozen: string };
   ledger: LedgerItem[];
   whitelist: WhitelistAddress[];
   withdrawals: Withdrawal[];
@@ -153,7 +153,7 @@ export function seed(): Db {
     password: 'Forecast2026',
     kyc: { status: 'approved', docType: 'idCard', docNumber: '110101199006181234', submittedAt: minutesAgo(3000), reviewedAt: minutesAgo(2880) },
     prefs: { push: true, email: true },
-    account: { balance: '128456.79', withdrawFrozen: '6000.00' },
+    account: { available: '128456.79', betLocked: '1200.00', withdrawFrozen: '6000.00' },
     ledger: seedLedger(),
     whitelist: [
       { id: 'A1', network: 'TRC20', address: 'TQ8nB4rW7xYp2LkM9vD3sF6hJ1cZ5gw3kP', label: '我的 imToken 钱包', createdAt: minutesAgo(60 * 24 * 30), activeAt: minutesAgo(60 * 24 * 29) },

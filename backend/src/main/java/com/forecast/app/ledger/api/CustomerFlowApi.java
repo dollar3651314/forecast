@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 
 /**
  * 客户的资金流水合计（只读），给提现自动审批的 R8、R9、R10、R13 用。金额都按账本（{@code ledger_entry}）的
- * BALANCE 一项算，不改任何金额。时间窗口只有下限（从 since 起），账本里不会有"将来"的记录。
+ * AVAILABLE（可用余额）一项算，不改任何金额。时间窗口只有下限（从 since 起），账本里不会有"将来"的记录。
  * <p><b>forecast S1 过渡</b>：差价合约删除后，"交易量""已实现盈亏""手续费""隔夜费"在账本里都没有记录了，下面这几个方法暂时恒为 0
  * （{@link #openedNotionalSince}、{@link #realizedPnl}、{@link #netProfit}）。S10 按需求说明书第 8.2 节改成下注口径
  * （有效下注本金、Σ(派彩 − 本金) + 补偿），见技术方案/v1-架构方案.md 第 1.2 节 ledger ⑤。恒为 0 时 R8 在有充值时不通过（转人工审核）；

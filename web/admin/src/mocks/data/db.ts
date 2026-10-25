@@ -395,7 +395,7 @@ const tplSeeds: TplSeed[] = [
   { code: 'deposit_credited', zh: '入金到账', en: 'Deposit credited', tZh: '充值已到账', tEn: 'Deposit credited', bZh: '您通过 {chain} 充值的 {amount} USDT 已到账。', bEn: 'Your deposit of {amount} USDT via {chain} has been credited.', vars: ['amount', 'chain'] },
   { code: 'withdraw_status', zh: '出金状态变化', en: 'Withdrawal status', tZh: '提现状态更新', tEn: 'Withdrawal update', bZh: '您的提现 {orderId} 状态已更新为：{status}。', bEn: 'Your withdrawal {orderId} is now: {status}.', vars: ['orderId', 'status'] },
   { code: 'kyc_result', zh: 'KYC 结果', en: 'KYC result', tZh: '身份认证结果', tEn: 'Verification result', bZh: '您的身份认证{result}。{reason}', bEn: 'Your identity verification was {result}. {reason}', vars: ['result', 'reason'] },
-  { code: 'email_code', zh: '邮箱验证码', en: 'Email code', tZh: 'Forecast 验证码', tEn: 'Forecast verification code', bZh: '您的验证码是 {code}，10 分钟内有效。', bEn: 'Your code is {code}. It expires in 10 minutes.', vars: ['code'], channels: ['email'] },
+  { code: 'email_code', zh: '邮箱验证码', en: 'Email code', tZh: 'Quick Come 验证码', tEn: 'Quick Come verification code', bZh: '您的验证码是 {code}，10 分钟内有效。', bEn: 'Your code is {code}. It expires in 10 minutes.', vars: ['code'], channels: ['email'] },
   { code: 'reversal_shortfall', zh: '冲正挂账（发给运营、财务）', en: 'Reversal shortfall (to staff)', tZh: '冲正余额不足，已挂账', tEn: 'Reversal shortfall recorded', bZh: '客户 {customerId} 的入金 {txHash} 被链上回滚，余额不足，已生成挂账。', bEn: 'Deposit {txHash} of customer {customerId} was reversed; shortfall recorded.', vars: ['customerId', 'txHash'] },
 ];
 
@@ -515,7 +515,7 @@ const withdrawFeeKey = (chain: string) => `withdraw.fee.${chain}`;
 export const hotWalletMinKey = (chain: string, gas: boolean) => `hotWallet.${gas ? 'minGas' : 'minUsdt'}.${chain}`;
 
 export const systemConfigs: SystemConfig[] = [
-  { key: 'withdraw.minAmount', value: '10', unit: 'usdt', group: 'withdraw', updatedAt: '2026-10-01 10:00:00' },
+  { key: 'withdraw.minAmount', value: '100', unit: 'usdt', group: 'withdraw', updatedAt: '2026-10-01 10:00:00' },
   { key: 'withdraw.maxSingle', value: '10000', unit: 'usdt', group: 'withdraw', updatedAt: '2026-10-01 10:00:00' },
   { key: 'withdraw.dailyLimit', value: '30000', unit: 'usdt', group: 'withdraw', updatedAt: '2026-10-01 10:00:00' },
   { key: 'withdraw.coolingHours', value: '2', unit: 'hours', group: 'withdraw', updatedAt: '2026-10-01 10:00:00' },

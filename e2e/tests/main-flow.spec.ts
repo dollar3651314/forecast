@@ -170,6 +170,9 @@ test('客户主流程（手机 390px）和后台审核', async ({ browser }) => 
       // 站内信推送的提示（AC-07 客户收到通知）
       await expect(page.getByText('充值已到账').first()).toBeVisible();
       await expect(page.locator('.assets-hero, .card').getByText('1,000.00').first()).toBeVisible();
+      // S2：资产页显示三项（可用、下注中、提现冻结），还没有下注时下注中是 0
+      await expect(page.locator('.overview').getByText('下注中')).toBeVisible();
+      await expect(page.locator('.overview .ov-row > div').filter({ hasText: '下注中' }).locator('.num')).toHaveText('0.00');
     }, 90_000);
 
     await step('客户：提交 KYC（护照 + 3 张照片）', async () => {

@@ -12,6 +12,7 @@ final class LedgerEntry {
   BigDecimal valueAfter;
   String bizType;
   String bizId;
+  Long refMarketId;
   String remark;
 
   public Long getId() { return id; }
@@ -23,5 +24,6 @@ final class LedgerEntry {
   public BigDecimal getValueAfter() { return valueAfter; }
   public String getBizType() { return bizType; }
   public String getBizId() { return bizId; }
+  public Long getRefMarketId() { return refMarketId; }
   public String getRemark() { return remark; }
 }

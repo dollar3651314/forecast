@@ -95,6 +95,16 @@ public class SystemConfig {
     }).toList();
   }
 
+  /**
+   * 在调用方的事务里锁住一项配置并返回数据库里的当前值（不走缓存，必须已有事务）；没有这一行时为空。
+   * 用于保存时要和别的配置项一起校验的情况（例如单笔最小提现必须大于每条链的手续费），两个人同时改相关的项不会都通过校验。
+   */
+  @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+  public String lockedValue(ConfigKey k) {
+    ConfigMapper.Row r = mapper.lock(k.key);
+    return r == null ? null : r.value;
+  }
+
   /** 保存（值已经由调用方校验过）；返回原来的值 */
   @Transactional
   public String set(ConfigKey k, String value, long adminId, LocalDateTime now) {

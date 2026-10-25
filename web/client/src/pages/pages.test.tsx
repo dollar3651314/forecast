@@ -21,10 +21,13 @@ describe('关键页面渲染', () => {
     expect(screen.getByRole('link', { name: '身份认证' })).toHaveAttribute('href', '/me/kyc');
   });
 
-  it('资产：余额、可用、提现冻结；空数据显示 0', async () => {
+  it('资产：余额、可用、下注中、提现冻结；空数据显示 0', async () => {
     renderPage(<Assets />, '/assets');
-    // 余额和可用（S1 相同）各显示一次
-    expect(await screen.findAllByText('128,456.79')).toHaveLength(2);
+    // S2：余额 = 可用 + 下注中
+    expect(await screen.findByText('129,656.79')).toBeInTheDocument();
+    expect(screen.getByText('128,456.79')).toBeInTheDocument();
+    expect(screen.getByText('下注中')).toBeInTheDocument();
+    expect(screen.getByText('1,200.00')).toBeInTheDocument();
     expect(screen.getByText('6,000.00')).toBeInTheDocument();
     expect(screen.queryByText('净值')).not.toBeInTheDocument();
     act(() => setProtoState({ scenario: 'empty' }));

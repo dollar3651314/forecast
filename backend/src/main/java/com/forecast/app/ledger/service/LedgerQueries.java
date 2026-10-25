@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 账本的只读查询：可提金额（{@link FundsApi}）、客户流水合计（{@link CustomerFlowApi}）、后台的余额和流水（{@link LedgerAdminApi}）。
  * 复制源里这几个实现在 trading/order（要算持仓保证金、浮动盈亏和交易量），forecast S1 搬到账本模块并去掉了交易部分。
+ * S2：可提金额 = 可用余额（下注锁定、提现冻结的钱不能提）；后台的"余额" = 可用 + 下注锁定。
  */
 @Service
 class LedgerQueries implements FundsApi, CustomerFlowApi, LedgerAdminApi {
@@ -37,7 +38,7 @@ class LedgerQueries implements FundsApi, CustomerFlowApi, LedgerAdminApi {
   public BigDecimal withdrawable(long userId) {
     AccountRow a = mapper.findAccount(userId);
     if (a == null) throw new BizException("ACCOUNT_NOT_FOUND", "账户不存在：" + userId);
-    return a.balance();
+    return a.available();
   }
 
   // ---------- CustomerFlowApi ----------

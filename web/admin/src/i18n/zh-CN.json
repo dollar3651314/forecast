@@ -82,7 +82,9 @@
     "ageUnder18": "未满 18 周岁",
     "dateFormat": "格式应为 YYYY-MM-DD",
     "dateInvalid": "不是有效日期",
+    "feeNotBelowMin": "：这条链的提现手续费必须小于单笔最小提现金额",
     "invalid": "格式不正确",
+    "minNotAboveFee": "：单笔最小提现金额必须大于这条链的提现手续费",
     "nameChars": "只能包含文字、空格、点、撇号和连字符",
     "nameTooLong": "太长（最多 50 个字）",
     "nationalityInvalid": "应为两位大写国家代码（例如 CN）",
@@ -317,6 +319,7 @@
     "available": "可用余额",
     "balance": "账户余额",
     "balanceAfter": "变动后余额",
+    "betLocked": "下注中",
     "birthDate": "出生日期",
     "birthDateHint": "例如 1990 年 3 月 27 日，须年满 18 周岁；可以直接粘贴 1990-03-27",
     "confirmEditProfile": "确认修改",
@@ -527,7 +530,12 @@
     "rejected": "已驳回"
   },
   "ledger": {
+    "bet": "下注",
+    "betRefund": "下注退回",
+    "compensation": "补偿",
     "deposit": "入金",
+    "fee": "抽成",
+    "payout": "派彩",
     "refund": "退款",
     "withdraw": "出金"
   },

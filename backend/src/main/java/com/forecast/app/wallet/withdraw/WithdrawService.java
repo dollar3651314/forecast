@@ -133,7 +133,7 @@ public class WithdrawService implements WithdrawAdminApi {
       n.createdAt = now();
       n.coolingEndsAt = n.createdAt.plus(props().cooling());
       mapper.insertWithdrawal(n);
-      ledger.apply(new LedgerCommand(userId, Bucket.BALANCE, amt.negate(), LedgerEntryType.WITHDRAW_FREEZE, BIZ_WITHDRAW, String.valueOf(n.id), "提现冻结"));
+      ledger.apply(new LedgerCommand(userId, Bucket.AVAILABLE, amt.negate(), LedgerEntryType.WITHDRAW_FREEZE, BIZ_WITHDRAW, String.valueOf(n.id), "提现冻结"));
       ledger.apply(new LedgerCommand(userId, Bucket.WITHDRAW_FROZEN, amt, LedgerEntryType.WITHDRAW_FREEZE, BIZ_WITHDRAW, String.valueOf(n.id), "提现冻结"));
       mapper.insertEvent(n.id, null, "COOLING", "user:" + userId, null);
       return n;
@@ -394,11 +394,11 @@ public class WithdrawService implements WithdrawAdminApi {
     };
   }
 
-  /** 退回：提现冻结 → 余额 */
+  /** 退回：提现冻结 → 可用余额 */
   private void refund(WithdrawalRow w) {
     ledger.apply(new LedgerCommand(w.userId, Bucket.WITHDRAW_FROZEN, w.amount.negate(), LedgerEntryType.WITHDRAW_UNFREEZE, BIZ_WITHDRAW,
         String.valueOf(w.id), "提现退回"));
-    ledger.apply(new LedgerCommand(w.userId, Bucket.BALANCE, w.amount, LedgerEntryType.WITHDRAW_UNFREEZE, BIZ_WITHDRAW, String.valueOf(w.id), "提现退回"));
+    ledger.apply(new LedgerCommand(w.userId, Bucket.AVAILABLE, w.amount, LedgerEntryType.WITHDRAW_UNFREEZE, BIZ_WITHDRAW, String.valueOf(w.id), "提现退回"));
   }
 
   /** 推给客户：{"type":"withdraw","status":"cooling","amount":"100"} 和账户变化 */

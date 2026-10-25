@@ -115,7 +115,7 @@ class AutoApproveFlowTest {
     long uid = jdbc.queryForObject("SELECT COALESCE(MAX(id), 0) + 1 + FLOOR(RAND() * 1000) FROM account_user", Long.class);
     jdbc.update("INSERT INTO account_user (id, email, status, created_at) VALUES (?, ?, 'ACTIVE', '2026-09-01 00:00:00')", uid, "aa" + uid + "@example.com");
     ledger.openAccount(uid);
-    ledger.apply(new LedgerCommand(uid, Bucket.BALANCE, new BigDecimal(deposit), LedgerEntryType.DEPOSIT, "TEST", "aa-dep-" + uid, "测试入金"));
+    ledger.apply(new LedgerCommand(uid, Bucket.AVAILABLE, new BigDecimal(deposit), LedgerEntryType.DEPOSIT, "TEST", "aa-dep-" + uid, "测试入金"));
     jdbc.update("INSERT INTO account_kyc_application (user_id, doc_type, doc_number, front_key, back_key, selfie_key, status) VALUES (?, 'PASSPORT', ?, 'f', 'b', 's', 'APPROVED')",
         uid, "P" + uid);
     WhitelistRow r = whitelist.add(uid, "TRC20", TRON_ADDR, "测试");
@@ -350,17 +350,18 @@ class AutoApproveFlowTest {
     save(true, Map.of());
     long[] c = customer("1000");
     jdbc.update("UPDATE ledger_entry SET created_at = ? WHERE biz_id = ?", NOW.minusDays(5), "aa-dep-" + c[0]);
-    WithdrawalRow w1 = submit(c, "50");
+    // 金额 ≥ 单笔最小提现 100（RQ-16，S2 起默认 100）
+    WithdrawalRow w1 = submit(c, "150");
     assertThat(rule(w1.id, "R8").status()).isEqualTo("failed");
     assertThat(rule(w1.id, "R8").values()).containsEntry("volume", "0").containsEntry("deposit", "1000").containsEntry("ratio", "0");
-    WithdrawalRow w2 = submit(c, "50");
+    WithdrawalRow w2 = submit(c, "150");
     withdraws.cancel(c[0], w2.id);
-    WithdrawalRow w3 = submit(c, "50");
-    WithdrawalRow w4 = submit(c, "50");
+    WithdrawalRow w3 = submit(c, "150");
+    WithdrawalRow w4 = submit(c, "150");
     assertThat(rule(w3.id, "R11").values()).containsEntry("count", "2");
     assertThat(rule(w4.id, "R11").values()).as("撤销的那笔不算").containsEntry("count", "3");
     assertThat(rule(w4.id, "R11").status()).isEqualTo("passed");
-    assertThat(rule(w4.id, "R9").values()).as("撤销的不算累计提现").containsEntry("withdrawn", "250");
+    assertThat(rule(w4.id, "R9").values()).as("撤销的不算累计提现").containsEntry("withdrawn", "550");
   }
 
   @Test
@@ -382,7 +383,7 @@ class AutoApproveFlowTest {
     assertThat(rule(w3.id, "R13").status()).isEqualTo("passed");
     assertThat(rule(w3.id, "R13").values()).containsEntry("limit", "0.01");
     save(true, Map.of("R8.enabled", "false", "R13.enabled", "false"));
-    WithdrawalRow w4 = submit(c, "50");
+    WithdrawalRow w4 = submit(c, "150");
     assertThat(rule(w4.id, "R13").status()).isEqualTo("disabled");
   }
 }

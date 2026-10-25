@@ -109,7 +109,7 @@ class BroadcastFlowTest {
     uid = jdbc.queryForObject("SELECT COALESCE(MAX(id), 0) + 1 + FLOOR(RAND() * 1000) FROM account_user", Long.class);
     jdbc.update("INSERT INTO account_user (id, email, status) VALUES (?, ?, 'ACTIVE')", uid, "bc" + uid + "@example.com");
     ledger.openAccount(uid);
-    ledger.apply(new LedgerCommand(uid, Bucket.BALANCE, new BigDecimal("5000"), LedgerEntryType.DEPOSIT, "TEST", "dep-" + uid, "测试入金"));
+    ledger.apply(new LedgerCommand(uid, Bucket.AVAILABLE, new BigDecimal("5000"), LedgerEntryType.DEPOSIT, "TEST", "dep-" + uid, "测试入金"));
     jdbc.update("INSERT INTO account_kyc_application (user_id, doc_type, doc_number, front_key, back_key, selfie_key, status) VALUES (?, 'PASSPORT', ?, 'f', 'b', 's', 'APPROVED')",
         uid, "P" + uid);
     WhitelistRow w = whitelist.add(uid, network, address, "测试");
@@ -170,7 +170,7 @@ class BroadcastFlowTest {
     // 22 gwei = 20 gwei × 1.1
     assertThat(attempts(a).getFirst().feePrice()).isEqualTo(22_000_000_000L);
     assertThat(EvmWithdrawSender.decodeData(attempts(a).getFirst().rawTx())).contains("5aaeb6053f3e94c9b9a09f33669435e7ef1beaed").endsWith(Long.toHexString(95_000_000L));
-    long b = reviewing("ERC20", ETH_TO, "50");
+    long b = reviewing("ERC20", ETH_TO, "150");
     withdraws.approve(b, 9L);
     assertThat(attempts(b).getFirst().nonce()).as("第二笔用数据库里的下一个 nonce，不再问链").isEqualTo(6L);
 

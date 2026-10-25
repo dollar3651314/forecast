@@ -63,7 +63,7 @@ forecast:
     min-deposit: 1
     # 提现（S13，技术方案/v1-提现方案.md）：限额沿用现有系统（N-08），手续费 Amos 确认（W3），从提现金额里扣
     withdraw:
-      min-amount: 10
+      min-amount: 100 # 需求 RQ-16：默认 100，后台系统配置 withdraw.minAmount 可改（迁移 V7）
       max-per-tx: 10000
       daily-limit: 30000
       large-amount: 3000

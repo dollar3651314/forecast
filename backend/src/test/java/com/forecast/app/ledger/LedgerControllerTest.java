@@ -68,13 +68,18 @@ class LedgerControllerTest {
   }
 
   @Test
-  void 账户_余额和提现冻结_可用就是余额() throws Exception {
+  void 账户_三项_可用_下注中_提现冻结_余额是可用加下注中() throws Exception {
     User u = user();
-    apply(u.id(), Bucket.BALANCE, "100.5", LedgerEntryType.DEPOSIT, "DEPOSIT", "TRC20:0xaa:" + u.id(), "充值 TRC20");
-    apply(u.id(), Bucket.BALANCE, "-30", LedgerEntryType.WITHDRAW_FREEZE, "WITHDRAW", "w-" + u.id(), "提现冻结");
+    apply(u.id(), Bucket.AVAILABLE, "100.5", LedgerEntryType.DEPOSIT, "DEPOSIT", "TRC20:0xaa:" + u.id(), "充值 TRC20");
+    apply(u.id(), Bucket.AVAILABLE, "-30", LedgerEntryType.WITHDRAW_FREEZE, "WITHDRAW", "w-" + u.id(), "提现冻结");
     apply(u.id(), Bucket.WITHDRAW_FROZEN, "30", LedgerEntryType.WITHDRAW_FREEZE, "WITHDRAW", "w-" + u.id(), "提现冻结");
     assertThat(getJson("/api/ledger/account", u.cookie()).toString())
-        .isEqualTo("{\"currency\":\"USDT\",\"balance\":\"70.5\",\"withdrawFrozen\":\"30\",\"available\":\"70.5\"}");
+        .isEqualTo("{\"currency\":\"USDT\",\"balance\":\"70.5\",\"available\":\"70.5\",\"betLocked\":\"0\",\"withdrawFrozen\":\"30\"}");
+    apply(u.id(), Bucket.AVAILABLE, "-20.25", LedgerEntryType.BET_LOCK, "BET", "b-" + u.id(), "下注");
+    apply(u.id(), Bucket.BET_LOCKED, "20.25", LedgerEntryType.BET_LOCK, "BET", "b-" + u.id(), "下注");
+    assertThat(getJson("/api/ledger/account", u.cookie()).toString()).as("下注中的钱还算余额，但不算可用")
+        .isEqualTo("{\"currency\":\"USDT\",\"balance\":\"70.5\",\"available\":\"50.25\",\"betLocked\":\"20.25\",\"withdrawFrozen\":\"30\"}");
+    assertThat(getJson("/api/ledger/entries?range=all", u.cookie()).get("total").asLong()).as("客户端流水还没有下注类型（S4 起），不出现").isEqualTo(2);
     assertThat(status("/api/ledger/account", null)).as("要登录").isEqualTo(401);
   }
 
@@ -82,12 +87,12 @@ class LedgerControllerTest {
   void 资金流水_按类型和时间筛选_ref取网络_只看余额的变动_只看自己的() throws Exception {
     User u = user();
     User other = user();
-    apply(u.id(), Bucket.BALANCE, "100", LedgerEntryType.DEPOSIT, "DEPOSIT", "BSC:0xbb:" + u.id(), "充值 BSC");
-    apply(u.id(), Bucket.BALANCE, "-40", LedgerEntryType.WITHDRAW_FREEZE, "WITHDRAW", "w1-" + u.id(), "提现冻结");
+    apply(u.id(), Bucket.AVAILABLE, "100", LedgerEntryType.DEPOSIT, "DEPOSIT", "BSC:0xbb:" + u.id(), "充值 BSC");
+    apply(u.id(), Bucket.AVAILABLE, "-40", LedgerEntryType.WITHDRAW_FREEZE, "WITHDRAW", "w1-" + u.id(), "提现冻结");
     apply(u.id(), Bucket.WITHDRAW_FROZEN, "40", LedgerEntryType.WITHDRAW_FREEZE, "WITHDRAW", "w1-" + u.id(), "提现冻结");
     apply(u.id(), Bucket.WITHDRAW_FROZEN, "-40", LedgerEntryType.WITHDRAW_UNFREEZE, "WITHDRAW", "w1-" + u.id(), "提现退回");
-    apply(u.id(), Bucket.BALANCE, "40", LedgerEntryType.WITHDRAW_UNFREEZE, "WITHDRAW", "w1-" + u.id(), "提现退回");
-    apply(other.id(), Bucket.BALANCE, "5", LedgerEntryType.DEPOSIT, "DEPOSIT", "BSC:0xcc:" + other.id(), "充值 BSC");
+    apply(u.id(), Bucket.AVAILABLE, "40", LedgerEntryType.WITHDRAW_UNFREEZE, "WITHDRAW", "w1-" + u.id(), "提现退回");
+    apply(other.id(), Bucket.AVAILABLE, "5", LedgerEntryType.DEPOSIT, "DEPOSIT", "BSC:0xcc:" + other.id(), "充值 BSC");
 
     JsonNode all = getJson("/api/ledger/entries?range=all", u.cookie());
     assertThat(all.get("total").asLong()).as("提现冻结那一项的变动不算（只看余额）").isEqualTo(3);

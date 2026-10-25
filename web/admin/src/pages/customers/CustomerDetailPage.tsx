@@ -171,6 +171,10 @@ export function CustomerDetailPage() {
               <div className="v"><Amount value={c.account.available} /></div>
             </div>
             <div className="card stat">
+              <div className="k">{t('customers.betLocked')}</div>
+              <div className="v"><Num>{formatAmount(c.account.betLocked)}</Num></div>
+            </div>
+            <div className="card stat">
               <div className="k">{t('customers.frozenWithdraw')}</div>
               <div className="v"><Num>{formatAmount(c.account.frozenWithdraw)}</Num></div>
             </div>

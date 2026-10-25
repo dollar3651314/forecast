@@ -87,8 +87,8 @@ class ReconService implements WalletReconApi {
 
   /** 充值：钱包记录 ↔ 账本 ↔ 链上；挂账 */
   private void checkDeposits(List<Finding> out) {
-    Map<String, BigDecimal> credited = ledger.totals("DEPOSIT", LedgerEntryType.DEPOSIT, Bucket.BALANCE);
-    Map<String, BigDecimal> reversed = ledger.totals("DEPOSIT", LedgerEntryType.DEPOSIT_REVERSAL, Bucket.BALANCE);
+    Map<String, BigDecimal> credited = ledger.totals("DEPOSIT", LedgerEntryType.DEPOSIT, Bucket.AVAILABLE);
+    Map<String, BigDecimal> reversed = ledger.totals("DEPOSIT", LedgerEntryType.DEPOSIT_REVERSAL, Bucket.AVAILABLE);
     Map<Long, BigDecimal> suspenseByDeposit = new HashMap<>();
     for (ReconMapper.SuspenseRow s : mapper.suspenses()) {
       suspenseByDeposit.merge(s.depositId(), s.amount(), BigDecimal::add);

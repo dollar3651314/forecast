@@ -135,8 +135,8 @@ public class DepositService {
   }
 
   /**
-   * 冲正（AC-09）：只扣客户可以自由动用的钱（不动持仓保证金和挂单冻结），余额不会变负；
-   * 没扣到的差额记挂账，通知风控人员。
+   * 冲正（AC-09）：只扣客户的可用余额（S2 口径：不动下注锁定和提现冻结——下注中的钱属于奖池，提现冻结的钱在出账的路上），
+   * 可用余额不会变负；没扣到的差额记挂账，通知风控人员。
    */
   void reverse(DepositMapper.DepositRow d) {
     BigDecimal shortfall = tx.execute(st -> {
@@ -145,7 +145,7 @@ public class DepositService {
       BigDecimal free = funds.withdrawable(d.userId()).max(BigDecimal.ZERO).setScale(8, RoundingMode.DOWN);
       BigDecimal take = d.amount().min(free);
       if (take.signum() > 0) {
-        ledger.apply(new LedgerCommand(d.userId(), Bucket.BALANCE, take.negate(), LedgerEntryType.DEPOSIT_REVERSAL, BIZ_DEPOSIT,
+        ledger.apply(new LedgerCommand(d.userId(), Bucket.AVAILABLE, take.negate(), LedgerEntryType.DEPOSIT_REVERSAL, BIZ_DEPOSIT,
             d.chain() + ":" + d.txHash() + ":" + d.logIndex(), "充值被链上回滚，冲正 " + d.chain()));
       }
       BigDecimal rest = d.amount().subtract(take);
@@ -233,7 +233,7 @@ public class DepositService {
   private void credit(DepositMapper.DepositRow d, int conf) {
     Boolean done = tx.execute(st -> {
       if (mapper.finish(d.id(), "CREDITED", conf) != 1) return false;
-      ledger.apply(new LedgerCommand(d.userId(), Bucket.BALANCE, d.amount(), LedgerEntryType.DEPOSIT, BIZ_DEPOSIT,
+      ledger.apply(new LedgerCommand(d.userId(), Bucket.AVAILABLE, d.amount(), LedgerEntryType.DEPOSIT, BIZ_DEPOSIT,
           d.chain() + ":" + d.txHash() + ":" + d.logIndex(), "充值 " + d.chain()));
       // 到账通知（AC-07），和入账同一事务
       notify.toUser(d.userId(), "DEPOSIT_CREDITED", Map.of("amount", d.amount().stripTrailingZeros().toPlainString(), "chain", d.chain()));

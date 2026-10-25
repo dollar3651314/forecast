@@ -35,10 +35,11 @@ export const ToastContext = createContext<ToastValue>({ show: () => undefined })
 export const useToast = (): ToastValue => useContext(ToastContext);
 
 // ---------- 账户 ----------
-/** 账户的几项金额（十进制）。forecast S1：复制源的净值、保证金、浮动盈亏、挂单冻结删除；S2 起加下注锁定 */
+/** 账户的几项金额（十进制）。forecast S1：复制源的净值、保证金、浮动盈亏、挂单冻结删除；S2 加下注锁定（下注中） */
 export interface AccountMetrics {
   balance: Dec;
   available: Dec;
+  betLocked: Dec;
   withdrawFrozen: Dec;
 }
 export interface AccountValue {

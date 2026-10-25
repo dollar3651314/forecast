@@ -82,7 +82,9 @@
     "ageUnder18": "is under 18",
     "dateFormat": "must be YYYY-MM-DD",
     "dateInvalid": "is not a valid date",
+    "feeNotBelowMin": ": this network's withdrawal fee must be less than the minimum withdrawal",
     "invalid": "is invalid",
+    "minNotAboveFee": ": the minimum withdrawal must be greater than this network's withdrawal fee",
     "nameChars": "may only contain letters, spaces, dots, apostrophes and hyphens",
     "nameTooLong": "is too long (max 50 characters)",
     "nationalityInvalid": "must be a 2-letter country code (e.g. CN)",
@@ -317,6 +319,7 @@
     "available": "Available",
     "balance": "Balance",
     "balanceAfter": "Balance after",
+    "betLocked": "In bets",
     "birthDate": "Date of birth",
     "birthDateHint": "For example, 27 3 1990; must be 18 or older. You can also paste 1990-03-27",
     "confirmEditProfile": "Save changes",
@@ -527,7 +530,12 @@
     "rejected": "Rejected"
   },
   "ledger": {
+    "bet": "Bet",
+    "betRefund": "Bet refund",
+    "compensation": "Compensation",
     "deposit": "Deposit",
+    "fee": "Fee",
+    "payout": "Payout",
     "refund": "Refund",
     "withdraw": "Withdrawal"
   },

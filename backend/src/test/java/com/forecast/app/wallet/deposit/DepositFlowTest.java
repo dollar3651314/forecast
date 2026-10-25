@@ -239,7 +239,7 @@ class DepositFlowTest {
     FakeChain f = chain(Chain.ERC20, 10000);
     long id = creditedErc20(uid, f, 10000, "100");
     // 客户已经用掉 80（这里用提现冻结模拟：余额 −80、提现冻结 +80；复制源用的是差价合约的挂单冻结），只剩 20 可以自由动用
-    ledger.apply(new com.forecast.app.ledger.api.LedgerCommand(uid, com.forecast.app.ledger.api.Bucket.BALANCE, new BigDecimal("-80"),
+    ledger.apply(new com.forecast.app.ledger.api.LedgerCommand(uid, com.forecast.app.ledger.api.Bucket.AVAILABLE, new BigDecimal("-80"),
         com.forecast.app.ledger.api.LedgerEntryType.WITHDRAW_FREEZE, "TEST", "frz-" + uid, "测试冻结"));
     ledger.apply(new com.forecast.app.ledger.api.LedgerCommand(uid, com.forecast.app.ledger.api.Bucket.WITHDRAW_FROZEN, new BigDecimal("80"),
         com.forecast.app.ledger.api.LedgerEntryType.WITHDRAW_FREEZE, "TEST", "frz-" + uid, "测试冻结"));
@@ -252,6 +252,29 @@ class DepositFlowTest {
     assertThat(ledger.snapshot(uid).withdrawFrozen()).as("冻结的 80 还在").isEqualByComparingTo("80");
     assertThat(jdbc.queryForObject("SELECT amount FROM wallet_suspense WHERE deposit_id = ?", BigDecimal.class, id)).isEqualByComparingTo("80");
     org.mockito.Mockito.verify(staffMock).notifyStaff(eq("DEPOSIT_SUSPENSE"), org.mockito.ArgumentMatchers.argThat(m -> "80.00000000".equals(m.get("shortfall"))));
+  }
+
+  @Test
+  void 入账后被回滚_下注锁定的钱不扣_只扣可用余额_S2口径() {
+    long uid = newUser();
+    FakeChain f = chain(Chain.ERC20, 11000);
+    long id = creditedErc20(uid, f, 11000, "100");
+    // 客户押了 70（S2 的下注锁定：可用 −70、下注锁定 +70），可用只剩 30；下注中的钱属于奖池，冲正不能动
+    ledger.applyAll(java.util.List.of(
+        new com.forecast.app.ledger.api.LedgerCommand(uid, com.forecast.app.ledger.api.Bucket.AVAILABLE, new BigDecimal("-70"),
+            com.forecast.app.ledger.api.LedgerEntryType.BET_LOCK, "BET", "rev-bet-" + uid, "下注", 1L),
+        new com.forecast.app.ledger.api.LedgerCommand(uid, com.forecast.app.ledger.api.Bucket.BET_LOCKED, new BigDecimal("70"),
+            com.forecast.app.ledger.api.LedgerEntryType.BET_LOCK, "BET", "rev-bet-" + uid, "下注", 1L)));
+    assertThat(funds.withdrawable(uid)).as("可提 = 可用余额，不含下注锁定").isEqualByComparingTo("30");
+    com.forecast.app.notification.api.StaffAlertApi staffMock = org.mockito.Mockito.mock(com.forecast.app.notification.api.StaffAlertApi.class);
+    DepositService service = new DepositService(mapper, clients, addresses, ledger, props, tx, funds, staffMock, notify, confirmations, events);
+    f.reorg(11000);
+    service.run(Chain.ERC20);
+    assertThat(jdbc.queryForObject("SELECT status FROM wallet_deposit WHERE id = ?", String.class, id)).isEqualTo("REVERSED");
+    assertThat(ledger.snapshot(uid).available()).as("可用的 30 扣完").isEqualByComparingTo("0");
+    assertThat(ledger.snapshot(uid).betLocked()).as("下注锁定的 70 不动").isEqualByComparingTo("70");
+    assertThat(jdbc.queryForObject("SELECT amount FROM wallet_suspense WHERE deposit_id = ?", BigDecimal.class, id)).isEqualByComparingTo("70");
+    org.mockito.Mockito.verify(staffMock).notifyStaff(eq("DEPOSIT_SUSPENSE"), org.mockito.ArgumentMatchers.argThat(m -> "70.00000000".equals(m.get("shortfall"))));
   }
 
   /** 记下推给每个用户的事件（代替 WebSocket） */

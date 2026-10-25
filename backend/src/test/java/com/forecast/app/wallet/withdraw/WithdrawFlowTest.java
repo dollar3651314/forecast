@@ -89,7 +89,7 @@ class WithdrawFlowTest {
     jdbc.update("INSERT INTO account_user (id, email, status) VALUES (?, ?, 'ACTIVE')", uid, "wd" + uid + "@example.com");
     ledger.openAccount(uid);
     if (new BigDecimal(deposit).signum() > 0) {
-      ledger.apply(new LedgerCommand(uid, Bucket.BALANCE, new BigDecimal(deposit), LedgerEntryType.DEPOSIT, "TEST", "dep-" + uid, "测试入金"));
+      ledger.apply(new LedgerCommand(uid, Bucket.AVAILABLE, new BigDecimal(deposit), LedgerEntryType.DEPOSIT, "TEST", "dep-" + uid, "测试入金"));
     }
     if (kyc) {
       jdbc.update("INSERT INTO account_kyc_application (user_id, doc_type, doc_number, front_key, back_key, selfie_key, status) VALUES (?, 'PASSPORT', ?, 'f', 'b', 's', 'APPROVED')",
@@ -104,6 +104,8 @@ class WithdrawFlowTest {
     jdbc.update("UPDATE wallet_whitelist SET active_at = created_at - INTERVAL 1 HOUR WHERE id = ?", r.id);
     return r.id;
   }
+
+  @Autowired com.forecast.app.common.config.SystemConfig sysConfig;
 
   String code(Runnable r) {
     try {
@@ -127,7 +129,7 @@ class WithdrawFlowTest {
   }
 
   void ledgerConsistent(long uid) {
-    for (String[] b : new String[][] {{"BALANCE", "balance"}, {"WITHDRAW_FROZEN", "withdraw_frozen"}}) {
+    for (String[] b : new String[][] {{"AVAILABLE", "available"}, {"BET_LOCKED", "bet_locked"}, {"WITHDRAW_FROZEN", "withdraw_frozen"}}) {
       BigDecimal sum = jdbc.queryForObject("SELECT COALESCE(SUM(l.amount), 0) FROM ledger_entry l JOIN ledger_account a ON a.id = l.account_id WHERE a.user_id = ? AND l.bucket = ?",
           BigDecimal.class, uid, b[0]);
       BigDecimal col = jdbc.queryForObject("SELECT " + b[1] + " FROM ledger_account WHERE user_id = ?", BigDecimal.class, uid);
@@ -162,18 +164,52 @@ class WithdrawFlowTest {
     long fresh = whitelist.add(uid, "TRC20", TRON_ADDR, "刚加的").id;
     assertThat(code(() -> withdraws.submit(uid, String.valueOf(w0), "100"))).as("别人的白名单").isEqualTo("NOT_WHITELISTED");
     assertThat(code(() -> withdraws.submit(uid, String.valueOf(fresh), "100"))).as("未满 24 小时").isEqualTo("WHITELIST_NOT_ACTIVE");
-    assertThat(code(() -> withdraws.submit(uid, String.valueOf(active), "9.99"))).isEqualTo("AMOUNT_BELOW_MIN");
+    assertThat(code(() -> withdraws.submit(uid, String.valueOf(active), "99.99"))).as("单笔最小提现默认 100（RQ-16、AC-61）").isEqualTo("AMOUNT_BELOW_MIN");
     assertThat(code(() -> withdraws.submit(uid, String.valueOf(active), "10000.01"))).isEqualTo("AMOUNT_ABOVE_MAX");
     assertThat(code(() -> withdraws.submit(uid, String.valueOf(active), "10000"))).isEqualTo("OK");
     assertThat(code(() -> withdraws.submit(uid, String.valueOf(active), "10000"))).isEqualTo("OK");
     assertThat(code(() -> withdraws.submit(uid, String.valueOf(active), "10000"))).as("累计到 30,000（必须小于）").isEqualTo("DAILY_LIMIT_EXCEEDED");
     assertThat(code(() -> withdraws.submit(uid, String.valueOf(active), "9999"))).isEqualTo("OK");
 
-    long poor = user("50", true);
+    long poor = user("150", true);
     long pa = activeAddress(poor, "ERC20", ETH_ADDR);
-    assertThat(code(() -> withdraws.submit(poor, String.valueOf(pa), "60"))).isEqualTo("INSUFFICIENT_BALANCE");
+    assertThat(code(() -> withdraws.submit(poor, String.valueOf(pa), "160"))).isEqualTo("INSUFFICIENT_BALANCE");
     assertThatThrownBy(() -> withdraws.submit(poor, null, "1.234"))
         .isInstanceOfSatisfying(ValidationException.class, e -> assertThat(e.fields()).extracting(ValidationException.Field::field).containsExactlyInAnyOrder("whitelistId", "amount"));
+  }
+
+  @Test
+  void 单笔最小提现_默认100_后台改成120后立即生效_AC61() {
+    long uid = user("10000", true);
+    long a = activeAddress(uid, "ERC20", ETH_ADDR);
+    assertThat(code(() -> withdraws.submit(uid, String.valueOf(a), "99.99"))).isEqualTo("AMOUNT_BELOW_MIN");
+    assertThat(code(() -> withdraws.submit(uid, String.valueOf(a), "100"))).isEqualTo("OK");
+    try {
+      jdbc.update("UPDATE common_config SET value = '120' WHERE config_key = 'withdraw.minAmount'");
+      sysConfig.refresh();
+      assertThat(code(() -> withdraws.submit(uid, String.valueOf(a), "119.99"))).isEqualTo("AMOUNT_BELOW_MIN");
+      assertThat(code(() -> withdraws.submit(uid, String.valueOf(a), "120"))).isEqualTo("OK");
+    } finally {
+      jdbc.update("UPDATE common_config SET value = '100' WHERE config_key = 'withdraw.minAmount'");
+      sysConfig.refresh();
+    }
+  }
+
+  @Test
+  void 下注锁定的钱不能提现_S2() {
+    long uid = user("200", true);
+    long a = activeAddress(uid, "ERC20", ETH_ADDR);
+    ledger.applyAll(List.of(
+        new LedgerCommand(uid, Bucket.AVAILABLE, new BigDecimal("-150"), LedgerEntryType.BET_LOCK, "BET", "wd-bet-" + uid, "下注", 1L),
+        new LedgerCommand(uid, Bucket.BET_LOCKED, new BigDecimal("150"), LedgerEntryType.BET_LOCK, "BET", "wd-bet-" + uid, "下注", 1L)));
+    assertThat(code(() -> withdraws.submit(uid, String.valueOf(a), "100"))).as("余额 200，其中 150 在下注中，可提只有 50").isEqualTo("INSUFFICIENT_BALANCE");
+    ledger.applyAll(List.of(
+        new LedgerCommand(uid, Bucket.BET_LOCKED, new BigDecimal("-150"), LedgerEntryType.REFUND, "REFUND", "wd-ref-" + uid, "退回", 1L),
+        new LedgerCommand(uid, Bucket.AVAILABLE, new BigDecimal("150"), LedgerEntryType.REFUND, "REFUND", "wd-ref-" + uid, "退回", 1L)));
+    assertThat(code(() -> withdraws.submit(uid, String.valueOf(a), "100"))).as("退回以后可以提").isEqualTo("OK");
+    assertThat(ledger.snapshot(uid).available()).isEqualByComparingTo("100");
+    assertThat(ledger.snapshot(uid).withdrawFrozen()).isEqualByComparingTo("100");
+    ledgerConsistent(uid);
   }
 
   @Test
@@ -331,7 +367,7 @@ class WithdrawFlowTest {
   void 没有广播器的链_提现停在待上链() {
     long uid = user("1000", true);
     long a = activeAddress(uid, "BSC", ETH_ADDR);
-    WithdrawalRow w = reviewing(uid, a, "50");
+    WithdrawalRow w = reviewing(uid, a, "150");
     withdraws.approve(w.id, 9L);
     withdraws.advance();
     assertThat(status(w.id)).isEqualTo("APPROVED");
@@ -369,11 +405,11 @@ class WithdrawFlowTest {
     Cookie c = mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content("{\"email\":\"" + email + "\",\"code\":\"" + p.getValue().get("code")
         + "\",\"password\":\"password123\",\"firstName\":\"A\",\"lastName\":\"B\",\"birthDate\":\"1990-05-01\",\"nationality\":\"CN\"}")).andReturn().getResponse().getCookie("fc_session");
     long uid = jdbc.queryForObject("SELECT id FROM account_user WHERE email = ?", Long.class, email);
-    ledger.apply(new LedgerCommand(uid, Bucket.BALANCE, new BigDecimal("1000"), LedgerEntryType.DEPOSIT, "TEST", "dep-" + uid, "测试入金"));
+    ledger.apply(new LedgerCommand(uid, Bucket.AVAILABLE, new BigDecimal("1000"), LedgerEntryType.DEPOSIT, "TEST", "dep-" + uid, "测试入金"));
 
     String info = mvc.perform(get("/api/wallet/withdraw-info").cookie(c)).andReturn().getResponse().getContentAsString();
     assertThat(info).contains("\"kycStatus\":\"none\"").contains("\"available\":\"1000.00\"").contains("\"usedToday\":\"0.00\"")
-        .contains("\"minAmount\":\"10.00\"").contains("\"dailyLimit\":\"30000.00\"").contains("\"largeDelayHours\":6").contains("\"coolingHours\":2")
+        .contains("\"minAmount\":\"100.00\"").contains("\"dailyLimit\":\"30000.00\"").contains("\"largeDelayHours\":6").contains("\"coolingHours\":2")
         .contains("\"fees\":{\"ERC20\":\"5.00\",\"BSC\":\"0.50\",\"TRC20\":\"1.00\"}").contains("\"maxWhitelist\":10");
 
     String wl = mvc.perform(post("/api/wallet/whitelist").cookie(c).contentType(MediaType.APPLICATION_JSON)

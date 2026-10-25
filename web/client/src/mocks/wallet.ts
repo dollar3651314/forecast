@@ -180,7 +180,7 @@ export function submitWithdraw(req: WithdrawRequest): Promise<Withdrawal> {
       coolingEndsAt: new Date(now + i.coolingHours * 3_600_000).toISOString(),
     };
     db.withdrawals.unshift(w);
-    db.account.balance = toFixed(sub(dec(db.account.balance), dec(w.amount)), 2);
+    db.account.available = toFixed(sub(dec(db.account.available), dec(w.amount)), 2);
     db.account.withdrawFrozen = toFixed(add(dec(db.account.withdrawFrozen), dec(w.amount)), 2);
     db.ledger.unshift({ id: nextId('L'), type: 'withdraw', amount: toFixed(dec(`-${w.amount}`), 2), ref: w.network, time: w.createdAt });
     pushNotification(
@@ -200,7 +200,7 @@ export function cancelWithdraw(id: string): Promise<Withdrawal> {
     if (w.status !== 'cooling' || new Date(w.coolingEndsAt).getTime() < Date.now()) throw new ApiError('withdrawNotCancellable');
     w.status = 'cancelled';
     // 冷静期内撤销：冻结金额立即释放（AC-18）
-    db.account.balance = toFixed(add(dec(db.account.balance), dec(w.amount)), 2);
+    db.account.available = toFixed(add(dec(db.account.available), dec(w.amount)), 2);
     db.account.withdrawFrozen = toFixed(sub(dec(db.account.withdrawFrozen), dec(w.amount)), 2);
     db.ledger.unshift({ id: nextId('L'), type: 'withdrawRefund', amount: w.amount, ref: w.network, time: new Date().toISOString() });
     emit({ type: 'account' });

@@ -1,5 +1,5 @@
 /**
- * 账户的全局状态：余额、可用、提现冻结。数据来自 GET /api/ledger/account，收到推送 `account` 时重新拉取。
+ * 账户的全局状态：余额、可用、下注中、提现冻结。数据来自 GET /api/ledger/account，收到推送 `account` 时重新拉取。
  * forecast S1：复制源按实时报价计算净值、浮动盈亏、保证金水平的部分随差价合约删除。
  */
 import { useMemo, type ReactNode } from 'react';
@@ -17,7 +17,10 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   });
 
   const metrics = useMemo<AccountMetrics | undefined>(
-    () => (acc.data ? { balance: dec(acc.data.balance), available: dec(acc.data.available), withdrawFrozen: dec(acc.data.withdrawFrozen) } : undefined),
+    () =>
+      acc.data
+        ? { balance: dec(acc.data.balance), available: dec(acc.data.available), betLocked: dec(acc.data.betLocked), withdrawFrozen: dec(acc.data.withdrawFrozen) }
+        : undefined,
     [acc.data],
   );
 

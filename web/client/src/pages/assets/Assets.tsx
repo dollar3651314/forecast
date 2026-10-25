@@ -1,4 +1,4 @@
-/** 资产：余额 / 可用 / 提现冻结；充值；最近资金流水（复制源的净值、保证金、挂单冻结在 forecast S1 删除，S2 起加下注锁定）。 */
+/** 资产：余额 / 可用 / 下注中 / 提现冻结；充值；最近资金流水（复制源的净值、保证金、挂单冻结在 forecast S1 删除，S2 加下注中）。 */
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
@@ -38,10 +38,13 @@ function Overview() {
           <span className="num">{show(metrics.available)}</span>
         </div>
         <div>
+          {t('assets.betLocked')}
+          <span className="num">{show(metrics.betLocked)}</span>
+        </div>
+        <div>
           {t('assets.frozenWithdraw')}
           <span className="num">{show(metrics.withdrawFrozen)}</span>
         </div>
-        <div />
       </div>
     </section>
   );

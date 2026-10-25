@@ -41,17 +41,17 @@ class LedgerServiceTest {
   }
 
   private static LedgerCommand cmd(long user, String amount, LedgerEntryType type, String bizId) {
-    return new LedgerCommand(user, Bucket.BALANCE, new BigDecimal(amount), type, "TEST", bizId, null);
+    return new LedgerCommand(user, Bucket.AVAILABLE, new BigDecimal(amount), type, "TEST", bizId, null);
   }
 
   private BigDecimal balance(long user) {
     return ledger.snapshot(user).balance();
   }
 
-  /** 约定 1 的检查：账本里 BALANCE 的变动加起来等于账户余额 */
+  /** 约定 4 的检查：账本里可用余额（AVAILABLE）的变动加起来等于账户余额 */
   private void assertLedgerMatches(long user) {
     BigDecimal sum = jdbc.queryForObject(
-        "SELECT COALESCE(SUM(l.amount),0) FROM ledger_entry l JOIN ledger_account a ON a.id = l.account_id WHERE a.user_id = ? AND l.bucket = 'BALANCE'", BigDecimal.class, user);
+        "SELECT COALESCE(SUM(l.amount),0) FROM ledger_entry l JOIN ledger_account a ON a.id = l.account_id WHERE a.user_id = ? AND l.bucket = 'AVAILABLE'", BigDecimal.class, user);
     assertThat(sum).isEqualByComparingTo(balance(user));
   }
 

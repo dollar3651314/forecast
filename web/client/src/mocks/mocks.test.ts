@@ -11,9 +11,9 @@ describe('模拟层场景切换', () => {
     resetDb();
   });
 
-  it('正常数据：账户可用 = 余额；流水只有充值和提现，超过一页', async () => {
+  it('正常数据：余额 = 可用 + 下注中（S2）；流水只有充值和提现，超过一页', async () => {
     const a = await getAccount();
-    expect(a.available).toBe(a.balance);
+    expect(a).toMatchObject({ balance: '129656.79', available: '128456.79', betLocked: '1200.00' });
     const ledger = await listLedger({ type: 'all', range: 'all', page: 1, pageSize: 20 });
     expect(ledger.total).toBeGreaterThan(20);
     expect(new Set(ledger.items.map((x) => x.type))).toEqual(new Set(['deposit', 'withdraw', 'withdrawRefund']));

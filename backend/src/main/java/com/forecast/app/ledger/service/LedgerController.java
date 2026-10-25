@@ -23,15 +23,21 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 class LedgerController {
 
-  /** S1 时 available = balance（没有下注锁定）；S2 起拆成可用余额、下注锁定、提现冻结三项 */
-  record AccountView(String currency, String balance, String withdrawFrozen, String available) {}
+  /**
+   * 账户的三项（S2）：available 可用余额（可以提现、下注）、betLocked 下注锁定（客户端"下注中"）、withdrawFrozen 提现冻结；
+   * balance 是客户看到的余额 = available + betLocked（不含提现冻结，和 S1 的含义一致）。
+   */
+  record AccountView(String currency, String balance, String available, String betLocked, String withdrawFrozen) {}
 
   /** 资金流水的一条；ref 是相关的网络（例如充值 TRC20），没有时为空字符串 */
   record LedgerView(String id, String type, String amount, String ref, String time) {}
 
   record Page<T>(List<T> items, long total, int page, int pageSize) {}
 
-  /** 客户端流水类型 → 账本类型（只看余额的变动）。S2 起加下注、派彩、退款、补偿 */
+  /**
+   * 客户端流水类型 → 账本类型（只看可用余额的变动）。下注、派彩、抽成、退款、补偿在客户端有对应的显示以后再加（S4、S5，见开发记录/S2-账本拆分.md）；
+   * 没列在这里的类型不会出现在客户端流水里。
+   */
   static final Map<String, List<String>> LEDGER_TYPES = new LinkedHashMap<>();
 
   static {
@@ -53,10 +59,10 @@ class LedgerController {
   @GetMapping("/api/ledger/account")
   AccountView account() {
     AccountSnapshot a = ledger.snapshot(CurrentUser.id());
-    return new AccountView("USDT", money(a.balance()), money(a.withdrawFrozen()), money(a.balance()));
+    return new AccountView("USDT", money(a.balance()), money(a.available()), money(a.betLocked()), money(a.withdrawFrozen()));
   }
 
-  /** 资金流水：余额的变动，最新在前。type：deposit / withdraw / withdrawRefund，不传或 all 表示全部；range：7d / 30d / 90d / all */
+  /** 资金流水：可用余额的变动，最新在前。type：deposit / withdraw / withdrawRefund，不传或 all 表示全部；range：7d / 30d / 90d / all */
   @GetMapping("/api/ledger/entries")
   Page<LedgerView> entries(@RequestParam(required = false) String type, @RequestParam(defaultValue = "30d") String range,
       @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize) {
