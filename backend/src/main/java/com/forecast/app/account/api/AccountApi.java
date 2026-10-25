@@ -31,6 +31,9 @@ public interface AccountApi {
    */
   boolean isStaff(long userId);
 
+  /** 一批客户里哪些是员工账户（forecast S5：结算时退回员工的下注，E15）；不存在的用户不在结果里 */
+  java.util.Set<Long> staffAmong(java.util.Collection<Long> userIds);
+
   /** 当前 KYC 状态。提现前要求 APPROVED（需求 4.1-6）；forecast S4 起累计充值超过 KYC 阈值时下注也要求 APPROVED（第 3.10 节）。 */
   KycStatus kycStatus(long userId);
 

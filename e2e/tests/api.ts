@@ -38,8 +38,8 @@ export async function adminSession(anon: APIRequestContext): Promise<APIRequestC
   return withCookie(cookieOf(changed, 'fc_admin_session'));
 }
 
-/** 注册一个客户（验证码从 e2e 邮件替身取），返回带登录 Cookie 的请求上下文和 Cookie 本身（WebSocket 握手用） */
-export async function clientSession(anon: APIRequestContext, prefix = 'mk'): Promise<{ api: APIRequestContext; cookie: string }> {
+/** 注册一个客户（验证码从 e2e 邮件替身取），返回带登录 Cookie 的请求上下文、Cookie 本身（WebSocket 握手用）和邮箱 */
+export async function clientSession(anon: APIRequestContext, prefix = 'mk'): Promise<{ api: APIRequestContext; cookie: string; email: string }> {
   const email = `${prefix}_${uniqueId()}@example.com`;
   await json(await anon.post('/api/auth/email-code', { data: { email, purpose: 'REGISTER' } }), '发验证码');
   const code = await e2e.mailCode(anon, email);
@@ -48,8 +48,20 @@ export async function clientSession(anon: APIRequestContext, prefix = 'mk'): Pro
   });
   await json(r, '注册');
   const cookie = cookieOf(r, 'fc_session');
-  return { api: await withCookie(cookie), cookie };
+  return { api: await withCookie(cookie), cookie, email };
 }
 
 /** 三种语言的测试文字 */
 export const t = (s: string) => ({ en: `${s} (en)`, zhCN: `${s}（简）`, zhTW: `${s}（繁）` });
+
+/** 用链替身给客户充值（TRC20），等到账（forecast S5 起和下注用例共用） */
+export async function fund(anon: APIRequestContext, client: APIRequestContext, amount: string): Promise<void> {
+  const list = await json<{ network: string; address: string }[]>(await client.get('/api/wallet/addresses'), '充值地址');
+  const trc = list.find((a) => a.network === 'TRC20');
+  expect(trc, 'TRC20 地址').toBeTruthy();
+  await e2e.deposit(anon, 'TRC20', trc!.address, amount);
+  await e2e.mine(anon, 'TRC20', 25);
+  await expect
+    .poll(async () => (await json<{ available: string }>(await client.get('/api/ledger/account'), '账户')).available, { message: '等充值到账', timeout: 20_000 })
+    .toBe(amount);
+}

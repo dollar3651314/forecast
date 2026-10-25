@@ -46,7 +46,7 @@ class LedgerController {
   record Page<T>(List<T> items, long total, int page, int pageSize) {}
 
   /**
-   * 客户端流水类型 → 账本类型（只看可用余额的变动）。S4 加下注（BET_LOCK 的"可用 −b"那一条）；派彩、抽成、退款、补偿和结算一起在 S5、S7 加
+   * 客户端流水类型 → 账本类型（只看可用余额的变动）。S4 加下注（BET_LOCK 的"可用 −b"那一条）；S5 加派彩、抽成、退款（REFUND 的"可用 +b"那一条）；补偿在 S7 加
    * （开发记录/S2-账本拆分.md、S4-下注奖池.md）。没列在这里的类型不会出现在客户端流水里。
    */
   static final Map<String, List<String>> LEDGER_TYPES = new LinkedHashMap<>();
@@ -56,6 +56,10 @@ class LedgerController {
     LEDGER_TYPES.put("withdraw", List.of("WITHDRAW_FREEZE"));
     LEDGER_TYPES.put("withdrawRefund", List.of("WITHDRAW_UNFREEZE"));
     LEDGER_TYPES.put("bet", List.of("BET_LOCK"));
+    // S5：派彩（本金 + 盈利）、抽成、下注退回（取消、作废、晚于开赛、员工）；补偿在 S7
+    LEDGER_TYPES.put("payout", List.of("PAYOUT"));
+    LEDGER_TYPES.put("fee", List.of("FEE"));
+    LEDGER_TYPES.put("refund", List.of("REFUND"));
   }
 
   private final LedgerApi ledger;

@@ -75,8 +75,12 @@ class PoolCloseTest extends PoolTestSupport {
     assertThat(status(one)).isEqualTo("VOIDED");
     assertThat(status(none)).isEqualTo("VOIDED");
     assertThat(jdbc.queryForObject("SELECT void_reason FROM market_question WHERE id = ?", String.class, one.id())).isEqualTo("NOT_ENOUGH_OPTIONS");
+    // S5：作废的同一事务里全额退款（batch-size = 0），退款同步扣持仓和奖池（含定格的），退款前的奖池记在退款单上
+    assertThat(jdbc.queryForObject("SELECT pool_total FROM settle_run WHERE market_id = ? AND kind = 'REFUND'", java.math.BigDecimal.class, one.id()))
+        .as("截止时定格的奖池 30 全额退回").isEqualByComparingTo("30");
     assertThat(jdbc.queryForObject("SELECT SUM(final_amount) FROM pool_option_total WHERE market_id = ?", java.math.BigDecimal.class, one.id()))
-        .as("作废前也定格了（S5 按它全额退款）").isEqualByComparingTo("30");
+        .as("退完以后定格的奖池扣到 0（Σ有效下注 = Σ奖池）").isEqualByComparingTo("0");
+    assertThat(available(a.id())).isEqualByComparingTo("500");
     assertThat(jdbc.queryForObject("SELECT status FROM pool_market WHERE market_id = ?", String.class, one.id())).isEqualTo("VOIDED");
     // 我的下注：作废的市场归到"已退回"（S5 退款前也是）
     JsonNode mine = getJson("/api/me/bets?tab=refunded", a.cookie());

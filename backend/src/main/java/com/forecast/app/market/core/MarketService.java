@@ -18,6 +18,7 @@ import com.forecast.app.market.api.MarketListener;
 import com.forecast.app.market.api.MarketPoolView;
 import com.forecast.app.market.api.MarketStatus;
 import com.forecast.app.market.api.ResolutionMode;
+import com.forecast.app.market.api.SettlePhase;
 import com.forecast.app.ledger.api.MarketLabels;
 import com.forecast.app.notification.api.NotifyApi;
 import java.math.BigDecimal;
@@ -181,6 +182,36 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
   @Transactional
   public boolean transition(long marketId, MarketStatus from, MarketStatus to, String actor, String reason) {
     return move(marketId, from, to, actor, reason, null, now());
+  }
+
+  @Override
+  @Transactional(propagation = Propagation.MANDATORY)
+  public SettleTarget lockForSettle(long marketId) {
+    MarketRows.Market m = mapper.lockById(marketId);
+    if (m == null || m.deletedAt != null || status(m) == MarketStatus.DRAFT) throw new BizException("NOT_FOUND", "市场不存在");
+    List<OptionRef> opts = mapper.options(m.id).stream().map(MarketService::optionRef).toList();
+    return new SettleTarget(m.id, m.publicNo, status(m), SettlePhase.valueOf(m.settlePhase), MarketCategory.valueOf(m.category), m.feeRate,
+        instant(m.closeAt), m.actualStartAt == null ? null : instant(m.actualStartAt), m.winningOptionId, title(m), opts);
+  }
+
+  @Override
+  @Transactional(propagation = Propagation.MANDATORY)
+  public boolean recordResult(long marketId, long winningOptionId, Instant actualStartAt, String resolvedBy) {
+    if (mapper.options(marketId).stream().noneMatch(o -> o.id == winningOptionId)) throw new BizException("OPTION_NOT_FOUND", "选项不存在");
+    return mapper.setResult(marketId, winningOptionId, actualStartAt == null ? null : ldt(actualStartAt.truncatedTo(ChronoUnit.MILLIS)),
+        resolvedBy == null ? null : cut(resolvedBy, 32), now()) == 1;
+  }
+
+  @Override
+  @Transactional(propagation = Propagation.MANDATORY)
+  public boolean casSettlePhase(long marketId, SettlePhase from, SettlePhase to) {
+    boolean ok = mapper.casSettlePhase(marketId, from.name(), to.name(), now()) == 1;
+    // 进入"结算中"、完成或异常：客户端详情里的状态变了，推送一次（状态本身没变）
+    if (ok) {
+      MarketRows.Market m = mapper.findById(marketId);
+      if (m != null) poolChanged(marketId, status(m));
+    }
+    return ok;
   }
 
   /**
@@ -555,7 +586,14 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
     List<ClientViews.FeeChange> fees = mapper.feeChanges(m.id).stream().map(f -> new ClientViews.FeeChange(percent(f.oldRate), percent(f.newRate), iso(f.changedAt))).toList();
     return Optional.of(new ClientViews.Detail(String.valueOf(m.publicNo), m.category, title(m), rules(m), status(m).api(), m.resolutionMode, m.sourcePrimary,
         m.sourceBackup, iso(m.openAt), iso(m.closeAt), iso(m.eventStartAt), iso(m.eventEndAt), percent(m.feeRate), money(m.userCap), m.disputeWindowMin,
-        m.coverPath, m.cancelReason, m.voidReason, options, cl, fees, poolView));
+        m.coverPath, m.cancelReason, m.voidReason, winningOptionNo(m, optionRows), SettlePhase.PAYING.name().equals(m.settlePhase), options, cl, fees,
+        poolView));
+  }
+
+  /** 已结算的市场才公开结果（S5 超管填的结果；公示中的拟定结果在 S7 另给） */
+  private static String winningOptionNo(MarketRows.Market m, List<MarketRows.Option> options) {
+    if (m.winningOptionId == null || status(m) != MarketStatus.SETTLED) return null;
+    return options.stream().filter(o -> o.id.equals(m.winningOptionId)).findFirst().map(o -> String.valueOf(o.publicNo)).orElse(null);
   }
 
   /** 客户端接口里的奖池（pool 模块提供；没有 pool 模块时没有这个字段的值） */
@@ -770,10 +808,13 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
   // 小工具
   // =====================================================================
 
+  /**
+   * 按对外编号锁市场行（排他）。<b>事务里的第一次读就是这个加锁读</b>（S5 改）：market 的事务是可重复读，快照建在第一次普通读时；
+   * 原来先普通读再加锁，快照停在加锁之前，在这之间提交的下注同一事务里读不到（取消时的退款单、提前截止的退回、#22 的名单会漏掉它）。
+   * 现在先加锁，之后的普通读才建快照，看得到锁之前提交的全部下注。
+   */
   private MarketRows.Market lock(long publicNo) {
-    MarketRows.Market found = mapper.findByPublicNo(publicNo);
-    if (found == null) throw new BizException("NOT_FOUND", "市场不存在");
-    MarketRows.Market m = mapper.lockById(found.id);
+    MarketRows.Market m = mapper.lockByPublicNo(publicNo);
     if (m == null || m.deletedAt != null) throw new BizException("NOT_FOUND", "市场不存在");
     return m;
   }

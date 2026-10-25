@@ -44,6 +44,20 @@ interface NotifyMapper {
 
   List<Rows.PushSubRow> pushSubs(@Param("userId") long userId);
 
+  // ---------- 批量发送（NotifyApi.toUsers，forecast S5） ----------
+
+  /** 一批客户的通知偏好（没有设置过的不在结果里，按默认值） */
+  List<Rows.PrefUserRow> prefsOf(@Param("userIds") java.util.Collection<Long> userIds);
+
+  /** 一批客户的推送订阅 */
+  List<Rows.PushSubRow> pushSubsOf(@Param("userIds") java.util.Collection<Long> userIds);
+
+  /** 多行插入站内信，回填 id */
+  int insertMessages(@Param("rows") List<Rows.MessageRow> rows);
+
+  /** 多行插入通知记录，回填 id */
+  int insertRecords(@Param("rows") List<Rows.RecordRow> rows);
+
   Rows.PushSubRow pushSub(@Param("id") long id);
 
   int deletePushSub(@Param("id") long id);

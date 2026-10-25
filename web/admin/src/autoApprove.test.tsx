@@ -71,6 +71,9 @@ describe('判定说明的文字', () => {
     expect(ruleLine(t, r('R8', 'disabled'))).toBe('未启用（不参与判定）');
     expect(ruleLine(t, r('R8', 'passed', { volume: '0', deposit: '0', ratio: '—', limit: '1', note: 'noDeposit' }))).toBe('近 30 天没有充值，不检查');
     expect(ruleLine(t, r('R12', 'failed', { issues: 'hotWalletUnknown', balance: '—', need: '99' }))).toBe('查不到热钱包余额（超过 10 分钟没查成功），按不通过处理');
+    // forecast S5（AC-38）：彩池对账有未处理的差异；和热钱包一起不通过时都列出
+    expect(ruleLine(t, r('R12', 'failed', { issues: 'poolRecon', poolIssues: '2', balance: '9,999', need: '99' }))).toBe('彩池对账有 2 个未处理的差异');
+    expect(ruleLine(t, r('R12', 'failed', { issues: 'poolRecon,hotWallet', poolIssues: '1', balance: '1', need: '99' }))).toMatch(/^彩池对账有 1 个未处理的差异.+热钱包余额 1 < 需要 99$/);
     expect(ruleLine(t, r('R7', 'failed', { days: '3', limit: '7', kyc: 'pending' }))).toBe('注册 3 天（要求 ≥ 7 天）· KYC 待审核');
     expect(ruleLine(t, r('R3', 'unknown', { why: '数据读取失败' }))).toBe('无法判定：数据读取失败（按未通过处理）');
   });

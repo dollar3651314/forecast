@@ -61,6 +61,8 @@ services:
       FC_ALERT_EMAILS: ${FC_ALERT_EMAILS:-}
       # 雪花 ID 节点号（单实例 1）
       FC_ID_NODE: ${FC_ID_NODE:-1}
+      # 结算派彩每批的持仓数（forecast S5）：0 = 计算和派彩同一个事务（需求原文，默认）；AQ-3 选 B 时 500
+      FC_SETTLE_BATCH_SIZE: ${FC_SETTLE_BATCH_SIZE:-0}
       # 区块链（D4 第二步才填，全部用测试网）；没配置的链不扫块
       FC_WALLET_ETH_XPUB: ${FC_WALLET_ETH_XPUB:-}
       FC_WALLET_TRON_XPUB: ${FC_WALLET_TRON_XPUB:-}

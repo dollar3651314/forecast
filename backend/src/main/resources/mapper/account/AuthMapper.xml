@@ -15,6 +15,10 @@
     SELECT is_staff FROM account_user WHERE id = #{id}
   </select>
 
+  <select id="staffAmong" resultType="long">
+    SELECT id FROM account_user WHERE is_staff = 1 AND id IN <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
+  </select>
+
   <insert id="insertUser" useGeneratedKeys="true" keyProperty="id">
     INSERT INTO account_user (email, password_hash) VALUES (#{email}, #{passwordHash})
   </insert>

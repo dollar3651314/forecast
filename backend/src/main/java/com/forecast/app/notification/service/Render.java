@@ -9,7 +9,7 @@ import java.util.regex.Pattern;
 /**
  * 按模板生成标题和正文。
  * <ul>
- *   <li>{@code {变量}} 换成变量的值；枚举值（提现状态、买卖方向、止盈止损、KYC 结果）按语言翻译。</li>
+ *   <li>{@code {变量}} 换成变量的值；枚举值（提现状态、买卖方向、止盈止损、KYC 结果；forecast S5 起退款种类和系统作废的原因代码）按语言翻译。</li>
  *   <li>某一行里有变量没有值时，整行不显示（例如没有驳回原因时不显示"原因"那一行）。</li>
  * </ul>
  */
@@ -38,7 +38,17 @@ final class Render {
           "SL", new String[] {"止损", "stop loss"}),
       "result", Map.of(
           "APPROVED", new String[] {"已通过，现在可以提现", "has been approved. You can now withdraw"},
-          "REJECTED", new String[] {"未通过", "was rejected"}));
+          "REJECTED", new String[] {"未通过", "was rejected"}),
+      // forecast S5：市场取消 / 作废退款（#13）。refundReason 是系统作废的原因代码；取消、人工作废时是运营填的原因，原样显示
+      "refundKind", Map.of(
+          "CANCELLED", new String[] {"已取消", "was cancelled"},
+          "VOIDED", new String[] {"已作废", "was voided"}),
+      "refundReason", Map.of(
+          "NOT_ENOUGH_OPTIONS", new String[] {"截止时有人押的选项不足 2 个，按规则作废", "fewer than two options had bets at the close, so the market was voided under the rules"},
+          "NO_WINNER", new String[] {"没有人押结果对应的选项，按规则作废", "nobody bet on the winning option, so the market was voided under the rules"},
+          "NO_POOL", new String[] {"退回晚于开赛的下注后奖池为 0，按规则作废", "after refunding bets placed after the start the pool was empty, so the market was voided"},
+          "CANCELLED", new String[] {"市场已取消", "the market was cancelled"},
+          "VOIDED", new String[] {"市场已作废", "the market was voided"}));
 
   record Text(String title, String body) {}
 

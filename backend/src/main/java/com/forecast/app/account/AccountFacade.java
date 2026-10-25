@@ -58,6 +58,11 @@ class AccountFacade implements AccountApi {
   }
 
   @Override
+  public java.util.Set<Long> staffAmong(java.util.Collection<Long> userIds) {
+    return auth.staffAmong(userIds);
+  }
+
+  @Override
   public KycStatus kycStatus(long userId) {
     return kyc.status(userId);
   }

@@ -73,6 +73,29 @@
     ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), p256dh = VALUES(p256dh), auth = VALUES(auth), created_at = VALUES(created_at)
   </insert>
 
+  <!-- 批量发送（NotifyApi.toUsers，forecast S5） -->
+  <select id="prefsOf" resultType="com.forecast.app.notification.service.Rows$PrefUserRow">
+    SELECT user_id, push_enabled, email_enabled, lang FROM notify_pref
+    WHERE user_id IN <foreach collection="userIds" item="u" open="(" separator="," close=")">#{u}</foreach>
+  </select>
+
+  <select id="pushSubsOf" resultType="com.forecast.app.notification.service.Rows$PushSubRow">
+    SELECT id, user_id, endpoint, p256dh, auth FROM notify_push_sub
+    WHERE user_id IN <foreach collection="userIds" item="u" open="(" separator="," close=")">#{u}</foreach> ORDER BY user_id, id
+  </select>
+
+  <insert id="insertMessages" useGeneratedKeys="true" keyProperty="rows.id" keyColumn="id">
+    INSERT INTO notify_message (user_id, kind, template_code, params, title, body, created_at) VALUES
+    <foreach collection="rows" item="m" separator=",">(#{m.userId}, #{m.kind}, #{m.templateCode}, #{m.params}, #{m.title}, #{m.body}, #{m.createdAt})</foreach>
+  </insert>
+
+  <insert id="insertRecords" useGeneratedKeys="true" keyProperty="rows.id" keyColumn="id">
+    INSERT INTO notify_record (user_id, recipient, source, template_code, channel, title, status, error, operator_id, created_at) VALUES
+    <foreach collection="rows" item="r" separator=",">
+      (#{r.userId}, #{r.recipient}, #{r.source}, #{r.templateCode}, #{r.channel}, #{r.title}, #{r.status}, #{r.error}, #{r.operatorId}, #{r.createdAt})
+    </foreach>
+  </insert>
+
   <select id="pushSubs" resultType="com.forecast.app.notification.service.Rows$PushSubRow">
     SELECT id, user_id, endpoint, p256dh, auth FROM notify_push_sub WHERE user_id = #{userId} ORDER BY id
   </select>

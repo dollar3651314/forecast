@@ -90,4 +90,31 @@ interface PoolMapper {
 
   /** 一个市场有效下注的合计（对账、测试用） */
   BigDecimal sumActiveBets(@Param("marketId") long marketId);
+
+  // ---------- 结算、退款（PoolSettleApi，forecast S5；settle 的事务里调用） ----------
+
+  /** 金额 &gt; 0 的持仓，按 user_id、id */
+  List<PoolRows.Position> settlePositions(@Param("marketId") long marketId);
+
+  /** 有效下注：from 不为空时只要收到时间 ≥ from 的；userIds 不为空时只要这些客户的 */
+  List<PoolRows.Bet> activeBets(@Param("marketId") long marketId, @Param("from") LocalDateTime from, @Param("userIds") Collection<Long> userIds);
+
+  BigDecimal sumPositions(@Param("marketId") long marketId);
+
+  /** 状态副本还不是终点的市场 */
+  List<Long> openMarkets();
+
+  /** 锁住这些还有效的下注（存在的行，只加行锁），返回锁到的 */
+  List<PoolRows.Bet> lockActiveBets(@Param("marketId") long marketId, @Param("ids") Collection<Long> ids);
+
+  int markRefunded(@Param("ids") Collection<Long> ids, @Param("reason") String reason, @Param("at") LocalDateTime at);
+
+  /** 持仓扣掉这些下注（同一客户同一选项合计） */
+  int subtractFromPositions(@Param("marketId") long marketId, @Param("ids") Collection<Long> ids, @Param("now") LocalDateTime now);
+
+  /** 选项奖池扣掉这些下注（截止后定格的 final_amount 一起扣） */
+  int subtractFromTotals(@Param("ids") Collection<Long> ids, @Param("now") LocalDateTime now);
+
+  /** 按剩下的持仓重算这些选项的人数（定格的人数一起） */
+  int recountBettors(@Param("marketId") long marketId, @Param("optionIds") Collection<Long> optionIds);
 }

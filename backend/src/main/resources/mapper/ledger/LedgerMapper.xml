@@ -41,6 +41,33 @@
     VALUES (#{accountId}, #{bucket}, #{entryType}, #{amount}, #{valueAfter}, #{bizType}, #{bizId}, #{refMarketId}, #{remark})
   </insert>
 
+  <!-- 批量记账（LedgerApi.applyBatch，forecast S5）：一批几百个账户，几条语句 -->
+  <select id="lockAccounts" resultType="com.forecast.app.ledger.service.AccountRow">
+    SELECT <include refid="accountCols"/> FROM ledger_account WHERE user_id IN
+    <foreach collection="userIds" item="u" open="(" separator="," close=")">#{u}</foreach>
+    ORDER BY user_id FOR UPDATE
+  </select>
+
+  <select id="findEntries" resultType="com.forecast.app.ledger.service.LedgerMapper$EntryKeyRow">
+    SELECT id, account_id, biz_id, entry_type, bucket, amount FROM ledger_entry
+    WHERE biz_type = #{bizType} AND biz_id IN <foreach collection="bizIds" item="b" open="(" separator="," close=")">#{b}</foreach>
+  </select>
+
+  <update id="updateAccounts">
+    UPDATE ledger_account SET
+      available = CASE id <foreach collection="rows" item="r">WHEN #{r.id} THEN #{r.available} </foreach>END,
+      bet_locked = CASE id <foreach collection="rows" item="r">WHEN #{r.id} THEN #{r.betLocked} </foreach>END,
+      withdraw_frozen = CASE id <foreach collection="rows" item="r">WHEN #{r.id} THEN #{r.withdrawFrozen} </foreach>END
+    WHERE id IN <foreach collection="rows" item="r" open="(" separator="," close=")">#{r.id}</foreach>
+  </update>
+
+  <insert id="insertEntries">
+    INSERT INTO ledger_entry (account_id, bucket, entry_type, amount, value_after, biz_type, biz_id, ref_market_id, remark) VALUES
+    <foreach collection="entries" item="e" separator=",">
+      (#{e.accountId}, #{e.bucket}, #{e.entryType}, #{e.amount}, #{e.valueAfter}, #{e.bizType}, #{e.bizId}, #{e.refMarketId}, #{e.remark})
+    </foreach>
+  </insert>
+
   <resultMap id="keyAmount" type="com.forecast.app.ledger.service.LedgerMapper$KeyAmount">
     <constructor>
       <arg column="k" javaType="string"/>

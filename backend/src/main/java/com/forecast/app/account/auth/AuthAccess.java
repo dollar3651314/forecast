@@ -32,6 +32,10 @@ public class AuthAccess {
     return auth.isStaff(userId);
   }
 
+  public java.util.Set<Long> staffAmong(java.util.Collection<Long> userIds) {
+    return auth.staffAmong(userIds);
+  }
+
   public String email(long userId) {
     return auth.user(userId).email();
   }

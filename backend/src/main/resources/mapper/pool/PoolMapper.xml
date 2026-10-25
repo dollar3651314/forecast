@@ -170,4 +170,64 @@
   <select id="sumActiveBets" resultType="java.math.BigDecimal">
     SELECT COALESCE(SUM(amount), 0) FROM pool_bet WHERE market_id = #{marketId} AND status = 'ACTIVE'
   </select>
+
+  <!--
+    结算、退款（forecast S5，PoolSettleApi）：settle 的事务里调用，市场已经不能下注（市场行排他锁之内，或已取消 / 作废）。
+    退款的加锁顺序和下注一样：客户账户行（调用方先记账）→ pool_bet → pool_position → pool_option_total。
+  -->
+  <select id="settlePositions" resultType="com.forecast.app.pool.bet.PoolRows$Position">
+    SELECT id, user_id, market_id, option_id, amount, bet_count, created_at, updated_at FROM pool_position
+    WHERE market_id = #{marketId} AND amount &gt; 0 ORDER BY user_id, id
+  </select>
+
+  <select id="activeBets" resultType="com.forecast.app.pool.bet.PoolRows$Bet">
+    SELECT <include refid="betCols"/> FROM pool_bet b WHERE b.market_id = #{marketId} AND b.status = 'ACTIVE'
+    <if test="from != null">AND b.received_at &gt;= #{from}</if>
+    <if test="userIds != null">AND b.user_id IN <foreach collection="userIds" item="u" open="(" separator="," close=")">#{u}</foreach></if>
+    ORDER BY b.user_id, b.id
+  </select>
+
+  <select id="openMarkets" resultType="long">
+    SELECT market_id FROM pool_market WHERE status NOT IN ('SETTLED', 'CANCELLED', 'VOIDED') ORDER BY market_id
+  </select>
+
+  <select id="sumPositions" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(amount), 0) FROM pool_position WHERE market_id = #{marketId}
+  </select>
+
+  <select id="lockActiveBets" resultType="com.forecast.app.pool.bet.PoolRows$Bet">
+    SELECT <include refid="betCols"/> FROM pool_bet b
+    WHERE b.id IN <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
+      AND b.market_id = #{marketId} AND b.status = 'ACTIVE'
+    ORDER BY b.id FOR UPDATE
+  </select>
+
+  <update id="markRefunded">
+    UPDATE pool_bet SET status = 'REFUNDED', refund_reason = #{reason}, refunded_at = #{at}
+    WHERE id IN <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach> AND status = 'ACTIVE'
+  </update>
+
+  <update id="subtractFromPositions">
+    UPDATE pool_position p JOIN (
+      SELECT option_id, user_id, SUM(amount) AS amt, COUNT(*) AS n FROM pool_bet
+      WHERE id IN <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach> GROUP BY option_id, user_id
+    ) d ON p.market_id = #{marketId} AND p.option_id = d.option_id AND p.user_id = d.user_id
+    SET p.amount = p.amount - d.amt, p.bet_count = p.bet_count - d.n, p.updated_at = #{now}
+  </update>
+
+  <update id="subtractFromTotals">
+    UPDATE pool_option_total t JOIN (
+      SELECT option_id, SUM(amount) AS amt FROM pool_bet
+      WHERE id IN <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach> GROUP BY option_id
+    ) d ON t.option_id = d.option_id
+    SET t.amount = t.amount - d.amt, t.final_amount = CASE WHEN t.final_amount IS NULL THEN NULL ELSE t.final_amount - d.amt END, t.updated_at = #{now}
+  </update>
+
+  <update id="recountBettors">
+    UPDATE pool_option_total t
+    SET t.bettors = (SELECT COUNT(*) FROM pool_position p WHERE p.market_id = t.market_id AND p.option_id = t.option_id AND p.amount &gt; 0),
+        t.final_bettors = CASE WHEN t.final_bettors IS NULL THEN NULL
+          ELSE (SELECT COUNT(*) FROM pool_position p2 WHERE p2.market_id = t.market_id AND p2.option_id = t.option_id AND p2.amount &gt; 0) END
+    WHERE t.market_id = #{marketId} AND t.option_id IN <foreach collection="optionIds" item="o" open="(" separator="," close=")">#{o}</foreach>
+  </update>
 </mapper>

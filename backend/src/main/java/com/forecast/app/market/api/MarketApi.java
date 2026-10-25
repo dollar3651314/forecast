@@ -65,4 +65,29 @@ public interface MarketApi {
    * @param actor 管理员 id、{@code SYSTEM} 或 {@code AUTO}
    */
   boolean transition(long marketId, MarketStatus from, MarketStatus to, String actor, String reason);
+
+  /**
+   * 结算要用到的市场信息（{@link #lockForSettle} 的结果，forecast S5）。
+   *
+   * @param feeRate 当前费率（小数）：结算按结算开始时的费率算，开始以后不能再改（需求第 3.8 节）
+   * @param actualStartAt 实际开赛时间（E14），没填为空
+   * @param winningOptionId 已经记下的结果，没有为空
+   */
+  record SettleTarget(long marketId, long publicNo, MarketStatus status, SettlePhase settlePhase, MarketCategory category, BigDecimal feeRate,
+      Instant closeAt, Instant actualStartAt, Long winningOptionId, I18nText title, List<OptionRef> options) {}
+
+  /**
+   * 结算、退款的事务开头调用（<b>必须在调用方的事务里</b>）：市场行加<b>排他锁</b>（{@code FOR UPDATE}），和截止任务、改费率、状态跳转串行；
+   * 下注拿的是共享锁，所以锁住以后这个市场没有进行中的下注。市场不存在或是草稿时抛 {@code NOT_FOUND}。
+   */
+  SettleTarget lockForSettle(long marketId);
+
+  /**
+   * 记下结果（赢的选项、实际开赛时间、谁给的结果）。只在结算还没开始（{@link SettlePhase#NONE}）时生效，返回 false 表示已经开始，什么都不改。
+   * 必须在 {@link #lockForSettle} 的同一个事务里调用。选项必须属于这个市场（否则抛 {@code OPTION_NOT_FOUND}）。
+   */
+  boolean recordResult(long marketId, long winningOptionId, Instant actualStartAt, String resolvedBy);
+
+  /** 结算阶段 from → to（带旧值的条件更新）；当前不是 from 时返回 false、什么都不改 */
+  boolean casSettlePhase(long marketId, SettlePhase from, SettlePhase to);
 }

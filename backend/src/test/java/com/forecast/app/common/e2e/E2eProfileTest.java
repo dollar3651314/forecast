@@ -93,7 +93,7 @@ class E2eProfileTest {
     void 接口都在_不需要登录() throws Exception {
       assertThat(e2ePaths(mapping)).contains("/api/e2e/mail/code", "/api/e2e/wallet/deposit", "/api/e2e/wallet/mine",
           "/api/e2e/wallet/withdrawals/advance", "/api/e2e/wallet/withdrawals/{id}/confirm", "/api/e2e/clock", "/api/e2e/clock/advance", "/api/e2e/clock/reset",
-          "/api/e2e/markets/tick");
+          "/api/e2e/markets/tick", "/api/e2e/settle/tick", "/api/e2e/settle/recon");
       // 可调时钟（S3）：往后拨，业务时钟跟着走；reset 回到系统时间
       assertThat(clock.getClass().getSimpleName()).as("e2e 下业务时钟是可调时钟").isEqualTo("OffsetClock");
       java.time.Instant before = clock.instant();

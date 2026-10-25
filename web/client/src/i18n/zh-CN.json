@@ -155,13 +155,19 @@
       "deposit": "充值",
       "withdraw": "提现",
       "withdrawRefund": "提现退回",
-      "bet": "下注"
+      "bet": "下注",
+      "payout": "派彩",
+      "fee": "抽成",
+      "refund": "下注退回"
     },
     "icon": {
       "deposit": "入",
       "withdraw": "出",
       "withdrawRefund": "退",
-      "bet": "注"
+      "bet": "注",
+      "payout": "派",
+      "fee": "费",
+      "refund": "还"
     },
     "range": {
       "7d": "近 7 天",

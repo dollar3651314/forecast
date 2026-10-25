@@ -130,6 +130,141 @@ class NotifyService implements NotifyApi, NotifyAdminApi {
     }
   }
 
+  /** 批量发送时一条语句最多写多少个客户 */
+  static final int BULK = 500;
+
+  /**
+   * 批量发送（{@link NotifyApi#toUsers}，forecast S5）：和逐个 {@link #toUser} 写出完全一样的站内信、通知记录（每个渠道一条：发出、跳过及原因）、
+   * 推送任务（每台设备一个）、邮件任务，提交后同样推给在线的客户；只是每 500 个客户用几条批量 SQL（偏好、推送订阅一次查出，站内信和记录多行插入）。
+   */
+  @Override
+  @Transactional
+  public void toUsers(String template, List<NotifyApi.Notice> notices) {
+    if (notices == null || notices.isEmpty()) return;
+    Rows.TemplateRow t = mapper.template(template);
+    if (t == null || !"USER".equals(t.audience)) throw new IllegalArgumentException("不是发给客户的模板：" + template);
+    if (!t.enabled) {
+      log.info("模板 {} 已停用，不发送（{} 个客户）", template, notices.size());
+      return;
+    }
+    for (int i = 0; i < notices.size(); i += BULK) sendBulk(t, notices.subList(i, Math.min(notices.size(), i + BULK)));
+  }
+
+  private void sendBulk(Rows.TemplateRow t, List<NotifyApi.Notice> chunk) {
+    List<Long> users = chunk.stream().map(NotifyApi.Notice::userId).distinct().toList();
+    Map<Long, Rows.PrefRow> prefs = new java.util.HashMap<>();
+    for (Rows.PrefUserRow p : mapper.prefsOf(users)) prefs.put(p.userId, p);
+    LocalDateTime now = now();
+    int n = chunk.size();
+    String[] titles = new String[n];
+    String[] paramsJson = new String[n];
+    for (int i = 0; i < n; i++) {
+      Map<String, String> params = chunk.get(i).params();
+      titles[i] = Render.render(t, params, Render.ZH).title();
+      paramsJson[i] = json.writeValueAsString(params == null ? Map.of() : params);
+    }
+    List<Rows.RecordRow> done = new ArrayList<>();
+    Long[] messageIds = new Long[n];
+    if (t.has("INBOX")) {
+      List<Rows.MessageRow> msgs = new ArrayList<>(n);
+      for (int i = 0; i < n; i++) {
+        Rows.MessageRow m = new Rows.MessageRow();
+        m.userId = chunk.get(i).userId();
+        m.kind = t.kind;
+        m.templateCode = t.code;
+        m.params = paramsJson[i];
+        m.createdAt = now;
+        msgs.add(m);
+        done.add(recordRow(m.userId, "TEMPLATE", t.code, "INBOX", titles[i], "SENT", null, now));
+      }
+      mapper.insertMessages(msgs);
+      for (int i = 0; i < n; i++) messageIds[i] = msgs.get(i).id;
+      afterCommit(() -> {
+        for (Rows.MessageRow m : msgs) pushItem(m.userId, view(m, t, prefs.getOrDefault(m.userId, Rows.PrefRow.defaults()).lang));
+      });
+    }
+    // 要回填 id 的记录（推送、邮件的"待发送"）和它们的任务内容
+    List<Rows.RecordRow> pending = new ArrayList<>();
+    List<Map<String, Object>> pendingPayloads = new ArrayList<>();
+    List<String> pendingTypes = new ArrayList<>();
+    if (t.has("PUSH")) {
+      boolean enabled = webPush.enabled();
+      Map<Long, List<Rows.PushSubRow>> subs = new java.util.HashMap<>();
+      if (enabled) {
+        List<Long> wanted = users.stream().filter(u -> prefs.getOrDefault(u, Rows.PrefRow.defaults()).pushEnabled).toList();
+        if (!wanted.isEmpty()) for (Rows.PushSubRow s : mapper.pushSubsOf(wanted)) subs.computeIfAbsent(s.userId, k -> new ArrayList<>()).add(s);
+      }
+      for (int i = 0; i < n; i++) {
+        long uid = chunk.get(i).userId();
+        Rows.PrefRow pref = prefs.getOrDefault(uid, Rows.PrefRow.defaults());
+        if (!pref.pushEnabled) done.add(recordRow(uid, "TEMPLATE", t.code, "PUSH", titles[i], "SKIPPED", SKIP_PUSH_OFF, now));
+        else if (!enabled) done.add(recordRow(uid, "TEMPLATE", t.code, "PUSH", titles[i], "SKIPPED", SKIP_PUSH_NOT_CONFIGURED, now));
+        else if (!subs.containsKey(uid)) done.add(recordRow(uid, "TEMPLATE", t.code, "PUSH", titles[i], "SKIPPED", SKIP_NO_DEVICE, now));
+        else {
+          for (Rows.PushSubRow sub : subs.get(uid)) {
+            pending.add(recordRow(uid, "TEMPLATE", t.code, "PUSH", titles[i], "PENDING", null, now));
+            Map<String, Object> p = new LinkedHashMap<>();
+            p.put("userId", uid);
+            p.put("template", t.code);
+            p.put("params", chunk.get(i).params() == null ? Map.of() : chunk.get(i).params());
+            p.put("lang", pref.lang);
+            p.put("kind", t.kind);
+            p.put("messageId", messageIds[i]);
+            p.put("subId", sub.id);
+            pendingPayloads.add(p);
+            pendingTypes.add(PUSH_TASK);
+          }
+        }
+      }
+    }
+    if (t.has("EMAIL")) {
+      for (int i = 0; i < n; i++) {
+        long uid = chunk.get(i).userId();
+        Rows.PrefRow pref = prefs.getOrDefault(uid, Rows.PrefRow.defaults());
+        if (!pref.emailEnabled) {
+          done.add(recordRow(uid, "TEMPLATE", t.code, "EMAIL", titles[i], "SKIPPED", SKIP_EMAIL_OFF, now));
+          continue;
+        }
+        pending.add(recordRow(uid, "TEMPLATE", t.code, "EMAIL", titles[i], "PENDING", null, now));
+        Map<String, Object> p = new LinkedHashMap<>();
+        p.put("userId", uid);
+        p.put("template", t.code);
+        p.put("params", chunk.get(i).params() == null ? Map.of() : chunk.get(i).params());
+        p.put("lang", pref.lang);
+        pendingPayloads.add(p);
+        pendingTypes.add(MAIL_TASK);
+      }
+    }
+    if (!done.isEmpty()) mapper.insertRecords(done);
+    if (!pending.isEmpty()) {
+      mapper.insertRecords(pending);
+      List<String> push = new ArrayList<>();
+      List<String> mail = new ArrayList<>();
+      for (int i = 0; i < pending.size(); i++) {
+        Map<String, Object> p = new LinkedHashMap<>();
+        p.put("recordId", pending.get(i).id);
+        p.putAll(pendingPayloads.get(i));
+        (PUSH_TASK.equals(pendingTypes.get(i)) ? push : mail).add(json.writeValueAsString(p));
+      }
+      if (!push.isEmpty()) tasks.enqueueAll(PUSH_TASK, push, 0, PUSH_ATTEMPTS);
+      if (!mail.isEmpty()) tasks.enqueueAll(MAIL_TASK, mail, 0, MAIL_ATTEMPTS);
+    }
+  }
+
+  private static Rows.RecordRow recordRow(Long userId, String source, String template, String channel, String title, String status, String error,
+      LocalDateTime now) {
+    Rows.RecordRow r = new Rows.RecordRow();
+    r.userId = userId;
+    r.source = source;
+    r.templateCode = template;
+    r.channel = channel;
+    r.title = title.length() > 200 ? title.substring(0, 200) : title;
+    r.status = status;
+    r.error = error;
+    r.createdAt = now;
+    return r;
+  }
+
   /** 按邮箱发（验证码、风控人员，{@link AddressMailer}）。不知道收件人语言，中英文各一份 */
   @Transactional
   void sendToAddress(String to, String template, Map<String, String> params) {

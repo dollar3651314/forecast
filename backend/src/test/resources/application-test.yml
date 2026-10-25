@@ -64,5 +64,9 @@ forecast:
   # 市场的截止、事件结束任务不定时跑，测试里直接调用（MarketClockTest 等）
   market:
     clock-enabled: false
+  # 结算的派彩任务、每日彩池对账不定时跑，测试里直接调用（settle/ 下的测试）；batch-size 测试按需改（SettleProperties），用完改回 0
+  settle:
+    worker-enabled: false
+    recon-enabled: false
   storage:
     local-dir: ${java.io.tmpdir}/forecast-test-storage

@@ -28,6 +28,23 @@ interface LedgerMapper {
 
   int insertEntry(LedgerEntry entry);
 
+  // ---------- 批量记账（LedgerApi.applyBatch，forecast S5） ----------
+
+  /** 锁住一批客户账户（按 user_id 升序扫唯一索引，加锁顺序和逐个锁一样是升序） */
+  List<AccountRow> lockAccounts(@Param("userIds") Collection<Long> userIds);
+
+  /** 一批幂等键已有的记录（同一个来源业务、一批单号） */
+  List<EntryKeyRow> findEntries(@Param("bizType") String bizType, @Param("bizIds") Collection<String> bizIds);
+
+  /** 已有记录的幂等键和金额（批量记账查重用） */
+  record EntryKeyRow(long id, long accountId, String bizId, String entryType, String bucket, BigDecimal amount) {}
+
+  /** 一批账户的三项改成新值（每个账户一行，只改给出的） */
+  int updateAccounts(@Param("rows") List<AccountUpdate> rows);
+
+  /** 一批账本记录（多行 INSERT） */
+  int insertEntries(@Param("entries") List<LedgerEntry> entries);
+
   /** 对账用的一行：键和金额 */
   record KeyAmount(String key, BigDecimal amount) {}
 

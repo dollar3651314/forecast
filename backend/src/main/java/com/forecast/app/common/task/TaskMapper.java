@@ -12,6 +12,10 @@ interface TaskMapper {
 
   long lastInsertId();
 
+  /** 一批同类型的任务（多行 INSERT，forecast S5） */
+  int insertAll(@Param("taskType") String taskType, @Param("payloads") java.util.List<String> payloads, @Param("delaySeconds") long delaySeconds,
+      @Param("maxAttempts") int maxAttempts);
+
   List<Long> lockDue(@Param("taskType") String taskType, @Param("limit") int limit);
 
   int markRunning(@Param("ids") List<Long> ids, @Param("worker") String worker);

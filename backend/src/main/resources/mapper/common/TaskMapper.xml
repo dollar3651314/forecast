@@ -12,6 +12,13 @@
 
   <select id="lastInsertId" resultType="long">SELECT LAST_INSERT_ID()</select>
 
+  <insert id="insertAll">
+    INSERT INTO common_task (task_type, payload, max_attempts, next_run_at) VALUES
+    <foreach collection="payloads" item="p" separator=",">
+      (#{taskType}, #{p}, #{maxAttempts}, DATE_ADD(UTC_TIMESTAMP(3), INTERVAL #{delaySeconds} SECOND))
+    </foreach>
+  </insert>
+
   <!-- 指标：到期未处理的任务数（走 idx_common_task_pick） -->
   <select id="countDue" resultType="long">
     SELECT COUNT(*) FROM common_task WHERE status = 'PENDING' AND next_run_at &lt;= UTC_TIMESTAMP(3)

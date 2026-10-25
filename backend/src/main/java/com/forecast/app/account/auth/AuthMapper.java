@@ -18,6 +18,9 @@ interface AuthMapper {
   /** 是不是员工账户；用户不存在时为 null（forecast S4） */
   Boolean isStaff(@Param("id") long id);
 
+  /** 一批用户里 is_staff = 1 的 */
+  java.util.List<Long> staffAmong(@Param("ids") java.util.Collection<Long> ids);
+
   int insertUser(UserInsert user);
 
   int insertProfile(Profile profile);

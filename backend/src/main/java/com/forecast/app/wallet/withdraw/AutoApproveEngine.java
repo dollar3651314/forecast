@@ -111,6 +111,9 @@ final class AutoApproveEngine {
 
     /** 同一条链上"已审核待上链"和"延迟中"的到账金额合计（金额 − 手续费） */
     BigDecimal queuedNet(String network);
+
+    /** 待处理的彩池对账差异条数（forecast S5：R12 新增"彩池对账没有未处理的差异"，需求第 8.2 节、AC-38） */
+    long openPoolReconIssues();
   }
 
   /** 一条规则的结果 */
@@ -243,7 +246,9 @@ final class AutoApproveEngine {
       case R12 -> {
         List<String> issues = new ArrayList<>();
         // 复制源的 R12 还检查"报价源偏差暂停"和"交易全局暂停"，差价合约删除后去掉（forecast S1，技术方案/v1-架构方案.md 第 1.2 节 wallet ③）；
-        // S10 加"彩池对账没有未处理差异"
+        // forecast S5 加"彩池对账没有未处理的差异"（需求第 8.2 节、AC-38：有差异时转人工）
+        long poolIssues = f.openPoolReconIssues();
+        if (poolIssues > 0) issues.add("poolRecon");
         BigDecimal need = w.net().add(f.queuedNet(w.network()));
         Optional<HotBalance> hot = f.hotBalance(w.network());
         BigDecimal balance = hot.map(HotBalance::balance).orElse(null);
@@ -252,6 +257,7 @@ final class AutoApproveEngine {
         if (!fresh) issues.add("hotWalletUnknown");
         else if (balance.compareTo(need) < 0) issues.add("hotWallet");
         Map<String, String> v = vals("balance", fresh ? p(balance) : "—", "need", p(need));
+        if (poolIssues > 0) v.put("poolIssues", String.valueOf(poolIssues));
         if (!issues.isEmpty()) v.put("issues", String.join(",", issues));
         yield new Checked(issues.isEmpty(), v);
       }

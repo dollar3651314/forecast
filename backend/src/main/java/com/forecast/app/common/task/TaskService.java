@@ -32,6 +32,11 @@ public class TaskService {
     return mapper.lastInsertId();
   }
 
+  /** 一批同类型的任务（forecast S5：批量通知），和逐个 {@link #enqueue} 一样，只是一条语句写一段 */
+  public void enqueueAll(String taskType, java.util.List<String> payloads, long delaySeconds, int maxAttempts) {
+    for (int i = 0; i < payloads.size(); i += 500) mapper.insertAll(taskType, payloads.subList(i, Math.min(payloads.size(), i + 500)), delaySeconds, maxAttempts);
+  }
+
   /** 领取最多 limit 个到期的待处理任务，标为处理中。 */
   @Transactional
   public List<Task> claim(String taskType, String worker, int limit) {

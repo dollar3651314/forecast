@@ -5,6 +5,7 @@ import com.forecast.app.account.api.KycStatus;
 import com.forecast.app.account.api.SecurityEvent;
 import com.forecast.app.common.config.SystemConfig;
 import com.forecast.app.ledger.api.CustomerFlowApi;
+import com.forecast.app.settle.api.SettleApi;
 import com.forecast.app.wallet.api.AutoApprove;
 import com.forecast.app.wallet.api.AutoApprove.Settings;
 import com.forecast.app.wallet.api.AutoApproveAdminApi;
@@ -53,18 +54,20 @@ public class AutoApproveService implements AutoApproveAdminApi {
   private final AccountApi account;
   private final CustomerFlowApi flows;
   private final HotWalletApi hot;
+  private final SettleApi settle;
   private final ObjectMapper json;
   private final TransactionTemplate tx;
   private final Clock clock;
 
   AutoApproveService(AutoApproveMapper mapper, WithdrawMapper withdrawals, SystemConfig config, AccountApi account, CustomerFlowApi flows,
-      HotWalletApi hot, ObjectMapper json, TransactionTemplate tx, Clock clock) {
+      HotWalletApi hot, SettleApi settle, ObjectMapper json, TransactionTemplate tx, Clock clock) {
     this.mapper = mapper;
     this.withdrawals = withdrawals;
     this.config = config;
     this.account = account;
     this.flows = flows;
     this.hot = hot;
+    this.settle = settle;
     this.json = json;
     this.tx = tx;
     this.clock = clock;
@@ -236,6 +239,11 @@ public class AutoApproveService implements AutoApproveAdminApi {
     @Override
     public BigDecimal queuedNet(String network) {
       return mapper.queuedNet(network);
+    }
+
+    @Override
+    public long openPoolReconIssues() {
+      return settle.openPoolReconIssues();
     }
   };
 

@@ -27,6 +27,11 @@ final class MarketRows {
     String status;
     boolean submittedForListing;
     String settlePhase;
+    /** 结果（S5 起：超管手工填结果、S6 自动裁决、S7 确认结果时写） */
+    Long winningOptionId;
+    /** 实际开赛时间（E14，结算时退回这之后收到的下注） */
+    LocalDateTime actualStartAt;
+    String resolvedBy;
     LocalDateTime openAt;
     LocalDateTime closeAt;
     LocalDateTime eventStartAt;

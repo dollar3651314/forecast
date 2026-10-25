@@ -78,6 +78,8 @@ class AutoApproveFlowTest {
     jdbc.update("UPDATE wallet_withdrawal SET auto_approved_at = auto_approved_at - INTERVAL 400 DAY WHERE review_mode = 'AUTO'");
     hotBalance("10000000");
     save(true, Map.of("R8.enabled", "false"));
+    // forecast S5：R12 还看"彩池对账没有未处理的差异"（全平台的）：别的测试留下的标成已处理
+    jdbc.update("UPDATE settle_pool_recon_issue SET status = 'RESOLVED', note = '测试开始清理' WHERE status = 'OPEN'");
   }
 
   @AfterEach
@@ -296,6 +298,24 @@ class AutoApproveFlowTest {
     assertThat(checks(w.id)).containsExactly("PRECHECK AUTO_APPROVED", "FINAL ERROR R12");
     assertThat(rule(w.id, "R12").status()).isEqualTo("unknown");
     assertThat(row(w.id).get("review_mode")).isNull();
+  }
+
+  @Test
+  void AC38_彩池对账有未处理的差异_R12不通过_转人工_处理以后照常自动通过() {
+    jdbc.update("INSERT INTO settle_pool_recon_issue (ref_key, market_id, check_date, kind, source, expected, actual, diff, detail, status, created_at) "
+        + "VALUES (?, NULL, UTC_DATE(), 'POOL_VS_BETS', 'DAILY', 10, 11, 1, '测试差异', 'OPEN', UTC_TIMESTAMP(3))", "M:aa" + System.nanoTime());
+    long[] c = customer("1000");
+    WithdrawalRow w = submit(c, "100");
+    coolDown();
+    withdraws.advance();
+    assertThat(status(w.id)).isEqualTo("REVIEWING");
+    assertThat(checks(w.id).getLast()).isEqualTo("FINAL MANUAL R12");
+    assertThat(rule(w.id, "R12").values()).containsEntry("issues", "poolRecon").containsEntry("poolIssues", "1");
+    jdbc.update("UPDATE settle_pool_recon_issue SET status = 'RESOLVED', note = '处理完' WHERE status = 'OPEN'");
+    WithdrawalRow w2 = submit(customer("1000"), "100");
+    coolDown();
+    withdraws.advance();
+    assertThat(checks(w2.id).getLast()).as("差异处理以后照常").isEqualTo("FINAL AUTO_APPROVED");
   }
 
   @Test

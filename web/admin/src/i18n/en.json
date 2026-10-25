@@ -1055,13 +1055,14 @@
     },
     "R12": {
       "name": "System healthy",
-      "desc": "The hot wallet on this chain can pay this and earlier queued withdrawals",
-      "fixed": "No values: passes only when the hot wallet balance is enough",
+      "desc": "The hot wallet on this chain can pay this and earlier queued withdrawals; no unresolved pool reconciliation differences",
+      "fixed": "No values: passes only when the hot wallet balance is enough and there are no unresolved pool reconciliation differences",
       "pass": "Hot wallet {{balance}} ≥ needed {{need}}",
       "fail": "System not healthy",
       "issue": {
         "hotWallet": "Hot wallet {{balance}} < needed {{need}}",
-        "hotWalletUnknown": "Hot-wallet balance unavailable (no successful check in 10 minutes); treated as failed"
+        "hotWalletUnknown": "Hot-wallet balance unavailable (no successful check in 10 minutes); treated as failed",
+        "poolRecon": "{{poolIssues}} unresolved pool reconciliation differences"
       }
     },
     "R13": {

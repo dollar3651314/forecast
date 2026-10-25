@@ -41,6 +41,11 @@ final class Rows {
     }
   }
 
+  /** 批量读偏好时带上用户 id */
+  static class PrefUserRow extends PrefRow {
+    long userId;
+  }
+
   /** notify_message 的一行 */
   static class MessageRow {
     Long id;

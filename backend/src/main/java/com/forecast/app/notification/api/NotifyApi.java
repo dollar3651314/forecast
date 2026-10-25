@@ -13,4 +13,13 @@ public interface NotifyApi {
    * @param params 模板变量；枚举值（例如提现状态、买卖方向）原样传，通知模块按语言翻译
    */
   void toUser(long userId, String template, Map<String, String> params);
+
+  /** 一条通知：发给谁、模板变量 */
+  record Notice(long userId, Map<String, String> params) {}
+
+  /**
+   * 一批客户各发一条同一个模板的通知（forecast S5：结算、退款一次几千到上万人）。结果和逐个调用 {@link #toUser} <b>完全一样</b>
+   * （站内信、每个渠道的通知记录、推送和邮件任务、提交后推给在线的客户），只是批量写库（一批几条语句）。同样在业务事务里调用，业务回滚就不发。
+   */
+  void toUsers(String template, java.util.List<Notice> notices);
 }

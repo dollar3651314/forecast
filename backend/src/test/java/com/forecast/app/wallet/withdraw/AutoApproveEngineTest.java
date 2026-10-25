@@ -65,6 +65,14 @@ class AutoApproveEngineTest {
       if (broken.equals(what)) throw new IllegalStateException("读不到 " + what);
     }
 
+    long poolIssues = 0;
+
+    @Override
+    public long openPoolReconIssues() {
+      maybeThrow("poolRecon");
+      return poolIssues;
+    }
+
     @Override
     public BigDecimal autoApprovedSince(Long userId, LocalDateTime since) {
       maybeThrow(userId == null ? "platform" : "user");
@@ -348,6 +356,18 @@ class AutoApproveEngineTest {
     assertThat(status(on, "100", f, Rule.R12)).as("这条链没有配置热钱包").isEqualTo("failed");
     f.hot = new AutoApproveEngine.HotBalance(new BigDecimal("99999"), NOW_I, null);
     assertThat(rule(eval(on, "100", f), Rule.R12).values()).as("复制源的报价偏差、全局暂停两项检查 forecast S1 已删除").doesNotContainKey("issues");
+    // forecast S5（AC-38）：有待处理的彩池对账差异 → 不通过、转人工；处理完 → 通过
+    f.poolIssues = 2;
+    Result recon = rule(eval(on, "100", f), Rule.R12);
+    assertThat(recon.status()).isEqualTo("failed");
+    assertThat(recon.values()).containsEntry("issues", "poolRecon").containsEntry("poolIssues", "2");
+    f.hot = new AutoApproveEngine.HotBalance(new BigDecimal("1"), NOW_I, null);
+    assertThat(rule(eval(on, "100", f), Rule.R12).values()).as("两项都不通过时一起列出").containsEntry("issues", "poolRecon,hotWallet");
+    f.poolIssues = 0;
+    f.hot = new AutoApproveEngine.HotBalance(new BigDecimal("99999"), NOW_I, null);
+    assertThat(status(on, "100", f, Rule.R12)).isEqualTo("passed");
+    f.broken = "poolRecon";
+    assertThat(status(on, "100", f, Rule.R12)).as("读不到对账差异：无法判定，转人工").isEqualTo("unknown");
   }
 
   @Test

@@ -155,13 +155,19 @@
       "deposit": "Deposit",
       "withdraw": "Withdrawal",
       "withdrawRefund": "Withdrawal refund",
-      "bet": "Bet"
+      "bet": "Bet",
+      "payout": "Payout",
+      "fee": "Fee",
+      "refund": "Bet refund"
     },
     "icon": {
       "deposit": "In",
       "withdraw": "Out",
       "withdrawRefund": "Ref",
-      "bet": "Bet"
+      "bet": "Bet",
+      "payout": "Win",
+      "fee": "Fee",
+      "refund": "Back"
     },
     "range": {
       "7d": "7 days",

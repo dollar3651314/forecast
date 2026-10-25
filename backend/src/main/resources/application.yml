@@ -182,6 +182,13 @@ forecast:
   # 后端测试里关闭（测试直接调用）。费率、下注限额、争议窗口等参数在后台"参数设置"（common_config，迁移 V10），不在这里
   market:
     clock-enabled: true
+  # 结算（forecast S5，settle/run/SettleProperties）。batch-size：派彩时每批的持仓数（退款时每批的下注数）；
+  # 0（默认）= 计算和派彩在同一个事务里一次完成（需求说明书第 3.5 节原文）；大于 0 = 分批派彩、可以续跑（架构方案第 4.3 节建议 B）。
+  # AQ-3 Amos 选 B 时把默认值改成 500。派彩任务每 2 秒推进分批派彩的单；彩池对账每天 UTC 00:30。
+  settle:
+    batch-size: ${FC_SETTLE_BATCH_SIZE:0}
+    worker-enabled: true
+    recon-enabled: true
   # 对象存储（证件照片）。现在是本地目录，正式环境在 S20 换成对象存储服务
   storage:
     local-dir: ${FC_STORAGE_DIR:./data/storage}

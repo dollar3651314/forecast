@@ -108,9 +108,11 @@ class MarketClientContractTest extends MarketTestSupport {
     markets.changeFee(pn, "8", 1, "调整");
     JsonNode d = body("/api/markets/" + no, c);
     assertThat(keys(d)).containsExactly("publicNo", "category", "title", "rules", "status", "resolutionMode", "sourcePrimary", "sourceBackup", "openAt", "closeAt",
-        "eventStartAt", "eventEndAt", "feeRate", "userCap", "disputeWindowMinutes", "coverPath", "cancelReason", "voidReason", "options", "clarifications", "feeChanges",
+        "eventStartAt", "eventEndAt", "feeRate", "userCap", "disputeWindowMinutes", "coverPath", "cancelReason", "voidReason", "winningOptionNo", "settling", "options", "clarifications", "feeChanges",
         "pool");
     assertThat(d.get("status").asString()).isEqualTo("listed");
+    assertThat(d.get("winningOptionNo").isNull()).as("S5：已结算的市场才公开结果").isTrue();
+    assertThat(d.get("settling").asBoolean()).as("S5：派彩中才是 true（结算中）").isFalse();
     assertThat(d.get("feeRate").asString()).isEqualTo("8");
     assertThat(d.get("userCap").asString()).isEqualTo("10000");
     assertThat(d.get("rules").get("zhCN").asString()).isEqualTo("以 90 分钟比分为准 简");

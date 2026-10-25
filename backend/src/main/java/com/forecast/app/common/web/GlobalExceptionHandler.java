@@ -47,6 +47,13 @@ public class GlobalExceptionHandler {
       Map.entry("FEE_LOCKED", HttpStatus.CONFLICT),
       // forecast S4 下注：同一个请求号换了内容（不是重复提交，客户端要重新生成请求号）
       Map.entry("BET_REQUEST_REUSED", HttpStatus.CONFLICT),
+      // forecast S5 结算：市场现在不能结算 / 作废（状态不对）、结算单不是结算异常、还有待处理的对账差异、状态刚被改过、差异已处理过
+      Map.entry("MARKET_NOT_SETTLEABLE", HttpStatus.CONFLICT),
+      Map.entry("MARKET_NOT_VOIDABLE", HttpStatus.CONFLICT),
+      Map.entry("SETTLE_NOT_ABNORMAL", HttpStatus.CONFLICT),
+      Map.entry("POOL_RECON_OPEN", HttpStatus.CONFLICT),
+      Map.entry("SETTLE_STATE_CHANGED", HttpStatus.CONFLICT),
+      Map.entry("ISSUE_ALREADY_RESOLVED", HttpStatus.CONFLICT),
       Map.entry("NOT_FOUND", HttpStatus.NOT_FOUND));
 
   @ExceptionHandler(BizException.class)

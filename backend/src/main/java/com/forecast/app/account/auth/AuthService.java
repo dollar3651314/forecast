@@ -13,6 +13,7 @@ import com.forecast.app.wallet.api.WalletApi;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -149,6 +150,15 @@ class AuthService {
     Boolean staff = mapper.isStaff(userId);
     if (staff == null) throw new BizException("USER_NOT_FOUND", "用户不存在");
     return staff;
+  }
+
+  /** 一批客户里的员工账户（forecast S5，E15） */
+  java.util.Set<Long> staffAmong(java.util.Collection<Long> userIds) {
+    java.util.Set<Long> out = new java.util.HashSet<>();
+    if (userIds == null || userIds.isEmpty()) return out;
+    List<Long> all = List.copyOf(new java.util.TreeSet<>(userIds));
+    for (int i = 0; i < all.size(); i += 1000) out.addAll(mapper.staffAmong(all.subList(i, Math.min(all.size(), i + 1000))));
+    return out;
   }
 
   UserRow user(long userId) {

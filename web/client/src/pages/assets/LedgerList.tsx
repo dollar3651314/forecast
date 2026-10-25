@@ -7,6 +7,9 @@ const ICON_TONE: Record<LedgerItem['type'], string> = {
   withdraw: 'out',
   withdrawRefund: 'in',
   bet: 'out',
+  payout: 'in',
+  fee: 'out',
+  refund: 'in',
 };
 
 /** 市场题目按当前语言取（取不到用英文，RQ-18） */

@@ -10,7 +10,7 @@
 
   <sql id="marketCols">
     id, public_no, category, title_en, title_zh_cn, title_zh_tw, rules_en, rules_zh_cn, rules_zh_tw, resolution_mode, source_primary, source_backup,
-    source_ref, status, submitted_for_listing, settle_phase, open_at, close_at, event_start_at, event_end_at, fee_rate, user_cap, dispute_window_min,
+    source_ref, status, submitted_for_listing, settle_phase, winning_option_id, actual_start_at, resolved_by, open_at, close_at, event_start_at, event_end_at, fee_rate, user_cap, dispute_window_min,
     void_reason, cancel_reason, cover_path, created_by, listed_by, deleted_at, version, created_at, updated_at
   </sql>
 
@@ -65,6 +65,10 @@
     SELECT <include refid="marketCols"/> FROM market_question WHERE id = #{id} FOR UPDATE
   </select>
 
+  <select id="lockByPublicNo" resultType="com.forecast.app.market.core.MarketRows$Market">
+    SELECT <include refid="marketCols"/> FROM market_question WHERE public_no = #{publicNo} FOR UPDATE
+  </select>
+
   <select id="lockForShareByPublicNo" resultType="com.forecast.app.market.core.MarketRows$Market">
     SELECT <include refid="marketCols"/> FROM market_question WHERE public_no = #{publicNo} AND deleted_at IS NULL FOR SHARE
   </select>
@@ -110,6 +114,18 @@
   <update id="setSubmitted">
     UPDATE market_question SET submitted_for_listing = #{submitted}, version = version + 1, updated_at = #{now}
     WHERE id = #{id} AND status = 'DRAFT' AND deleted_at IS NULL
+  </update>
+
+  <!-- 结算（S5）：写结果，只在结算还没开始时（settle_phase = NONE）；市场行已经由结算事务加了排他锁 -->
+  <update id="setResult">
+    UPDATE market_question SET winning_option_id = #{winningOptionId}, actual_start_at = #{actualStartAt}, resolved_by = #{resolvedBy},
+      version = version + 1, updated_at = #{now}
+    WHERE id = #{id} AND settle_phase = 'NONE' AND deleted_at IS NULL
+  </update>
+
+  <!-- 结算阶段（不是需求状态机里的状态，第 4.3 节）：带旧值的条件更新 -->
+  <update id="casSettlePhase">
+    UPDATE market_question SET settle_phase = #{to}, version = version + 1, updated_at = #{now} WHERE id = #{id} AND settle_phase = #{from}
   </update>
 
   <update id="updateFee">

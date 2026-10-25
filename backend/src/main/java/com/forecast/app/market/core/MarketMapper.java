@@ -40,6 +40,16 @@ interface MarketMapper {
   /** 排他锁（后台改状态、改费率、截止任务） */
   MarketRows.Market lockById(@Param("id") long id);
 
+  /** 按对外编号锁市场行（排他）；不存在时为空 */
+  MarketRows.Market lockByPublicNo(@Param("publicNo") long publicNo);
+
+  /** 写结果（结算开始前），返回 0 = 结算已经开始 */
+  int setResult(@Param("id") long id, @Param("winningOptionId") long winningOptionId, @Param("actualStartAt") LocalDateTime actualStartAt,
+      @Param("resolvedBy") String resolvedBy, @Param("now") LocalDateTime now);
+
+  /** 结算阶段 from → to（条件更新） */
+  int casSettlePhase(@Param("id") long id, @Param("from") String from, @Param("to") String to, @Param("now") LocalDateTime now);
+
   /** 共享锁（下注前的截止屏障） */
   MarketRows.Market lockForShareByPublicNo(@Param("publicNo") long publicNo);
 
