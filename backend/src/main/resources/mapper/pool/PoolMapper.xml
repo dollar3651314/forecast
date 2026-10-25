@@ -159,7 +159,16 @@
   <select id="marketBets" resultType="com.forecast.app.pool.bet.PoolRows$BetLine">
     SELECT <include refid="betCols"/>, t.option_no, t.seq, m.status AS market_status, <include refid="tabExpr"/> AS tab
     <include refid="lineFrom"/> <include refid="marketBetsWhere"/>
-    ORDER BY b.received_at DESC, b.id DESC LIMIT #{limit} OFFSET #{offset}
+    <choose>
+      <when test="byAmount">ORDER BY b.amount DESC, b.id DESC</when>
+      <otherwise>ORDER BY b.received_at DESC, b.id DESC</otherwise>
+    </choose>
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="betStats" resultType="com.forecast.app.pool.bet.PoolRows$BetStat">
+    SELECT COALESCE(SUM(amount), 0) AS amount, COUNT(*) AS bets, COUNT(DISTINCT user_id) AS bettors
+    FROM pool_bet WHERE status = 'ACTIVE' AND received_at &gt;= #{from} AND received_at &lt; #{to}
   </select>
 
   <select id="countMarketBets" resultType="long">

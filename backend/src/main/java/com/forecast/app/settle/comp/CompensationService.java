@@ -193,8 +193,10 @@ public class CompensationService {
         Map<String, String> v = new LinkedHashMap<>();
         v.put("market", m.title().zhCN());
         v.put("marketEn", m.title().en());
+        v.put("marketTw", m.title().zhTW());
         v.put("option", correct == null ? "VOID" : correct.label().zhCN());
         v.put("optionEn", correct == null ? "VOID" : correct.label().en());
+        v.put("optionTw", correct == null ? "VOID" : correct.label().zhTW());
         v.put("amount", money(l.amount()));
         notices.add(new NotifyApi.Notice(l.userId(), v));
       }

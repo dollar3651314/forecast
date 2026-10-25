@@ -24,7 +24,7 @@ class EnvLabelFlowTest extends NotifyTestSupport {
     worker.drain();
     MimeMessage zh = mailsTo(u.email()).getLast();
     assertThat(zh.getSubject()).isEqualTo("[测试] 充值已到账");
-    assertThat(body(zh)).as("正文不变").isEqualTo("您通过 TRC20 充值的 100 USDT 已到账。");
+    assertThat(body(zh)).as("正文不变").isEqualTo("你通过 TRC20 充值的 100 USDT 已到账，已计入可用余额。");
 
     String inbox = call(get("/api/notifications?lang=zh-CN"), u.cookie(), null).getContentAsString();
     assertThat(inbox).contains("\"title\":\"充值已到账\"").doesNotContain("[测试]");

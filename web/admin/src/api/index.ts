@@ -8,10 +8,11 @@
  * Admin data API. Pages import from here only. "real" mode calls the backend for S18a endpoints; "mock" keeps the prototype.
  */
 import * as mock from '../mocks/handlers';
-import * as mk from '../mocks/markets';
+import * as fm from '../mocks/fc';
 import * as runtime from '../mocks/runtime';
 import { IS_MOCK } from './mode';
 import * as real from './real';
+import * as rf from './realFc';
 import { ApiError } from './types';
 
 export type { CurrentAdmin } from './types';
@@ -173,22 +174,68 @@ export const listParams: typeof real.listParams = IS_MOCK ? mock.listParams : re
 /** PUT /api/admin/params/{fee|betting}/{key}（高危；expected 不对 409 CONFIG_CHANGED） */
 export const updateParam: typeof real.updateParam = IS_MOCK ? mock.updateParam : real.updateParam;
 
-// ---- 市场管理、裁决台（forecast M1 原型，需求第 4、6 节） ----
-// 后端已有市场管理接口（S3：GET/POST/PUT /api/admin/markets…），裁决台在 S7 做；页面按原型确认后的样子在 S9 接真实接口，
-// 在那之前真实接口模式下这几个页面不在菜单里（config/protoMenu.tsx），调用直接失败、也不打包模拟层。
-const protoOnly = () => Promise.reject(new ApiError('errors.protoOnly'));
-/** GET /api/admin/markets（列表 + 各分组的数量） */
-export const listAdminMarkets: typeof mk.listAdminMarkets = IS_MOCK ? mk.listAdminMarkets : protoOnly;
-/** GET /api/admin/markets/{publicNo}（新建时传 null，返回按品类带出默认值的空模板） */
-export const getMarketDraft: typeof mk.getMarketDraft = IS_MOCK ? mk.getMarketDraft : protoOnly;
-/** POST /api/admin/markets | PUT /api/admin/markets/{publicNo}；submit = 同时提交上架（POST …/submit） */
-export const saveMarketDraft: typeof mk.saveMarketDraft = IS_MOCK ? mk.saveMarketDraft : protoOnly;
-/** GET /api/admin/resolve/queue（S7） */
-export const listResolveQueue: typeof mk.listResolveQueue = IS_MOCK ? mk.listResolveQueue : protoOnly;
-/** GET /api/admin/resolve/{publicNo}/preview?optionNo=（S7：按某个结果的结算预览） */
-export const previewSettle: typeof mk.previewSettle = IS_MOCK ? mk.previewSettle : protoOnly;
-/** POST /api/admin/resolve/{publicNo}/confirm | return | void（S7，高危） */
-export const decideResolve: typeof mk.decideResolve = IS_MOCK ? mk.decideResolve : protoOnly;
+// ---- forecast S9：仪表盘彩池部分、市场管理、自动生成、体育、裁决台、争议、结算、对账、补偿、报表（字段和后端一致：api/fcTypes.ts；真实接口 api/realFc.ts） ----
+export const getMarketDashboard: typeof rf.getMarketDashboard = IS_MOCK ? fm.getMarketDashboard : rf.getMarketDashboard;
+export const listMarkets: typeof rf.listMarkets = IS_MOCK ? fm.listMarkets : rf.listMarkets;
+export const getMarketCounts: typeof rf.getMarketCounts = IS_MOCK ? fm.getMarketCounts : rf.getMarketCounts;
+export const getMarket: typeof rf.getMarket = IS_MOCK ? fm.getMarket : rf.getMarket;
+export const createMarket: typeof rf.createMarket = IS_MOCK ? fm.createMarket : rf.createMarket;
+export const updateMarket: typeof rf.updateMarket = IS_MOCK ? fm.updateMarket : rf.updateMarket;
+export const deleteMarket: typeof rf.deleteMarket = IS_MOCK ? fm.deleteMarket : rf.deleteMarket;
+export const submitMarket: typeof rf.submitMarket = IS_MOCK ? fm.submitMarket : rf.submitMarket;
+export const returnMarket: typeof rf.returnMarket = IS_MOCK ? fm.returnMarket : rf.returnMarket;
+export const publishMarket: typeof rf.publishMarket = IS_MOCK ? fm.publishMarket : rf.publishMarket;
+export const pauseMarket: typeof rf.pauseMarket = IS_MOCK ? fm.pauseMarket : rf.pauseMarket;
+export const resumeMarket: typeof rf.resumeMarket = IS_MOCK ? fm.resumeMarket : rf.resumeMarket;
+export const cancelMarket: typeof rf.cancelMarket = IS_MOCK ? fm.cancelMarket : rf.cancelMarket;
+export const advanceClose: typeof rf.advanceClose = IS_MOCK ? fm.advanceClose : rf.advanceClose;
+export const clarifyMarket: typeof rf.clarifyMarket = IS_MOCK ? fm.clarifyMarket : rf.clarifyMarket;
+export const changeFee: typeof rf.changeFee = IS_MOCK ? fm.changeFee : rf.changeFee;
+export const voidMarket: typeof rf.voidMarket = IS_MOCK ? fm.voidMarket : rf.voidMarket;
+export const getMarketBets: typeof rf.getMarketBets = IS_MOCK ? fm.getMarketBets : rf.getMarketBets;
+export const getSettlement: typeof rf.getSettlement = IS_MOCK ? fm.getSettlement : rf.getSettlement;
+export const getEvidence: typeof rf.getEvidence = IS_MOCK ? fm.getEvidence : rf.getEvidence;
+export const listAutogens: typeof rf.listAutogens = IS_MOCK ? fm.listAutogens : rf.listAutogens;
+export const createAutogen: typeof rf.createAutogen = IS_MOCK ? fm.createAutogen : rf.createAutogen;
+export const updateAutogen: typeof rf.updateAutogen = IS_MOCK ? fm.updateAutogen : rf.updateAutogen;
+export const enableAutogen: typeof rf.enableAutogen = IS_MOCK ? fm.enableAutogen : rf.enableAutogen;
+export const disableAutogen: typeof rf.disableAutogen = IS_MOCK ? fm.disableAutogen : rf.disableAutogen;
+export const listRuleTemplates: typeof rf.listRuleTemplates = IS_MOCK ? fm.listRuleTemplates : rf.listRuleTemplates;
+export const updateRuleTemplate: typeof rf.updateRuleTemplate = IS_MOCK ? fm.updateRuleTemplate : rf.updateRuleTemplate;
+export const listFixtures: typeof rf.listFixtures = IS_MOCK ? fm.listFixtures : rf.listFixtures;
+export const getFixture: typeof rf.getFixture = IS_MOCK ? fm.getFixture : rf.getFixture;
+export const syncFixtures: typeof rf.syncFixtures = IS_MOCK ? fm.syncFixtures : rf.syncFixtures;
+export const searchCandidates: typeof rf.searchCandidates = IS_MOCK ? fm.searchCandidates : rf.searchCandidates;
+export const confirmMapping: typeof rf.confirmMapping = IS_MOCK ? fm.confirmMapping : rf.confirmMapping;
+export const clearMapping: typeof rf.clearMapping = IS_MOCK ? fm.clearMapping : rf.clearMapping;
+export const generateDrafts: typeof rf.generateDrafts = IS_MOCK ? fm.generateDrafts : rf.generateDrafts;
+export const listSportsTemplates: typeof rf.listSportsTemplates = IS_MOCK ? fm.listSportsTemplates : rf.listSportsTemplates;
+export const updateSportsTemplate: typeof rf.updateSportsTemplate = IS_MOCK ? fm.updateSportsTemplate : rf.updateSportsTemplate;
+export const listCases: typeof rf.listCases = IS_MOCK ? fm.listCases : rf.listCases;
+export const getCaseCounts: typeof rf.getCaseCounts = IS_MOCK ? fm.getCaseCounts : rf.getCaseCounts;
+export const getCase: typeof rf.getCase = IS_MOCK ? fm.getCase : rf.getCase;
+export const previewSettle: typeof rf.previewSettle = IS_MOCK ? fm.previewSettle : rf.previewSettle;
+export const propose: typeof rf.propose = IS_MOCK ? fm.propose : rf.propose;
+export const confirmProposal: typeof rf.confirmProposal = IS_MOCK ? fm.confirmProposal : rf.confirmProposal;
+export const returnProposal: typeof rf.returnProposal = IS_MOCK ? fm.returnProposal : rf.returnProposal;
+export const decideDirect: typeof rf.decideDirect = IS_MOCK ? fm.decideDirect : rf.decideDirect;
+export const holdCase: typeof rf.holdCase = IS_MOCK ? fm.holdCase : rf.holdCase;
+export const releaseCase: typeof rf.releaseCase = IS_MOCK ? fm.releaseCase : rf.releaseCase;
+export const attachmentUrl: typeof rf.attachmentUrl = IS_MOCK ? fm.attachmentUrl : rf.attachmentUrl;
+export const uploadAttachment: typeof rf.uploadAttachment = IS_MOCK ? fm.uploadAttachment : rf.uploadAttachment;
+export const listDisputes: typeof rf.listDisputes = IS_MOCK ? fm.listDisputes : rf.listDisputes;
+export const getDisputeCase: typeof rf.getDisputeCase = IS_MOCK ? fm.getDisputeCase : rf.getDisputeCase;
+export const decideDisputes: typeof rf.decideDisputes = IS_MOCK ? fm.decideDisputes : rf.decideDisputes;
+export const listSettleRuns: typeof rf.listSettleRuns = IS_MOCK ? fm.listSettleRuns : rf.listSettleRuns;
+export const getSettleRun: typeof rf.getSettleRun = IS_MOCK ? fm.getSettleRun : rf.getSettleRun;
+export const retrySettleRun: typeof rf.retrySettleRun = IS_MOCK ? fm.retrySettleRun : rf.retrySettleRun;
+export const listPoolIssues: typeof rf.listPoolIssues = IS_MOCK ? fm.listPoolIssues : rf.listPoolIssues;
+export const resolvePoolIssue: typeof rf.resolvePoolIssue = IS_MOCK ? fm.resolvePoolIssue : rf.resolvePoolIssue;
+export const previewCompensation: typeof rf.previewCompensation = IS_MOCK ? fm.previewCompensation : rf.previewCompensation;
+export const compensate: typeof rf.compensate = IS_MOCK ? fm.compensate : rf.compensate;
+export const listCompensations: typeof rf.listCompensations = IS_MOCK ? fm.listCompensations : rf.listCompensations;
+export const getCompensation: typeof rf.getCompensation = IS_MOCK ? fm.getCompensation : rf.getCompensation;
+export const getReport: typeof rf.getReport = IS_MOCK ? fm.getReport : rf.getReport;
 
 // ---- 原型场景（只在 mock 模式下有界面入口） ----
 // 真实接口模式下恒为"正常数据"、版本号恒为 0；按编译期常量选，real 构建不打包模拟层（vite.config.ts 的 mockFree）

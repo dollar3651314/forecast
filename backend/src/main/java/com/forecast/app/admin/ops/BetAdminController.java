@@ -34,13 +34,14 @@ class BetAdminController {
 
   /**
    * 下注明细：奖池汇总（各选项的奖池、人数、截止时定格的值；有效下注合计应当等于奖池合计）+ 一页下注（按收到时间倒序，精确到毫秒）。
-   * 筛选：optionNo（选项编号）、userId（客户号）、status（active / refunded）。
+   * 筛选：optionNo（选项编号）、userId（客户号）、status（active / refunded）；sort = time（默认）/ amount（S9，"前 20 大下注"）。
    */
   @RequiresPermission(Permission.BET_VIEW)
   @GetMapping("/api/admin/markets/{publicNo}/bets")
   MarketBetsView bets(@PathVariable String publicNo, @RequestParam(required = false) String optionNo, @RequestParam(required = false) Long userId,
-      @RequestParam(required = false) String status, @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "50") int pageSize) {
-    PoolAdminApi.MarketBets b = pool.marketBets(MarketOps.no(publicNo), optionNo, userId, status, page, pageSize);
+      @RequestParam(required = false) String status, @RequestParam(required = false) String sort, @RequestParam(defaultValue = "1") int page,
+      @RequestParam(defaultValue = "50") int pageSize) {
+    PoolAdminApi.MarketBets b = pool.marketBets(MarketOps.no(publicNo), optionNo, userId, status, sort, page, pageSize);
     Map<Long, CustomerAdminApi.Customer> who = b.bets().items().isEmpty() ? Map.of()
         : customers.customers(b.bets().items().stream().map(PoolAdminApi.BetRow::userId).distinct().toList());
     List<BetView> items = b.bets().items().stream().map(r -> {

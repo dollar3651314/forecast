@@ -2,6 +2,7 @@ package com.forecast.app.resolve;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -249,11 +250,11 @@ class PlatformResolveFlowTest extends PlatformTestSupport {
     // 时事：事件结束后 24 小时内提议
     advance(Duration.ofHours(24).minusSeconds(1));
     publicity.remindOverdue();
-    verify(staff, never()).notifyStaff(eq("RESOLVE_OVERDUE"), argThat(p -> m.no().equals(p.get("marketNo"))));
+    verify(staff, never()).notifyStaff(eq("RESOLVE_OVERDUE"), argThat(p -> m.no().equals(p.get("marketNo"))), any());
     advance(Duration.ofSeconds(1));
     publicity.remindOverdue();
     publicity.remindOverdue();
-    verify(staff, times(1)).notifyStaff(eq("RESOLVE_OVERDUE"), argThat(p -> m.no().equals(p.get("marketNo")) && "PROPOSE".equals(p.get("what"))));
+    verify(staff, times(1)).notifyStaff(eq("RESOLVE_OVERDUE"), argThat(p -> m.no().equals(p.get("marketNo")) && "PROPOSE".equals(p.get("what"))), eq(List.of("resolve:propose")));
     ResolveDeskApi.CaseItem item = desk.cases("overdue", 1, 100).items().stream().filter(i -> i.marketNo().equals(m.no())).findFirst().orElseThrow();
     assertThat(item.proposeOverdue()).isTrue();
     assertThat(item.overdue()).isTrue();
@@ -262,7 +263,7 @@ class PlatformResolveFlowTest extends PlatformTestSupport {
     advance(Duration.ofHours(2));
     publicity.remindOverdue();
     publicity.remindOverdue();
-    verify(staff, times(1)).notifyStaff(eq("RESOLVE_OVERDUE"), argThat(x -> m.no().equals(x.get("marketNo")) && "CONFIRM".equals(x.get("what"))));
+    verify(staff, times(1)).notifyStaff(eq("RESOLVE_OVERDUE"), argThat(x -> m.no().equals(x.get("marketNo")) && "CONFIRM".equals(x.get("what"))), eq(List.of("resolve:confirm")));
     assertThat(desk.detail(no(m)).orElseThrow().summary().proposal().confirmOverdue()).isTrue();
     // 确认 → 争议 → 24 小时没处理
     desk.confirm(no(m), p, 1, true);
@@ -270,7 +271,7 @@ class PlatformResolveFlowTest extends PlatformTestSupport {
     advance(Duration.ofHours(24));
     publicity.remindOverdue();
     publicity.remindOverdue();
-    verify(staff, times(1)).notifyStaff(eq("RESOLVE_OVERDUE"), argThat(x -> m.no().equals(x.get("marketNo")) && "DISPUTE".equals(x.get("what"))));
+    verify(staff, times(1)).notifyStaff(eq("RESOLVE_OVERDUE"), argThat(x -> m.no().equals(x.get("marketNo")) && "DISPUTE".equals(x.get("what"))), eq(List.of("dispute:handle")));
     assertThat(desk.detail(no(m)).orElseThrow().summary().disputeOverdue()).isTrue();
     // 邮件里的说法按模板翻译（员工邮件中英文各一份）
     assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM notify_template WHERE code = 'RESOLVE_OVERDUE' AND audience = 'STAFF'", Integer.class)).isEqualTo(1);
@@ -290,7 +291,7 @@ class PlatformResolveFlowTest extends PlatformTestSupport {
     // 等待期间不算提议超时
     advance(Duration.ofHours(30));
     publicity.remindOverdue();
-    verify(staff, never()).notifyStaff(eq("RESOLVE_OVERDUE"), argThat(p -> m.no().equals(p.get("marketNo"))));
+    verify(staff, never()).notifyStaff(eq("RESOLVE_OVERDUE"), argThat(p -> m.no().equals(p.get("marketNo"))), any());
     desk.release(no(m), "已在 48 小时内补赛完赛", 1);
     ResolveDeskApi.ProposalInput e6 = new ResolveDeskApi.ProposalInput(m.options().get(0), null, "E6_COMPLETED", null, List.of("https://example.org/r"),
         List.of(), "延期后完赛，按实际结果");

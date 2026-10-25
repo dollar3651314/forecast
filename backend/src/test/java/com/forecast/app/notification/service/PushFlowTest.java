@@ -111,7 +111,7 @@ class PushFlowTest extends NotifyTestSupport {
     assertThat(r.headers().get("authorization")).startsWith("vapid t=").endsWith(", k=" + WebPushCryptoTest.TEST_PUBLIC);
     JsonNode msg = open(r, phone);
     assertThat(msg.get("title").asString()).isEqualTo("身份认证已通过");
-    assertThat(msg.get("body").asString()).isEqualTo("您的身份认证已通过，提现已开通。");
+    assertThat(msg.get("body").asString()).isEqualTo("你的身份认证已通过，现在可以提现，下注也不再受累计充值的认证门槛限制。");
     assertThat(msg.get("kind").asString()).isEqualTo("kyc");
     long messageId = jdbc.queryForObject("SELECT id FROM notify_message WHERE user_id = ?", Long.class, u.id());
     assertThat(msg.get("id").asString()).isEqualTo(String.valueOf(messageId));
@@ -129,7 +129,7 @@ class PushFlowTest extends NotifyTestSupport {
     List<Received> got = to(d);
     assertThat(got).hasSize(2);
     assertThat(got.getFirst().headers()).containsEntry("urgency", "normal");
-    assertThat(open(got.getFirst(), d).get("body").asString()).isEqualTo("Your deposit of 100 USDT via TRC20 has been credited.");
+    assertThat(open(got.getFirst(), d).get("body").asString()).isEqualTo("Your deposit of 100 USDT via TRC20 has been credited to your available balance.");
     JsonNode manual = open(got.get(1), d);
     assertThat(manual.get("title").asString()).isEqualTo("维护通知");
     assertThat(manual.get("kind").asString()).isEqualTo("system");

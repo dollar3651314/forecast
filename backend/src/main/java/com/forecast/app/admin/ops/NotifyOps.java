@@ -21,11 +21,15 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 class NotifyOps {
 
-  /** 字段和原型 NotifyTemplate 一致（id 就是模板编号） */
-  record TemplateView(String id, String code, String nameZh, String nameEn, boolean builtIn, boolean enabled, List<String> channels, String titleZh,
-      String bodyZh, String titleEn, String bodyEn, List<String> variables, String updatedAt) {}
+  /**
+   * 字段和后台 NotifyTemplate 一致（id 就是模板编号）。S9：audience（user / any / staff）、繁体 titleTw / bodyTw、需求第 7 节编号 reqNo、
+   * 员工模板的收件人权限点 staffPerms（为空 = 发告警邮箱）。
+   */
+  record TemplateView(String id, String code, String audience, String reqNo, String nameZh, String nameEn, boolean builtIn, boolean enabled,
+      List<String> channels, String titleZh, String bodyZh, String titleEn, String bodyEn, String titleTw, String bodyTw, List<String> variables,
+      List<String> staffPerms, String updatedAt) {}
 
-  record TemplatePatch(String titleZh, String bodyZh, String titleEn, String bodyEn, Boolean enabled) {}
+  record TemplatePatch(String titleZh, String bodyZh, String titleEn, String bodyEn, String titleTw, String bodyTw, Boolean enabled) {}
 
   /** 字段和原型 ManualNotifyInput 一致 */
   record ManualInput(Long customerId, List<String> channels, String title, String body, String reason) {}
@@ -47,8 +51,9 @@ class NotifyOps {
   }
 
   private static TemplateView view(NotifyAdminApi.Template t) {
-    return new TemplateView(t.code(), t.code(), t.nameZh(), t.nameEn(), t.builtIn(), t.enabled(), t.channels().stream().map(c -> c.name().toLowerCase()).toList(),
-        t.titleZh(), t.bodyZh(), t.titleEn(), t.bodyEn(), t.variables(), Ops.time(t.updatedAt()));
+    return new TemplateView(t.code(), t.code(), t.audience().toLowerCase(), t.reqNo(), t.nameZh(), t.nameEn(), t.builtIn(), t.enabled(),
+        t.channels().stream().map(c -> c.name().toLowerCase()).toList(), t.titleZh(), t.bodyZh(), t.titleEn(), t.bodyEn(), t.titleTw(), t.bodyTw(), t.variables(),
+        t.staffPerms(), Ops.time(t.updatedAt()));
   }
 
   List<TemplateView> templates() {
@@ -56,22 +61,27 @@ class NotifyOps {
   }
 
   TemplateView updateTemplate(String code, TemplatePatch p) {
-    TemplatePatch patch = p == null ? new TemplatePatch(null, null, null, null, null) : p;
+    TemplatePatch patch = p == null ? new TemplatePatch(null, null, null, null, null, null, null) : p;
     Map<String, Object> before = new LinkedHashMap<>();
     notify.templates().stream().filter(t -> t.code().equals(code)).findFirst().ifPresent(t -> {
       before.put("titleZh", t.titleZh());
       before.put("bodyZh", t.bodyZh());
       before.put("titleEn", t.titleEn());
       before.put("bodyEn", t.bodyEn());
+      before.put("titleTw", t.titleTw());
+      before.put("bodyTw", t.bodyTw());
       before.put("enabled", t.enabled());
     });
     return audit.run("notify.template_update", code, false, null, () -> {
-      NotifyAdminApi.Template t = notify.updateTemplate(code, patch.titleZh(), patch.bodyZh(), patch.titleEn(), patch.bodyEn(), patch.enabled());
+      NotifyAdminApi.Template t = notify.updateTemplate(code, patch.titleZh(), patch.bodyZh(), patch.titleEn(), patch.bodyEn(), patch.titleTw(), patch.bodyTw(),
+          patch.enabled());
       Map<String, Object> after = new LinkedHashMap<>();
       after.put("titleZh", t.titleZh());
       after.put("bodyZh", t.bodyZh());
       after.put("titleEn", t.titleEn());
       after.put("bodyEn", t.bodyEn());
+      after.put("titleTw", t.titleTw());
+      after.put("bodyTw", t.bodyTw());
       after.put("enabled", t.enabled());
       return Audit.Change.of(view(t), before, after);
     });

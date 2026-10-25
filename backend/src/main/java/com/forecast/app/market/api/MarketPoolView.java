@@ -35,6 +35,14 @@ public interface MarketPoolView {
    */
   int freezeAndCountActiveOptions(long marketId);
 
+  /** 一个市场的奖池合计和下注人数（后台市场列表用，S9） */
+  record Totals(BigDecimal amount, int bettors) {}
+
+  /** 后台市场列表（S9）：marketId → 奖池合计、下注人数；没有记录的不在结果里（按 0）。只读 */
+  default Map<Long, Totals> totals(List<Long> marketIds) {
+    return Map.of();
+  }
+
   /** 在这个市场有有效下注的客户（费率修改通知 #22、补充说明通知 #18 用） */
   List<Long> bettors(long marketId);
 

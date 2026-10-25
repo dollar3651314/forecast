@@ -1,6 +1,7 @@
 /**
  * 路由表（basename = /admin）。menuKey 表示该页面从哪个菜单进入：详情页归到列表菜单（单元测试检查）。
- * forecast S1：复制源的交易、风控、品种行情、交易参数页面删除；市场管理、裁决台等新页面随 S3 以后各步加（需求说明书第 6 节）。
+ * forecast S1：复制源的交易、风控、品种行情、交易参数页面删除；S9 加市场管理、待上架、自动生成、体育、裁决台、公示与争议、结算记录、补偿、
+ * 彩池对账、报表、参数设置（需求说明书第 6 节）。
  */
 import type { ReactNode } from 'react';
 import { DashboardPage } from '../pages/DashboardPage';
@@ -26,6 +27,18 @@ import { MenusPage } from '../pages/system/MenusPage';
 import { PermissionsPage } from '../pages/system/PermissionsPage';
 import { AuditPage } from '../pages/system/AuditPage';
 import { ConfigPage } from '../pages/system/ConfigPage';
+import { MarketListPage } from '../pages/markets/MarketListPage';
+import { MarketEditPage } from '../pages/markets/MarketEditPage';
+import { MarketDetailPage } from '../pages/markets/MarketDetailPage';
+import { AutogenPage } from '../pages/markets/AutogenPage';
+import { SportsPage } from '../pages/markets/SportsPage';
+import { ResolveDeskPage } from '../pages/resolve/ResolveDeskPage';
+import { DisputesPage } from '../pages/resolve/DisputesPage';
+import { SettleRunsPage } from '../pages/settle/SettleRunsPage';
+import { CompensationsPage } from '../pages/settle/CompensationsPage';
+import { PoolReconPage } from '../pages/funds/PoolReconPage';
+import { ReportsPage } from '../pages/reports/ReportsPage';
+import { ParamsPage } from '../pages/params/ParamsPage';
 
 export interface RouteDef {
   path: string;
@@ -35,6 +48,19 @@ export interface RouteDef {
 
 export const APP_ROUTES: RouteDef[] = [
   { path: '/dashboard', menuKey: 'dashboard', element: <DashboardPage /> },
+  { path: '/markets', menuKey: 'markets', element: <MarketListPage /> },
+  { path: '/markets/review', menuKey: 'market-review', element: <MarketListPage review /> },
+  { path: '/markets/new', menuKey: 'markets', element: <MarketEditPage /> },
+  { path: '/markets/autogen', menuKey: 'autogen', element: <AutogenPage /> },
+  { path: '/markets/sports', menuKey: 'sports', element: <SportsPage /> },
+  { path: '/markets/:no', menuKey: 'markets', element: <MarketDetailPage /> },
+  { path: '/markets/:no/edit', menuKey: 'markets', element: <MarketEditPage /> },
+  { path: '/resolve', menuKey: 'resolve', element: <ResolveDeskPage /> },
+  { path: '/resolve/disputes', menuKey: 'disputes', element: <DisputesPage /> },
+  { path: '/settle/runs', menuKey: 'settle-runs', element: <SettleRunsPage /> },
+  { path: '/settle/compensations', menuKey: 'compensations', element: <CompensationsPage /> },
+  { path: '/reports', menuKey: 'reports', element: <ReportsPage /> },
+  { path: '/params', menuKey: 'params', element: <ParamsPage /> },
   { path: '/customers', menuKey: 'customers', element: <CustomerListPage /> },
   { path: '/customers/:id', menuKey: 'customers', element: <CustomerDetailPage /> },
   { path: '/kyc', menuKey: 'kyc', element: <KycListPage /> },
@@ -49,6 +75,7 @@ export const APP_ROUTES: RouteDef[] = [
   { path: '/funds/reconciliation/sweep/new', menuKey: 'reconciliation', element: <SweepNewPage /> },
   { path: '/funds/reconciliation/sweep/batches/:no', menuKey: 'reconciliation', element: <SweepBatchPage /> },
   { path: '/funds/reconciliation/sweep/settings', menuKey: 'reconciliation', element: <SweepSettingsPage /> },
+  { path: '/funds/pool-recon', menuKey: 'pool-recon', element: <PoolReconPage /> },
   { path: '/funds/tasks', menuKey: 'tasks', element: <TasksPage /> },
   { path: '/notify/templates', menuKey: 'templates', element: <TemplatesPage /> },
   { path: '/notify/send', menuKey: 'send', element: <SendPage /> },

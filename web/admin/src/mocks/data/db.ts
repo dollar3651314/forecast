@@ -391,18 +391,29 @@ interface TplSeed {
   vars: string[];
   builtIn?: boolean;
   channels?: NotifyTemplate['channels'];
+  /** forecast S9：需求第 7 节编号、繁体、受众、员工模板的收件人权限点 */
+  req?: string;
+  tTw?: string;
+  bTw?: string;
+  audience?: NotifyTemplate['audience'];
+  perms?: string[];
 }
 const tplSeeds: TplSeed[] = [
-  { code: 'deposit_credited', zh: '入金到账', en: 'Deposit credited', tZh: '充值已到账', tEn: 'Deposit credited', bZh: '您通过 {chain} 充值的 {amount} USDT 已到账。', bEn: 'Your deposit of {amount} USDT via {chain} has been credited.', vars: ['amount', 'chain'] },
-  { code: 'withdraw_status', zh: '出金状态变化', en: 'Withdrawal status', tZh: '提现状态更新', tEn: 'Withdrawal update', bZh: '您的提现 {orderId} 状态已更新为：{status}。', bEn: 'Your withdrawal {orderId} is now: {status}.', vars: ['orderId', 'status'] },
-  { code: 'kyc_result', zh: 'KYC 结果', en: 'KYC result', tZh: '身份认证结果', tEn: 'Verification result', bZh: '您的身份认证{result}。{reason}', bEn: 'Your identity verification was {result}. {reason}', vars: ['result', 'reason'] },
-  { code: 'email_code', zh: '邮箱验证码', en: 'Email code', tZh: 'Quick Come 验证码', tEn: 'Quick Come verification code', bZh: '您的验证码是 {code}，10 分钟内有效。', bEn: 'Your code is {code}. It expires in 10 minutes.', vars: ['code'], channels: ['email'] },
-  { code: 'reversal_shortfall', zh: '冲正挂账（发给运营、财务）', en: 'Reversal shortfall (to staff)', tZh: '冲正余额不足，已挂账', tEn: 'Reversal shortfall recorded', bZh: '客户 {customerId} 的入金 {txHash} 被链上回滚，余额不足，已生成挂账。', bEn: 'Deposit {txHash} of customer {customerId} was reversed; shortfall recorded.', vars: ['customerId', 'txHash'] },
+  { code: 'deposit_credited', req: '#3', zh: '入金到账', en: 'Deposit credited', tZh: '充值已到账', tEn: 'Deposit credited', tTw: '充值已到帳', bZh: '你通过 {chain} 充值的 {amount} USDT 已到账，已计入可用余额。', bEn: 'Your deposit of {amount} USDT via {chain} has been credited to your available balance.', bTw: '你透過 {chain} 充值的 {amount} USDT 已到帳，已計入可用餘額。', vars: ['amount', 'chain'] },
+  { code: 'withdraw_status', req: '#5', zh: '出金状态变化', en: 'Withdrawal status', tZh: '提现状态更新', tEn: 'Withdrawal update', tTw: '提現狀態更新', bZh: '你的提现 {orderId} 状态已更新为：{status}。', bEn: 'Your withdrawal {orderId} is now: {status}.', bTw: '你的提現 {orderId} 狀態已更新為：{status}。', vars: ['orderId', 'status'] },
+  { code: 'kyc_result', req: '#6', zh: 'KYC 结果', en: 'KYC result', tZh: '身份认证结果', tEn: 'Verification result', tTw: '身分認證結果', bZh: '你的身份认证{result}。{reason}', bEn: 'Your identity verification was {result}. {reason}', bTw: '你的身分認證{result}。{reason}', vars: ['result', 'reason'] },
+  { code: 'email_code', req: '#2', audience: 'any', zh: '邮箱验证码', en: 'Email code', tZh: 'Quick Come 验证码', tEn: 'Quick Come verification code', tTw: 'Quick Come 驗證碼', bZh: '你的验证码是 {code}，10 分钟内有效。', bEn: 'Your code is {code}. It expires in 10 minutes.', bTw: '你的驗證碼是 {code}，10 分鐘內有效。', vars: ['code'], channels: ['email'] },
+  { code: 'settle_won', req: '#11', zh: '结算：我赢了', en: 'Settled: you won', tZh: '「{market}」已结算：你押中了', tEn: '"{marketEn}" settled: your option won', tTw: '「{market}」已結算：你押中了', bZh: '「{market}」结果是「{option}」。你的派彩 {payout} USDT 已到可用余额。', bEn: '"{marketEn}" resolved to "{optionEn}". Your payout of {payout} USDT is in your available balance.', bTw: '「{market}」結果是「{option}」。你的派彩 {payout} USDT 已到可用餘額。', vars: ['market', 'marketEn', 'option', 'optionEn', 'payout'], channels: ['inbox', 'push'] },
+  { code: 'market_clarified', req: '#18', zh: '市场发布补充说明', en: 'Market clarification', tZh: '「{market}」发布了补充说明', tEn: 'Clarification for "{marketEn}"', tTw: '「{market}」發布了補充說明', bZh: '你下注的市场「{market}」发布了补充说明：\n{text}', bEn: 'A clarification was published for "{marketEn}":\n{textEn}', bTw: '你下注的市場「{market}」發布了補充說明：\n{text}', vars: ['market', 'marketEn', 'text', 'textEn'], channels: ['inbox'] },
+  { code: 'resolve_proposed', audience: 'staff', perms: ['resolve:confirm'], zh: '裁决提议待确认', en: 'Proposed result awaiting confirmation', tZh: '市场 {marketNo} 有提议待确认', tEn: 'Market {marketNo}: proposed result awaiting confirmation', bZh: '市场 {marketNo}（{market}）有新的裁决提议：{option}。', bEn: 'A result has been proposed for market {marketNo} ({marketEn}): {optionEn}.', vars: ['marketNo', 'market', 'marketEn', 'option', 'optionEn'], channels: ['email'] },
+  { code: 'reversal_shortfall', audience: 'staff', zh: '冲正挂账（发给运营、财务）', en: 'Reversal shortfall (to staff)', tZh: '冲正余额不足，已挂账', tEn: 'Reversal shortfall recorded', bZh: '客户 {customerId} 的入金 {txHash} 被链上回滚，余额不足，已生成挂账。', bEn: 'Deposit {txHash} of customer {customerId} was reversed; shortfall recorded.', vars: ['customerId', 'txHash'], channels: ['email'] },
 ];
 
 export const templates: NotifyTemplate[] = tplSeeds.map((t, i) => ({
   id: `TPL-${String(i + 1).padStart(2, '0')}`,
   code: t.code,
+  audience: t.audience ?? 'user',
+  reqNo: t.req ?? null,
   nameZh: t.zh,
   nameEn: t.en,
   builtIn: t.builtIn ?? true,
@@ -412,7 +423,10 @@ export const templates: NotifyTemplate[] = tplSeeds.map((t, i) => ({
   bodyZh: t.bZh,
   titleEn: t.tEn,
   bodyEn: t.bEn,
+  titleTw: t.tTw ?? '',
+  bodyTw: t.bTw ?? '',
   variables: t.vars,
+  staffPerms: t.perms ?? [],
   updatedAt: minutesAgo(60 * 24 * (i + 1)),
 }));
 

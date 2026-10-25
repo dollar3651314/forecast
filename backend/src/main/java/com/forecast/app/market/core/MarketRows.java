@@ -101,4 +101,11 @@ final class MarketRows {
     long createdBy;
     LocalDateTime createdAt;
   }
+
+  /** 后台列表的分组数量（S9） */
+  static class StatusCount {
+    String status;
+    boolean submitted;
+    long n;
+  }
 }

@@ -140,9 +140,9 @@ class KycFlowTest {
     long app = latestApplication(u.id());
     accounts.approveKyc(app, 1);
     assertThat(accounts.kycStatus(u.id())).isEqualTo(KycStatus.APPROVED);
-    // 通过的站内信：forecast 基线 V3 的文案（复制源的"充值、交易、提现均已开通"去掉了交易，S9 由 PM 定稿）
+    // 通过的站内信：S9 由 PM 定稿（V17；复制源的"充值、交易、提现均已开通"去掉了交易）
     String inbox = mvc.perform(get("/api/notifications?lang=zh-CN").cookie(u.cookie())).andReturn().getResponse().getContentAsString();
-    assertThat(inbox).contains("\"title\":\"身份认证已通过\"").contains("提现已开通").doesNotContainPattern("交易(?!所)");
+    assertThat(inbox).contains("\"title\":\"身份认证已通过\"").contains("现在可以提现").doesNotContainPattern("交易(?!所)");
     assertThatThrownBy(() -> accounts.approveKyc(app, 1)).isInstanceOf(BizException.class).extracting("code").isEqualTo("KYC_NOT_PENDING");
     assertThat(mvc.perform(get("/api/me/profile").cookie(u.cookie())).andReturn().getResponse().getContentAsString()).contains("\"locked\":true");
     MockHttpServletResponse r = mvc.perform(put("/api/me/profile").cookie(u.cookie()).contentType(MediaType.APPLICATION_JSON)

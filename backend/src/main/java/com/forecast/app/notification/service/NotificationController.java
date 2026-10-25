@@ -33,7 +33,7 @@ class NotificationController {
     this.service = service;
   }
 
-  /** 站内信，最新的在前；lang 是客户端当前界面语言（zh-CN / en） */
+  /** 站内信，最新的在前；lang 是客户端当前界面语言（zh-CN / zh-TW / en，S9 起有繁体） */
   @GetMapping("/api/notifications")
   NotifyService.Page<NotifyService.Item> list(@RequestParam(defaultValue = "zh-CN") String lang, @RequestParam(defaultValue = "1") int page,
       @RequestParam(defaultValue = "20") int pageSize) {

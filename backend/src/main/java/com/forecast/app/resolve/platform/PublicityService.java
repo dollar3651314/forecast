@@ -167,6 +167,9 @@ public class PublicityService {
    *
    * @return 这一轮发了几封
    */
+  /** 超时提醒的收件人权限点（需求第 7 节"发给管理员"） */
+  static final Map<String, String> OVERDUE_PERMS = Map.of("PROPOSE", "resolve:propose", "CONFIRM", "resolve:confirm", "DISPUTE", "dispute:handle");
+
   public int remindOverdue() {
     int n = 0;
     LocalDateTime now = now();
@@ -187,7 +190,8 @@ public class PublicityService {
         v.put("what", kind);
         v.put("dueAt", ResolveDesk.NOTICE_TIME.format(due));
         try {
-          staff.notifyStaff("RESOLVE_OVERDUE", v);
+          // 按角色发（S9，SQ-14）：待提议超时给裁决员（resolve:propose），待确认超时给 resolve:confirm，争议处理超时给 dispute:handle；超管都有
+          staff.notifyStaff("RESOLVE_OVERDUE", v, List.of(OVERDUE_PERMS.get(kind)));
           n++;
         } catch (RuntimeException e) {
           log.error("市场 {} 的超时提醒发送失败", m.publicNo(), e);

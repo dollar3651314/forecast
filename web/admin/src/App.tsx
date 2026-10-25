@@ -5,16 +5,13 @@ import { useAuth } from './auth/AuthContext';
 import { AppLayout } from './components/AppLayout';
 import { RequirePerm } from './components/RequirePerm';
 import { APP_ROUTES } from './config/routes';
-import { PROTO_ROUTES } from './config/protoRoutes';
-import { IS_MOCK } from './api';
 import { flattenMenu, visibleMenu } from './config/menu';
 import { LoginPage } from './pages/LoginPage';
 import { ChangePasswordPage } from './pages/ChangePasswordPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
 const LEAF = new Map(flattenMenu().map((m) => [m.key, m]));
-/** 原型模式下加上 M1 原型页面（config/protoRoutes.tsx） */
-const ROUTES = IS_MOCK ? [...PROTO_ROUTES, ...APP_ROUTES] : APP_ROUTES;
+const ROUTES = APP_ROUTES;
 
 /** 需要登录；首次登录必须先改密码 */
 function RequireAuth({ children }: { children: JSX.Element }) {

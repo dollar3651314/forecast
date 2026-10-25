@@ -138,6 +138,12 @@ class DepositFlowTest {
     assertThat(status(Chain.ERC20, small)).isEqualTo("BELOW_MIN");
     assertThat(status(Chain.ERC20, ok)).isEqualTo("CREDITED");
     assertThat(balance(uid)).isEqualByComparingTo("1");
+    // 通知 #4（S9）：低于最小金额的只发一条站内信（重复扫到不再发），写明金额、网络和最小金额
+    deposits.run(Chain.ERC20);
+    assertThat(jdbc.queryForList("SELECT params FROM notify_message WHERE user_id = ? AND template_code = 'DEPOSIT_BELOW_MIN'", String.class, uid))
+        .singleElement().satisfies(p -> assertThat(p).contains("\"amount\":\"0.99\"").contains("\"chain\":\"ERC20\"").contains("\"min\":\"1\""));
+    assertThat(jdbc.queryForList("SELECT channel FROM notify_record WHERE user_id = ? AND template_code = 'DEPOSIT_BELOW_MIN'", String.class, uid))
+        .containsExactly("INBOX");
   }
 
   @Test

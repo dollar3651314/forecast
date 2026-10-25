@@ -484,8 +484,10 @@ public class ResolveDesk implements ResolveDeskApi {
       Map<String, String> v = new LinkedHashMap<>();
       v.put("market", m.title().zhCN());
       v.put("marketEn", m.title().en());
+      v.put("marketTw", m.title().zhTW());
       v.put("option", o.label().zhCN());
       v.put("optionEn", o.label().en());
+      v.put("optionTw", o.label().zhTW());
       v.put("deadline", NOTICE_TIME.format(deadline));
       notices.add(new NotifyApi.Notice(uid, v));
     }
@@ -771,10 +773,13 @@ public class ResolveDesk implements ResolveDeskApi {
           Map<String, String> v = new LinkedHashMap<>();
           v.put("market", m.title().zhCN());
           v.put("marketEn", m.title().en());
+          v.put("marketTw", m.title().zhTW());
           v.put("option", to.label().zhCN());
           v.put("optionEn", to.label().en());
+          v.put("optionTw", to.label().zhTW());
           v.put("oldOption", from == null ? "" : from.label().zhCN());
           v.put("oldOptionEn", from == null ? "" : from.label().en());
+          v.put("oldOptionTw", from == null ? "" : from.label().zhTW());
           notices.add(new NotifyApi.Notice(uid, v));
         }
         notify.toUsers("RESULT_OVERTURNED", notices);
@@ -796,10 +801,12 @@ public class ResolveDesk implements ResolveDeskApi {
       Map<String, String> v = new LinkedHashMap<>();
       v.put("market", m.title().zhCN());
       v.put("marketEn", m.title().en());
+      v.put("marketTw", m.title().zhTW());
       v.put("decision", status);
       if (finalOption != null) {
         v.put("option", finalOption.label().zhCN());
         v.put("optionEn", finalOption.label().en());
+        v.put("optionTw", finalOption.label().zhTW());
       }
       v.put("note", note);
       notices.add(new NotifyApi.Notice(d.userId, v));
