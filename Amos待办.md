@@ -61,7 +61,7 @@ key 由你自己填进服务器 `.env`，**不要发给我**。填完重启 app 
 ## 📚 资料
 | # | 内容 |
 |---|---|
-| R1 | 待审核的 PR：#3 推广策略 v2.1、#4 架构方案 v1.0；进行中的分支：`claude/integration-2`（把原型、S6、S7 整合成 PR 到 main）、`claude/s9-admin`（后台页面和通知）、已完成待整合：`claude/s8-sports`（体育赛程和自动结算）；`claude/integration-1`（把 S1～S5、合约方案、需求 v1.3、架构 v1.3、推广策略整合成一个 PR 到 main，跑 GitHub CI）、`claude/s6-crypto`（加密自动生成和自动裁决）、`claude/m1-prototype`（原型）、`claude/req-v1.3`（需求 v1.3 + 自动化程序，已完成待审）、`claude/arch-v1.2`（架构 v1.2，已完成待审）、`claude/wallet-create2`（充值地址改用合约方案，已完成）；已完成的开发分支 `claude/s1-skeleton`～`claude/s5-settle`（主线打通） |
+| R1 | main 上已合并：S1～S7、充值合约方案、M1 原型、需求 v1.3.1、架构 v1.4、推广策略 v2.2（PR #15、#18）。已完成待整合：`claude/s8-sports`（体育赛程和自动结算）。进行中：`claude/s9-admin`（后台页面和通知） |
 | R2 | 正式品牌候选（上线前再定，按 C93）：架构方案第 15 节的 Poolsay / Larkpool / Poolvane；推广策略第 4.4 节的 ZeroHouse / PoolPulse / TickOdds / OptiPool（OmniPool 明显撞名，不建议） |
 
 ## 已完成（保留最近的记录）
