@@ -1,9 +1,18 @@
 <!doctype html>
-<html lang="zh-CN" data-theme="light" data-updown="green">
+<html lang="zh-CN" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#0e7490" />
+    <meta name="theme-color" content="#ffffff" />
+    <script>
+      // 主题跟随系统（RQ-1）；选过的（fc.theme）优先。和 src/app/ThemeProvider.tsx 同一个规则，渲染前先设好，避免闪一下另一种颜色
+      (function () {
+        var t = null;
+        try { t = localStorage.getItem('fc.theme'); } catch (e) {}
+        if (t !== 'light' && t !== 'dark') t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', t);
+      })();
+    </script>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Quick Come" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />

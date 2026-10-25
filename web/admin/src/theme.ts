@@ -1,17 +1,17 @@
 /**
  * Ant Design 主题：颜色、圆角、字号取自效果图 M6、M7 的设计 token。
- * 白底上的主色文字和按钮用 cyan-700 #0e7490（满足 WCAG AA 4.5:1）。
+ * forecast M1：主色换成方向 A"清爽数据"的蓝色（AQ-6，架构方案第 10 节）：浅色 #1d4ed8（白底 6.7:1），深色文字和链接用 #8fb3ff。
  *
  * v2 E2 深色主题：浅色、深色两套 token，和 styles/global.css 里 :root、:root[data-theme='dark'] 的 CSS 变量一一对应（改一边要同时改另一边）。
  * 深色下的文字、链接、涨跌色在所有底色（bg、s1、s2、s3）上的对比度都不低于 4.5:1（WCAG AA，数值见《技术方案/v1-后台方案.md》第 11 节）；
- * 主色按钮仍用 #0e7490 底 + 白字（5.4:1），链接和选中的菜单用更亮的 #5fd4e8。
+ * 主色按钮用 #1d4ed8 底 + 白字（6.7:1），链接和选中的菜单用更亮的 #8fb3ff。
  */
 import { theme as antdThemes, type ThemeConfig } from 'antd';
 
 export type ThemeName = 'light' | 'dark';
 
 const shared = {
-  sans: '-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei","Noto Sans CJK SC","Hiragino Sans GB","WenQuanYi Zen Hei",sans-serif',
+  sans: '-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei","Noto Sans CJK SC","Noto Sans SC","Hiragino Sans GB","WenQuanYi Zen Hei",sans-serif',
   mono: '"JetBrains Mono",ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono","DejaVu Sans Mono",monospace',
 };
 
@@ -26,9 +26,9 @@ export const tokens = {
   text: '#0f172a',
   muted: '#475569',
   subtle: '#64748b',
-  primary: '#0891b2',
-  primaryDeep: '#0e7490',
-  link: '#0e7490',
+  primary: '#1d4ed8',
+  primaryDeep: '#1d4ed8',
+  link: '#1d4ed8',
   long: '#15803d',
   short: '#dc2626',
   warn: '#b45309',
@@ -48,9 +48,9 @@ export const darkTokens: typeof tokens = {
   text: '#e2e8f0',
   muted: '#a8b5c8',
   subtle: '#94a3b8',
-  primary: '#22d3ee',
-  primaryDeep: '#0e7490',
-  link: '#5fd4e8',
+  primary: '#6b9bff',
+  primaryDeep: '#1d4ed8',
+  link: '#8fb3ff',
   long: '#4ade80',
   short: '#f87171',
   warn: '#fbbf24',
@@ -79,8 +79,8 @@ export function buildAntdTheme(name: ThemeName): ThemeConfig {
       colorBgLayout: t.bg,
       colorBgContainer: t.s1,
       colorBgElevated: dark ? '#162033' : '#ffffff',
-      colorInfoBg: dark ? '#0f3649' : '#ecfeff',
-      colorInfoBorder: dark ? '#155e75' : '#a5f3fc',
+      colorInfoBg: dark ? '#14213d' : '#eef3fe',
+      colorInfoBorder: dark ? '#2a3d66' : '#c3d3f8',
       colorWarningBg: dark ? '#3b2f17' : '#fff7ed',
       colorWarningBorder: dark ? '#92400e' : '#fdba74',
       colorErrorBg: dark ? '#3a1d24' : '#fef2f2',
@@ -99,7 +99,7 @@ export function buildAntdTheme(name: ThemeName): ThemeConfig {
       Layout: { headerBg: t.s1, siderBg: t.s1, bodyBg: t.bg, headerHeight: 52, headerPadding: '0 20px 0 16px' },
       Menu: {
         itemBg: t.s1,
-        itemSelectedBg: dark ? 'rgba(34,211,238,.14)' : 'rgba(8,145,178,.10)',
+        itemSelectedBg: dark ? 'rgba(107,155,255,.16)' : 'rgba(29,78,216,.09)',
         itemSelectedColor: t.link,
         itemColor: t.muted,
         itemHoverColor: t.text,
@@ -113,7 +113,7 @@ export function buildAntdTheme(name: ThemeName): ThemeConfig {
         cellPaddingBlock: 9,
         cellPaddingInline: 10,
         headerSplitColor: 'transparent',
-        rowSelectedBg: dark ? 'rgba(34,211,238,.10)' : 'rgba(8,145,178,.07)',
+        rowSelectedBg: dark ? 'rgba(107,155,255,.12)' : 'rgba(29,78,216,.07)',
         rowHoverBg: dark ? '#17233a' : '#f3f8fb',
       },
       Card: { paddingLG: 16 },

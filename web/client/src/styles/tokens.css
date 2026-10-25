@@ -1,124 +1,137 @@
-/* 设计 token。v2（2026-10-15，UI 风格 C）：默认深色；涨跌色可切换（绿涨红跌 / 红涨绿跌）。
-   绿、红两组原色按主题定义（--g-* / --r-*）；语义色 --long（涨、买）和 --short（跌、卖）按涨跌色设置取其中一组。
-   错误、未读、红点等"警示红"用 --danger，不随涨跌色变化。白底上达不到 4.5:1 的强调色，文字一律用更深一档。 */
+/* 设计 token：方向 A"清爽数据"（AQ-6，Amos 2026-10-25 选定；架构方案第 10 节、assets/v1/style/风格方向A-清爽数据.svg）。
+   - 蓝色主色只用于主操作、选中、概率；涨跌（赢输）用绿红，和主色分开，多选项市场的概率条不会被看成"涨跌"。
+   - 主题跟随系统（RQ-1）：没选过时按 prefers-color-scheme，选过的记在 fc.theme（app/ThemeProvider.tsx 写 data-theme）。
+   - 第 10 节的 11 个 token 原样使用（--bg、--surface、--border、--text、--muted、--primary、--on-primary、--up、--down、--accent、--track），
+     其余是实现用的派生值；复制源页面（资产、我的、登录）用的旧变量名（--s1、--cyan…）在下面映射到 A 方向，不再单独定色。
+   - 小字一律用 --muted（浅色 #566173 在 --surface 上 5.5:1，深色 #9AA4B2 在 --surface 上 6.6:1），不用更浅的灰。 */
 :root {
-  --bg: #f4f7fb;
-  --s1: #ffffff;
-  --s2: #f8fafc;
-  --s3: #eef5f9;
-  --border: rgba(15, 23, 42, 0.12);
-  --hair: rgba(15, 23, 42, 0.07);
+  /* 第 10 节 token：浅色 */
+  --bg: #ffffff;
+  --surface: #f5f7fa;
+  --border: #dde2ea;
   --text: #0f172a;
-  --muted: #475569;
-  --subtle: #5b6b80;
-  --cyan: #0891b2;
-  --cyan-deep: #0e7490;
-  --cyan-soft: rgba(8, 145, 178, 0.1);
-  --primary: #0e7490;
-  --g: #15803d;
-  --g-fill: #16a34a;
-  --g-soft: rgba(22, 163, 74, 0.1);
-  --g-solid: #15803d;
-  --r: #dc2626;
-  --r-text: #c81e1e;
-  --r-fill: #dc2626;
-  --r-soft: rgba(220, 38, 38, 0.08);
-  --r-solid: #dc2626;
-  --danger: #dc2626;
-  --danger-text: #c81e1e;
-  --danger-soft: rgba(220, 38, 38, 0.08);
-  --risk: #c2410c;
-  --amber: #b45309;
-  --violet: #7c3aed;
-  --ok-bg: #f0fdf4;
-  --ok-border: #86efac;
-  --ok-text: #166534;
-  --warn-bg: #fff7ed;
-  --warn-border: #fdba74;
-  --warn-text: #9a3412;
-  --err-bg: #fef2f2;
-  --err-border: #fca5a5;
-  --err-text: #991b1b;
-  --mask: rgba(15, 23, 42, 0.48);
+  --muted: #566173;
+  --primary: #1d4ed8;
+  --on-primary: #ffffff;
+  --up: #0f7a55;
+  --down: #b42318;
+  --accent: #1d4ed8;
+  --track: #e3e8f0;
+
+  /* 派生 */
+  --surface-2: #eef1f5;
+  --hover: #e9edf3;
+  --hair: #e6eaf0;
+  --field: #ffffff;
+  --primary-soft: rgba(29, 78, 216, 0.09);
+  --primary-line: rgba(29, 78, 216, 0.35);
+  --primary-fill: #c9d6f7; /* 概率条（选中） */
+  --up-soft: rgba(15, 122, 85, 0.1);
+  --up-fill: #bfe0d3;
+  --down-soft: rgba(180, 35, 24, 0.08);
+  --down-fill: #f1c9c5;
+  --warn: #9a5b00;
+  --warn-soft: #fff6e5;
+  --warn-line: #f2c46b;
+
+  /* 复制源页面沿用的变量名 → A 方向 */
+  --s1: var(--surface);
+  --s2: var(--surface-2);
+  --s3: var(--hover);
+  --subtle: var(--muted);
+  --cyan: var(--primary);
+  --cyan-deep: var(--primary);
+  --cyan-soft: var(--primary-soft);
+  --g: var(--up);
+  --g-fill: var(--up);
+  --g-soft: var(--up-soft);
+  --g-solid: var(--up);
+  --r: var(--down);
+  --r-text: var(--down);
+  --r-fill: var(--down);
+  --r-soft: var(--down-soft);
+  --r-solid: var(--down);
+  --long: var(--up);
+  --long-fill: var(--up);
+  --long-soft: var(--up-soft);
+  --long-solid: var(--up);
+  --short: var(--down);
+  --short-text: var(--down);
+  --short-fill: var(--down);
+  --short-soft: var(--down-soft);
+  --short-solid: var(--down);
+  --danger: var(--down);
+  --danger-text: var(--down);
+  --danger-soft: var(--down-soft);
+  --risk: #b54708;
+  --amber: var(--warn);
+  --violet: #6d28d9;
+  --ok-bg: #ecf7f2;
+  --ok-border: #9fd3bd;
+  --ok-text: #0b5c40;
+  --warn-bg: var(--warn-soft);
+  --warn-border: var(--warn-line);
+  --warn-text: #7a4700;
+  --err-bg: #fdf0ef;
+  --err-border: #f0b4ae;
+  --err-text: #8f1c13;
+  --mask: rgba(15, 23, 42, 0.45);
+
   --r-sm: 6px;
   --r-md: 8px;
   --r-lg: 12px;
-  --r-xl: 18px;
-  --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.04);
-  --shadow-pop: 0 12px 32px rgba(15, 23, 42, 0.18);
-  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Hiragino Sans GB', 'WenQuanYi Zen Hei', sans-serif;
+  --r-xl: 16px;
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-pop: 0 12px 32px rgba(15, 23, 42, 0.16);
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Noto Sans SC', 'Noto Sans TC', 'Hiragino Sans GB', 'WenQuanYi Zen Hei', sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', 'DejaVu Sans Mono', monospace;
   --banner-h: 24px;
-  --top-h: 52px;
-  --bottom-h: 62px;
+  --top-h: 60px;
+  --bottom-h: 60px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   color-scheme: light;
 }
 
-/* 深色主题（默认；效果图 assets/v1/ui-research/C-*.png） */
+/* 深色：第 10 节 token */
 :root[data-theme='dark'] {
   --bg: #0d1117;
-  --s1: #131a24;
-  --s2: #0f151e;
-  --s3: #1b2533;
-  --border: #222c3a;
-  --hair: #1a2230;
-  --text: #e6edf3;
-  --muted: #a3b0c2;
-  --subtle: #8b98a9;
-  --cyan: #22d3ee;
-  --cyan-deep: #22d3ee;
-  --cyan-soft: rgba(34, 211, 238, 0.12);
-  --primary: #0891b2;
-  --g: #22c55e;
-  --g-fill: #22c55e;
-  --g-soft: rgba(34, 197, 94, 0.14);
-  --g-solid: #16a34a;
-  --r: #f43f5e;
-  --r-text: #fb7185;
-  --r-fill: #f43f5e;
-  --r-soft: rgba(244, 63, 94, 0.14);
-  --r-solid: #e11d48;
-  --danger: #f43f5e;
-  --danger-text: #fb7185;
-  --danger-soft: rgba(244, 63, 94, 0.14);
-  --risk: #fb923c;
-  --amber: #fbbf24;
-  --ok-bg: rgba(22, 163, 74, 0.14);
-  --ok-border: rgba(52, 211, 153, 0.4);
-  --ok-text: #6ee7b7;
-  --warn-bg: rgba(234, 88, 12, 0.14);
-  --warn-border: rgba(251, 146, 60, 0.45);
-  --warn-text: #fdba74;
-  --err-bg: rgba(220, 38, 38, 0.14);
-  --err-border: rgba(248, 113, 113, 0.45);
-  --err-text: #fca5a5;
-  --mask: rgba(2, 6, 23, 0.7);
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  color-scheme: dark;
-}
+  --surface: #161b22;
+  --border: #2a313c;
+  --text: #e6eaf0;
+  --muted: #9aa4b2;
+  --primary: #6b9bff;
+  --on-primary: #0d1117;
+  --up: #3fb984;
+  --down: #f47067;
+  --accent: #6b9bff;
+  --track: #262d38;
 
-/* 语义色：默认绿涨红跌 */
-:root {
-  --long: var(--g);
-  --long-fill: var(--g-fill);
-  --long-soft: var(--g-soft);
-  --long-solid: var(--g-solid);
-  --short: var(--r);
-  --short-text: var(--r-text);
-  --short-fill: var(--r-fill);
-  --short-soft: var(--r-soft);
-  --short-solid: var(--r-solid);
-}
-/* 红涨绿跌：涨、买用红色，跌、卖用绿色 */
-:root[data-updown='red'] {
-  --long: var(--r-text);
-  --long-fill: var(--r-fill);
-  --long-soft: var(--r-soft);
-  --long-solid: var(--r-solid);
-  --short: var(--g);
-  --short-text: var(--g);
-  --short-fill: var(--g-fill);
-  --short-soft: var(--g-soft);
-  --short-solid: var(--g-solid);
+  --surface-2: #1b212a;
+  --hover: #212833;
+  --hair: #222a35;
+  --field: #0f141b;
+  --primary-soft: rgba(107, 155, 255, 0.13);
+  --primary-line: rgba(107, 155, 255, 0.45);
+  --primary-fill: #2a3d66;
+  --up-soft: rgba(63, 185, 132, 0.14);
+  --up-fill: #1f4a3a;
+  --down-soft: rgba(244, 112, 103, 0.13);
+  --down-fill: #5a2b2a;
+  --warn: #f0b44c;
+  --warn-soft: rgba(240, 180, 76, 0.12);
+  --warn-line: rgba(240, 180, 76, 0.45);
+
+  --risk: #f79a5a;
+  --violet: #b69cff;
+  --ok-bg: rgba(63, 185, 132, 0.12);
+  --ok-border: rgba(63, 185, 132, 0.4);
+  --ok-text: #7fd8b0;
+  --warn-text: #f5c97a;
+  --err-bg: rgba(244, 112, 103, 0.12);
+  --err-border: rgba(244, 112, 103, 0.45);
+  --err-text: #f8a39c;
+  --mask: rgba(1, 4, 9, 0.7);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-pop: 0 12px 32px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
 }

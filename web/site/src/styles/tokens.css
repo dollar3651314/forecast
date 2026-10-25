@@ -1,38 +1,80 @@
-/* 官网设计 token（方向 A：和客户端同一套深色，v2-官网风格调研第 3 节）。
-   取自 web/client/src/styles/tokens.css 的深色主题和"绿涨红跌"语义色（官网只做深色、只用默认涨跌色，W2）。
-   客户端改了深色 token 时同步改这里。字体只用系统字体，数字优先 JetBrains Mono（本机有才用），不加载任何外部字体（AC-29）。 */
+/* 官网设计 token：方向 A"清爽数据"（AQ-6，架构方案第 10 节），和客户端 web/client/src/styles/tokens.css 同一套色值。
+   主题跟随系统（RQ-1）：官网没有切换按钮，直接按 prefers-color-scheme 显示浅色或深色。
+   旧变量名（--s1、--cyan…）保留，映射到 A 方向。字体只用系统字体，不加载外部字体（AC-29）。 */
 :root {
-  --bg: #0d1117;
-  --s1: #131a24;
-  --s2: #0f151e;
-  --s3: #1b2533;
-  --border: #222c3a;
-  --hair: #1a2230;
-  --text: #e6edf3;
-  --muted: #a3b0c2;
-  --subtle: #8b98a9;
-  --cyan: #22d3ee;
-  --cyan-soft: rgba(34, 211, 238, 0.12);
-  --primary: #0891b2;
-  --primary-hover: #0e7490;
-  --amber: #fbbf24;
-  /* 涨跌（和客户端深色主题的 --long* / --short* 默认值一致） */
-  --long: #22c55e;
-  --long-soft: rgba(34, 197, 94, 0.14);
-  --long-solid: #16a34a;
-  --short: #f43f5e;
-  --short-text: #fb7185;
-  --short-soft: rgba(244, 63, 94, 0.14);
-  --short-solid: #e11d48;
-  --flat-solid: #334155;
+  --bg: #ffffff;
+  --surface: #f5f7fa;
+  --border: #dde2ea;
+  --text: #0f172a;
+  --muted: #566173;
+  --primary: #1d4ed8;
+  --on-primary: #ffffff;
+  --up: #0f7a55;
+  --down: #b42318;
+  --accent: #1d4ed8;
+  --track: #e3e8f0;
+  --primary-soft: rgba(29, 78, 216, 0.09);
+  --primary-fill: #c9d6f7;
+  --up-soft: rgba(15, 122, 85, 0.1);
+  --down-soft: rgba(180, 35, 24, 0.08);
+  --header-bg: rgba(255, 255, 255, 0.94);
+  --hero-glow: rgba(29, 78, 216, 0.08);
+  --mask: rgba(15, 23, 42, 0.45);
+
+  --s1: var(--surface);
+  --s2: #eef1f5;
+  --s3: #e9edf3;
+  --hair: #e6eaf0;
+  --subtle: var(--muted);
+  --cyan: var(--primary);
+  --cyan-soft: var(--primary-soft);
+  --primary-hover: #1e40af;
+  --amber: #9a5b00;
+  --long: var(--up);
+  --long-soft: var(--up-soft);
+  --long-solid: var(--up);
+  --short: var(--down);
+  --short-text: var(--down);
+  --short-soft: var(--down-soft);
+  --short-solid: var(--down);
+  --flat-solid: #566173;
   --r-sm: 6px;
   --r-md: 8px;
   --r-lg: 12px;
-  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Hiragino Sans GB', 'WenQuanYi Zen Hei', sans-serif;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Noto Sans SC', 'Noto Sans TC', 'Hiragino Sans GB', 'WenQuanYi Zen Hei', sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', 'DejaVu Sans Mono', monospace;
   --wrap: 1200px;
   --gutter: 24px;
   --sticky-h: 66px;
   --safe-b: env(safe-area-inset-bottom, 0px);
-  color-scheme: dark;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #2a313c;
+    --text: #e6eaf0;
+    --muted: #9aa4b2;
+    --primary: #6b9bff;
+    --on-primary: #0d1117;
+    --up: #3fb984;
+    --down: #f47067;
+    --accent: #6b9bff;
+    --track: #262d38;
+    --primary-soft: rgba(107, 155, 255, 0.13);
+    --primary-fill: #2a3d66;
+    --up-soft: rgba(63, 185, 132, 0.14);
+    --down-soft: rgba(244, 112, 103, 0.13);
+    --header-bg: rgba(13, 17, 23, 0.94);
+    --hero-glow: rgba(107, 155, 255, 0.1);
+    --mask: rgba(1, 4, 9, 0.7);
+    --s2: #1b212a;
+    --s3: #212833;
+    --hair: #222a35;
+    --primary-hover: #8fb3ff;
+    --amber: #f0b44c;
+    --flat-solid: #334155;
+    color-scheme: dark;
+  }
 }

@@ -138,8 +138,9 @@ const riskEn: LegalDoc = {
   ],
 };
 
+/** 繁体版法律文本等 PM 和法务定稿后再出（S11）；在那之前繁体界面显示简体的样板文本（页面顶部本来就标着"需法务审核"） */
 export const LEGAL: Record<LegalPage, Record<Lang, LegalDoc>> = {
-  terms: { 'zh-CN': termsZh, en: termsEn },
-  privacy: { 'zh-CN': privacyZh, en: privacyEn },
-  risk: { 'zh-CN': riskZh, en: riskEn },
+  terms: { 'zh-CN': termsZh, 'zh-TW': termsZh, en: termsEn },
+  privacy: { 'zh-CN': privacyZh, 'zh-TW': privacyZh, en: privacyEn },
+  risk: { 'zh-CN': riskZh, 'zh-TW': riskZh, en: riskEn },
 };

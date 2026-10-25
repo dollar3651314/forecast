@@ -1,6 +1,6 @@
 /**
- * 沿用复制源的体验优化：语言下拉框、新手引导、电脑顶栏（去掉"我的"和跑马灯）。默认浅色在 pages/layouts.test.tsx。
- * forecast S1：复制源这里还测部分平仓（差价合约），删除；新手引导先是 3 步（S11 改成需求的 4 步）。
+ * 沿用复制源的体验优化：语言下拉框（M1 加繁体）、新手引导（M1 改成需求 P9 的 4 步，终点是充值）、电脑顶栏（去掉"我的"和跑马灯）。
+ * 主题跟随系统在 pages/layouts.test.tsx。
  */
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes } from 'react-router-dom';
@@ -21,12 +21,12 @@ function setDesktop(on: boolean) {
 
 const SESSION = { token: 't', userId: 'U10086', email: 'demo@example.com' };
 
-function renderShell(path = '/home') {
+function renderShell(path = '/markets') {
   localStorage.setItem('fc.session', JSON.stringify(SESSION));
   return renderPage(
     <Routes>
       <Route element={<Layout />}>
-        <Route path="/home" element={<div>首页内容</div>} />
+        <Route path="/markets" element={<div>市场内容</div>} />
         <Route path="/me" element={<Me />} />
         <Route path="/me/kyc" element={<div>身份认证页内容</div>} />
         <Route path="/assets" element={<div>资产页内容</div>} />
@@ -52,66 +52,69 @@ describe('第 1 条：语言下拉框', () => {
     fireEvent.click(btn);
     const list = screen.getByRole('listbox');
     const options = within(list).getAllByRole('option');
-    expect(options.map((o) => o.textContent)).toEqual(['简体中文当前', 'English']);
+    expect(options.map((o) => o.textContent)).toEqual(['简体中文当前', '繁體中文', 'English']);
     expect(options[0]).toHaveAttribute('aria-selected', 'true');
-    fireEvent.click(within(options[1]).getByRole('button'));
+    fireEvent.click(within(options[2]).getByRole('button'));
     await waitFor(() => expect(screen.getByRole('button', { name: /English$/ })).toBeInTheDocument());
     expect(localStorage.getItem('fc.lang')).toBe('en');
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   });
 
-  it('默认跟随浏览器语言：zh 开头的都用中文，其他或取不到用英文；?lang= 优先并记住；自己选过的优先于浏览器（UX-1）', () => {
+  it('默认跟随浏览器语言：繁体地区用繁体，其他 zh 用简体，其他或取不到用英文；?lang= 优先并记住；自己选过的优先于浏览器（UX-1、RQ-18）', () => {
     // 单元测试把浏览器语言设成了 zh-CN（test/browserLang.ts），页面是中文
     expect(document.documentElement.lang).toBe('zh-CN');
-    for (const l of ['zh', 'zh-CN', 'zh-TW', 'zh-HK', 'zh-Hans-CN', 'ZH-cn']) expect(langFromBrowser([l, 'en'])).toBe('zh-CN');
+    for (const l of ['zh', 'zh-CN', 'zh-SG', 'zh-Hans-CN', 'ZH-cn']) expect(langFromBrowser([l, 'en'])).toBe('zh-CN');
+    for (const l of ['zh-TW', 'zh-HK', 'zh-MO', 'zh-Hant', 'zh-Hant-TW', 'zh_TW']) expect(langFromBrowser([l, 'en'])).toBe('zh-TW');
     for (const l of ['en-US', 'en', 'ja-JP', 'fr', 'zu']) expect(langFromBrowser([l, 'zh-CN'])).toBe('en');
-    expect(langFromBrowser(undefined, 'zh-TW'), 'languages 取不到时看 language').toBe('zh-CN');
+    expect(langFromBrowser(undefined, 'zh-TW'), 'languages 取不到时看 language').toBe('zh-TW');
     expect(langFromBrowser([], undefined), '都取不到用英文').toBe('en');
     expect(langFromBrowser([''], ''), '空字符串也算取不到').toBe('en');
     expect(pickLang({ search: '', stored: null, languages: ['en-GB'] })).toEqual({ lang: 'en', remember: false });
     expect(pickLang({ search: '', stored: 'zh-CN', languages: ['en-GB'] }), '自己选过中文，英文浏览器也用中文').toEqual({ lang: 'zh-CN', remember: false });
     expect(pickLang({ search: '', stored: 'en', languages: ['zh-CN'] }), '自己选过英文').toEqual({ lang: 'en', remember: false });
     expect(pickLang({ search: '?lang=en', stored: 'zh-CN', languages: ['zh-CN'] }), '官网带的 ?lang= 最优先，并记住').toEqual({ lang: 'en', remember: true });
-    expect(pickLang({ search: '?lang=xx', stored: null, languages: ['zh-HK'] })).toEqual({ lang: 'zh-CN', remember: false });
+    expect(pickLang({ search: '?lang=xx', stored: null, languages: ['zh-HK'] })).toEqual({ lang: 'zh-TW', remember: false });
+    expect(pickLang({ search: '?lang=zh-TW', stored: null, languages: ['en'] })).toEqual({ lang: 'zh-TW', remember: true });
+    expect(pickLang({ search: '', stored: 'zh-TW', languages: ['en'] })).toEqual({ lang: 'zh-TW', remember: false });
   });
 });
 
 describe('第 4、10 条：电脑顶栏', () => {
-  it('顶栏没有"我的"和跑马灯，右上角头像进"我的"', async () => {
+  it('顶栏是市场、我的下注、资产，没有"我的"和跑马灯，右上角头像进"我的"', async () => {
     setDesktop(true);
     renderShell();
-    const top = (await screen.findByText('首页内容')).closest('.app')!.querySelector('header.topnav') as HTMLElement;
+    const top = (await screen.findByText('市场内容')).closest('.app')!.querySelector('header.topnav') as HTMLElement;
     const menu = within(top).getByRole('navigation', { name: '主导航' });
+    expect(within(menu).getAllByRole('link').map((a) => a.textContent)).toEqual(['市场', '我的下注', '资产']);
     expect(within(menu).queryByRole('link', { name: '我的' })).not.toBeInTheDocument();
-    expect(within(menu).getByRole('link', { name: '资产' })).toBeInTheDocument();
     expect(within(top).queryByRole('navigation', { name: '热门品种行情' })).not.toBeInTheDocument();
     expect(within(top).getByRole('link', { name: '我的' })).toHaveAttribute('href', '/me');
-    // 手机底部导航照旧有"我的"（手机没有右上角头像）
+    // 手机底部 4 个入口（需求第 5.1 节）：市场、我的下注、资产、我的
     const bottom = document.querySelector('nav.bottomnav') as HTMLElement;
-    expect(within(bottom).getByRole('link', { name: /我的/ })).toBeInTheDocument();
+    expect(within(bottom).getAllByRole('link').map((a) => a.textContent)).toEqual(['市场', '我的下注', '资产', '我的']);
   });
 });
 
 describe('第 2 条：新手引导', () => {
-  it('新客户（认证未提交）第一次进来自动打开，4 步，终点是去认证；看完不再自动打开', async () => {
+  it('新客户（认证未提交）第一次进来自动打开，4 步，终点是充值；看完不再自动打开（C83、AC-54）', async () => {
     protoSetKyc('none');
     const view = renderShell();
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText('第 1 / 3 步')).toBeInTheDocument();
-    expect(within(dialog).getByText('欢迎来到 Quick Come')).toBeInTheDocument();
-    const titles = ['第一步：完成身份认证', '第二步：充值 USDT'];
+    expect(within(dialog).getByText('第 1 / 4 步')).toBeInTheDocument();
+    expect(within(dialog).getByText('在这里押一件事的结果')).toBeInTheDocument();
+    const titles = ['押中了，分输方的奖池', '完成身份认证', '充值 USDT 开始'];
     for (const title of titles) {
       fireEvent.click(within(dialog).getByRole('button', { name: '下一步' }));
       expect(within(dialog).getByText(title)).toBeInTheDocument();
     }
     expect(within(dialog).queryByRole('button', { name: '下一步' })).not.toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole('button', { name: '去完成认证' }));
-    expect(await screen.findByText('身份认证页内容')).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: '去充值' }));
+    expect(await screen.findByText('资产页内容')).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(localStorage.getItem('fc.onboarding.v1:U10086')).toBe('done');
     view.unmount();
     renderShell();
-    await screen.findByText('首页内容');
+    await screen.findByText('市场内容');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
@@ -127,7 +130,7 @@ describe('第 2 条：新手引导', () => {
     renderShell('/me');
     fireEvent.click(await screen.findByRole('button', { name: '新手引导' }));
     const again = await screen.findByRole('dialog');
-    for (let i = 0; i < 2; i++) fireEvent.click(within(again).getByRole('button', { name: '下一步' }));
+    for (let i = 0; i < 3; i++) fireEvent.click(within(again).getByRole('button', { name: '下一步' }));
     fireEvent.click(within(again).getByRole('button', { name: '去充值' }));
     expect(await screen.findByText('资产页内容')).toBeInTheDocument();
   });

@@ -53,14 +53,15 @@ export const AccountContext = createContext<AccountValue>({ loading: true, error
 export const useAccount = (): AccountValue => useContext(AccountContext);
 
 // ---------- 主题 ----------
+/** 实际显示的主题 */
 export type Theme = 'light' | 'dark';
-/** 涨跌色：green = 绿涨红跌（默认），red = 红涨绿跌。买卖按钮颜色跟随涨跌色 */
-export type UpDown = 'green' | 'red';
+/** 客户的选择：跟随系统（默认，RQ-1）/ 浅色 / 深色 */
+export type ThemePref = 'system' | Theme;
 export interface ThemeValue {
+  /** 实际显示的主题（跟随系统时按系统设置） */
   theme: Theme;
-  setTheme: (t: Theme) => void;
-  upDown: UpDown;
-  setUpDown: (u: UpDown) => void;
+  pref: ThemePref;
+  setPref: (p: ThemePref) => void;
 }
-export const ThemeContext = createContext<ThemeValue>({ theme: 'dark', setTheme: () => undefined, upDown: 'green', setUpDown: () => undefined });
+export const ThemeContext = createContext<ThemeValue>({ theme: 'light', pref: 'system', setPref: () => undefined });
 export const useTheme = (): ThemeValue => useContext(ThemeContext);
