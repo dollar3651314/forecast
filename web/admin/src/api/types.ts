@@ -809,3 +809,126 @@ export type SweepTronEnergyInput = Pick<SweepTronEnergy, 'mode' | 'maxPriceSun' 
 export interface SweepBatchQuery extends PageQuery {
   chain?: SweepChain;
 }
+
+// ---------- 市场管理、裁决台（forecast M1 原型；需求第 4、6 节） ----------
+/**
+ * 市场管理用到的结构：字段按后端 S3 已有的 `MarketAdminApi.Summary / Detail` 定（编号是字符串、费率是百分比字符串、时间是 ISO UTC），
+ * 奖池和人数来自 `GET /api/admin/markets/{publicNo}/bets`（S4）。裁决台（S7）的结构是 M1 提议，正式开发时由后端照着定。
+ */
+export interface I18nText {
+  en: string;
+  zhCN: string;
+  zhTW: string;
+}
+
+export type MarketCategory = 'FOOTBALL' | 'NBA' | 'CRYPTO_15M' | 'CRYPTO_1H' | 'MACRO';
+export type AdminMarketStatus = 'draft' | 'listed' | 'paused' | 'closed' | 'pending_resolution' | 'publicizing' | 'disputed' | 'settled' | 'cancelled' | 'voided';
+
+export interface AdminMarketRow {
+  publicNo: string;
+  category: MarketCategory;
+  title: I18nText;
+  status: AdminMarketStatus;
+  /** 草稿已提交上架（出现在"待上架"） */
+  submitted: boolean;
+  openAt: string;
+  closeAt: string;
+  eventStartAt: string;
+  feeRate: string;
+  pool: string;
+  bettors: number;
+  resolutionMode: 'AUTO' | 'PLATFORM';
+  /** 来源：手动、赛程生成、加密自动生成 */
+  origin: 'manual' | 'schedule' | 'autogen';
+  createdBy: string;
+}
+
+export interface AdminMarketQuery extends PageQuery {
+  tab?: 'all' | 'review' | 'draft' | 'active' | 'waiting' | 'ended';
+  category?: MarketCategory;
+  keyword?: string;
+}
+
+export interface MarketOptionInput {
+  label: I18nText;
+  winCondition: I18nText;
+}
+
+/** 第 4.1 节的规则模板（MarketAdminApi.DraftInput） */
+export interface MarketDraft {
+  publicNo: string | null;
+  category: MarketCategory;
+  title: I18nText;
+  options: MarketOptionInput[];
+  rules: I18nText;
+  resolutionMode: 'AUTO' | 'PLATFORM';
+  sourcePrimary: string;
+  sourceBackup: string;
+  openAt: string;
+  closeAt: string;
+  eventStartAt: string;
+  eventEndAt: string;
+  voidRules: I18nText;
+  correction: I18nText;
+  disputeWindowMinutes: number | null;
+  /** 只读：新建时按品类默认值带出，改要 fee:edit */
+  feeRate: string;
+  userCap: string;
+  /** 后端返回的"还缺哪些必填项"（字段名），空表示可以提交上架 */
+  missing: string[];
+  status: AdminMarketStatus;
+  submitted: boolean;
+  version: number;
+}
+
+export type ResolveStage = 'toPropose' | 'toConfirm' | 'autoFailed' | 'overdue';
+
+/** 裁决台的一条（M1 提议，S7） */
+export interface ResolveCase {
+  publicNo: string;
+  category: MarketCategory;
+  title: I18nText;
+  mode: 'AUTO' | 'PLATFORM';
+  stage: ResolveStage;
+  eventEndAt: string;
+  /** 提议或确认的截止时间（超时标红） */
+  dueAt: string;
+  pool: string;
+  bettors: number;
+  feeRate: string;
+  disputeWindowMinutes: number;
+  options: Array<{ optionNo: string; label: I18nText; pool: string; bettors: number; positions: number }>;
+  /** 自动裁决失败时两个来源的原始数据 */
+  sources?: Array<{ name: string; value: string; fetchedAt: string; ok: boolean }>;
+  proposal?: {
+    by: string;
+    at: string;
+    optionNo: string;
+    score?: string;
+    actualStartAt?: string;
+    evidence: string[];
+    screenshots: number;
+    note: string;
+  };
+  rulesExcerpt: I18nText;
+}
+
+/** 按某个结果的结算预览（需求第 3.5 节：派彩合计 + 抽成合计 + 尾差 = 奖池合计） */
+export interface SettlePreview {
+  optionNo: string;
+  winnerPool: string;
+  loserPool: string;
+  winners: number;
+  payoutTotal: string;
+  feeTotal: string;
+  dust: string;
+  total: string;
+  balanced: boolean;
+}
+
+export interface ResolveSummary {
+  toPropose: number;
+  toConfirm: number;
+  autoFailed: number;
+  overdue: number;
+}

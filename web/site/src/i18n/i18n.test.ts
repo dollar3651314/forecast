@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import zh from './zh-CN.json';
 import en from './en.json';
+import tw from './zh-TW.json';
 import { translate } from './index';
 import { detectLang } from './lang';
 import { BRAND_NAME } from '../lib/brand';
@@ -27,8 +28,9 @@ describe('官网翻译文件（AC2-05）', () => {
   const zhKeys = flatten(zh).sort();
   const enKeys = flatten(en).sort();
 
-  it('中英文的键完全一致', () => {
+  it('简体、繁体、英文的键完全一致（RQ-18）', () => {
     expect(enKeys).toEqual(zhKeys);
+    expect(flatten(tw).sort()).toEqual(zhKeys);
   });
 
   it('翻译值都不为空', () => {
@@ -56,7 +58,7 @@ describe('官网翻译文件（AC2-05）', () => {
     for (const f of walk(join(__dirname, '..'))) {
       for (const m of readFileSync(f, 'utf8').matchAll(/\bt\(\s*'([a-zA-Z0-9_.]+)'/g)) used.add(m[1]);
     }
-    for (const k of ['a1', 'a2']) used.add(`adv.${k}t`).add(`adv.${k}d`);
+    for (const k of ['football', 'nba', 'crypto', 'macro']) used.add(`cats.${k}`).add(`cats.${k}D`);
     for (const k of ['s1', 's2', 's3', 's4']) used.add(`safe.${k}t`).add(`safe.${k}d`);
     for (const k of ['s1', 's2', 's3']) used.add(`steps.${k}t`).add(`steps.${k}d`);
     for (let n = 1; n <= 4; n++) used.add(`faq.q${n}`).add(`faq.a${n}`);
@@ -76,10 +78,11 @@ describe('默认语言跟随浏览器（第 10 节 W6）', () => {
     expect(detectLang('en', ['zh-CN'])).toBe('en');
     expect(detectLang('zh-CN', ['en-US'])).toBe('zh-CN');
   });
-  it('浏览器首选语言以 zh 开头用中文，否则英文', () => {
+  it('浏览器首选语言：繁体地区用繁体，其他 zh 用简体，否则英文', () => {
     expect(detectLang(null, ['zh-CN', 'en'])).toBe('zh-CN');
-    expect(detectLang(null, ['zh-TW'])).toBe('zh-CN');
-    expect(detectLang(null, ['zh-HK'])).toBe('zh-CN');
+    expect(detectLang(null, ['zh-TW'])).toBe('zh-TW');
+    expect(detectLang(null, ['zh-HK'])).toBe('zh-TW');
+    expect(detectLang('zh-TW', ['en'])).toBe('zh-TW');
     expect(detectLang(null, ['zh-Hans-CN'])).toBe('zh-CN');
     expect(detectLang(null, ['zu'])).toBe('en');
     expect(detectLang(null, [''], '')).toBe('en');

@@ -14,14 +14,14 @@ export function Logo({ compact }: { compact?: boolean }) {
       <svg className="logo-mark" width="24" height="24" viewBox="0 0 512 512" aria-hidden>
         <defs>
           <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#22d3ee" />
-            <stop offset="1" stopColor="#0891b2" />
+            <stop offset="0" stopColor="#3b82f6" />
+            <stop offset="1" stopColor="#1d4ed8" />
           </linearGradient>
         </defs>
         <rect width="512" height="512" rx="112" fill={`url(#${id})`} />
-        <rect x="136" y="236" width="64" height="140" rx="20" fill="#04121a" />
-        <rect x="224" y="156" width="64" height="220" rx="20" fill="#04121a" />
-        <rect x="312" y="196" width="64" height="180" rx="20" fill="#04121a" />
+        <rect x="136" y="236" width="64" height="140" rx="20" fill="#ffffff" />
+        <rect x="224" y="156" width="64" height="220" rx="20" fill="#ffffff" />
+        <rect x="312" y="196" width="64" height="180" rx="20" fill="#ffffff" />
       </svg>
       <span>{BRAND_NAME}</span>
       {!compact ? <small>{t('app.adminConsole')}</small> : null}

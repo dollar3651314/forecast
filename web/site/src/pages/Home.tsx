@@ -1,24 +1,32 @@
 /**
- * 官网首页：导航、首屏、平台优势、三步开始、资金和安全、常见问题、页脚。
- * 电脑版和手机版是两套结构（C64）：电脑版首屏左右两栏，手机版首屏只有标语和两个大按钮，各模块单列。
- * 文案全部在 src/i18n/*.json，内容只写系统已经做到的。
- * forecast S1：删除了复制源的公开行情面板和"热门品种"区块；首屏右栏先放占位卡片，彩池玩法说明由 PM 写（架构方案第 3 节，S11）。
+ * 官网首页（M1 原型）：首屏（标语 + 静态示例市场）、能押什么、三步看懂彩池、费率（只对盈利抽成，用示例市场算一遍）、资金和结果、常见问题。
+ * 电脑版和手机版是两套结构（C64）：电脑版首屏左右两栏、各区块多列；手机版首屏只有标语、两个大按钮和示例卡片，各区块单列。
+ * 示例市场是静态的，不滚动、不闪动（C84，营造氛围的元素放在官网也不做跑马灯）。示例数字是需求第 3.5 节的例子（162.29 = 100 + 65.57 − 3.28）。
+ * 文案在 src/i18n/*.json（三种语言），内容只写系统已经做到或已定的规则。
  */
 import { clientLink } from '../config';
 import { Icon, type IconName } from '../components/Icon';
 import { useI18n } from '../i18n';
 
-const ADV: [string, IconName][] = [
-  ['a1', 'coin'],
-  ['a2', 'phone'],
+const CATS: [string, IconName][] = [
+  ['football', 'ball'],
+  ['nba', 'hoop'],
+  ['crypto', 'btc'],
+  ['macro', 'bank'],
 ];
 const SAFE: [string, IconName][] = [
   ['s1', 'download'],
   ['s2', 'list'],
-  ['s3', 'clock'],
+  ['s3', 'scale'],
   ['s4', 'id'],
 ];
 const FAQ = ['1', '2', '3', '4'];
+/** 示例市场（需求第 3.5 节）：奖池 6,000 / 1,500 / 2,500，概率 60% / 15% / 25%，扣费后 1.63x / 6.38x / 3.85x */
+const EX: Array<[string, number, string]> = [
+  ['ex.o1', 60, '1.63x'],
+  ['ex.o2', 15, '6.38x'],
+  ['ex.o3', 25, '3.85x'],
+];
 
 function Title({ title, sub }: { title: string; sub?: string }) {
   return (
@@ -38,6 +46,94 @@ function Faq() {
           <summary>{t(`faq.q${n}`)}</summary>
           <p>{t(`faq.a${n}`)}</p>
         </details>
+      ))}
+    </div>
+  );
+}
+
+/** 静态示例市场卡片 */
+function ExampleCard() {
+  const { t } = useI18n();
+  return (
+    <div className="card ex-card" data-testid="hero-note">
+      <div className="ex-meta">
+        <span className="ex-tag">{t('ex.tag')}</span>
+        <span>{t('ex.league')}</span>
+      </div>
+      <b className="ex-title">{t('ex.title')}</b>
+      <div className="ex-rows">
+        {EX.map(([k, p, m]) => (
+          <div key={k} className="ex-row">
+            <span className="ex-bar" style={{ width: `${p}%` }} />
+            <span className="ex-name">{t(k)}</span>
+            <b className="num">{p}%</b>
+            <small className="num">{m}</small>
+          </div>
+        ))}
+      </div>
+      <div className="ex-foot">
+        <span>{t('ex.pool')}</span>
+      </div>
+      <p className="ex-calc num">{t('ex.calc')}</p>
+      <p className="ex-note">{t('ex.note')}</p>
+    </div>
+  );
+}
+
+/** 费率：用示例市场算一遍 */
+function FeeTable() {
+  const { t } = useI18n();
+  const rows: Array<[string, string, string?]> = [
+    ['fee.r1', '100.00'],
+    ['fee.r2', '+ 65.57'],
+    ['fee.r3', '− 3.28'],
+    ['fee.r4', '162.29', 'strong'],
+  ];
+  return (
+    <dl className="fee-table">
+      {rows.map(([k, v, c]) => (
+        <div key={k} className={c}>
+          <dt>{t(k)}</dt>
+          <dd className="num">{v} USDT</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function Cats({ desktop }: { desktop: boolean }) {
+  const { t } = useI18n();
+  return (
+    <div className={desktop ? 'grid4' : 'list'}>
+      {CATS.map(([k, icon]) => (
+        <div key={k} className="card">
+          <div className="ico">
+            <Icon name={icon} />
+          </div>
+          <div>
+            <h3>{t(`cats.${k}`)}</h3>
+            <p>{t(`cats.${k}D`)}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Safe({ desktop }: { desktop: boolean }) {
+  const { t } = useI18n();
+  return (
+    <div className={desktop ? 'grid-safe' : 'list'}>
+      {SAFE.map(([k, icon]) => (
+        <div key={k} className="card">
+          <div className="ico">
+            <Icon name={icon} />
+          </div>
+          <div>
+            <h3>{t(`safe.${k}t`)}</h3>
+            <p>{t(`safe.${k}d`)}</p>
+          </div>
+        </div>
       ))}
     </div>
   );
@@ -71,33 +167,15 @@ export function HomeDesktop() {
               <span>{t('hero.p3')}</span>
             </div>
           </div>
-          <div className="card hero-note" data-testid="hero-note">
-            {t('hero.note')}
-          </div>
+          <ExampleCard />
         </div>
       </div>
 
-      <section className="blk" id="platform" data-testid="sec-platform">
+      <section className="blk" id="how" data-testid="sec-platform">
         <div className="wrap">
-          <Title title={t('adv.title')} sub={t('adv.sub')} />
-          <div className="grid2">
-            {ADV.map(([k, icon]) => (
-              <div key={k} className="card">
-                <div className="ico">
-                  <Icon name={icon} />
-                </div>
-                <h3>{t(`adv.${k}t`)}</h3>
-                <p>{t(`adv.${k}d`)}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="blk" id="start" data-testid="sec-steps">
-        <div className="wrap">
-          <Title title={t('steps.title')} />
-          <div className="steps">
+          <Title title={t('cats.title')} sub={t('cats.sub')} />
+          <Cats desktop />
+          <div className="steps" data-testid="sec-steps">
             {['s1', 's2', 's3'].map((s, i) => (
               <div key={s} className="card step">
                 <span className="n">{i + 1}</span>
@@ -106,28 +184,23 @@ export function HomeDesktop() {
               </div>
             ))}
           </div>
-          <div style={{ marginTop: 24 }}>
-            <a className="btn pri" href={reg}>
-              {t('common.registerNow')}
-            </a>
+        </div>
+      </section>
+
+      <section className="blk" id="fee" data-testid="sec-fee">
+        <div className="wrap fee-wrap">
+          <div>
+            <Title title={t('fee.title')} sub={t('fee.sub')} />
+            <p className="fee-note">{t('fee.note')}</p>
           </div>
+          <FeeTable />
         </div>
       </section>
 
       <section className="blk" id="safety" data-testid="sec-safety">
         <div className="wrap">
           <Title title={t('safe.title')} />
-          <div className="grid-safe">
-            {SAFE.map(([k, icon]) => (
-              <div key={k} className="card">
-                <div className="ico">
-                  <Icon name={icon} />
-                </div>
-                <h3>{t(`safe.${k}t`)}</h3>
-                <p>{t(`safe.${k}d`)}</p>
-              </div>
-            ))}
-          </div>
+          <Safe desktop />
           <div className="tbd license">{t('safe.license')}</div>
         </div>
       </section>
@@ -173,26 +246,15 @@ export function HomeMobile() {
             {t('common.login')}
           </a>
         </div>
+        <ExampleCard />
       </div>
 
-      <section className="blk" id="platform" data-testid="sec-platform">
-        <Title title={t('adv.title')} />
-        <div className="list">
-          {ADV.map(([k, icon]) => (
-            <div key={k} className="card">
-              <div className="ico">
-                <Icon name={icon} />
-              </div>
-              <div>
-                <h3>{t(`adv.${k}t`)}</h3>
-                <p>{t(`adv.${k}d`)}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+      <section className="blk" id="how" data-testid="sec-platform">
+        <Title title={t('cats.title')} />
+        <Cats desktop={false} />
       </section>
 
-      <section className="blk" id="start" data-testid="sec-steps">
+      <section className="blk" data-testid="sec-steps">
         <Title title={t('steps.title')} />
         <div className="steps">
           {['s1', 's2', 's3'].map((s, i) => (
@@ -205,21 +267,15 @@ export function HomeMobile() {
         </div>
       </section>
 
+      <section className="blk" id="fee" data-testid="sec-fee">
+        <Title title={t('fee.title')} sub={t('fee.sub')} />
+        <FeeTable />
+        <p className="fee-note">{t('fee.note')}</p>
+      </section>
+
       <section className="blk" id="safety" data-testid="sec-safety">
         <Title title={t('safe.title')} />
-        <div className="list">
-          {SAFE.map(([k, icon]) => (
-            <div key={k} className="card">
-              <div className="ico">
-                <Icon name={icon} />
-              </div>
-              <div>
-                <h3>{t(`safe.${k}t`)}</h3>
-                <p>{t(`safe.${k}d`)}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+        <Safe desktop={false} />
         <div className="tbd license">{t('safe.license')}</div>
       </section>
 

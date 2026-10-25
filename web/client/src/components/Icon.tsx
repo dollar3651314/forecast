@@ -38,6 +38,18 @@ const PATHS = {
   indicator: 'M3 17l6-6 4 4 8-8',
   pause: 'M9 5v14M15 5v14',
   flask: 'M9 3h6M10 3v6L4 19a1 1 0 0 0 1 2h14a1 1 0 0 0 1-2l-6-10V3',
+  // forecast M1：品类、下注、裁决用到的图标
+  ball: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7.5l3.8 2.8-1.4 4.4H9.6l-1.4-4.4zM12 3v4.5M20.6 9.6l-4.8.7M17.6 19.2l-3.2-4.5M6.4 19.2l3.2-4.5M3.4 9.6l4.8.7',
+  hoop: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3v18M5.6 5.6c3 2.6 3 10.2 0 12.8M18.4 5.6c-3 2.6-3 10.2 0 12.8',
+  coin: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 7.5h3.8a2.1 2.1 0 0 1 0 4.2H9.5h4.3a2.15 2.15 0 0 1 0 4.3H9.5zM11 6v1.5M11 16v1.5',
+  bank: 'M3 10l9-6 9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18',
+  clock: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
+  scale: 'M12 4v16M8 20h8M5 7h14M5 7l-3 6a3 3 0 0 0 6 0zM19 7l-3 6a3 3 0 0 0 6 0z',
+  info: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v6M12 7.5v.5',
+  external: 'M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5',
+  ticket: 'M4 6h16v3.5a2.5 2.5 0 0 0 0 5V18H4v-3.5a2.5 2.5 0 0 0 0-5zM14.5 6v2M14.5 11v2M14.5 16v2',
+  sort: 'M7 4v16M4 17l3 3 3-3M17 20V4M14 7l3-3 3 3',
+  trophy: 'M8 4h8v5a4 4 0 0 1-8 0zM8 6H5v1a3 3 0 0 0 3 3M16 6h3v1a3 3 0 0 1-3 3M12 13v4M8 20h8M10 17h4',
 } as const;
 
 export type IconName = keyof typeof PATHS;
@@ -51,7 +63,7 @@ export function Icon({ name, size = 20, strokeWidth = 1.9, className }: { name: 
 }
 
 /**
- * Logo 的图形部分（占位）：复制源的渐变圆角方块保留，里面的旧品牌字母换成三根柱子（奖池），品牌和主色定了以后由 PM 给 Logo（AQ-5、AQ-6）。
+ * Logo 的图形部分（占位）：蓝色圆角方块 + 三根柱子（三个选项的奖池），颜色按方向 A 的主色（AQ-6）；正式 Logo 上线前由 PM 给（AQ-5）。
  * 和 public/favicon.svg、PWA 图标是同一个图形；品牌名由调用方写在后面（见 Brand）。
  */
 export function Logo({ size = 28 }: { size?: number }) {
@@ -60,14 +72,14 @@ export function Logo({ size = 28 }: { size?: number }) {
     <svg className="logo-mark" width={size} height={size} viewBox="0 0 512 512" aria-hidden="true" focusable="false">
       <defs>
         <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#22d3ee" />
-          <stop offset="1" stopColor="#0891b2" />
+          <stop offset="0" stopColor="#3b82f6" />
+          <stop offset="1" stopColor="#1d4ed8" />
         </linearGradient>
       </defs>
       <rect width="512" height="512" rx="112" fill={`url(#${id})`} />
-      <rect x="136" y="236" width="64" height="140" rx="20" fill="#04121a" />
-      <rect x="224" y="156" width="64" height="220" rx="20" fill="#04121a" />
-      <rect x="312" y="196" width="64" height="180" rx="20" fill="#04121a" />
+      <rect x="136" y="236" width="64" height="140" rx="20" fill="#ffffff" />
+      <rect x="224" y="156" width="64" height="220" rx="20" fill="#ffffff" />
+      <rect x="312" y="196" width="64" height="180" rx="20" fill="#ffffff" />
     </svg>
   );
 }

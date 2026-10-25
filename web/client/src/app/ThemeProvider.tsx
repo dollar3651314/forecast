@@ -1,47 +1,57 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { ThemeContext, type Theme, type UpDown } from './contexts';
+import { ThemeContext, type Theme, type ThemePref } from './contexts';
 
-// 主题沿用复制源：默认浅色，**只在客户自己切换时写入**：选过深色的人以后一直是深色。页面打开前的预设（index.html 的 data-theme、
-// theme-color，PWA 背景色）也是浅色，避免先闪一下黑屏。需求的"默认跟随系统、设置里可选跟随系统 / 浅色 / 深色"在 S11 做
-// （技术方案/v1-架构方案.md 第 9.3 节；新项目没有老用户的本地存储，不涉及旧值兼容）。
+/**
+ * 主题（RQ-1，架构方案第 9.3 节）：默认**跟随系统**（prefers-color-scheme），系统切换时页面跟着变；
+ * "我的 → 设置"可选跟随系统 / 浅色 / 深色，选过的记在 fc.theme（读写包 try/catch，隐私模式下读不到就当没选过）。
+ * index.html 里有同样规则的内联脚本，页面渲染前先设好 data-theme，避免先闪一下另一种颜色。
+ * 新项目没有老用户的本地存储，不涉及旧值兼容（C55）。
+ */
 const THEME_KEY = 'fc.theme';
-const UPDOWN_KEY = 'fc.updown';
+const DARK_QUERY = '(prefers-color-scheme: dark)';
+const THEME_COLOR: Record<Theme, string> = { light: '#ffffff', dark: '#0d1117' };
 
-function read(key: string): string | null {
+function readPref(): ThemePref {
   try {
-    return localStorage.getItem(key);
+    const v = localStorage.getItem(THEME_KEY);
+    return v === 'light' || v === 'dark' ? v : 'system';
   } catch {
-    return null;
+    return 'system';
   }
 }
-function write(key: string, v: string): void {
+
+function writePref(p: ThemePref): void {
   try {
-    localStorage.setItem(key, v);
+    if (p === 'system') localStorage.removeItem(THEME_KEY);
+    else localStorage.setItem(THEME_KEY, p);
   } catch {
     /* 忽略 */
   }
 }
 
-function initialTheme(): Theme {
-  return read(THEME_KEY) === 'dark' ? 'dark' : 'light';
+function systemDark(): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(DARK_QUERY).matches;
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(initialTheme);
-  const [upDown, setUpDown] = useState<UpDown>(() => (read(UPDOWN_KEY) === 'red' ? 'red' : 'green'));
+  const [pref, setPrefState] = useState<ThemePref>(readPref);
+  const [sysDark, setSysDark] = useState(systemDark);
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const mq = window.matchMedia(DARK_QUERY);
+    const on = () => setSysDark(mq.matches);
+    mq.addEventListener?.('change', on);
+    return () => mq.removeEventListener?.('change', on);
+  }, []);
+  const theme: Theme = pref === 'system' ? (sysDark ? 'dark' : 'light') : pref;
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#0d1117' : '#0e7490');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_COLOR[theme]);
   }, [theme]);
-  useEffect(() => {
-    document.documentElement.dataset.updown = upDown;
-    write(UPDOWN_KEY, upDown);
-  }, [upDown]);
-  /** 客户自己切换：只在这里写入，没选过的人以后改默认值时跟着变 */
-  const setTheme = useCallback((t: Theme) => {
-    setThemeState(t);
-    write(THEME_KEY, t);
+  const setPref = useCallback((p: ThemePref) => {
+    setPrefState(p);
+    writePref(p);
   }, []);
-  const value = useMemo(() => ({ theme, setTheme, upDown, setUpDown }), [theme, setTheme, upDown]);
+  const value = useMemo(() => ({ theme, pref, setPref }), [theme, pref, setPref]);
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

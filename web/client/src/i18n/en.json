@@ -24,10 +24,11 @@
     "viewAll": "View all"
   },
   "nav": {
-    "home": "Home",
     "assets": "Assets",
     "me": "Me",
-    "main": "Main navigation"
+    "main": "Main navigation",
+    "markets": "Markets",
+    "bets": "My bets"
   },
   "env": {
     "banner": "Test environment · Testing only, not real funds"
@@ -288,10 +289,9 @@
     "logoutTitle": "Log out",
     "logoutBody": "Log out of this account?",
     "version": "{{brand}} · v0.1",
-    "upDown": "Up / down colors",
-    "upDownGreen": "Green up, red down",
-    "upDownRed": "Red up, green down",
-    "onboarding": "Getting started"
+    "onboarding": "Getting started",
+    "themeSystem": "System",
+    "howItWorks": "How it works"
   },
   "kyc": {
     "intro": "Verification is only required before withdrawing.",
@@ -506,41 +506,297 @@
     "prev": "Back",
     "next": "Next",
     "goKyc": "Verify identity",
-    "goDeposit": "Deposit",
+    "goDeposit": "Deposit now",
     "kycNow": "Verify now",
     "depositNow": "Deposit now",
-    "welcome": {
-      "title": "Welcome to {{brand}}",
-      "body": "Use USDT to make predictions. Two steps to get started:",
-      "items": [
-        "Deposit USDT (your balance updates when it arrives)",
-        "Verify your identity (about 3 minutes; required before withdrawing)"
-      ],
-      "note": "You can open this guide again from Me → Getting started."
-    },
     "kyc": {
-      "title": "Step 1: verify your identity",
-      "body": "Upload photos of your ID. Your name and date of birth must match it. Reviews usually finish within one business day; the result is sent to your inbox and email.",
+      "title": "Verify your identity",
+      "body": "Small bets only need a verified email. Above 1,000 USDT in total deposits, or before withdrawing, you need an ID and a selfie holding it — usually reviewed within 1 business day.",
       "items": [
-        "Both sides of your ID card, or the photo page of your passport",
+        "ID card (both sides) or passport photo page",
         "A selfie holding the document"
       ],
-      "note": "Identity verification is required before withdrawing."
+      "note": "Withdrawals require verification."
     },
     "deposit": {
-      "title": "Step 2: deposit USDT",
-      "body": "Go to Assets → Deposit, choose a network, copy your own address and send USDT from an exchange or wallet.",
+      "title": "Deposit USDT to start",
+      "body": "In Assets → Deposit, pick a network, copy your personal address and send USDT from an exchange or wallet.",
       "items": [
-        "Ethereum (ERC20), TRON (TRC20) and BNB Chain are supported",
+        "ERC20, TRC20 and BEP20 are supported",
         "Your balance updates automatically and you get a notification"
       ],
-      "note": "Send USDT only, on the same network as the address. Wrong coins or networks cannot be recovered."
-    }
+      "note": "Send USDT only, on the matching network. Wrong transfers can’t be recovered."
+    },
+    "what": {
+      "title": "Bet on how things turn out",
+      "body": "Football, NBA, crypto up/down, macro news — pick a question and back the outcome you expect.",
+      "items": [
+        "Each option has its own pool; probability = its share of the total",
+        "You can back several options in one market, any time before close"
+      ],
+      "note": "You can reopen this guide from Me → Getting started."
+    },
+    "odds": {
+      "title": "Win a share of the losing pool",
+      "body": "When the result is in, money on losing options is shared among winners by stake. Odds move with the pool and are fixed at close; the platform only takes 5% of profit.",
+      "example": "Bet 100 → about 162.29 back if you win\nAfter fee; 0 if you lose",
+      "note": "Bets can’t be cancelled."
+    },
+    "start": "Get started"
   },
-  "home": {
-    "title": "Prediction markets",
-    "body": "Markets, betting and settlement are coming in later steps. You can deposit and verify your identity now.",
-    "goAssets": "Deposit",
-    "goKyc": "Verify identity"
+  "mk": {
+    "title": "Markets",
+    "cats": {
+      "all": "All",
+      "FOOTBALL": "Football",
+      "NBA": "NBA",
+      "CRYPTO_15M": "Crypto 15m",
+      "CRYPTO_1H": "Crypto 1h",
+      "MACRO": "Macro"
+    },
+    "sort": {
+      "label": "Sort",
+      "closeAt": "Closing soon",
+      "pool": "Largest pool",
+      "newest": "Newest"
+    },
+    "show": {
+      "label": "Show",
+      "active": "Open",
+      "closed": "Awaiting result",
+      "ended": "Ended"
+    },
+    "search": "Search markets",
+    "count": "{{n}} markets",
+    "poolLine": "Pool {{amount}} USDT",
+    "people": "{{n}} bettors",
+    "closesIn": "{{t}} left",
+    "closesAt": "Closes {{t}}",
+    "closedAt": "Closed {{t}}",
+    "endedAt": "Ended {{t}}",
+    "opensAt": "Opens {{t}}",
+    "unit": {
+      "d": "{{n}}d",
+      "h": "{{n}}h",
+      "m": "{{n}}m",
+      "s": "{{n}}s"
+    },
+    "status": {
+      "listed": "Open",
+      "paused": "Paused",
+      "closed": "Closed · awaiting result",
+      "pending_resolution": "Awaiting result",
+      "publicizing": "Result under review",
+      "disputed": "Dispute in progress",
+      "settled": "Settled",
+      "cancelled": "Cancelled",
+      "voided": "Voided"
+    },
+    "more": "{{n}} more options",
+    "result": "Result: {{opt}}",
+    "noBetsYet": "No bets yet — if you bet first and win, you take the whole losing pool (after fees)",
+    "empty": "No markets",
+    "emptyHint": "Try another category or filter. New crypto markets open every 15 minutes.",
+    "mine": "You bet {{amount}}",
+    "probAria": "{{opt}}: probability {{pct}}, est. payout {{mult}}",
+    "oddsNote": "Probability = option pool ÷ total pool. The multiplier is the estimated payout after fees; it changes with the pool and is fixed at close.",
+    "firstBet": "No bets yet — be the first"
+  },
+  "md": {
+    "totalPool": "Total pool",
+    "bettors": "Bettors",
+    "fee": "Fee",
+    "feeValue": "{{rate}}% of winnings",
+    "closeAt": "Betting closes",
+    "yourTime": "your time {{t}}",
+    "options": "Options",
+    "colOption": "Option",
+    "colPool": "Pool (USDT)",
+    "colPeople": "Bettors",
+    "colProb": "Probability",
+    "colMult": "Est. payout (after fee)",
+    "colMultFinal": "Final payout (after fee)",
+    "bet": "Bet",
+    "chosen": "Selected",
+    "multShort": "est. {{m}}",
+    "multFinalShort": "final {{m}}",
+    "oddsNote": "Odds change with the pool. Final odds are fixed when betting closes.",
+    "frozenNote": "Betting has closed. The pool is final and these are the final odds.",
+    "winner": "Winner",
+    "mine": "My bets in this market",
+    "mineLine": "{{amount}} USDT · {{n}} bets",
+    "ifWin": "If it wins: about {{v}}",
+    "tabs": {
+      "rules": "Rules",
+      "resolution": "Resolution",
+      "how": "How the pool works"
+    },
+    "rules": {
+      "winCond": "How each option wins",
+      "fullText": "Full rules",
+      "source": "Sources",
+      "primary": "Primary",
+      "backup": "Backup",
+      "mode": "Resolution",
+      "AUTO": "Automatic (settles when both sources agree; no review period)",
+      "PLATFORM": "Platform (published after confirmation; disputes accepted for {{h}} hours)",
+      "times": "Times (UTC)",
+      "open": "Opens",
+      "close": "Closes",
+      "start": "Event starts",
+      "end": "Expected end",
+      "clarifications": "Clarifications",
+      "feeChanges": "Fee changes",
+      "feeChange": "{{old}}% → {{new}}%",
+      "userCap": "Per-customer limit",
+      "marketNo": "Market ID"
+    },
+    "res": {
+      "pending": "After the event ends, the result, evidence, time and resolver ID will be published here.",
+      "result": "Result",
+      "basis": "Evidence",
+      "resolver": "Resolver ID",
+      "auto": "Automatic",
+      "resolvedAt": "Resolved at",
+      "sources": "Sources",
+      "disputeUntil": "Disputes close",
+      "disputeLeft": "{{t}} left",
+      "disputeBtn": "Dispute result",
+      "disputeNote": "During the review period, anyone who bet in this market can file one dispute. A decision is published within 24 hours.",
+      "disputed": "Dispute received. The decision will be published here and all bettors will be notified.",
+      "publicizing": "This proposed result is under review. If no dispute is filed before the window ends, the market settles on it.",
+      "settleTitle": "Settlement",
+      "settleFee": "Fee at settlement",
+      "payoutTotal": "Total paid out",
+      "feeTotal": "Total fees",
+      "dust": "Rounding remainder (platform)",
+      "myPayout": "My payout",
+      "myFee": "Fee deducted",
+      "voided": "Voided. All bets have been refunded in full.",
+      "cancelled": "Cancelled. All bets have been refunded in full.",
+      "reason": "Reason",
+      "reasons": {
+        "POSTPONED_48H": "Match postponed for more than 48 hours",
+        "NOT_ENOUGH_OPTIONS": "Only one option had bets at close"
+      }
+    },
+    "how": {
+      "title": "How a pari-mutuel pool works",
+      "s1": "Everyone’s stakes go into one pool, split by option. The platform never takes the other side.",
+      "s2": "After the result, the losing options’ money is shared among winners in proportion to their stakes.",
+      "s3": "The platform takes {{rate}}% of winners’ profit only — never of the stake, never from losers.",
+      "formula": "Probability = option pool ÷ total pool; est. payout = 1 + (total ÷ option pool − 1) × (1 − fee)",
+      "example": "With this market’s current numbers:",
+      "exampleLine": "Bet 100 on “{{opt}}” → about {{ret}} back if it wins (after fee); 0 if it loses",
+      "exampleEmpty": "No bets yet. If you bet first and win, you take the whole losing pool (after fee).",
+      "final": "The pool keeps changing until close, when final odds are set. Bets can’t be cancelled; cancelled or voided markets are refunded in full."
+    },
+    "feeOnProfit": "of winnings only"
+  },
+  "bet": {
+    "title": "Place a bet",
+    "pick": "Pick an outcome",
+    "current": "Now {{pct}} · est. {{mult}}",
+    "amount": "Amount (USDT)",
+    "placeholder": "{{min}} – {{max}}",
+    "max": "Max",
+    "available": "Available",
+    "remaining": "Left in this market",
+    "estimate": "Estimated return",
+    "estimateLine": "Bet {{b}} → about {{r}} if it wins",
+    "estimateSub": "After a {{fee}} fee; 0 if it loses. Based on the current pool including your bet; the final pool at close decides.",
+    "estimateEmpty": "Enter an amount to see what you’d get back",
+    "profit": "Profit {{v}}",
+    "irreversible": "Bets can’t be cancelled. Cancelled or voided markets are refunded in full.",
+    "confirm": "Confirm bet",
+    "confirmAmount": "Confirm {{v}} USDT bet",
+    "toDeposit": "Insufficient balance — deposit",
+    "placing": "Placing…",
+    "success": "Bet placed",
+    "successBody": "{{opt}} · {{amount}} USDT · ID {{no}}",
+    "closed": "Betting has closed",
+    "paused": "Betting is paused",
+    "notOpen": "Opens {{t}}",
+    "choose": "Choose an option on the left",
+    "err": {
+      "below": "Minimum {{v}} USDT",
+      "above": "Maximum {{v}} USDT per bet",
+      "cap": "Over your remaining {{v}} USDT for this market",
+      "funds": "Not enough available balance",
+      "digits": "Up to 2 decimal places"
+    },
+    "estimateLead": "Bet {{b}} → about"
+  },
+  "myBets": {
+    "title": "My bets",
+    "tabs": {
+      "active": "Open",
+      "pending": "Pending",
+      "settled": "Settled",
+      "refunded": "Refunded"
+    },
+    "staked": "Total staked",
+    "payout": "Total paid out",
+    "net": "Net P/L",
+    "sumNote": "Settled payouts minus settled stakes",
+    "col": {
+      "market": "Market",
+      "option": "Option",
+      "amount": "Amount",
+      "time": "Placed",
+      "odds": "Odds",
+      "status": "Status",
+      "result": "Payout / fee / refund"
+    },
+    "atBet": "At bet {{m}}",
+    "final": "Final {{m}}",
+    "won": "Won",
+    "lost": "Lost",
+    "payoutV": "Paid {{v}}",
+    "feeV": "Fee {{v}}",
+    "refundV": "Refunded {{v}}",
+    "refundReasons": {
+      "VOIDED": "Market voided",
+      "CANCELLED": "Market cancelled",
+      "LATE_BET": "Placed after start",
+      "STAFF": "Staff account"
+    },
+    "empty": {
+      "active": "No open bets",
+      "pending": "No bets awaiting a result",
+      "settled": "No settled bets yet",
+      "refunded": "No refunded bets"
+    },
+    "emptyHint": "Find a question you have a view on.",
+    "goMarkets": "Browse markets",
+    "count": "{{n}}"
+  },
+  "dispute": {
+    "title": "Dispute the result",
+    "proposed": "Proposed result: {{opt}}",
+    "claim": "You think the result should be",
+    "reason": "Reason",
+    "reasonPh": "Explain why (required, up to 1,000 characters)",
+    "link": "Link (optional)",
+    "rule": "One dispute per person per market, no deposit. The decision and reasoning are published on the market page without your identity.",
+    "submit": "Submit dispute",
+    "done": "Dispute submitted",
+    "doneBody": "You’ll be notified of the decision within 24 hours.",
+    "needReason": "Please give a reason",
+    "needClaim": "Please choose a result",
+    "sameAsProposed": "Same as proposed"
+  },
+  "authSide": {
+    "title": "Back the outcome you believe in",
+    "sub": "Football, NBA, crypto up/down and macro events. Pari-mutuel: winners share the losing pool, and the platform only takes 5% of profit.",
+    "p1": "USDT only — deposit via ERC20, TRC20 or BEP20",
+    "p2": "No house, no market making; results and evidence are public",
+    "p3": "Works on phone and desktop; add it to your home screen",
+    "exHome": "Man City",
+    "exDraw": "Draw",
+    "exAway": "Liverpool",
+    "exLeague": "Football · Premier League",
+    "exPool": "Pool 10,000 USDT",
+    "exTitle": "Man City vs Liverpool (90-min result)"
   }
 }

@@ -4,6 +4,7 @@
  */
 import type { KycStatus } from '../api/types';
 import { emit } from './bus';
+import { resetMarkets } from './markets';
 import { resetDb } from './db';
 import { protoKycStatus, protoSetKyc, pushNotification } from './user';
 
@@ -24,5 +25,6 @@ export type { KycStatus };
 
 export function resetPrototypeData(): void {
   resetDb();
+  resetMarkets();
   emit({ type: 'account' });
 }

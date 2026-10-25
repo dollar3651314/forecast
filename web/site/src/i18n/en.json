@@ -1,7 +1,7 @@
 {
   "meta": {
-    "title": "{brand} | Sports predictions with USDT",
-    "description": "{brand}: make sports predictions with USDT (pool-based). Open it in your phone browser, no download needed."
+    "title": "{brand} | Back the outcome you believe in",
+    "description": "{brand}: predict football, NBA, crypto up/down and macro events with USDT (pari-mutuel). Winners share the losing pool; the platform only takes a fee on profit."
   },
   "common": {
     "login": "Log in",
@@ -22,64 +22,87 @@
     "full": "Risk warning: predictions can be lost and you may lose everything you put in. Only use money you can afford to lose. Nothing on this website is investment advice."
   },
   "nav": {
-    "platform": "Why us",
-    "safety": "Security",
+    "how": "How it works",
+    "fee": "Fees",
+    "safety": "Safety",
     "faq": "FAQ"
   },
   "hero": {
-    "titleA": "Back the outcome you believe in,",
-    "titleB": "predict with USDT",
-    "sub": "Sports predictions with a shared pool: correct predictions split the pool in proportion to what they put in. The game is being built; you can already sign up, verify and deposit.",
-    "subMobile": "Pool-based sports predictions. The game is being built; you can already sign up and deposit.",
-    "note": "Matches and markets coming soon",
-    "p1": "USDT deposits and withdrawals",
-    "p2": "Works on phone and desktop",
-    "p3": "Withdraw after identity verification"
+    "titleA": "Back the outcome",
+    "titleB": "you believe in",
+    "sub": "Football, NBA, crypto up/down and macro events. Pari-mutuel: winners share the losing pool, there is no house, and we only take 5% of profit.",
+    "subMobile": "Pari-mutuel: winners share the losing pool; we only take 5% of profit.",
+    "p1": "USDT only",
+    "p2": "Results and evidence are public",
+    "p3": "Phone and desktop"
   },
-  "adv": {
-    "title": "Why {brand}",
-    "sub": "Built for USDT users",
-    "a1t": "One USDT account",
-    "a1d": "Deposit USDT and take part; every amount is settled in USDT, no currency conversion.",
-    "a2t": "Mobile first",
-    "a2d": "Designed for phones; add it to your home screen to open it like an app and get deposit and review alerts."
+  "ex": {
+    "tag": "Example market",
+    "league": "Football · Premier League",
+    "title": "Man City vs Liverpool (90-min result)",
+    "o1": "Man City",
+    "o2": "Draw",
+    "o3": "Liverpool",
+    "pool": "Pool 10,000 USDT · 67 bettors",
+    "calc": "Bet 100 on Man City → about 162.29 back if it wins (after fee)",
+    "note": "Probability = option pool ÷ total pool. The multiplier is the estimated payout after fees; it moves with the pool and is fixed at close."
+  },
+  "cats": {
+    "title": "What you can predict",
+    "sub": "Every market states the question, how it is resolved and which sources are used",
+    "football": "Football",
+    "footballD": "Match result and goal totals in major leagues; betting closes 5 minutes before kick-off.",
+    "nba": "NBA",
+    "nbaD": "Winner and total points; settles automatically when two score sources agree.",
+    "crypto": "Crypto up/down",
+    "cryptoD": "BTC and ETH markets every 15 minutes and every hour, resolved from Binance candles.",
+    "macro": "Macro events",
+    "macroD": "Rate decisions, inflation data and more, resolved from official releases with a 24-hour dispute window."
   },
   "steps": {
-    "title": "Start in three steps",
-    "s1t": "Sign up",
-    "s1d": "Sign up with your email and a verification code. It takes about a minute.",
-    "s2t": "Deposit",
-    "s2d": "Send USDT to your own deposit address on ERC20, TRC20 or BSC (BEP20). The minimum is 1 USDT.",
-    "s3t": "Verify your identity",
-    "s3d": "Upload your ID to complete identity verification (KYC); after that you can withdraw."
+    "title": "Pari-mutuel in three steps",
+    "s1t": "Pick a question",
+    "s1d": "Each market lists the question, options, closing time and resolution source.",
+    "s2t": "Back an outcome",
+    "s2d": "Your stake joins that option’s pool. Bet any time before close; bets can’t be cancelled.",
+    "s3t": "Winners share the losing pool",
+    "s3d": "After the result, losing stakes are shared among winners by stake; payouts go to your balance, ready to withdraw."
+  },
+  "fee": {
+    "title": "Simple fees: 5% of profit only",
+    "sub": "No fee on stakes or losses; cancelled or voided markets are refunded in full",
+    "r1": "Bet on Man City",
+    "r2": "Share of losing pool",
+    "r3": "Fee (5% of profit)",
+    "r4": "You get back",
+    "note": "Based on the example market’s current pool; the final pool at close decides. Each market’s fee is in its rules and every change is published."
   },
   "safe": {
-    "title": "Funds and security",
-    "sub": "Only what the system actually does",
-    "s1t": "Your own deposit address",
-    "s1d": "Every account has its own USDT deposit address and deposits are credited automatically after on-chain confirmation. The private keys of deposit addresses are not stored on our servers.",
+    "title": "Funds and results you can check",
+    "s1t": "Personal deposit address",
+    "s1d": "Every account has its own USDT deposit address (ERC20, TRC20, BEP20), credited after on-chain confirmation.",
     "s2t": "Withdrawal whitelist",
-    "s2d": "Withdrawals only go to addresses on your whitelist; a newly added address can be used after 24 hours.",
-    "s3t": "Cooling-off period and manual review",
-    "s3d": "Every withdrawal starts with a cooling-off period (you can cancel during it) and is then reviewed by a person; large withdrawals are also held for a while after approval.",
-    "s4t": "Identity verification",
-    "s4d": "Withdrawals require identity verification (KYC), so a stolen login alone cannot move your funds out.",
+    "s2d": "Withdraw only to whitelisted addresses; new addresses activate after 24 hours, and every withdrawal has a cooling-off period and review.",
+    "s3t": "No house",
+    "s3d": "We don’t make markets or bet against you. In every market payouts + fees + rounding = pool, reconciled daily.",
+    "s4t": "Public results",
+    "s4d": "Settled markets show the result, evidence, time and resolver ID; platform-resolved results are published first and can be disputed.",
     "license": "Regulatory and licence information: to be provided"
   },
   "faq": {
     "title": "FAQ",
-    "q1": "Which deposit networks are supported? What is the minimum?",
-    "a1": "Only USDT, on ERC20 (Ethereum), TRC20 (TRON) or BSC (BEP20). The minimum deposit is 1 USDT; smaller transfers are not credited. Choose the network carefully: transfers on the wrong network or of other tokens cannot be recovered.",
-    "q2": "How long does a withdrawal take?",
-    "a2": "After you submit a withdrawal there is a 2-hour cooling-off period (you can cancel during it), then a manual review, and after approval it is sent on chain. Withdrawals of 3,000 USDT or more are held for another 6 hours after approval. Arrival also depends on how fast the blockchain confirms.",
-    "q3": "What do I need to withdraw?",
-    "a3": "You need to complete identity verification (KYC) and you can only withdraw to whitelisted addresses; a new address becomes usable 24 hours after it is added. Withdrawal fees and limits are shown on the withdrawal page.",
-    "q4": "How do I use it on my phone?",
-    "a4": "Open the client in your phone browser to sign up and use it; no app download is needed. You can also add it to your home screen to open it like an app and receive alerts."
+    "q1": "How are odds calculated? Do they change?",
+    "a1": "Probability = the option’s pool ÷ the total pool; estimated multiplier = 1 + (total ÷ option pool − 1) × (1 − fee). Odds move as people bet and are fixed when betting closes.",
+    "q2": "How does the platform make money? Is it betting against me?",
+    "a2": "We only take a fee on winners’ profit after the result (5% by default). There is no house and no market making; money moves only between bettors.",
+    "q3": "Who decides results? What if they are wrong?",
+    "a3": "Crypto up/down and scores are resolved automatically from two data sources. Other markets are resolved by the platform, published for review and open to disputes. Evidence and resolver IDs are always public.",
+    "q4": "Which networks are supported? How long do withdrawals take?",
+    "a4": "USDT only (ERC20, TRC20, BEP20). Withdrawals have a 2-hour cooling-off period, then review and on-chain transfer. Minimum 100 USDT; identity verification required."
   },
   "final": {
     "title": "Sign up now",
-    "sub": "Free to sign up, minimum deposit 1 USDT"
+    "sub": "Free to join; deposit from 1 USDT"
   },
   "footer": {
     "terms": "Terms of Service",

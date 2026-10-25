@@ -1,6 +1,6 @@
 /**
- * 路由。客户端部署在根路径 `/`，使用浏览器路由。forecast S1：复制源的行情、交易、持仓页删除，首页先是占位页；
- * 需求说明书第 5 节的站点地图在原型（M1）和 S11 实现。
+ * 路由。客户端部署在根路径 `/`，使用浏览器路由。需求说明书第 5.1 节的站点地图（M1 原型）：
+ * 市场（首页）/markets、市场详情 /markets/:publicNo（下注在详情里：手机抽屉、电脑右栏）、我的下注 /bets、资产、我的。
  */
 import { lazy, Suspense, type ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
@@ -15,7 +15,9 @@ import { Layout } from './components/Layout';
 const Login = lazy(() => import('./pages/auth/Login'));
 const Register = lazy(() => import('./pages/auth/Register'));
 const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'));
-const Home = lazy(() => import('./pages/Home'));
+const Markets = lazy(() => import('./pages/markets/Markets'));
+const MarketDetail = lazy(() => import('./pages/markets/MarketDetail'));
+const MyBets = lazy(() => import('./pages/bets/MyBets'));
 const Assets = lazy(() => import('./pages/assets/Assets'));
 const Ledger = lazy(() => import('./pages/assets/Ledger'));
 const Withdraw = lazy(() => import('./pages/assets/Withdraw'));
@@ -58,8 +60,11 @@ export function AppRoutes() {
             </RequireAuth>
           }
         >
-          <Route index element={<Navigate to="/home" replace />} />
-          <Route path="home" element={<Home />} />
+          <Route index element={<Navigate to="/markets" replace />} />
+          <Route path="home" element={<Navigate to="/markets" replace />} />
+          <Route path="markets" element={<Markets />} />
+          <Route path="markets/:publicNo" element={<MarketDetail />} />
+          <Route path="bets" element={<MyBets />} />
           <Route path="assets" element={<Assets />} />
           <Route path="assets/ledger" element={<Ledger />} />
           <Route path="assets/withdraw" element={<Withdraw />} />

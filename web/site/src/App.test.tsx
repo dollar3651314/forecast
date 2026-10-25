@@ -18,7 +18,7 @@ describe('官网首页', () => {
   it('手机：区块都在，底部固定登录和注册（W8），顶部风险提示条（W9）；没有公开行情（forecast S1 删除）', () => {
     render(<App initialLang="zh-CN" />);
     expect(screen.getByTestId('risk-bar')).toHaveTextContent('风险');
-    for (const id of ['hero', 'sec-platform', 'sec-steps', 'sec-safety', 'sec-faq', 'footer', 'sticky-cta']) {
+    for (const id of ['hero', 'hero-note', 'sec-platform', 'sec-steps', 'sec-fee', 'sec-safety', 'sec-faq', 'footer', 'sticky-cta']) {
       expect(screen.getByTestId(id)).toBeInTheDocument();
     }
     expect(screen.queryByTestId('quote-board')).toBeNull();
@@ -34,7 +34,9 @@ describe('官网首页', () => {
     expect(screen.getByTestId('hero-register').getAttribute('href')).toBe('/register?lang=zh-CN');
     expect(screen.getByTestId('sticky-register').getAttribute('href')).toBe('/register?lang=zh-CN');
     expect(screen.getByTestId('sticky-login').getAttribute('href')).toBe('/login?lang=zh-CN');
-    expect(document.title).toBe(`${BRAND_NAME}｜用 USDT 参与体育赛事预测`);
+    expect(document.title).toBe(`${BRAND_NAME}｜看好哪个结果，就押哪个`);
+    // 静态示例市场（需求第 3.5 节的例子）
+    expect(screen.getByTestId('hero-note')).toHaveTextContent('162.29');
   });
 
   it('切换英文：文字和链接里的语言都变，并记住选择', () => {
@@ -45,12 +47,12 @@ describe('官网首页', () => {
     expect(btn).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(btn);
     const options = within(sw).getAllByRole('option');
-    expect(options.map((o) => o.textContent)).toEqual(['简体中文当前', 'English']);
+    expect(options.map((o) => o.textContent)).toEqual(['简体中文当前', '繁體中文', 'English']);
     expect(options[0]).toHaveAttribute('aria-selected', 'true');
-    fireEvent.click(within(options[1]).getByRole('button'));
+    fireEvent.click(within(options[2]).getByRole('button'));
     expect(within(sw).queryByRole('listbox')).toBeNull();
     expect(within(sw).getByRole('button', { name: 'Language: English' })).toBeInTheDocument();
-    expect(screen.getByTestId('hero')).toHaveTextContent('predict with USDT');
+    expect(screen.getByTestId('hero')).toHaveTextContent('Back the outcome');
     expect(screen.getByTestId('hero-register').getAttribute('href')).toBe('/register?lang=en');
     expect(localStorage.getItem(LANG_KEY)).toBe('en');
     expect(document.documentElement.lang).toBe('en');
@@ -59,13 +61,14 @@ describe('官网首页', () => {
     expect(text).not.toMatch(/[\u4e00-\u9fff]/);
   });
 
-  it('电脑：顶部导航有登录和注册，首屏右栏是占位卡片', () => {
+  it('电脑：顶部导航有登录和注册，首屏右栏是静态示例市场', () => {
     setDesktop(true);
     render(<App initialLang="en" />);
     expect(screen.getByTestId('nav-register').getAttribute('href')).toBe('/register?lang=en');
     expect(screen.getByTestId('nav-login').getAttribute('href')).toBe('/login?lang=en');
     expect(screen.queryByTestId('sticky-cta')).toBeNull();
-    expect(screen.getByTestId('hero-note')).toHaveTextContent('coming soon');
+    expect(screen.getByTestId('hero-note')).toHaveTextContent('Example market');
+    expect(screen.getByTestId('hero-note')).toHaveTextContent('162.29');
   });
 });
 
