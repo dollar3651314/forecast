@@ -187,7 +187,7 @@ class SportsResolverTest extends SportsTestSupport {
     assertThat(jdbc.queryForObject("SELECT origin FROM resolve_case WHERE market_id = ?", String.class, m.id())).isEqualTo("AUTO_FAILED");
     verify(staff).notifyStaff(eq("SPORTS_AUTO_FAILED"), argThat(p -> m.no().equals(p.get("marketNo")) && p.get("reason").contains("比分不一致")));
     // 裁决台：人按首选来源提议 → 确认 → 公示
-    ResolveDeskApi.CaseItem item = desk.cases("auto_failed", 1, 100).items().stream().filter(c -> c.marketNo().equals(m.no())).findFirst().orElseThrow();
+    ResolveDeskApi.CaseItem item = DeskCases.find(desk, "auto_failed", m.no()).orElseThrow();
     assertThat(item.origin()).isEqualTo("auto_failed");
     STUB.clear();
     advance(Duration.ofMinutes(10));

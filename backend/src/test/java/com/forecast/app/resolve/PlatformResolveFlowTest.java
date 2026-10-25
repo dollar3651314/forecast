@@ -55,14 +55,14 @@ class PlatformResolveFlowTest extends PlatformTestSupport {
     Setup s = pending(2);
     Market m = s.m();
     assertThat(stage(m)).isEqualTo("OPEN");
-    assertThat(desk.cases("awaiting_proposal", 1, 100).items()).anyMatch(i -> i.marketNo().equals(m.no()) && i.origin().equals("platform"));
+    assertThat(DeskCases.find(desk, "awaiting_proposal", m.no())).hasValueSatisfying(i -> assertThat(i.origin()).isEqualTo("platform"));
     // 提议：市场状态不变（提议只是一条记录），提醒确认的人
     ResolveDeskApi.CaseDetail d = desk.propose(no(m), result(m, 0), 7);
     String first = d.summary().proposal().proposalId();
     assertThat(d.summary().marketStatus()).isEqualTo("pending_resolution");
     assertThat(d.summary().proposal().optionNo()).isEqualTo(m.options().get(0));
     assertThat(d.summary().proposal().evidenceUrls()).containsExactly("https://www.federalreserve.gov/newsevents/pressreleases.htm");
-    assertThat(desk.cases("awaiting_confirm", 1, 100).items()).anyMatch(i -> i.marketNo().equals(m.no()));
+    assertThat(DeskCases.find(desk, "awaiting_confirm", m.no())).isPresent();
     verify(staff).notifyStaff(eq("RESOLVE_PROPOSED"), argThat(p -> m.no().equals(p.get("marketNo")) && "7".equals(p.get("proposer"))));
     // 没确认：公示期满的任务、结算都不会动它
     advance(Duration.ofHours(30));
@@ -169,7 +169,8 @@ class PlatformResolveFlowTest extends PlatformTestSupport {
     assertThat(r.get("myDispute").get("status").asString()).isEqualTo("open");
     assertThat(r.get("disputeCount").asInt()).isEqualTo(2);
     assertThat(r.get("canDispute").asBoolean()).isFalse();
-    assertThat(r.toString()).doesNotContain(String.valueOf(s.a().id())).doesNotContain("规则有歧义");
+    assertThat(scalars(r)).doesNotContain(String.valueOf(s.a().id()));
+    assertThat(r.toString()).doesNotContain("规则有歧义");
   }
 
   @ParameterizedTest(name = "batch-size = {0}")
@@ -208,7 +209,8 @@ class PlatformResolveFlowTest extends PlatformTestSupport {
     assertThat(r.get("dispute").get("decision").asString()).isEqualTo("overturned");
     assertThat(r.get("dispute").get("conclusion").asString()).isEqualTo("核对官网，改判为选项 2");
     assertThat(r.get("myDispute").isNull()).isTrue();
-    assertThat(r.toString()).doesNotContain(String.valueOf(s.b().id())).doesNotContain("官网写的是选项 2");
+    assertThat(scalars(r)).doesNotContain(String.valueOf(s.b().id()));
+    assertThat(r.toString()).doesNotContain("官网写的是选项 2");
     assertThat(jdbc.queryForObject("SELECT resolved_by FROM market_question WHERE id = ?", String.class, m.id())).isEqualTo("9");
     // 处理过了：不能再处理
     assertThatThrownBy(() -> desk.decideDisputes(no(m), new ResolveDeskApi.DecisionInput("uphold", null, "x"), 9)).extracting(e -> ((BizException) e).code())
@@ -255,7 +257,7 @@ class PlatformResolveFlowTest extends PlatformTestSupport {
     publicity.remindOverdue();
     publicity.remindOverdue();
     verify(staff, times(1)).notifyStaff(eq("RESOLVE_OVERDUE"), argThat(p -> m.no().equals(p.get("marketNo")) && "PROPOSE".equals(p.get("what"))), eq(List.of("resolve:propose")));
-    ResolveDeskApi.CaseItem item = desk.cases("overdue", 1, 100).items().stream().filter(i -> i.marketNo().equals(m.no())).findFirst().orElseThrow();
+    ResolveDeskApi.CaseItem item = DeskCases.find(desk, "overdue", m.no()).orElseThrow();
     assertThat(item.proposeOverdue()).isTrue();
     assertThat(item.overdue()).isTrue();
     // 提议以后 2 小时没确认
@@ -287,7 +289,7 @@ class PlatformResolveFlowTest extends PlatformTestSupport {
     assertThat(Instant.parse(d.summary().holdUntil())).as("原定开赛后 48 小时").isEqualTo(eventStart(m).plus(Duration.ofHours(48)));
     assertThatThrownBy(() -> desk.propose(no(m), result(m, 0), 1)).extracting(e -> ((BizException) e).code()).isEqualTo("RESOLVE_ON_HOLD");
     assertThatThrownBy(() -> desk.decide(no(m), result(m, 0), 1, true)).extracting(e -> ((BizException) e).code()).isEqualTo("RESOLVE_ON_HOLD");
-    assertThat(desk.cases("on_hold", 1, 100).items()).anyMatch(i -> i.marketNo().equals(m.no()));
+    assertThat(DeskCases.find(desk, "on_hold", m.no())).isPresent();
     // 等待期间不算提议超时
     advance(Duration.ofHours(30));
     publicity.remindOverdue();
@@ -492,7 +494,7 @@ class PlatformResolveFlowTest extends PlatformTestSupport {
     bet(b.id(), m, 1, "10");
     closeAndEnd(m);
     assertThat(jdbc.queryForObject("SELECT status FROM resolve_auto_task WHERE market_id = ?", String.class, id)).isEqualTo("MANUAL");
-    assertThat(desk.cases("auto_failed", 1, 100).items()).anyMatch(i -> i.marketNo().equals(m.no()) && i.origin().equals("auto_failed"));
+    assertThat(DeskCases.find(desk, "auto_failed", m.no())).hasValueSatisfying(i -> assertThat(i.origin()).isEqualTo("auto_failed"));
     desk.decide(no(m), result(m, 1), 1, true);
     assertThat(status(m)).isEqualTo("PUBLICIZING");
     assertThat(Duration.between(Instant.now(clock), deadline(m))).as("加密转人工：争议窗口按参数 2 小时（D-75）").isEqualTo(Duration.ofHours(2));
@@ -525,5 +527,20 @@ class PlatformResolveFlowTest extends PlatformTestSupport {
     StringBuilder sb = new StringBuilder();
     for (JsonNode i : items) sb.append(i.get("title").asString()).append('\n').append(i.get("body").asString()).append('\n');
     return sb.toString();
+  }
+
+  /**
+   * 公开信息里的全部值（字段的值，不含字段名）。检查"不显示争议人编号"时要比较整个值：原来用整段 JSON 找子串，
+   * 客户编号（例如 853）会碰巧出现在雪花编号的选项号里（107853354742321152），偶发失败（整合 3 时发现）。
+   */
+  private static List<String> scalars(JsonNode n) {
+    List<String> out = new ArrayList<>();
+    if (n == null || n.isNull()) return out;
+    if (n.isContainer()) {
+      for (JsonNode c : n) out.addAll(scalars(c));
+    } else {
+      out.add(n.asString());
+    }
+    return out;
   }
 }

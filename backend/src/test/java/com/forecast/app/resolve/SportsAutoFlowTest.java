@@ -101,7 +101,7 @@ class SportsAutoFlowTest extends SportsTestSupport {
     assertThat(sports.resolveDue().get(m.id())).isEqualTo("manual");
     assertThat(status(m)).isEqualTo("PENDING_RESOLUTION");
     // 裁决台：自动裁决失败 → 按首选来源（主队赢）提议 → 确认 → 公示
-    ResolveDeskApi.CaseItem item = desk.cases("auto_failed", 1, 100).items().stream().filter(x -> x.marketNo().equals(m.no())).findFirst().orElseThrow();
+    ResolveDeskApi.CaseItem item = DeskCases.find(desk, "auto_failed", m.no()).orElseThrow();
     assertThat(item.origin()).isEqualTo("auto_failed");
     ResolveDeskApi.CaseDetail cd = desk.propose(Long.parseLong(m.no()), new ResolveDeskApi.ProposalInput(m.options().get(0), null, null, null,
         List.of("https://www.nba.com/game"), List.of(), "按首选来源 balldontlie 的终场比分 110:104"), 1);
