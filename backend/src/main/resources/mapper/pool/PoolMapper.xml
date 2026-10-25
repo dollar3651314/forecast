@@ -95,6 +95,13 @@
     ORDER BY market_id, seq
   </select>
 
+  <!-- S13：取消、作废的市场退款后持仓清零，开奖记录和来源统计要的是"收到过多少下注、多少人"，按下注记录算（含已退回的） -->
+  <select id="placed" resultType="com.forecast.app.pool.bet.PoolRows$MarketPlaced">
+    SELECT market_id, SUM(amount) AS amount, COUNT(DISTINCT user_id) AS n FROM pool_bet WHERE market_id IN
+    <foreach collection="marketIds" item="m" open="(" separator="," close=")">#{m}</foreach>
+    GROUP BY market_id
+  </select>
+
   <select id="bettorCounts" resultType="com.forecast.app.pool.bet.PoolRows$MarketCount">
     SELECT market_id, COUNT(DISTINCT user_id) AS n FROM pool_position WHERE amount &gt; 0 AND market_id IN
     <foreach collection="marketIds" item="m" open="(" separator="," close=")">#{m}</foreach>
@@ -270,4 +277,11 @@
           ELSE (SELECT COUNT(*) FROM pool_position p2 WHERE p2.market_id = t.market_id AND p2.option_id = t.option_id AND p2.amount &gt; 0) END
     WHERE t.market_id = #{marketId} AND t.option_id IN <foreach collection="optionIds" item="o" open="(" separator="," close=")">#{o}</foreach>
   </update>
+
+  <!-- forecast S13（MF-1、MF-10）：客户每天的下注（只要下过就算，退回的也算），来源统计的激活和第 2 周仍下注 -->
+  <select id="userDays" resultType="com.forecast.app.pool.bet.PoolMapper$UserDay">
+    SELECT user_id, DATE(received_at) AS day, MIN(received_at) AS first_at FROM pool_bet
+    WHERE user_id IN <foreach collection="userIds" item="u" open="(" separator="," close=")">#{u}</foreach>
+    GROUP BY user_id, DATE(received_at)
+  </select>
 </mapper>

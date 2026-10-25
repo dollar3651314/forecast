@@ -20,9 +20,12 @@ public final class ClientViews {
 
   public record OptionCard(String optionNo, int seq, I18nText label) {}
 
-  /** 列表里的一个市场；S11 加 {@code winningOptionNo}（已结算的结果，其他状态为空） */
+  /**
+   * 列表里的一个市场；S11 加 {@code winningOptionNo}（已结算的结果，其他状态为空）；S13 加 {@code todaySlate}（列入今日场次，MF-3）。
+   * 奖池里没有任何个人数据（不登录也能看，MF-4）。
+   */
   public record Card(String publicNo, String category, I18nText title, String status, String openAt, String closeAt, String eventStartAt,
-      String eventEndAt, String feeRate, List<OptionCard> options, Object pool, String winningOptionNo) {}
+      String eventEndAt, String feeRate, List<OptionCard> options, Object pool, String winningOptionNo, boolean todaySlate) {}
 
   public record OptionDetail(String optionNo, int seq, I18nText label, I18nText winCondition) {}
 

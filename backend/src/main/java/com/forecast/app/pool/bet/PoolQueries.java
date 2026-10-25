@@ -408,4 +408,19 @@ public class PoolQueries implements PoolApi, PoolAdminApi {
   static PoolViews.Text text(I18nText t) {
     return t == null ? null : new PoolViews.Text(t.en(), t.zhCN(), t.zhTW());
   }
+
+  @Override
+  @Transactional(readOnly = true)
+  public java.util.Map<Long, BetActivity> activity(java.util.Collection<Long> userIds) {
+    if (userIds == null || userIds.isEmpty()) return java.util.Map.of();
+    java.util.Map<Long, LocalDateTime> first = new java.util.HashMap<>();
+    java.util.Map<Long, java.util.Set<java.time.LocalDate>> days = new java.util.HashMap<>();
+    for (PoolMapper.UserDay d : mapper.userDays(java.util.Set.copyOf(userIds))) {
+      first.merge(d.userId, d.firstAt, (a, b) -> a.isBefore(b) ? a : b);
+      days.computeIfAbsent(d.userId, k -> new java.util.TreeSet<>()).add(d.day);
+    }
+    java.util.Map<Long, BetActivity> out = new java.util.LinkedHashMap<>();
+    first.forEach((u, t) -> out.put(u, new BetActivity(t, java.util.Collections.unmodifiableSet(days.get(u)))));
+    return out;
+  }
 }

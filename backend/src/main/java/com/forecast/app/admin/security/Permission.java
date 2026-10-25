@@ -93,7 +93,9 @@ public enum Permission {
   BETTING_PARAMS_EDIT("betting_params:edit", "params", true),
   /** 风控告警（S10） */
   RISK_ALERT_VIEW("risk_alert:view", "risk", false),
-  RISK_ALERT_HANDLE("risk_alert:handle", "risk", false);
+  RISK_ALERT_HANDLE("risk_alert:handle", "risk", false),
+  /** 来源统计、增长数据 CSV 导出（S13，MF-1、MF-10；需求第 6.2 节） */
+  GROWTH_VIEW("growth:view", "growth", false);
 
   public final String code;
   public final String module;

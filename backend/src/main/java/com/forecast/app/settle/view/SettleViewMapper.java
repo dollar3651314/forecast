@@ -14,6 +14,8 @@ interface SettleViewMapper {
   /** 一张结算单 / 退款单的公开数字 */
   final class RunRow {
     long id;
+    /** 只有 {@link #runs} 填（S13） */
+    long marketId;
     String kind;
     String status;
     BigDecimal feeRate;
@@ -44,6 +46,9 @@ interface SettleViewMapper {
   }
 
   RunRow run(@Param("marketId") long marketId, @Param("kind") String kind);
+
+  /** 一批市场的结算单（派彩完成的 PAYOUT）和退款单（REFUND），S13 开奖记录、周报 */
+  List<RunRow> runs(@Param("marketIds") Collection<Long> marketIds);
 
   /** 本人在这些市场的结算明细；只取 PAYOUT 且 DONE 的结算单 */
   List<ItemRow> userItems(@Param("userId") long userId, @Param("marketIds") Collection<Long> marketIds);

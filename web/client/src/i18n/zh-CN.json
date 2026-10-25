@@ -724,7 +724,8 @@
         "E7_NO_RESULT": "比赛中断，没有有效比分",
         "E10_UNDETERMINED": "无法确定结果",
         "E11_UNDETERMINABLE": "规则无法判定",
-        "OTHER": "其他"
+        "OTHER": "其他",
+        "MANUAL": "平台按规则作废"
       },
       "decision": {
         "upheld": "维持原结果",
@@ -899,6 +900,70 @@
       "sent": "已发送",
       "cancelled": "已退订",
       "missed": "未发送（市场已结束）"
-    }
+    },
+    "guest": "还没开放下注。登录后可以订阅\"开放时提醒我\"。"
+  },
+  "guest": {
+    "login": "登录",
+    "register": "注册",
+    "loginToBet": "登录后押注",
+    "registerToBet": "没有账户？注册",
+    "betHint": "登录后才能押注；登录后回到这里，选中的选项不变。"
+  },
+  "slate": {
+    "title": "今日场次",
+    "none": "今天没有场次。",
+    "next": "下一场：{{t}}（{{utc}}）{{title}}",
+    "noneNext": "下一场的时间还没定。"
+  },
+  "pub": {
+    "linksLabel": "开奖记录和说明",
+    "results": "开奖记录",
+    "weekly": "周报",
+    "howTo": "怎么玩、怎么充、怎么提",
+    "toMarkets": "去看市场"
+  },
+  "res": {
+    "title": "开奖记录",
+    "intro": "每个已结算、已作废、已取消的市场：结果、依据、奖池、派彩合计、抽成和尾差，和结算记录一致。",
+    "statusLabel": "状态",
+    "allStatus": "全部状态",
+    "rangeLabel": "时间",
+    "range": {
+      "all": "全部时间",
+      "7d": "近 7 天",
+      "30d": "近 30 天"
+    },
+    "count": "{{n}} 场",
+    "empty": "还没有已结束的市场",
+    "emptyHint": "市场结算、作废或取消后会出现在这里。",
+    "emptyFiltered": "没有符合筛选条件的市场",
+    "fee": "抽成合计",
+    "dust": "尾差",
+    "refunded": "退款合计",
+    "refundedShort": "全额退款",
+    "colMarket": "市场",
+    "endedAt": "结束时间"
+  },
+  "wk": {
+    "title": "周报",
+    "intro": "每周（周一 00:00 UTC 起）结束的市场：场数、有效场数、作废和取消的原因、奖池、派彩和抽成合计。",
+    "markets": "结束场数",
+    "settled": "有效场数",
+    "voided": "作废或取消",
+    "pool": "奖池合计",
+    "payout": "派彩合计",
+    "fee": "抽成合计",
+    "dust": "尾差合计",
+    "refund": "退款合计",
+    "inProgress": "本周截至现在",
+    "more": "更早的周",
+    "allShown": "已全部显示，共 {{n}} 周",
+    "empty": "还没有周报",
+    "oneTitle": "周报 {{week}}",
+    "notFound": "没有这一周的周报",
+    "reasons": "作废和取消的原因",
+    "marketsTitle": "这一周结束的市场",
+    "noMarkets": "这一周没有结束的市场"
   }
 }

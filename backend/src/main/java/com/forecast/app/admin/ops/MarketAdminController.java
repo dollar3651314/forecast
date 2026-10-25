@@ -24,7 +24,10 @@ class MarketAdminController {
 
   record ReasonBody(String reason) {}
 
-  record PublishBody(Boolean checked) {}
+  /** 上架：checked 已检查以上各项；todaySlate 列入今日场次（S13，不传不改）；overLimit 超过同时开放上限时"仍要上架"（S13） */
+  record PublishBody(Boolean checked, Boolean todaySlate, Boolean overLimit) {}
+
+  record SlateBody(Boolean todaySlate) {}
 
   record ClarifyBody(I18nText text, String reason) {}
 
@@ -38,13 +41,20 @@ class MarketAdminController {
     this.ops = ops;
   }
 
-  /** 列表：status（小写状态）、category、submitted（true = 待上架）、keyword（题目或编号） */
+  /** 列表：status（小写状态）、category、submitted（true = 待上架）、todaySlate（true = 列入今日场次，S13）、keyword（题目或编号） */
   @RequiresPermission(Permission.MARKET_VIEW)
   @GetMapping("/api/admin/markets")
   MarketAdminApi.Page<MarketAdminApi.Summary> list(@RequestParam(required = false) String status, @RequestParam(required = false) String category,
-      @RequestParam(required = false) Boolean submitted, @RequestParam(required = false) String keyword, @RequestParam(defaultValue = "1") int page,
-      @RequestParam(defaultValue = "20") int pageSize) {
-    return ops.list(status, category, submitted, keyword, page, pageSize);
+      @RequestParam(required = false) Boolean submitted, @RequestParam(required = false) Boolean todaySlate, @RequestParam(required = false) String keyword,
+      @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize) {
+    return ops.list(status, category, submitted, todaySlate, keyword, page, pageSize);
+  }
+
+  /** 同时开放的市场数和上限（S13，MF-3）：上架前提示"当前已开放 X 个，上限 Y 个"（limit 0 = 不限） */
+  @RequiresPermission(Permission.MARKET_PUBLISH)
+  @GetMapping("/api/admin/markets/open-limit")
+  MarketAdminApi.OpenLimit openLimit() {
+    return ops.openLimit();
   }
 
   @RequiresPermission(Permission.MARKET_VIEW)
@@ -89,11 +99,19 @@ class MarketAdminController {
     return ops.returnDraft(publicNo, body == null ? null : body.reason());
   }
 
-  /** 上架：{"checked": true}（勾选"已检查以上各项"） */
+  /** 上架：{"checked": true, "todaySlate": true, "overLimit": true}（勾选"已检查以上各项"；S13 列入今日场次、超过上限时"仍要上架"） */
   @RequiresPermission(Permission.MARKET_PUBLISH)
   @PostMapping("/api/admin/markets/{publicNo}/publish")
   MarketAdminApi.Detail publish(@PathVariable String publicNo, @RequestBody(required = false) PublishBody body) {
-    return ops.publish(AdminContext.current(), publicNo, body == null ? null : body.checked());
+    return ops.publish(AdminContext.current(), publicNo, body == null ? null : body.checked(), body == null ? null : body.todaySlate(),
+        body == null ? null : body.overLimit());
+  }
+
+  /** 改"列入今日场次"：{"todaySlate": true}（S13，草稿、已上架、已暂停的市场） */
+  @RequiresPermission(Permission.MARKET_PUBLISH)
+  @PostMapping("/api/admin/markets/{publicNo}/today-slate")
+  MarketAdminApi.Detail todaySlate(@PathVariable String publicNo, @RequestBody(required = false) SlateBody body) {
+    return ops.setTodaySlate(AdminContext.current(), publicNo, body == null ? null : body.todaySlate());
   }
 
   @RequiresPermission(Permission.MARKET_PAUSE)

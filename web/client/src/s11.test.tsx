@@ -24,10 +24,16 @@ import Unsubscribe from './pages/auth/Unsubscribe';
 import Ledger from './pages/assets/Ledger';
 import { renderPage } from './test/renderApp';
 
+// 这些页面按"已登录"测（S13 起市场详情没登录时不显示开赛提醒的订阅按钮，见 s13.test.tsx）
+beforeEach(() => {
+  localStorage.setItem('fc.session', JSON.stringify({ token: 't', userId: 'U10086', email: 'demo@example.com' }));
+});
+
 afterEach(() => {
   act(() => setProtoState({ scenario: 'normal' }));
   resetDb();
   resetMarkets();
+  localStorage.removeItem('fc.session');
 });
 
 async function marketNo(prefix: string, status?: string): Promise<string> {
@@ -245,9 +251,11 @@ describe('官网链接', () => {
     expect(siteLink('home', 'zh-TW', 'https://x.test')).toBe('https://x.test/?lang=zh-TW');
   });
 
-  it('我的：规则说明、常见问题、服务条款、隐私、风险披露都链到官网', async () => {
+  it('我的：常见问题、服务条款、隐私、风险披露链到官网；规则说明是站内的说明页，旁边是开奖记录、周报（S13）', async () => {
     renderPage(<Me />, '/me');
     expect(await screen.findByRole('link', { name: '服务条款' })).toHaveAttribute('href', '/site/terms?lang=zh-CN');
-    expect(screen.getByRole('link', { name: '规则说明' }).getAttribute('href')).toBe('/site/?lang=zh-CN#how');
+    expect(screen.getByRole('link', { name: '规则说明' }).getAttribute('href')).toBe('/how-to-play');
+    expect(screen.getByRole('link', { name: '开奖记录' }).getAttribute('href')).toBe('/results');
+    expect(screen.getByRole('link', { name: '周报' }).getAttribute('href')).toBe('/results/weekly');
   });
 });

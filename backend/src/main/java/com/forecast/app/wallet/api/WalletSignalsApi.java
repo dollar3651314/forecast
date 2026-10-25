@@ -30,4 +30,7 @@ public interface WalletSignalsApi {
   record WithdrawalRequest(long id, long publicNo, long userId, BigDecimal amount, LocalDateTime at) {}
 
   List<WithdrawalRequest> withdrawalsAfter(long afterId, int limit);
+
+  /** forecast S13（MF-1、MF-10 首充）：这些客户第一笔已入账充值的入账时间；没充过的不在结果里 */
+  java.util.Map<Long, LocalDateTime> firstCredited(java.util.Collection<Long> userIds);
 }

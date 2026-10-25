@@ -134,4 +134,13 @@ public interface MarketApi {
    * @param actor 状态历史里的操作人（管理员 id）
    */
   boolean publicize(long marketId, long optionId, Instant actualStartAt, String resolvedBy, Instant disputeDeadlineAt, String actor);
+
+  // ---------- forecast S13：来源统计、增长数据导出（growth）用 ----------
+
+  /** 一个已结束的市场（已结算 / 已作废 / 已取消）和结束时间、作废 / 取消原因 */
+  record Ended(long marketId, long publicNo, MarketCategory category, I18nText title, MarketStatus status, Instant endedAt, String voidReason,
+      String cancelReason) {}
+
+  /** 结束时间在 [from, to) 的市场，最近结束的在前，最多 limit 个 */
+  List<Ended> ended(Instant from, Instant to, int limit);
 }

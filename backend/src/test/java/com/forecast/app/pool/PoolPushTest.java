@@ -17,7 +17,6 @@ import java.math.BigDecimal;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
-import java.net.http.WebSocketHandshakeException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
@@ -29,7 +28,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
@@ -232,10 +230,11 @@ class PoolPushTest {
   }
 
   @Test
-  void 没登录握手被拒绝_草稿和不存在的市场订阅不到() throws Exception {
-    ExecutionException e = org.junit.jupiter.api.Assertions.assertThrows(ExecutionException.class,
-        () -> http.newWebSocketBuilder().buildAsync(URI.create("ws://localhost:" + port + "/api/ws/markets"), new WebSocket.Listener() {}).get(5, TimeUnit.SECONDS));
-    assertThat(e.getCause()).isInstanceOf(WebSocketHandshakeException.class);
+  void 没登录也能连_S13公开浏览_草稿和不存在的市场订阅不到() throws Exception {
+    // S13（MF-4）：不登录浏览打开时（默认）没有 Cookie 也能握手（推送不含个人数据）；关掉时握手被登录检查拦下（S13PublicBrowseOffTest）
+    WebSocket guest = http.newWebSocketBuilder().buildAsync(URI.create("ws://localhost:" + port + "/api/ws/markets"), new WebSocket.Listener() {})
+        .get(5, TimeUnit.SECONDS);
+    guest.sendClose(WebSocket.NORMAL_CLOSURE, "").get(5, TimeUnit.SECONDS);
     I18nText t = new I18nText("d", "d", "d");
     MarketAdminApi.Detail draft = admin.createDraft(new MarketAdminApi.DraftInput("FOOTBALL", t, t, "AUTO", "a", "b", null, Instant.now(clock).toString(),
         Instant.now(clock).plus(Duration.ofDays(1)).toString(), Instant.now(clock).plus(Duration.ofDays(1)).toString(),

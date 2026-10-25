@@ -10,17 +10,20 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 客户端的市场列表和详情（forecast S3，技术方案/v1-架构方案.md 第 2.4 节）。现在要求登录（{@code SessionFilter}）；
- * 不登录也能浏览待 MF 结论（第 18 节）。页面在原型确认后做（S11），这里先定接口和最小契约（{@code MarketClientContractTest}）。
+ * 客户端的市场列表和详情（forecast S3，技术方案/v1-架构方案.md 第 2.4 节）。S13（MF-4）：{@code forecast.public-browse.enabled}（默认开）时
+ * 列表、今日场次、详情不登录也能看（{@code SessionFilter}）；登录了详情里带本人的持仓，没登录只有公开数据。关掉时和以前一样要登录。
+ * 契约见 {@code MarketClientContractTest}。
  * 字段见 {@link ClientViews}；奖池、概率、预计赔率、本人的持仓在 {@code pool} 字段（S4，pool 模块提供）。
  */
 @RestController
 class MarketController {
 
   private final MarketService markets;
+  private final com.forecast.app.market.core.MarketPublicService publicMarkets;
 
-  MarketController(MarketService markets) {
+  MarketController(MarketService markets, com.forecast.app.market.core.MarketPublicService publicMarkets) {
     this.markets = markets;
+    this.publicMarkets = publicMarkets;
   }
 
   /**
@@ -34,7 +37,16 @@ class MarketController {
     return markets.clientList(status, category, sort, q, page, pageSize);
   }
 
-  /** 市场详情：草稿和不存在的都返回 404；奖池里带本人的持仓 */
+  /**
+   * 今日场次（S13，MF-3，需求第 4.2 节、P11、AC-82）：from、to 是客户所在时区的"今天"换成的 UTC 时间（客户端算好传来，[from, to)）；
+   * 不传按 UTC 的今天。items 按场次时间排，没有时 next 是下一场。
+   */
+  @GetMapping("/api/markets/today")
+  com.forecast.app.market.core.MarketPublicService.Today today(@RequestParam(required = false) String from, @RequestParam(required = false) String to) {
+    return publicMarkets.today(from, to);
+  }
+
+  /** 市场详情：草稿和不存在的都返回 404；登录了奖池里带本人的持仓（S13 起不登录也能看） */
   @GetMapping("/api/markets/{publicNo}")
   ClientViews.Detail detail(@PathVariable String publicNo) {
     long no;
@@ -43,6 +55,6 @@ class MarketController {
     } catch (NumberFormatException e) {
       throw new BizException("NOT_FOUND", "市场不存在");
     }
-    return markets.clientDetail(no, CurrentUser.id()).orElseThrow(() -> new BizException("NOT_FOUND", "市场不存在"));
+    return markets.clientDetail(no, CurrentUser.optional().orElse(null)).orElseThrow(() -> new BizException("NOT_FOUND", "市场不存在"));
   }
 }

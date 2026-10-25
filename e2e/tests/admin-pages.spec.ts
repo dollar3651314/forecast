@@ -79,6 +79,15 @@ test('后台页面：待上架 → 裁决台提议、确认 → 争议处理 →
       const publish = page.getByRole('button', { name: /检查后上架/ });
       await expect(publish).toBeDisabled();
       for (const c of ['选项覆盖所有可能', '延期、取消、腰斩', '不属于"不做"的题目']) await page.getByText(c).click();
+      // S13（AC-81）：显示"当前已开放 X 个，上限 Y 个"；库里别的用例留下的市场多，超过上限时要勾"仍要上架"
+      const limit = page.getByTestId('open-limit');
+      await expect(limit).toContainText(/当前已开放 \d+ 个，(上限 \d+ 个|不限)/);
+      const over = page.getByText('仍要上架（超过上限）');
+      if (await over.isVisible()) {
+        await expect(publish).toBeDisabled();
+        await over.click();
+      }
+      await expect(publish).toBeEnabled();
       const done = page.waitForResponse((r) => r.url().includes(`/markets/${no}/publish`) && r.request().method() === 'POST');
       await publish.click();
       expect((await done).ok()).toBe(true);

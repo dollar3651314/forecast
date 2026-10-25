@@ -33,6 +33,13 @@ export function localText(iso: string): string {
   return sameDay ? hm : `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${hm}`;
 }
 
+/** 客户所在时区的今天：[今天 00:00, 明天 00:00)，换成 UTC 的 ISO 时间 */
+export function localDay(now = new Date()): { from: string; to: string; label: string } {
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  return { from: start.toISOString(), to: end.toISOString(), label: `${pad(start.getMonth() + 1)}-${pad(start.getDate())}` };
+}
+
 /** 本地时区和 UTC 是同一个时区（不用再写"你的时间"） */
 export const localIsUtc = (): boolean => new Date().getTimezoneOffset() === 0;
 

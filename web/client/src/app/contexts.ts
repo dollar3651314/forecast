@@ -12,6 +12,8 @@ export interface AuthValue {
   checking: boolean;
   setSession: (s: Session | null) => void;
   logout: () => Promise<void>;
+  /** 本次没有会话是因为客户自己点了退出（S13：这时去登录页不带"回到原处"，登录后到首页） */
+  loggedOut?: boolean;
 }
 export const AuthContext = createContext<AuthValue | null>(null);
 export function useAuth(): AuthValue {

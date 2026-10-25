@@ -4,7 +4,7 @@
  * - 电脑：标题和筛选一行、品类标签、卡片 3 列网格（≥1440 宽 4 列）。
  * 筛选条件放在地址栏（?cat=&show=&sort=&q=），刷新、返回时保持。已结束的市场默认不显示（"显示"选"已结束"才列出）。
  * S11：搜索、排序、分页都在后端（一页 24 个，"加载更多"，C52）；搜索框停止输入 300 毫秒后才查；可下注的市场订阅奖池推送（前 20 个），
- * 概率和赔率只换数字（C84）。顶部留给以后的"今日场次"（MF-3，不在 S11）。
+ * 概率和赔率只换数字（C84）。S13：顶部"今日场次"（P11，MF-3）；不登录也能看（MF-4）；页脚是开奖记录、周报、说明页的入口。
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -13,7 +13,11 @@ import { listMarkets, subscribePools } from '../../api/markets';
 import type { MarketCard as Card, MarketCategory, MarketQuery } from '../../api/types';
 import { EmptyState, ErrorState, LoadMore, Loading } from '../../components/AsyncView';
 import { Icon } from '../../components/Icon';
+import { GuestGate } from '../../components/GuestGate';
 import { MarketCard } from '../../components/market/MarketCard';
+import { TodaySlate } from '../../components/market/TodaySlate';
+import { PublicLinks } from '../../components/PublicLinks';
+import { useTitle } from '../../hooks/useTitle';
 import { useIsDesktop } from '../../hooks/useMediaQuery';
 import { usePaged } from '../../hooks/usePaged';
 import { useClock } from '../../lib/market';
@@ -36,6 +40,7 @@ export default function Markets() {
   const { t } = useTranslation();
   const desktop = useIsDesktop();
   const [params, setParams] = useSearchParams();
+  useTitle(t('mk.title'));
   const cat = pick(params.get('cat'), CATS, 'all');
   const show = pick<Show>(params.get('show'), SHOWS, 'active');
   const sort = pick<Sort>(params.get('sort'), SORTS, 'closeAt');
@@ -133,6 +138,7 @@ export default function Markets() {
           </div>
         </div>
       ) : null}
+      <TodaySlate />
       {cats}
       {!desktop && (
         <div className="mk-tools">
@@ -140,6 +146,7 @@ export default function Markets() {
           {selects}
         </div>
       )}
+      <GuestGate error={s.error} />
       {s.error && !s.data ? (
         <section className="card">
           <ErrorState error={s.error} onRetry={s.reload} />
@@ -177,6 +184,7 @@ export default function Markets() {
         <Icon name="info" size={14} />
         {t('mk.oddsNote')}
       </p>
+      <PublicLinks />
     </div>
   );
 }

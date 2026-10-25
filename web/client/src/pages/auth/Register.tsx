@@ -4,7 +4,7 @@
  */
 import { useState, type FormEvent } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { register } from '../../api/auth';
 import { errorKey, isApiError } from '../../api/errors';
 import { useAuth } from '../../app/contexts';
@@ -12,6 +12,7 @@ import { DateFields } from '../../components/DateFields';
 import { FieldErrors, PasswordField, Select, TextField } from '../../components/Form';
 import { COUNTRIES } from '../../lib/countries';
 import { siteLink } from '../../lib/siteUrl';
+import { clearAttribution, readAttribution } from '../../lib/attribution';
 import { currentLang } from '../../i18n';
 import { hasErrors, validateRegister, type RegisterForm } from '../../lib/validators';
 import { AuthLayout } from './AuthLayout';
@@ -20,6 +21,7 @@ import { EmailCodeFields } from './EmailCodeField';
 export default function Register() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const { setSession } = useAuth();
   const [f, setF] = useState<RegisterForm>({ email: '', code: '', password: '', confirm: '', firstName: '', middleName: '', lastName: '', birthDate: '', nationality: '', agree: false });
   const [submitted, setSubmitted] = useState(false);
@@ -40,10 +42,15 @@ export default function Register() {
     if (hasErrors(errs)) return;
     setBusy(true);
     try {
+      // S13（MF-1）：浏览器里记的来源（首次来源、注册来源）一起交给后端，注册成功后清掉
+      const attribution = readAttribution();
       setSession(
-        await register({ email: f.email.trim(), code: f.code, password: f.password, firstName: f.firstName.trim(), middleName: f.middleName.trim(), lastName: f.lastName.trim(), birthDate: f.birthDate.trim(), nationality: f.nationality, adultConfirmed: f.agree }),
+        await register({ email: f.email.trim(), code: f.code, password: f.password, firstName: f.firstName.trim(), middleName: f.middleName.trim(), lastName: f.lastName.trim(), birthDate: f.birthDate.trim(), nationality: f.nationality, adultConfirmed: f.agree, ...(attribution ? { attribution } : {}) }),
       );
-      navigate('/', { replace: true });
+      clearAttribution();
+      // S13（MF-4）：从"押注"过来注册的，注册后回到原市场
+      const from = (location.state as { from?: string } | null)?.from;
+      navigate(from && !from.startsWith('/register') && !from.startsWith('/login') ? from : '/', { replace: true });
     } catch (err) {
       if (isApiError(err) && err.fieldErrors) setServerErr(err.fieldErrors);
       else setError(t(errorKey(err)));
@@ -58,7 +65,10 @@ export default function Register() {
       subtitle={t('auth.registerSubtitle')}
       footer={
         <>
-          {t('auth.haveAccount')} <Link to="/login">{t('auth.goLogin')}</Link> · <Link to="/forgot-password">{t('auth.forgot')}</Link>
+          {t('auth.haveAccount')}{' '}
+          <Link to="/login" state={location.state}>
+            {t('auth.goLogin')}
+          </Link> · <Link to="/forgot-password">{t('auth.forgot')}</Link>
         </>
       }
     >

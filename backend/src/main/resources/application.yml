@@ -191,6 +191,13 @@ forecast:
   # 客户端的地址（forecast S11）：邮件里的链接（#23 开赛提醒的市场链接、退订链接）用它拼成完整地址，例如 https://fc-test.quickcome.online；
   # 部署时由 compose 按 APP_DOMAIN 填（deploy/kit/docker-compose.yml）。没填时链接只有路径（邮件里点不开），健康检查不受影响
   client-url: ${FC_CLIENT_URL:}
+  # 不登录也能看（forecast S13，MF-4，需求 v1.3 第 5.1 节虚线框、NF-14：需求要求打开）：市场列表、今日场次、详情、开奖记录、周报、说明页、
+  # 奖池推送不要求登录（只返回公开数据）。关掉（false）时和 S12 以前一样要登录，robots.txt 禁止收录。下注、我的下注、资产等一直要登录
+  public-browse:
+    enabled: ${FC_PUBLIC_BROWSE_ENABLED:true}
+  # 公开页面（搜索引擎看到的标题、说明页）里的品牌名（S13；上线前沿用 Quick Come，正式上线改名时和前端 brand.ts 一起改，约定 17）
+  public:
+    brand-name: Quick Come
   # 结算（forecast S5，settle/run/SettleProperties）。batch-size：派彩时每批的持仓数（退款时每批的下注数）；
   # 500（默认）= 先算好、落结算单，再每批一个事务分批派彩、可以续跑（架构方案第 4.3 节方案 B，AQ-3 Amos 2026-10-25 定）；
   # 0 = 计算和派彩在同一个事务里一次完成（保留为可配置项）。派彩任务每 2 秒推进分批派彩的单（提交后也立即跑一轮）；彩池对账每天 UTC 00:30。

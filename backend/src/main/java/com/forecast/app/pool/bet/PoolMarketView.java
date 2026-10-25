@@ -70,6 +70,14 @@ class PoolMarketView implements MarketPoolView {
   }
 
   @Override
+  public Map<Long, Totals> placed(List<Long> marketIds) {
+    if (marketIds == null || marketIds.isEmpty()) return Map.of();
+    Map<Long, Totals> out = new java.util.HashMap<>();
+    for (PoolRows.MarketPlaced p : mapper.placed(marketIds)) out.put(p.marketId, new Totals(p.amount, p.n));
+    return out;
+  }
+
+  @Override
   public List<Long> bettors(long marketId) {
     return mapper.bettors(marketId);
   }

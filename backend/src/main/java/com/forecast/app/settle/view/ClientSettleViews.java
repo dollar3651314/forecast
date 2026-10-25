@@ -77,6 +77,25 @@ class ClientSettleViews implements MarketSettleView, PoolResultView {
 
   @Override
   @Transactional(readOnly = true)
+  public java.util.Map<Long, MarketSettleView.SettleTotals> totals(Collection<Long> marketIds) {
+    if (marketIds == null || marketIds.isEmpty()) return java.util.Map.of();
+    java.util.Map<Long, MarketSettleView.SettleTotals> out = new java.util.LinkedHashMap<>();
+    for (SettleViewMapper.RunRow r : mapper.runs(java.util.Set.copyOf(marketIds))) {
+      boolean refund = "REFUND".equals(r.kind);
+      // 一个市场正常只有一种单；万一两种都有（不应该），以派彩为准
+      if (refund && out.containsKey(r.marketId)) continue;
+      out.put(r.marketId, new MarketSettleView.SettleTotals(refund ? "refund" : "payout", nz(r.poolTotal), nz(r.sumPayout), refund ? BigDecimal.ZERO : nz(r.sumFee),
+          refund ? BigDecimal.ZERO : nz(r.dust)));
+    }
+    return out;
+  }
+
+  private static BigDecimal nz(BigDecimal v) {
+    return v == null ? BigDecimal.ZERO : v;
+  }
+
+  @Override
+  @Transactional(readOnly = true)
   public List<PositionResult> results(long userId, Collection<Long> marketIds) {
     if (marketIds == null || marketIds.isEmpty()) return List.of();
     return mapper.userItems(userId, marketIds).stream().map(i -> new PositionResult(i.marketId, i.optionId, i.win, i.stake, i.payout, i.fee)).toList();

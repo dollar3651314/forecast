@@ -159,6 +159,13 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
     return out;
   }
 
+  @Override
+  @Transactional(readOnly = true)
+  public List<Ended> ended(Instant from, Instant to, int limit) {
+    return mapper.endedList(MarketPublicService.ENDED, null, ldt(from), ldt(to), 0, Math.max(1, limit)).stream()
+        .map(m -> new Ended(m.id, m.publicNo, MarketCategory.valueOf(m.category), title(m), status(m), instant(m.endedAt), m.voidReason, m.cancelReason)).toList();
+  }
+
   /** 客户资金流水里的市场（ledger 的 {@link MarketLabels}，AC-39：每条流水能点到对应市场） */
   @Override
   @Transactional(readOnly = true)
@@ -377,7 +384,7 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
 
   @Override
   @Transactional(readOnly = true)
-  public Page<Summary> list(String status, String category, Boolean submitted, String keyword, int page, int pageSize) {
+  public Page<Summary> list(String status, String category, Boolean submitted, Boolean todaySlate, String keyword, int page, int pageSize) {
     int p = Math.max(1, page);
     int size = Math.min(100, Math.max(1, pageSize));
     List<String> sts = null;
@@ -399,11 +406,11 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
     }
     String kw = keyword == null || keyword.isBlank() ? null : keyword.strip();
     Long no = kw != null && kw.matches("\\d{1,19}") ? parseLong(kw) : null;
-    List<MarketRows.Market> rows = mapper.adminList(sts, cat, submitted, kw, no, (p - 1) * size, size);
+    List<MarketRows.Market> rows = mapper.adminList(sts, cat, submitted, todaySlate, kw, no, (p - 1) * size, size);
     MarketPoolView pv = pool.getIfAvailable();
     Map<Long, MarketPoolView.Totals> totals = pv == null || rows.isEmpty() ? Map.of() : pv.totals(rows.stream().map(r -> r.id).toList());
     List<Summary> items = rows.stream().map(r -> summary(r, totals.get(r.id))).toList();
-    return new Page<>(items, mapper.adminCount(sts, cat, submitted, kw, no), p, size);
+    return new Page<>(items, mapper.adminCount(sts, cat, submitted, todaySlate, kw, no), p, size);
   }
 
   @Override
@@ -498,7 +505,7 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
 
   @Override
   @Transactional
-  public Detail publish(long publicNo, boolean checked, long adminId) {
+  public Detail publish(long publicNo, boolean checked, Boolean todaySlate, boolean overLimit, long adminId) {
     MarketRows.Market m = lock(publicNo);
     MarketStateMachine.check(status(m), MarketStatus.LISTED);
     LocalDateTime now = now();
@@ -506,9 +513,44 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
     // 第 4.1 节：勾选"已检查以上各项"才能上架（可判定、来源写清、边界情况、选项覆盖所有可能、不是"不做"的题目）
     if (!checked) errs.add(new ValidationException.Field("checked", "required"));
     if (!m.closeAt.isAfter(now)) errs.add(new ValidationException.Field("closeAt", "passed"));
+    // S13（MF-3，第 4.2 节、AC-81）：上架后会超过"同时开放的市场数上限"时只提示，勾选"仍要上架"才能上（不硬拦）。
+    // 数量在市场行锁之外数（两个人同时上架可能都按"没超"通过，上限本来就是软限制，第 4.2 节"热点快反可能需要临时多开一场"）
+    if (!overLimit && openLimit(now).exceededByOneMore()) errs.add(new ValidationException.Field("overLimit", "required"));
     if (!errs.isEmpty()) throw new ValidationException(errs);
+    if (todaySlate != null && todaySlate != m.todaySlate && mapper.setTodaySlate(m.id, todaySlate, now) != 1) throw stateChanged();
     if (!move(m.id, MarketStatus.DRAFT, MarketStatus.LISTED, String.valueOf(adminId), null, adminId, now)) throw stateChanged();
     return detailOf(mapper.findById(m.id));
+  }
+
+  @Override
+  @Transactional
+  public Detail setTodaySlate(long publicNo, boolean todaySlate, long adminId) {
+    MarketRows.Market m = lock(publicNo);
+    MarketStatus s = status(m);
+    if (s != MarketStatus.DRAFT && s != MarketStatus.LISTED && s != MarketStatus.PAUSED) {
+      throw new BizException("ILLEGAL_TRANSITION", "只有草稿、已上架、已暂停的市场能改今日场次");
+    }
+    if (todaySlate != m.todaySlate && mapper.setTodaySlate(m.id, todaySlate, now()) != 1) throw stateChanged();
+    return detailOf(mapper.findById(m.id));
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public OpenLimit openLimit() {
+    return openLimit(now());
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public SlateStats slateStats() {
+    LocalDateTime now = now();
+    LocalDateTime day = now.toLocalDate().atStartOfDay();
+    OpenLimit l = openLimit(now);
+    return new SlateStats(l.open(), l.limit(), mapper.countSlate(day, day.plusDays(1)));
+  }
+
+  private OpenLimit openLimit(LocalDateTime now) {
+    return new OpenLimit(mapper.countOpen(now), Math.max(0, config.integer(com.forecast.app.common.config.ConfigKey.MARKET_MAX_OPEN, 2)));
   }
 
   @Override
@@ -704,14 +746,18 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
       rows = mapper.clientList(st, c, like, no, srt, (p - 1) * size, size);
       total = mapper.clientCount(st, c, like, no);
     }
+    return new ClientViews.Page<>(cards(rows), total, p, size);
+  }
+
+  /** 客户端列表的卡片（奖池不带个人数据：列表、今日场次、开奖记录都是公开的，S13） */
+  List<ClientViews.Card> cards(List<MarketRows.Market> rows) {
     Map<Long, List<MarketRows.Option>> opts = rows.isEmpty() ? Map.of()
         : mapper.optionsOf(rows.stream().map(r -> r.id).toList()).stream().collect(Collectors.groupingBy(o -> o.marketId));
     Map<Long, Object> pools = clientPools(rows, opts, null);
-    List<ClientViews.Card> items = rows.stream().map(m -> new ClientViews.Card(String.valueOf(m.publicNo), m.category, title(m), status(m).api(), iso(m.openAt),
+    return rows.stream().map(m -> new ClientViews.Card(String.valueOf(m.publicNo), m.category, title(m), status(m).api(), iso(m.openAt),
         iso(m.closeAt), iso(m.eventStartAt), iso(m.eventEndAt), percent(m.feeRate),
         opts.getOrDefault(m.id, List.of()).stream().map(o -> new ClientViews.OptionCard(String.valueOf(o.publicNo), o.seq, label(o))).toList(),
-        pools.get(m.id), winningOptionNo(m, opts.getOrDefault(m.id, List.of())))).toList();
-    return new ClientViews.Page<>(items, total, p, size);
+        pools.get(m.id), winningOptionNo(m, opts.getOrDefault(m.id, List.of())), m.todaySlate)).toList();
   }
 
   private static Long parseNo(String s) {
@@ -750,7 +796,7 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
   }
 
   /** 已结算的市场才公开结果（S5 超管填的结果；公示中的拟定结果在 S7 另给） */
-  private static String winningOptionNo(MarketRows.Market m, List<MarketRows.Option> options) {
+  static String winningOptionNo(MarketRows.Market m, List<MarketRows.Option> options) {
     if (m.winningOptionId == null || status(m) != MarketStatus.SETTLED) return null;
     return options.stream().filter(o -> o.id.equals(m.winningOptionId)).findFirst().map(o -> String.valueOf(o.publicNo)).orElse(null);
   }
@@ -784,7 +830,7 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
   /** 解析、校验过的草稿输入 */
   private record Draft(MarketCategory category, I18nText title, I18nText rules, ResolutionMode mode, String sourcePrimary, String sourceBackup,
       String sourceRef, LocalDateTime openAt, LocalDateTime closeAt, LocalDateTime eventStartAt, LocalDateTime eventEndAt, BigDecimal userCap,
-      Integer disputeWindow, String coverPath, List<OptionInput> options) {
+      Integer disputeWindow, String coverPath, List<OptionInput> options, boolean todaySlate) {
 
     void fill(MarketRows.Market m) {
       m.category = category.name();
@@ -805,6 +851,7 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
       m.userCap = userCap;
       m.disputeWindowMin = disputeWindow;
       m.coverPath = coverPath;
+      m.todaySlate = todaySlate;
     }
   }
 
@@ -879,7 +926,8 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
       norm.add(new OptionInput(label, win));
     }
     errs.throwIfAny();
-    return new Draft(category, title, rules, mode, primary, backup, sourceRef, open, close, start, end, cap, window, cover.isEmpty() ? null : cover, norm);
+    return new Draft(category, title, rules, mode, primary, backup, sourceRef, open, close, start, end, cap, window, cover.isEmpty() ? null : cover, norm,
+        Boolean.TRUE.equals(in.todaySlate()));
   }
 
   /**
@@ -977,7 +1025,7 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
    */
   public record Generated(long autogenId, MarketCategory category, I18nText title, I18nText rules, String sourcePrimary, String sourceBackup,
       Map<String, Object> sourceRef, Instant openAt, Instant closeAt, Instant eventStartAt, Instant eventEndAt, BigDecimal userCap,
-      List<OptionInput> options) {}
+      List<OptionInput> options, boolean todaySlate) {}
 
   /**
    * 渲染出来的市场缺哪些必填项（第 4.1 节，和上架检查同一个清单）、时间先后对不对。启用模板时检查一次（空表示齐全）。
@@ -1055,6 +1103,8 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
     m.userCap = g.userCap() != null ? g.userCap() : def;
     m.feeRate = defaultFeeRate(g.category());
     m.autogenId = g.autogenId();
+    // S13（MF-3，第 4.2 节）：按场次表生成的市场自动列入今日场次（连续窗口的不列入）
+    m.todaySlate = g.todaySlate();
     return m;
   }
 
@@ -1088,11 +1138,11 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
     return new BizException("MARKET_STATE_CHANGED", "市场状态刚被别人改过，请刷新后再操作");
   }
 
-  private static MarketStatus status(MarketRows.Market m) {
+  static MarketStatus status(MarketRows.Market m) {
     return MarketStatus.valueOf(m.status);
   }
 
-  private static I18nText title(MarketRows.Market m) {
+  static I18nText title(MarketRows.Market m) {
     return new I18nText(m.titleEn, m.titleZhCn, m.titleZhTw);
   }
 
@@ -1100,7 +1150,7 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
     return new I18nText(m.rulesEn, m.rulesZhCn, m.rulesZhTw);
   }
 
-  private static I18nText label(MarketRows.Option o) {
+  static I18nText label(MarketRows.Option o) {
     return new I18nText(o.labelEn, o.labelZhCn, o.labelZhTw);
   }
 
@@ -1132,11 +1182,15 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
   }
 
   private Summary summary(MarketRows.Market m, MarketPoolView.Totals t) {
-    String origin = m.autogenId != null ? "autogen" : m.sourceRef != null && m.sourceRef.contains("\"fixtureNo\"") ? "sports" : "manual";
     String pool = (t == null ? java.math.BigDecimal.ZERO : t.amount()).setScale(2, java.math.RoundingMode.HALF_UP).toPlainString();
     return new Summary(String.valueOf(m.publicNo), m.category, title(m), status(m).api(), m.submittedForListing, iso(m.openAt), iso(m.closeAt), iso(m.eventStartAt),
         iso(m.eventEndAt), percent(m.feeRate), iso(m.createdAt), iso(m.updatedAt), m.resolutionMode == null ? null : m.resolutionMode.toLowerCase(java.util.Locale.ROOT),
-        origin, pool, t == null ? 0 : t.bettors());
+        origin(m), pool, t == null ? 0 : t.bettors(), m.todaySlate);
+  }
+
+  /** 市场从哪里来：manual 手动 / autogen 加密自动生成 / sports 从赛程生成 */
+  private static String origin(MarketRows.Market m) {
+    return m.autogenId != null ? "autogen" : m.sourceRef != null && m.sourceRef.contains("\"fixtureNo\"") ? "sports" : "manual";
   }
 
   private Detail detailOf(MarketRows.Market m) {
@@ -1152,6 +1206,6 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
     return new Detail(String.valueOf(m.publicNo), m.category, title(m), rules(m), status(m).api(), m.submittedForListing, m.settlePhase, m.resolutionMode,
         m.sourcePrimary, m.sourceBackup, sourceRef(m), iso(m.openAt), iso(m.closeAt), iso(m.eventStartAt), iso(m.eventEndAt), percent(m.feeRate), money(m.userCap),
         m.disputeWindowMin, m.coverPath, m.cancelReason, m.voidReason, m.createdBy, m.listedBy, m.version, iso(m.createdAt), iso(m.updatedAt), options, missing,
-        logs, fees, cl);
+        logs, fees, cl, m.todaySlate, origin(m));
   }
 }

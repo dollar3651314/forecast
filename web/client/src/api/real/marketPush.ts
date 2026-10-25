@@ -3,10 +3,11 @@
  * - 连上后发 `{"op":"sub","markets":[…]}` 订阅（每个连接最多 20 个），订阅时后端立即推一次现在的奖池；断线自动重连，重连后重新订阅；
  * - 推送 `{"type":"pool","marketNo","status","ts","pool":{…}}`，pool 和详情的 pool 同一个结构，但不含本人的持仓和限额；
  * - 页面拿到后只换数字（C84：不闪色、不做动画）。没有页面订阅时断开连接。
+ * - S13（MF-4）：不登录也能连（推送不含个人数据，后端 forecast.public-browse.enabled 打开时不要求登录）；登录、退出时重连一次。
  */
 import type { MarketPool, MarketStatus } from '../types';
 import { ReconnectingSocket } from '../ws';
-import { isLoggedIn, onSessionChange } from './session';
+import { onSessionChange } from './session';
 
 export interface PoolPushEvent {
   marketNo: string;
@@ -37,10 +38,14 @@ const socket = new ReconnectingSocket('/api/ws/markets', {
 });
 
 function sync(): void {
-  if (isLoggedIn() && subs.size > 0) socket.start();
+  if (subs.size > 0) socket.start();
   else socket.stop();
 }
-onSessionChange(sync);
+/** 登录、退出时 Cookie 变了：断开重连（推送内容和登录无关，只是让握手带上现在的登录态） */
+onSessionChange(() => {
+  socket.stop();
+  sync();
+});
 
 /** 订阅一批市场的奖池推送（超过 20 个的只订前 20 个）；返回取消函数 */
 export function subscribePools(marketNos: string[], h: Handler): () => void {

@@ -14,7 +14,7 @@ public final class Menus {
 
   public static final List<Item> TREE = List.of(
       leaf("dashboard", "menu.dashboard", "/dashboard", Permission.DASHBOARD_VIEW),
-      // forecast S9：需求第 6.1 节（内容中心、来源统计还没有；风控告警 S10）。默认顺序同迁移 V17 的 admin_menu
+      // forecast S9：需求第 6.1 节（内容中心还没有；风控告警 S10；来源统计 S13）。默认顺序同迁移 V17 的 admin_menu
       group("market", "menu.market",
           leaf("markets", "menu.markets", "/markets", Permission.MARKET_VIEW),
           leaf("market-review", "menu.marketReview", "/markets/review", Permission.MARKET_PUBLISH),
@@ -27,6 +27,8 @@ public final class Menus {
           leaf("settle-runs", "menu.settleRuns", "/settle/runs", Permission.POOL_RECON_VIEW),
           leaf("compensations", "menu.compensations", "/settle/compensations", Permission.REPORT_VIEW)),
       leaf("reports", "menu.reports", "/reports", Permission.REPORT_VIEW),
+      // forecast S13：来源统计（需求第 6.1 节，MF-1、MF-10；迁移 V21 写默认顺序）
+      leaf("growth", "menu.growth", "/growth", Permission.GROWTH_VIEW),
       leaf("params", "menu.params", "/params", Permission.FEE_EDIT),
       leaf("customers", "menu.customers", "/customers", Permission.CUSTOMER_VIEW),
       leaf("kyc", "menu.kyc", "/kyc", Permission.KYC_VIEW),

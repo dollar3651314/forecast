@@ -6,6 +6,8 @@
  * 地址栏 ?opt= 表示从列表点进来时选中的选项（手机直接打开抽屉）。赔率更新只换数字（C84）。
  * S11：奖池实时推送（WS /api/ws/markets，AC-17），推来的奖池不含本人的持仓，本人的"赢了约回"按新奖池在前端重算（lib/pool，和后端同一套规则）；
  * 状态变了（截止、公示、结算）重新取详情。结算信息 settle（后端 S11）、"结算中"、还没开放的市场可以订阅开赛提醒（#23，SQ-20）。
+ * S13（MF-4，AC-84）：不登录也能看（没有"我的下注"、本人的结果）；点"押注"先去登录 / 注册，登录后回到这个市场并选中原来的选项
+ * （地址带 ?opt=，手机直接打开下注抽屉）；电脑右栏是"登录后押注"。
  */
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -13,7 +15,9 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { errorKey } from '../../api/errors';
 import { getMarket, subscribePools, subscribeReminder, unsubscribeReminder } from '../../api/markets';
 import type { BetResult, MarketDetail as Detail, OptionPool, ReminderState } from '../../api/types';
-import { useToast } from '../../app/contexts';
+import { useAuth, useToast } from '../../app/contexts';
+import { GuestGate } from '../../components/GuestGate';
+import { useTitle } from '../../hooks/useTitle';
 import { ErrorState, Loading } from '../../components/AsyncView';
 import { Icon } from '../../components/Icon';
 import { BetPanel, BetSheet } from '../../components/market/BetForm';
@@ -49,8 +53,21 @@ function Stat({ k, v, sub }: { k: string; v: ReactNode; sub?: ReactNode }) {
 function ReminderBar({ m, onChange }: { m: Detail; onChange: (r: ReminderState) => void }) {
   const { t } = useTranslation();
   const toast = useToast();
+  const { session } = useAuth();
   const [busy, setBusy] = useState(false);
   const r = m.reminder;
+  // S13：没登录时还没开放的市场提示"登录后可以订阅开放提醒"
+  if (!session && upcomingOf(m)) {
+    return (
+      <div className="md-remind r-none" role="status">
+        <Icon name="bell" size={16} />
+        <span>{t('remind.guest')}</span>
+        <Link to="/login" state={{ from: `/markets/${m.publicNo}` }} className="btn btn-outline btn-sm">
+          {t('guest.login')}
+        </Link>
+      </div>
+    );
+  }
   if (!r) return null;
   const run = async (fn: (no: string) => Promise<ReminderState>, ok: string) => {
     setBusy(true);
@@ -677,6 +694,41 @@ function ClosedPanel({ m, onDispute }: { m: Detail; onDispute: () => void }) {
   );
 }
 
+/** 电脑右栏（没登录，S13）：选中的选项和概率，"登录后押注"（登录后回到这里、选中同一个选项） */
+function GuestPanel({ m, optionNo }: { m: Detail; optionNo?: string }) {
+  const { t } = useTranslation();
+  const lang = useLang();
+  const from = `/markets/${m.publicNo}${optionNo ? `?opt=${optionNo}` : ''}`;
+  const o = m.options.find((x) => x.optionNo === optionNo);
+  const p = m.pool.options.find((x) => x.optionNo === optionNo);
+  return (
+    <aside className="bet-panel guest" aria-label={t('bet.title')}>
+      <div className="bet-panel-scroll">
+        <h2 className="bet-h">{t('bet.title')}</h2>
+        {o && p && (
+          <dl className="bet-kv">
+            <div>
+              <dt>{pickText(o.label, lang)}</dt>
+              <dd className="num">
+                {p.pct} · {multText(p.mult)}
+              </dd>
+            </div>
+          </dl>
+        )}
+        <p className="muted">{t('guest.betHint')}</p>
+      </div>
+      <div className="bet-panel-foot">
+        <Link to="/login" state={{ from }} className="btn btn-lg btn-block btn-primary" data-testid="guest-bet">
+          {t('guest.loginToBet')}
+        </Link>
+        <Link to="/register" state={{ from }} className="btn btn-block btn-ghost">
+          {t('guest.registerToBet')}
+        </Link>
+      </div>
+    </aside>
+  );
+}
+
 function Tabs({ m, optionNo, onDispute }: { m: Detail; optionNo?: string; onDispute: () => void }) {
   const { t } = useTranslation();
   const resolved = !!m.resolution || m.status === 'voided' || m.status === 'cancelled';
@@ -704,9 +756,13 @@ export default function MarketDetail() {
   const { publicNo = '' } = useParams();
   const navigate = useNavigate();
   const desktop = useIsDesktop();
+  const { session } = useAuth();
+  const guest = !session;
   const [params, setParams] = useSearchParams();
-  const s = useAsync(() => getMarket(publicNo), `market|${publicNo}`);
+  const s = useAsync(() => getMarket(publicNo), `market|${publicNo}|${guest ? 'g' : 'u'}`);
   const m = s.data;
+  const lang = useLang();
+  useTitle(m ? pickText(m.title, lang) : undefined);
   const status = m?.status;
   const { setData, reload } = s;
   // 奖池推送（AC-17）：没结束的市场订阅；推来的奖池不含本人的持仓和限额，沿用详情里的，本人的"赢了约回"按新奖池重算；状态变了重新取详情
@@ -723,9 +779,9 @@ export default function MarketDetail() {
   const [dispute, setDispute] = useState(false);
   const now = useClock(m && m.status === 'listed' ? Date.parse(m.closeAt) : undefined);
 
-  // 手机：从列表点选项进来时直接打开下注抽屉（只打开一次）
+  // 手机：从列表点选项进来时直接打开下注抽屉（只打开一次）；没登录时不打开（点"押注"才去登录）
   useEffect(() => {
-    if (!desktop && m && m.status === 'listed' && optParam && m.options.some((o) => o.optionNo === optParam)) {
+    if (!guest && !desktop && m && m.status === 'listed' && optParam && m.options.some((o) => o.optionNo === optParam)) {
       setSheet(optParam);
       const next = new URLSearchParams(params);
       next.delete('opt');
@@ -767,6 +823,7 @@ export default function MarketDetail() {
     return (
       <div className="page page-md">
         {back}
+        <GuestGate error={s.error} />
         <section className="card">
           <ErrorState error={s.error} onRetry={s.reload} />
         </section>
@@ -787,7 +844,11 @@ export default function MarketDetail() {
       <Header m={m} now={now} onReminder={(r) => s.setData((d) => (d ? { ...d, reminder: r } : d))} />
       <ResultBanner m={m} onDispute={() => setDispute(true)} />
       <section className="md-options" aria-label={t('md.options')}>
-        {desktop ? <OptionTable m={m} selected={selected} onSelect={select} /> : <OptionList m={m} onBet={(no) => setSheet(no)} />}
+        {desktop ? (
+          <OptionTable m={m} selected={selected} onSelect={select} />
+        ) : (
+          <OptionList m={m} onBet={(no) => (guest ? navigate('/login', { state: { from: `/markets/${m.publicNo}?opt=${no}` } }) : setSheet(no))} />
+        )}
         <p className="md-note">
           <Icon name="info" size={14} />
           {m.pool.frozen ? t('md.frozenNote') : m.pool.total === '0.00' ? t('mk.noBetsYet') : t('md.oddsNote')}
@@ -804,12 +865,20 @@ export default function MarketDetail() {
       {desktop ? (
         <div className="md-layout">
           {main}
-          {bettable(m) ? <BetPanel market={m} optionNo={selected} onOption={select} onPlaced={placed} /> : <ClosedPanel m={m} onDispute={() => setDispute(true)} />}
+          {bettable(m) ? (
+            guest ? (
+              <GuestPanel m={m} optionNo={selected} />
+            ) : (
+              <BetPanel market={m} optionNo={selected} onOption={select} onPlaced={placed} />
+            )
+          ) : (
+            <ClosedPanel m={m} onDispute={() => setDispute(true)} />
+          )}
         </div>
       ) : (
         main
       )}
-      {!desktop && sheet && <BetSheet market={m} optionNo={sheet} onClose={() => setSheet(null)} onPlaced={placed} />}
+      {!desktop && sheet && !guest && <BetSheet market={m} optionNo={sheet} onClose={() => setSheet(null)} onPlaced={placed} />}
       {dispute && (
         <DisputeDialog
           market={m}

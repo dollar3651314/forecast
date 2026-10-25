@@ -4,6 +4,7 @@
  * 单笔最小提现必须大于每条链的提现手续费（后端校验，不满足时提示是哪条链，RQ-16）。
  * 接口是 S3 已有的 GET/PUT /api/admin/params/{fee|betting}；S9：加裁决时限（S7）、体育（S8）两组；两组权限点分开取，
  * 没有某个权限点时那几张卡片显示"没有权限"，不影响另一组（单笔最小提现在"提现"组，SQ-6）。
+ * S13：加"场次"一组（同时开放的市场数上限，超过时上架要勾"仍要上架"，0 = 不限；需求第 4.2 节）。
  * S10：加"风控"一组（尾盘大额的分钟和比例、新账户押中冷门的天数 / 金额 / 赔率、关联账户的同一线索最多几个客户，需求第 8.1 节）；单位多了个数（count）和倍数（multiple）。
  */
 import { useCallback } from 'react';
@@ -34,6 +35,7 @@ const GROUPS: Array<{ key: string; section: ParamSection }> = [
   { key: 'resolve', section: 'betting' },
   { key: 'sports', section: 'betting' },
   { key: 'risk', section: 'betting' },
+  { key: 'slate', section: 'betting' },
 ];
 
 /** 输入框后缀（翻译键）；个数类的后缀写在名字里 */
@@ -134,6 +136,7 @@ export function ParamsPage() {
                 {g.key === 'resolve' && <p className="pm-note">{t('pm.resolveNote')}</p>}
                 {g.key === 'sports' && <p className="pm-note">{t('pm.sportsNote')}</p>}
                 {g.key === 'risk' && <p className="pm-note">{t('pm.riskNote')}</p>}
+                {g.key === 'slate' && <p className="pm-note">{t('pm.slateNote')}</p>}
               </Card>
             </Col>
           );

@@ -724,7 +724,8 @@
         "E7_NO_RESULT": "Abandoned with no valid score",
         "E10_UNDETERMINED": "Result could not be determined",
         "E11_UNDETERMINABLE": "Rules cannot decide the result",
-        "OTHER": "Other"
+        "OTHER": "Other",
+        "MANUAL": "Voided by the platform under the rules"
       },
       "decision": {
         "upheld": "Result upheld",
@@ -899,6 +900,70 @@
       "sent": "Sent",
       "cancelled": "Unsubscribed",
       "missed": "Not sent (market ended)"
-    }
+    },
+    "guest": "Betting is not open yet. Log in to get a reminder when it opens."
+  },
+  "guest": {
+    "login": "Log in",
+    "register": "Sign up",
+    "loginToBet": "Log in to bet",
+    "registerToBet": "No account? Sign up",
+    "betHint": "Log in to place a bet. You will come back here with the same option selected."
+  },
+  "slate": {
+    "title": "Today's matches",
+    "none": "No match today.",
+    "next": "Next: {{t}} ({{utc}}) {{title}}",
+    "noneNext": "The next match has not been scheduled yet."
+  },
+  "pub": {
+    "linksLabel": "Results and help",
+    "results": "Results",
+    "weekly": "Weekly reports",
+    "howTo": "How to play, deposit and withdraw",
+    "toMarkets": "Browse markets"
+  },
+  "res": {
+    "title": "Results",
+    "intro": "Every settled, voided and cancelled market: result, evidence, pool, total payout, fee and rounding remainder, the same as the settlement records.",
+    "statusLabel": "Status",
+    "allStatus": "All statuses",
+    "rangeLabel": "Time",
+    "range": {
+      "all": "All time",
+      "7d": "Last 7 days",
+      "30d": "Last 30 days"
+    },
+    "count": "{{n}} markets",
+    "empty": "No market has ended yet",
+    "emptyHint": "Markets show up here once they are settled, voided or cancelled.",
+    "emptyFiltered": "No market matches the filters",
+    "fee": "Total fee",
+    "dust": "Remainder",
+    "refunded": "Refunded",
+    "refundedShort": "Refunded in full",
+    "colMarket": "Market",
+    "endedAt": "Ended"
+  },
+  "wk": {
+    "title": "Weekly reports",
+    "intro": "Markets that ended each week (from Monday 00:00 UTC): count, settled, voided or cancelled and why, total pool, payout and fee.",
+    "markets": "Markets ended",
+    "settled": "Settled",
+    "voided": "Voided or cancelled",
+    "pool": "Total pool",
+    "payout": "Total payout",
+    "fee": "Total fee",
+    "dust": "Remainder",
+    "refund": "Refunded",
+    "inProgress": "This week so far",
+    "more": "Earlier weeks",
+    "allShown": "All {{n}} weeks shown",
+    "empty": "No weekly report yet",
+    "oneTitle": "Weekly report {{week}}",
+    "notFound": "There is no report for this week",
+    "reasons": "Why markets were voided or cancelled",
+    "marketsTitle": "Markets that ended this week",
+    "noMarkets": "No market ended this week"
   }
 }

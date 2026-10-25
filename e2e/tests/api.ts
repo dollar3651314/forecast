@@ -93,7 +93,7 @@ export async function listMarket(anon: APIRequestContext, admin: APIRequestConte
     }),
     '建草稿',
   );
-  await json(await admin.post(`/api/admin/markets/${draft.publicNo}/publish`, { data: { checked: true } }), '上架');
+  await json(await admin.post(`/api/admin/markets/${draft.publicNo}/publish`, { data: { checked: true, overLimit: true } }), '上架');
   return { no: draft.publicNo, yes: draft.options[0].optionNo, nope: draft.options[1].optionNo };
 }
 

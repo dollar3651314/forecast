@@ -3,10 +3,11 @@
  * 列：编号、品类、题目（来源：手动 / 赛程生成 / 加密自动生成）、状态、截止（UTC）、奖池、人数、费率、裁决方式、操作。
  * review = true 时是"待上架"页（菜单"待上架"，market:publish）：只列已提交上架的草稿，操作是"检查上架"。
  * 暂停 / 恢复、取消、补充说明、改费率、提前截止、作废在市场详情页（MarketDetailPage），列表只放进入的入口。
+ * S13（MF-3）：列入今日场次的市场在题目旁标"今日场次"，可以只看今日场次（?slate=1）。
  */
 import { useCallback, useMemo } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Input, Segmented, Select, Space, Tag } from 'antd';
+import { Checkbox, Input, Segmented, Select, Space, Tag } from 'antd';
 import { CalendarOutlined, EditOutlined, EyeOutlined, PlusOutlined, RobotOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { getMarketCounts, listMarkets } from '../../api';
@@ -29,6 +30,7 @@ export function MarketListPage({ review = false }: { review?: boolean }) {
   const tab: Tab = review ? 'review' : ((TABS as readonly string[]).includes(sp.get('tab') ?? '') ? (sp.get('tab') as Tab) : 'all');
   const category = (sp.get('category') as MarketCategory | null) ?? undefined;
   const keyword = sp.get('q') ?? undefined;
+  const slate = sp.get('slate') === '1';
   const page = Number(sp.get('page') ?? 1) || 1;
   const pageSize = Number(sp.get('size') ?? 20) || 20;
   const set = (patch: Record<string, string | undefined>) => {
@@ -46,11 +48,12 @@ export function MarketListPage({ review = false }: { review?: boolean }) {
         status: tab === 'review' ? 'draft' : TAB_STATUSES[tab],
         submitted: tab === 'review' ? true : undefined,
         category,
+        todaySlate: slate ? true : undefined,
         keyword,
         page,
         pageSize,
       }),
-    [tab, category, keyword, page, pageSize],
+    [tab, category, slate, keyword, page, pageSize],
   );
   const { data, loading, error, reload } = useApi(fetcher);
   const counts = useApi(useCallback(() => getMarketCounts(), []));
@@ -104,6 +107,9 @@ export function MarketListPage({ review = false }: { review?: boolean }) {
             onChange={(v) => set({ category: v, page: undefined })}
             options={CATEGORIES.map((c) => ({ value: c, label: t(`mk.cats.${c}`) }))}
           />
+          <Checkbox checked={slate} onChange={(e) => set({ slate: e.target.checked ? '1' : undefined, page: undefined })}>
+            {t('mk.slateOnly')}
+          </Checkbox>
           <Input.Search allowClear defaultValue={keyword} style={{ width: 220 }} placeholder={t('mk.search')} onSearch={(v) => set({ q: v.trim() || undefined, page: undefined })} />
         </Space>
       </div>
@@ -117,7 +123,7 @@ export function MarketListPage({ review = false }: { review?: boolean }) {
         page={page}
         pageSize={pageSize}
         onPageChange={(p, s) => set({ page: String(p), size: String(s) })}
-        emptyText={keyword || category ? t('mk.emptyFiltered') : review ? t('mk.reviewEmpty') : t('mk.empty')}
+        emptyText={keyword || category || slate ? t('mk.emptyFiltered') : review ? t('mk.reviewEmpty') : t('mk.empty')}
         columns={[
           { title: t('mk.col.no'), dataIndex: 'publicNo', render: (v: string) => <Num className="muted">{v}</Num> },
           { title: t('mk.col.category'), dataIndex: 'category', render: (v: MarketCategory) => <Tag>{t(`mk.cats.${v}`)}</Tag> },
@@ -127,7 +133,14 @@ export function MarketListPage({ review = false }: { review?: boolean }) {
             render: (_, r) => (
               <div className="mk-cell-title">
                 <Link to={`/markets/${r.publicNo}`}>{textOf(r.title, i18n.language)}</Link>
-                <span className="muted">{t(`mk.origin.${r.origin}`)}</span>
+                <span className="muted">
+                  {t(`mk.origin.${r.origin}`)}
+                  {r.todaySlate ? (
+                    <Tag color="gold" className="mk-slate-tag">
+                      {t('mk.slateTag')}
+                    </Tag>
+                  ) : null}
+                </span>
               </div>
             ),
           },

@@ -67,6 +67,9 @@ interface PoolMapper {
   /** 每个市场有持仓的客户数（不重复） */
   List<PoolRows.MarketCount> bettorCounts(@Param("marketIds") Collection<Long> marketIds);
 
+  /** S13：每个市场收到过的全部下注（含已退回的）：金额合计、下注人数 */
+  List<PoolRows.MarketPlaced> placed(@Param("marketIds") Collection<Long> marketIds);
+
   /** 一个客户在一批市场的持仓 */
   List<PoolRows.Position> positionsOf(@Param("userId") long userId, @Param("marketIds") Collection<Long> marketIds);
 
@@ -140,4 +143,13 @@ interface PoolMapper {
 
   /** 按剩下的持仓重算这些选项的人数（定格的人数一起） */
   int recountBettors(@Param("marketId") long marketId, @Param("optionIds") Collection<Long> optionIds);
+
+  /** S13：一个客户在一天里的下注（来源统计） */
+  class UserDay {
+    long userId;
+    java.time.LocalDate day;
+    LocalDateTime firstAt;
+  }
+
+  List<UserDay> userDays(@Param("userIds") java.util.Collection<Long> userIds);
 }

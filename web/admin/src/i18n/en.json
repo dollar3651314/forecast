@@ -231,6 +231,9 @@
     },
     "risk_alert": {
       "status": "Handle risk alert"
+    },
+    "growth": {
+      "export": "Export acquisition stats"
     }
   },
   "auth": {
@@ -680,7 +683,8 @@
     "compensations": "Compensation",
     "reports": "Reports",
     "poolRecon": "Pool reconciliation",
-    "riskAlerts": "Risk alerts"
+    "riskAlerts": "Risk alerts",
+    "growth": "Acquisition"
   },
   "menus": {
     "group": "Group",
@@ -750,7 +754,8 @@
     "fee_edit": "Edit fees",
     "betting_params_edit": "Edit betting parameters",
     "risk_alert_view": "View risk alerts",
-    "risk_alert_handle": "Handle risk alerts"
+    "risk_alert_handle": "Handle risk alerts",
+    "growth_view": "View acquisition stats (incl. export)"
   },
   "permModule": {
     "customer": "Customers",
@@ -763,7 +768,8 @@
     "market": "Markets",
     "resolve": "Resolution & disputes",
     "settle": "Settlement & reconciliation",
-    "params": "Parameters & fees"
+    "params": "Parameters & fees",
+    "growth": "Growth"
   },
   "permissions": {
     "code": "Code",
@@ -1687,7 +1693,9 @@
     "reviewSub": "Drafts submitted by operations: check against section 4.1 and list them, or return them with a reason",
     "reviewHint": "One person with market:publish is enough (RQ-17); they may also list their own drafts",
     "reviewEmpty": "No drafts awaiting listing",
-    "emptyFiltered": "No markets match the filters; clear them to see more"
+    "emptyFiltered": "No markets match the filters; clear them to see more",
+    "slateOnly": "Today's slate only",
+    "slateTag": "Today"
   },
   "mke": {
     "titleEdit": "Edit market draft",
@@ -1753,7 +1761,15 @@
     "return": "Return draft",
     "deleteTitle": "Delete draft",
     "deleteNote": "Note (cannot be undone; only drafts can be deleted)",
-    "delete": "Delete draft"
+    "delete": "Delete draft",
+    "slate": "Include in today's slate",
+    "slateHint": "The client's \"Today\" strip only shows ticked markets that start today (schedule-generated markets are ticked automatically)",
+    "openNowLabel": "Open at once",
+    "openNow": "{{open}} open now, limit {{limit}}",
+    "openNoLimit": "{{open}} open now, no limit",
+    "overWarn": "Listing one more exceeds the open-market limit ({{limit}}). Keep few markets open so bets concentrate (section 4.2); tick \"List anyway\" if you really need it",
+    "overOk": "List anyway (over the limit)",
+    "overFirst": "Over the open-market limit: tick \"List anyway\" first"
   },
   "rs": {
     "title": "Resolution desk",
@@ -1898,7 +1914,8 @@
       "dispute": "Dispute window (platform resolution)",
       "resolve": "Resolution deadlines (platform)",
       "sports": "Sports fixtures",
-      "risk": "Risk alerts"
+      "risk": "Risk alerts",
+      "slate": "Slate"
     },
     "key": {
       "market_fee_FOOTBALL": "Football",
@@ -1939,7 +1956,8 @@
       "risk_longshot_accountDays": "Long shot: account age counted as new",
       "risk_longshot_minAmount": "Long shot: single bet at least",
       "risk_longshot_minOdds": "Long shot: odds at least",
-      "risk_link_maxUsersPerKey": "Linked accounts: max customers per device / IP / address"
+      "risk_link_maxUsersPerKey": "Linked accounts: max customers per device / IP / address",
+      "market_maxOpen": "Max markets open at once"
     },
     "hours": "{{n}} h",
     "minutes": "{{n}} min",
@@ -1960,13 +1978,15 @@
     "sportsNote": "Used when generating drafts from fixtures: close N minutes before kick-off; event end = kick-off + N minutes",
     "countUnit": {
       "risk_longshot_accountDays": "{{n}} days",
-      "risk_link_maxUsersPerKey": "{{n}}"
+      "risk_link_maxUsersPerKey": "{{n}}",
+      "market_maxOpen": "{{n}}"
     },
     "multiple": "{{n}}x",
     "pctUnit": "%",
     "usdtUnit": "USDT",
     "multUnit": "x",
-    "riskNote": "Odds are after the fee (as customers see them); a value shared by more customers than the limit (public networks, exchange addresses) no longer links them."
+    "riskNote": "Odds are after the fee (as customers see them); a value shared by more customers than the limit (public networks, exchange addresses) no longer links them.",
+    "slateNote": "When listing would exceed this number, the admin must also tick \"List anyway\" (not a hard block; audited). 0 = no limit. Suggested 1–3 (section 4.2)"
   },
   "dash": {
     "sub": "Today / last 7 days in UTC; open an item to handle it",
@@ -1996,7 +2016,11 @@
       "poolReconOpen": "Pool reconciliation issues",
       "withdrawalsPending": "Withdrawals to review",
       "kyc": "KYC to review"
-    }
+    },
+    "slate": "Slate",
+    "openNow": "Open now / limit",
+    "noLimit": "no limit",
+    "todaySlate": "Today's slate (starting today, UTC)"
   },
   "mkd": {
     "pool": "Pool and bets",
@@ -2067,7 +2091,11 @@
     "feeChanges": "Fee changes ({{n}})",
     "statusLog": "Status history",
     "none": "None",
-    "notified": "Notified"
+    "notified": "Notified",
+    "slateAdd": "Add to today's slate",
+    "slateRemove": "Remove from today's slate",
+    "slateOn": "Added to today's slate",
+    "slateOff": "Removed from today's slate"
   },
   "ag": {
     "title": "Crypto auto-generation",
@@ -2118,7 +2146,31 @@
     "tplSaveNote": "Auto-generations using it must be checked again before enabling",
     "tplInUse": "An enabled auto-generation uses this template; disable it first",
     "vars": "Available variables",
-    "tplName": "Name"
+    "tplName": "Name",
+    "slotsHint2": "One UTC time per row (hourly: on the hour; 15-min: multiples of 15). Weekdays follow the UTC date; none ticked = every day. Schedule-generated markets join today's slate automatically",
+    "slotTime": "Time (UTC)",
+    "addSlot": "Add a time",
+    "everyDay": "every day",
+    "nextDay": " (+1 day)",
+    "wdSep": ", ",
+    "wd": {
+      "1": "Mon",
+      "2": "Tue",
+      "3": "Wed",
+      "4": "Thu",
+      "5": "Fri",
+      "6": "Sat",
+      "7": "Sun"
+    },
+    "wdShort": {
+      "1": "Mo",
+      "2": "Tu",
+      "3": "We",
+      "4": "Th",
+      "5": "Fr",
+      "6": "Sa",
+      "7": "Su"
+    }
   },
   "sp": {
     "title": "Sports fixtures",
@@ -2400,6 +2452,53 @@
       "linked_opposite": "Linked account(s) {{users}} bet on a different option in the same market",
       "new_account_longshot": "Won {{odds}}x on day {{days}} after sign-up (threshold: within {{limitDays}} days)",
       "deposit_no_bet": "Deposited {{deposit}} in 30 days, effective bets only {{stake}} (required {{multiple}}x), then requested withdrawal {{no}}"
+    }
+  },
+  "gr": {
+    "title": "Acquisition",
+    "sub": "Sign-ups, first deposits, first bets and week-2 betting by source and sign-up week",
+    "range": "{{from}} ~ {{to}} (UTC, whole weeks)",
+    "recent8": "Last 8 weeks",
+    "basis": {
+      "first": "By first source",
+      "reg": "By sign-up source"
+    },
+    "exportCsv": "Export CSV",
+    "export": {
+      "sources": "By source (week × source)",
+      "markets": "By market (ended markets)",
+      "customers": "By customer (customer numbers only)"
+    },
+    "exported": "Exported",
+    "note": "Weeks are ISO weeks in UTC (from Monday). First source = recorded the first time the site was opened with source parameters; sign-up source = the one present at sign-up. No source = \"Direct\". Week-2 betting = bet on days 8–14 after sign-up; customers whose week 2 has not ended are not in the denominator. Exports contain no email, address or ID data",
+    "truncated": "Too many sign-ups in this range; only the first part was counted. Narrow the date range",
+    "totals": "Totals",
+    "visits": "Visits",
+    "registrations": "Sign-ups",
+    "firstDeposits": "First deposits",
+    "activated": "Activated (first bet)",
+    "week2": "Week-2 betting",
+    "ofEligible": "/ {{n}} · {{pct}}",
+    "bySource": "By sign-up week and source",
+    "direct": "Direct",
+    "refBy": "ref {{ref}}",
+    "notYet": "not yet",
+    "emptyCohorts": "No sign-ups in this range",
+    "marketWeeks": "Markets by week",
+    "marketWeeksHint": "Valid rate = settled / ended",
+    "reasons": "Void and cancel reasons",
+    "noReasons": "No voided or cancelled markets in this range",
+    "noReason": "No reason given",
+    "endedMarkets": "Ended markets ({{n}})",
+    "emptyMarkets": "No markets ended in this range",
+    "col": {
+      "week": "Week",
+      "source": "Source (src / cmp / ref)",
+      "ended": "Ended",
+      "validRate": "Valid rate",
+      "median": "Median bettors per market",
+      "endedAt": "Ended at (UTC)",
+      "reason": "Reason"
     }
   }
 }

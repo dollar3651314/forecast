@@ -185,6 +185,11 @@ export const deleteMarket: typeof rf.deleteMarket = IS_MOCK ? fm.deleteMarket : 
 export const submitMarket: typeof rf.submitMarket = IS_MOCK ? fm.submitMarket : rf.submitMarket;
 export const returnMarket: typeof rf.returnMarket = IS_MOCK ? fm.returnMarket : rf.returnMarket;
 export const publishMarket: typeof rf.publishMarket = IS_MOCK ? fm.publishMarket : rf.publishMarket;
+export const setTodaySlate: typeof rf.setTodaySlate = IS_MOCK ? fm.setTodaySlate : rf.setTodaySlate;
+export const getOpenLimit: typeof rf.getOpenLimit = IS_MOCK ? fm.getOpenLimit : rf.getOpenLimit;
+// forecast S13：来源统计
+export const getGrowthReport: typeof rf.getGrowthReport = IS_MOCK ? fm.getGrowthReport : rf.getGrowthReport;
+export const exportGrowth: typeof rf.exportGrowth = IS_MOCK ? fm.exportGrowth : rf.exportGrowth;
 export const pauseMarket: typeof rf.pauseMarket = IS_MOCK ? fm.pauseMarket : rf.pauseMarket;
 export const resumeMarket: typeof rf.resumeMarket = IS_MOCK ? fm.resumeMarket : rf.resumeMarket;
 export const cancelMarket: typeof rf.cancelMarket = IS_MOCK ? fm.cancelMarket : rf.cancelMarket;

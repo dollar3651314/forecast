@@ -605,6 +605,8 @@ export const params: ParamItem[] = [
   { key: 'risk.longshot.minAmount', value: '1000', unit: 'usdt', group: 'risk', section: 'betting', updatedAt: null },
   { key: 'risk.longshot.minOdds', value: '5', unit: 'multiple', group: 'risk', section: 'betting', updatedAt: null },
   { key: 'risk.link.maxUsersPerKey', value: '10', unit: 'count', group: 'risk', section: 'betting', updatedAt: null },
+  // S13（迁移 V21）：同时开放的市场上限（超过时上架要勾"仍要上架"，0 = 不限）
+  { key: 'market.maxOpen', value: '2', unit: 'count', group: 'slate', section: 'betting', updatedAt: null },
 ];
 
 /** 热钱包余额（原型数据；地址是公开的测试地址，不是密钥）。下限在 systemConfigs 里 */

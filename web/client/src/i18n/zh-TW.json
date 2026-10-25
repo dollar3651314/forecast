@@ -724,7 +724,8 @@
         "E7_NO_RESULT": "比賽中斷，沒有有效比分",
         "E10_UNDETERMINED": "無法確定結果",
         "E11_UNDETERMINABLE": "規則無法判定",
-        "OTHER": "其他"
+        "OTHER": "其他",
+        "MANUAL": "平台按規則作廢"
       },
       "decision": {
         "upheld": "維持原結果",
@@ -899,6 +900,70 @@
       "sent": "已發送",
       "cancelled": "已退訂",
       "missed": "未發送（市場已結束）"
-    }
+    },
+    "guest": "還沒開放下注。登入後可以訂閱「開放時提醒我」。"
+  },
+  "guest": {
+    "login": "登入",
+    "register": "註冊",
+    "loginToBet": "登入後押注",
+    "registerToBet": "沒有帳戶？註冊",
+    "betHint": "登入後才能押注；登入後回到這裡，選中的選項不變。"
+  },
+  "slate": {
+    "title": "今日場次",
+    "none": "今天沒有場次。",
+    "next": "下一場：{{t}}（{{utc}}）{{title}}",
+    "noneNext": "下一場的時間還沒定。"
+  },
+  "pub": {
+    "linksLabel": "開獎紀錄和說明",
+    "results": "開獎紀錄",
+    "weekly": "週報",
+    "howTo": "怎麼玩、怎麼充、怎麼提",
+    "toMarkets": "去看市場"
+  },
+  "res": {
+    "title": "開獎紀錄",
+    "intro": "每個已結算、已作廢、已取消的市場：結果、依據、獎池、派彩合計、抽成和尾差，和結算紀錄一致。",
+    "statusLabel": "狀態",
+    "allStatus": "全部狀態",
+    "rangeLabel": "時間",
+    "range": {
+      "all": "全部時間",
+      "7d": "近 7 天",
+      "30d": "近 30 天"
+    },
+    "count": "{{n}} 場",
+    "empty": "還沒有已結束的市場",
+    "emptyHint": "市場結算、作廢或取消後會出現在這裡。",
+    "emptyFiltered": "沒有符合篩選條件的市場",
+    "fee": "抽成合計",
+    "dust": "尾差",
+    "refunded": "退款合計",
+    "refundedShort": "全額退款",
+    "colMarket": "市場",
+    "endedAt": "結束時間"
+  },
+  "wk": {
+    "title": "週報",
+    "intro": "每週（週一 00:00 UTC 起）結束的市場：場數、有效場數、作廢和取消的原因、獎池、派彩和抽成合計。",
+    "markets": "結束場數",
+    "settled": "有效場數",
+    "voided": "作廢或取消",
+    "pool": "獎池合計",
+    "payout": "派彩合計",
+    "fee": "抽成合計",
+    "dust": "尾差合計",
+    "refund": "退款合計",
+    "inProgress": "本週截至現在",
+    "more": "更早的週",
+    "allShown": "已全部顯示，共 {{n}} 週",
+    "empty": "還沒有週報",
+    "oneTitle": "週報 {{week}}",
+    "notFound": "沒有這一週的週報",
+    "reasons": "作廢和取消的原因",
+    "marketsTitle": "這一週結束的市場",
+    "noMarkets": "這一週沒有結束的市場"
   }
 }

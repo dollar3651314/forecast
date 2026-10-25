@@ -111,7 +111,7 @@ public class AutogenService implements MarketAutogenAdminApi {
       return 0;
     }
     Instant now = Instant.now(clock);
-    List<AutogenWindows.Window> due = AutogenWindows.due(a.mode, period(a.period), slots(a.slots), a.rollingCount, Duration.ofMinutes(a.generateAheadMin),
+    List<AutogenWindows.Window> due = AutogenWindows.dueSlots(a.mode, period(a.period), slots(a.slots), a.rollingCount, Duration.ofMinutes(a.generateAheadMin),
         openLead(a.period), closeLead(), now);
     if (due.isEmpty()) return 0;
     Map<Instant, Long> existing = markets.generatedOf(a.id, due.get(0).start(), due.get(due.size() - 1).start());
@@ -154,7 +154,9 @@ public class AutogenService implements MarketAutogenAdminApi {
     ref.put("options", seq);
     ref.put("autogenNo", String.valueOf(a.publicNo));
     return new MarketService.Generated(a.id, category(a.period), AutogenRender.render(title(t), vars), AutogenRender.render(rules(t), vars),
-        AutogenRender.render(t.sourcePrimary, vars), AutogenRender.render(t.sourceBackup, vars), ref, w.openAt(), w.closeAt(), w.start(), w.end(), a.userCap, in);
+        AutogenRender.render(t.sourcePrimary, vars), AutogenRender.render(t.sourceBackup, vars), ref, w.openAt(), w.closeAt(), w.start(), w.end(), a.userCap, in,
+        // S13（MF-3）：按场次表生成的自动列入今日场次
+        "SCHEDULE".equals(a.mode));
   }
 
   // =====================================================================
@@ -325,16 +327,17 @@ public class AutogenService implements MarketAutogenAdminApi {
     if (rawSlots.size() > 96) errs.add("slots", "tooMany");
     Set<String> seen = new HashSet<>();
     for (int i = 0; i < rawSlots.size(); i++) {
-      LocalTime t = slot(rawSlots.get(i));
-      if (t == null) {
+      AutogenWindows.Slot sl = slot(rawSlots.get(i));
+      if (sl == null) {
         errs.add("slots[" + i + "]", "invalid");
         continue;
       }
+      LocalTime t = sl.time();
       // 窗口按周期对齐：1 小时是整点，15 分钟是 00 / 15 / 30 / 45
       if (period.equals("1H") && t.getMinute() != 0 || period.equals("15M") && t.getMinute() % 15 != 0) errs.add("slots[" + i + "]", "notAligned");
-      String s = SLOT.format(t);
-      if (!seen.add(s)) errs.add("slots[" + i + "]", "duplicate");
-      slots.add(s);
+      // 同一个时刻只能写一项（不同星期在同一项里选）
+      if (!seen.add(SLOT.format(t))) errs.add("slots[" + i + "]", "duplicate");
+      slots.add(format(sl));
     }
     if (mode.equals("SCHEDULE") && rawSlots.isEmpty()) errs.add("slots", "required");
     slots.sort(String::compareTo);
@@ -378,13 +381,35 @@ public class AutogenService implements MarketAutogenAdminApi {
     return a;
   }
 
-  private static LocalTime slot(String s) {
-    if (s == null || !s.strip().matches("\\d{2}:\\d{2}")) return null;
+  /**
+   * 场次表的一项（S13 补上星期几，需求第 4.2 节）："HH:mm" = 每天；"HH:mm@1,6,7" = 只在这些星期（ISO：1 周一 … 7 周日，按 UTC 日期）。
+   * 格式不对返回 null。
+   */
+  static AutogenWindows.Slot slot(String s) {
+    if (s == null) return null;
+    String v = s.strip();
+    if (!v.matches("\\d{2}:\\d{2}(@[1-7](,[1-7]){0,6})?")) return null;
+    LocalTime t;
     try {
-      return LocalTime.parse(s.strip(), SLOT);
+      t = LocalTime.parse(v.substring(0, 5), SLOT);
     } catch (DateTimeParseException e) {
       return null;
     }
+    java.util.EnumSet<java.time.DayOfWeek> days = java.util.EnumSet.noneOf(java.time.DayOfWeek.class);
+    if (v.length() > 5) {
+      for (String d : v.substring(6).split(",")) {
+        if (!days.add(java.time.DayOfWeek.of(Integer.parseInt(d)))) return null; // 同一天写了两次
+      }
+      if (days.size() == 7) days.clear(); // 七天都选 = 每天
+    }
+    return new AutogenWindows.Slot(t, days);
+  }
+
+  /** 场次表一项的标准写法（星期从小到大；每天的不带 @） */
+  static String format(AutogenWindows.Slot sl) {
+    String t = SLOT.format(sl.time());
+    if (sl.days().isEmpty()) return t;
+    return t + "@" + sl.days().stream().sorted().map(d -> String.valueOf(d.getValue())).collect(java.util.stream.Collectors.joining(","));
   }
 
   private static void text(ValidationException.Collector errs, String field, I18nText t, int max) {
@@ -419,7 +444,7 @@ public class AutogenService implements MarketAutogenAdminApi {
       missing = markets.generatedMissing(g);
     }
     return new Autogen(String.valueOf(a.publicNo), a.symbol, a.period, category(a.period).name(), a.mode.toLowerCase(Locale.ROOT), slots(a.slots).stream()
-        .map(SLOT::format).toList(), a.rollingCount, a.generateAheadMin, t == null ? null : String.valueOf(t.publicNo), a.userCap == null ? null
+        .map(AutogenService::format).toList(), a.rollingCount, a.generateAheadMin, t == null ? null : String.valueOf(t.publicNo), a.userCap == null ? null
         : a.userCap.stripTrailingZeros().toPlainString(), a.enabled, a.checkedBy, iso(a.checkedAt), a.checkedTemplateVersion, a.version, iso(a.createdAt),
         iso(a.updatedAt), windows, sample, missing);
   }
@@ -460,12 +485,12 @@ public class AutogenService implements MarketAutogenAdminApi {
     return new I18nText(t.rulesEn, t.rulesZhCn, t.rulesZhTw);
   }
 
-  private List<LocalTime> slots(String jsonSlots) {
+  private List<AutogenWindows.Slot> slots(String jsonSlots) {
     if (jsonSlots == null || jsonSlots.isBlank()) return List.of();
     List<String> raw = json.readValue(jsonSlots, new TypeReference<List<String>>() {});
-    List<LocalTime> out = new ArrayList<>();
+    List<AutogenWindows.Slot> out = new ArrayList<>();
     for (String s : raw) {
-      LocalTime t = slot(s);
+      AutogenWindows.Slot t = slot(s);
       if (t != null) out.add(t);
     }
     return out;

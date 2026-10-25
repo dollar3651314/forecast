@@ -27,6 +27,11 @@ import type {
   MarketDetail,
   MarketQuery,
   MarketSummary,
+  OpenLimit,
+  PublishInput,
+  GrowthQuery,
+  GrowthReport,
+  GrowthExportKind,
   PlayInput,
   PoolIssue,
   ProposalInput,
@@ -53,7 +58,7 @@ export const getMarketDashboard = (): Promise<MarketDashboard> => request('/dash
 
 // ---- 市场管理 ----
 export const listMarkets = (q: MarketQuery): Promise<Page<MarketSummary>> =>
-  request('/markets', { query: { status: q.status, category: q.category, submitted: q.submitted, keyword: q.keyword, page: q.page, pageSize: q.pageSize } });
+  request('/markets', { query: { status: q.status, category: q.category, submitted: q.submitted, todaySlate: q.todaySlate, keyword: q.keyword, page: q.page, pageSize: q.pageSize } });
 export const getMarketCounts = (): Promise<MarketCounts> => request('/markets/counts');
 export const getMarket = (no: string): Promise<MarketDetail> => request(`/markets/${enc(no)}`);
 export const createMarket = (d: DraftInput): Promise<MarketDetail> => request('/markets', { method: 'POST', body: d });
@@ -63,7 +68,12 @@ export const deleteMarket = async (no: string): Promise<void> => {
 };
 export const submitMarket = (no: string): Promise<MarketDetail> => request(`/markets/${enc(no)}/submit`, { method: 'POST' });
 export const returnMarket = (no: string, reason: string): Promise<MarketDetail> => request(`/markets/${enc(no)}/return`, { method: 'POST', body: { reason } });
-export const publishMarket = (no: string, checked: boolean): Promise<MarketDetail> => request(`/markets/${enc(no)}/publish`, { method: 'POST', body: { checked } });
+/** 上架（S13：todaySlate 列入今日场次；overLimit 超过同时开放上限时"仍要上架"，不勾时后端 400 overLimit:required） */
+export const publishMarket = (no: string, input: PublishInput): Promise<MarketDetail> => request(`/markets/${enc(no)}/publish`, { method: 'POST', body: input });
+/** 改"列入今日场次"（S13；草稿、已上架、已暂停） */
+export const setTodaySlate = (no: string, todaySlate: boolean): Promise<MarketDetail> => request(`/markets/${enc(no)}/today-slate`, { method: 'POST', body: { todaySlate } });
+/** 同时开放的市场数和上限（S13，上架前提示"当前已开放 X 个，上限 Y 个"） */
+export const getOpenLimit = (): Promise<OpenLimit> => request('/markets/open-limit');
 export const pauseMarket = (no: string, reason: string): Promise<MarketDetail> => request(`/markets/${enc(no)}/pause`, { method: 'POST', body: { reason } });
 export const resumeMarket = (no: string, reason: string): Promise<MarketDetail> => request(`/markets/${enc(no)}/resume`, { method: 'POST', body: { reason } });
 export const cancelMarket = (no: string, reason: string): Promise<MarketDetail> => request(`/markets/${enc(no)}/cancel`, { method: 'POST', body: { reason } });
@@ -78,6 +88,44 @@ export const getMarketBets = (no: string, q: { sort?: 'time' | 'amount'; status?
   request(`/markets/${enc(no)}/bets`, { query: q });
 export const getSettlement = (no: string): Promise<SettleOutcome> => request(`/markets/${enc(no)}/settlement`);
 export const getEvidence = (no: string): Promise<Evidence> => request(`/markets/${enc(no)}/resolution`);
+
+// ---- S13 来源统计（growth:view） ----
+export const getGrowthReport = (q: GrowthQuery): Promise<GrowthReport> => request('/growth/report', { query: { from: q.from, to: q.to, basis: q.basis } });
+/**
+ * CSV 导出（服务器生成，UTF-8 带 BOM；只有客户编号，没有邮箱和 KYC 信息，AC-94；后端写审计 growth.export）。
+ * 用 fetch 取文件再下载：出错时（没权限、日期不对）能按普通错误提示，不会把浏览器带到一个 JSON 页面。
+ */
+export async function exportGrowth(kind: GrowthExportKind, q: GrowthQuery, lang: string): Promise<void> {
+  const p = new URLSearchParams({ kind, lang });
+  if (q.from) p.set('from', q.from);
+  if (q.to) p.set('to', q.to);
+  if (q.basis) p.set('basis', q.basis);
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/growth/export?${p.toString()}`, { credentials: 'same-origin', headers: { Accept: 'text/csv, application/json' } });
+  } catch {
+    throw new ApiError('errors.network');
+  }
+  if (!res.ok) {
+    let body = null;
+    try {
+      body = await res.json();
+    } catch {
+      body = null;
+    }
+    throw toApiError(res.status, body);
+  }
+  const blob = await res.blob();
+  const name = /filename="?([^";]+)"?/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? `growth-${kind}.csv`;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 // ---- 加密自动生成 ----
 export const listAutogens = (): Promise<Autogen[]> => request('/market-autogens');

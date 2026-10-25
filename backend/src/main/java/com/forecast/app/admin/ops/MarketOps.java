@@ -3,9 +3,11 @@ package com.forecast.app.admin.ops;
 import com.forecast.app.admin.security.AdminContext;
 import com.forecast.app.admin.security.Audit;
 import com.forecast.app.common.error.BizException;
+import com.forecast.app.common.error.ValidationException;
 import com.forecast.app.market.api.I18nText;
 import com.forecast.app.market.api.MarketAdminApi;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
 
@@ -33,8 +35,9 @@ class MarketOps {
     }
   }
 
-  MarketAdminApi.Page<MarketAdminApi.Summary> list(String status, String category, Boolean submitted, String keyword, int page, int pageSize) {
-    return markets.list(status, category, submitted, keyword, page, pageSize);
+  MarketAdminApi.Page<MarketAdminApi.Summary> list(String status, String category, Boolean submitted, Boolean todaySlate, String keyword, int page,
+      int pageSize) {
+    return markets.list(status, category, submitted, todaySlate, keyword, page, pageSize);
   }
 
   MarketAdminApi.Detail detail(String publicNo) {
@@ -80,14 +83,36 @@ class MarketOps {
     });
   }
 
-  MarketAdminApi.Detail publish(AdminContext actor, String publicNo, Boolean checked) {
+  /** 改"列入今日场次"（S13，MF-3）：写审计（前 → 后） */
+  MarketAdminApi.Detail setTodaySlate(AdminContext actor, String publicNo, Boolean todaySlate) {
+    if (todaySlate == null) throw new ValidationException(List.of(new ValidationException.Field("todaySlate", "required")));
+    return audit.run("market.todaySlate", publicNo, false, null, () -> {
+      MarketAdminApi.Detail d = markets.setTodaySlate(no(publicNo), todaySlate, actor.adminId());
+      return Audit.Change.of(d, Map.of("todaySlate", !todaySlate), Map.of("todaySlate", d.todaySlate()));
+    });
+  }
+
+  /**
+   * 上架。S13（MF-3，AC-81）：todaySlate 不为空时同时写"列入今日场次"；超过"同时开放的市场数上限"时要勾选"仍要上架"（overLimit），
+   * 审计里记下上架时的数量、上限和是否超了。
+   */
+  MarketAdminApi.Detail publish(AdminContext actor, String publicNo, Boolean checked, Boolean todaySlate, Boolean overLimit) {
+    MarketAdminApi.OpenLimit before = markets.openLimit();
     return audit.run("market.publish", publicNo, false, null, () -> {
-      MarketAdminApi.Detail d = markets.publish(no(publicNo), Boolean.TRUE.equals(checked), actor.adminId());
+      MarketAdminApi.Detail d = markets.publish(no(publicNo), Boolean.TRUE.equals(checked), todaySlate, Boolean.TRUE.equals(overLimit), actor.adminId());
       Map<String, Object> after = new LinkedHashMap<>();
       after.put("status", d.status());
       after.put("checked", true);
+      after.put("todaySlate", d.todaySlate());
+      after.put("openBefore", before.open());
+      after.put("openLimit", before.limit());
+      if (before.exceededByOneMore()) after.put("overLimit", true);
       return Audit.Change.of(d, Map.of("status", "draft"), after);
     });
+  }
+
+  MarketAdminApi.OpenLimit openLimit() {
+    return markets.openLimit();
   }
 
   MarketAdminApi.Detail pause(AdminContext actor, String publicNo, String reason) {

@@ -52,4 +52,15 @@ public interface PoolApi {
 
   /** 这个市场这个选项上金额 ≥ minAmount 的有效下注，按 id 升序 */
   java.util.List<ActiveBet> activeBetsOn(long marketId, long optionId, BigDecimal minAmount);
+
+  // ---------- forecast S13：来源统计、增长数据导出（growth）用 ----------
+
+  /**
+   * 客户的下注活跃情况（MF-1、MF-10：首注 = 激活、第 2 周仍下注）：第一笔下注的收到时间，和下过注的 UTC 日期。
+   * 只要下过注就算（之后退回的也算：客户确实下过注）。
+   */
+  record BetActivity(LocalDateTime firstBetAt, java.util.Set<java.time.LocalDate> days) {}
+
+  /** 这些客户的下注活跃情况；没下过注的客户不在结果里 */
+  java.util.Map<Long, BetActivity> activity(java.util.Collection<Long> userIds);
 }

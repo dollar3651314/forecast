@@ -8,6 +8,13 @@
     FROM settle_run WHERE market_id = #{marketId} AND kind = #{kind}
   </select>
 
+  <!-- S13：开奖记录、周报的合计（派彩完成的结算单；退款单不论状态） -->
+  <select id="runs" resultType="com.forecast.app.settle.view.SettleViewMapper$RunRow">
+    SELECT id, market_id, kind, status, fee_rate, pool_total, sum_fee, dust, sum_payout, winner_positions, loser_positions, done_at
+    FROM settle_run WHERE market_id IN <foreach collection="marketIds" item="m" open="(" separator="," close=")">#{m}</foreach>
+      AND ((kind = 'PAYOUT' AND status = 'DONE') OR kind = 'REFUND')
+  </select>
+
   <select id="userItems" resultType="com.forecast.app.settle.view.SettleViewMapper$ItemRow">
     SELECT i.market_id, i.option_id, i.win, i.stake, i.fee, i.payout
     FROM settle_item i JOIN settle_run r ON r.id = i.run_id

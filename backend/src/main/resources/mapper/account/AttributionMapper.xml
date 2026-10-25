@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 客户的来源（forecast S13，MF-1）。只有 account 模块使用；注册时写一次，之后不改。 -->
+<mapper namespace="com.forecast.app.account.attribution.AttributionMapper">
+
+  <insert id="insert">
+    INSERT INTO account_attribution (user_id, first_src, first_cmp, first_ref, first_start, first_at, reg_src, reg_cmp, reg_ref, reg_start, reg_seen_at, created_at)
+    VALUES (#{userId}, #{firstSrc}, #{firstCmp}, #{firstRef}, #{firstStart}, #{firstAt}, #{regSrc}, #{regCmp}, #{regRef}, #{regStart}, #{regSeenAt}, #{createdAt})
+  </insert>
+
+  <select id="find" resultType="com.forecast.app.account.attribution.AttributionMapper$Row">
+    SELECT user_id, first_src, first_cmp, first_ref, first_start, first_at, reg_src, reg_cmp, reg_ref, reg_start, reg_seen_at, created_at
+    FROM account_attribution WHERE user_id = #{userId}
+  </select>
+
+  <select id="registrations" resultType="com.forecast.app.account.attribution.AttributionMapper$Row">
+    SELECT u.id AS user_id, u.created_at AS registered_at, a.first_src, a.first_cmp, a.first_ref, a.first_start, a.first_at,
+      a.reg_src, a.reg_cmp, a.reg_ref, a.reg_start, a.reg_seen_at, a.created_at
+    FROM account_user u LEFT JOIN account_attribution a ON a.user_id = u.id
+    WHERE u.created_at &gt;= #{from} AND u.created_at &lt; #{to}
+    ORDER BY u.id LIMIT #{limit}
+  </select>
+</mapper>

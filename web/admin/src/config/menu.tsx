@@ -1,7 +1,7 @@
 /**
  * 后台菜单。每个页面都必须在这里有入口（由单元测试检查），和后端 admin/security/Menus.java 一致（后端测试 AdminSystemTest 核对）。
  * forecast S1：复制源的交易、风控、品种行情、交易参数四组删除；S9 按需求说明书第 6.1 节加上市场管理、裁决、结算与补偿、报表、参数设置（11 个一级菜单）；
- * S10 加风控告警（12 个）。
+ * S10 加风控告警（12 个）；S13 加来源统计（13 个，MF-1、MF-10）。
  */
 import type { ReactNode } from 'react';
 import {
@@ -13,6 +13,7 @@ import {
   FundOutlined,
   IdcardOutlined,
   ReconciliationOutlined,
+  RiseOutlined,
   SafetyOutlined,
   SettingOutlined,
   TeamOutlined,
@@ -66,6 +67,7 @@ export const MENU: MenuItemDef[] = [
     ],
   },
   { key: 'reports', labelKey: 'menu.reports', icon: <BarChartOutlined />, path: '/reports', permission: 'report:view' },
+  { key: 'growth', labelKey: 'menu.growth', icon: <RiseOutlined />, path: '/growth', permission: 'growth:view' },
   { key: 'params', labelKey: 'menu.params', icon: <ControlOutlined />, path: '/params', permission: 'fee:edit' },
   { key: 'customers', labelKey: 'menu.customers', icon: <TeamOutlined />, path: '/customers', permission: 'customer:view' },
   { key: 'kyc', labelKey: 'menu.kyc', icon: <IdcardOutlined />, path: '/kyc', permission: 'kyc:view', badge: 'kyc' },

@@ -28,6 +28,22 @@ export interface RegisterRequest {
   nationality: string; // ISO 3166-1 alpha-2
   /** 勾选"已年满 18 周岁并同意服务条款"（S11，需求 P8；后端没勾拒绝 ADULT_REQUIRED） */
   adultConfirmed: boolean;
+  /** 浏览器里记的来源（S13，MF-1，lib/attribution.ts）：首次来源、最近一次来源；没有时不传 */
+  attribution?: Attribution;
+}
+
+/** 一次带来源参数的访问（S13，MF-1）：链接上的 src 渠道、cmp 活动、ref 分享人或渠道编号、start（Telegram 机器人深链），at 记下的时间 */
+export interface AttributionTouch {
+  src?: string;
+  cmp?: string;
+  ref?: string;
+  start?: string;
+  at: string;
+}
+
+export interface Attribution {
+  first?: AttributionTouch;
+  last?: AttributionTouch;
 }
 
 export interface Profile {
@@ -312,6 +328,80 @@ export interface MarketCard {
   league?: I18nText;
   /** 已结算市场的结果（详情 S5、列表 S11，后端 `ClientViews`）；其他状态为空 */
   winningOptionNo?: string | null;
+  /** 列入今日场次（S13，MF-3） */
+  todaySlate?: boolean;
+}
+
+/** 今日场次（S13，GET /api/markets/today）：客户所在时区的"今天"；没有场次时 next 是下一场 */
+export interface TodaySlate {
+  from: string;
+  to: string;
+  items: MarketCard[];
+  next?: MarketCard | null;
+}
+
+/** 开奖记录的一条（S13，GET /api/public/results；后端 MarketPublicService.Result） */
+export interface ResultItem {
+  publicNo: string;
+  category: MarketCategory;
+  title: I18nText;
+  status: 'settled' | 'voided' | 'cancelled';
+  endedAt: string;
+  eventStartAt: string;
+  options: MarketOptionCard[];
+  winningOptionNo?: string | null;
+  cancelReason?: string | null;
+  voidReason?: string | null;
+  bettors: number;
+  settle?: MarketSettle | null;
+  resolution?: MarketResolution | null;
+}
+
+export interface ResultQuery {
+  category?: MarketCategory;
+  status?: 'settled' | 'voided' | 'cancelled';
+  /** 结束时间不早于（ISO） */
+  from?: string;
+}
+
+/** 周报（S13，MF-6；后端 MarketPublicService.Week） */
+export interface WeekReport {
+  week: string;
+  from: string;
+  to: string;
+  complete: boolean;
+  markets: number;
+  settled: number;
+  voided: number;
+  cancelled: number;
+  reasons: Array<{ status: 'voided' | 'cancelled'; reason: string | null; count: number }>;
+  poolTotal: string;
+  payoutTotal: string;
+  feeTotal: string;
+  dust: string;
+  refundTotal: string;
+}
+
+export interface WeekList {
+  items: WeekReport[];
+  hasMore: boolean;
+  page: number;
+}
+
+export interface WeekDetail {
+  week: WeekReport;
+  markets: ResultItem[];
+}
+
+/** 说明页（S13，P14；后端 PublicContent.HowTo，文字由后端按语言给） */
+export interface HowToPage {
+  lang: Lang;
+  title: string;
+  description: string;
+  h1: string;
+  intro: string;
+  sections: Array<{ id: string; heading: string; items: string[] }>;
+  facts: Record<string, string>;
 }
 
 export interface MarketOptionDetail extends MarketOptionCard {

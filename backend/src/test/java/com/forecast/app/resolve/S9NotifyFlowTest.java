@@ -195,16 +195,18 @@ class S9NotifyFlowTest extends PlatformTestSupport {
     List<String> keys = new ArrayList<>();
     collect(Menus.TREE, keys);
     // 迁移脚本里每个菜单都有默认顺序（库里的行别的测试会改，例如 AdminSystemTest 删掉 audit 看兜底，所以查脚本本身）
-    // S9 的菜单在 V17，S10 的风控告警在 V19
+    // S9 的菜单在 V17，S10 的风控告警在 V19，S13 的来源统计在 V21
     String v17;
-    try (var in = getClass().getResourceAsStream("/db/migration/V17__s9_admin_notify.sql"); var in19 = getClass().getResourceAsStream("/db/migration/V19__s10_riskalert.sql")) {
-      v17 = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8) + new String(in19.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+    try (var in = getClass().getResourceAsStream("/db/migration/V17__s9_admin_notify.sql"); var in19 = getClass().getResourceAsStream("/db/migration/V19__s10_riskalert.sql");
+        var in21 = getClass().getResourceAsStream("/db/migration/V21__s13_growth.sql")) {
+      v17 = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8) + new String(in19.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
+          + new String(in21.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
     }
-    for (String k : keys) assertThat(v17).as("V17 / V19 里的菜单 " + k).contains("('" + k + "', ");
+    for (String k : keys) assertThat(v17).as("V17 / V19 / V21 里的菜单 " + k).contains("('" + k + "', ");
     List<String> saved = jdbc.queryForList("SELECT menu_key FROM admin_menu", String.class);
     assertThat(saved).containsAll(keys.stream().filter(k -> !k.equals("audit")).toList());
-    // 一级菜单的默认顺序：仪表盘、市场管理、裁决、结算与补偿、报表、参数设置、客户、KYC、资金、风控告警（S10）、通知、系统
-    assertThat(Menus.TREE.stream().map(Menus.Item::key).toList()).containsExactly("dashboard", "market", "judge", "settle", "reports", "params", "customers", "kyc",
+    // 一级菜单的默认顺序：仪表盘、市场管理、裁决、结算与补偿、报表、来源统计（S13）、参数设置、客户、KYC、资金、风控告警（S10）、通知、系统
+    assertThat(Menus.TREE.stream().map(Menus.Item::key).toList()).containsExactly("dashboard", "market", "judge", "settle", "reports", "growth", "params", "customers", "kyc",
         "funds", "risk-alerts", "notify", "system");
   }
 

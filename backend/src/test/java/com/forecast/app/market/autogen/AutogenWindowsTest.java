@@ -61,8 +61,24 @@ class AutogenWindowsTest {
     assertThat(AutogenWindows.due("SCHEDULE", H1, slots, 3, Duration.ofMinutes(60), OPEN_1H, CLOSE, at("2026-11-01T22:00:00Z")))
         .extracting(AutogenWindows.Window::start).containsExactly(at("2026-11-01T23:00:00Z"), at("2026-11-02T00:00:00Z"));
     // 预览：接下来的 4 个窗口（不管生成时间）
-    assertThat(AutogenWindows.upcoming("SCHEDULE", H1, slots, 4, OPEN_1H, CLOSE, at("2026-11-01T22:00:00Z"))).extracting(AutogenWindows.Window::start)
+    assertThat(AutogenWindows.upcoming("SCHEDULE", H1, AutogenWindows.daily(slots), 4, OPEN_1H, CLOSE, at("2026-11-01T22:00:00Z"))).extracting(AutogenWindows.Window::start)
         .containsExactly(at("2026-11-01T23:00:00Z"), at("2026-11-02T00:00:00Z"), at("2026-11-02T13:00:00Z"), at("2026-11-02T23:00:00Z"));
+  }
+
+  @Test
+  void 按场次_限定星期几_S13() {
+    // 2026-11-07 是周六、11-08 周日、11-09 周一（UTC 日期）。13:00 只在周末，01:00 每天
+    List<AutogenWindows.Slot> slots = List.of(AutogenService.slot("13:00@6,7"), AutogenService.slot("01:00"));
+    assertThat(AutogenWindows.upcoming("SCHEDULE", H1, slots, 6, OPEN_1H, CLOSE, at("2026-11-06T12:00:00Z"))).extracting(AutogenWindows.Window::start)
+        .containsExactly(at("2026-11-07T01:00:00Z"), at("2026-11-07T13:00:00Z"), at("2026-11-08T01:00:00Z"), at("2026-11-08T13:00:00Z"),
+            at("2026-11-09T01:00:00Z"), at("2026-11-10T01:00:00Z"));
+    // 写法：七天全选 = 每天；格式不对、重复的星期为空；标准写法星期从小到大
+    assertThat(AutogenService.format(AutogenService.slot("13:00@7,6"))).isEqualTo("13:00@6,7");
+    assertThat(AutogenService.format(AutogenService.slot("13:00@1,2,3,4,5,6,7"))).isEqualTo("13:00");
+    assertThat(AutogenService.slot("13:00@8")).isNull();
+    assertThat(AutogenService.slot("13:00@6,6")).isNull();
+    assertThat(AutogenService.slot("13:00@")).isNull();
+    assertThat(AutogenService.slot("25:00")).isNull();
   }
 
   @Test

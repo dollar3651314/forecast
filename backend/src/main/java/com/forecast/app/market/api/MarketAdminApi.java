@@ -26,17 +26,26 @@ public interface MarketAdminApi {
    */
   record DraftInput(String category, I18nText title, I18nText rules, String resolutionMode, String sourcePrimary, String sourceBackup,
       Map<String, Object> sourceRef, String openAt, String closeAt, String eventStartAt, String eventEndAt, String userCap,
-      Integer disputeWindowMinutes, String coverPath, List<OptionInput> options) {}
+      Integer disputeWindowMinutes, String coverPath, List<OptionInput> options, Boolean todaySlate) {
+
+    /** S13 以前的 15 个字段（不带"列入今日场次"，按不列入） */
+    public DraftInput(String category, I18nText title, I18nText rules, String resolutionMode, String sourcePrimary, String sourceBackup,
+        Map<String, Object> sourceRef, String openAt, String closeAt, String eventStartAt, String eventEndAt, String userCap,
+        Integer disputeWindowMinutes, String coverPath, List<OptionInput> options) {
+      this(category, title, rules, resolutionMode, sourcePrimary, sourceBackup, sourceRef, openAt, closeAt, eventStartAt, eventEndAt, userCap,
+          disputeWindowMinutes, coverPath, options, null);
+    }
+  }
 
   record OptionView(String optionNo, int seq, I18nText label, I18nText winCondition) {}
 
   /**
    * 列表的一行。S9 加：resolutionMode（auto / platform，草稿可以为空）、origin（manual 手动 / autogen 加密自动生成 / sports 从赛程生成）、
-   * pool（奖池合计，2 位小数）、bettors（下注人数）——后台列表要显示（需求第 6.2 节"奖池、下注人数"）。
+   * pool（奖池合计，2 位小数）、bettors（下注人数）——后台列表要显示（需求第 6.2 节"奖池、下注人数"）。S13 加 todaySlate（列入今日场次，MF-3）。
    */
   record Summary(String publicNo, String category, I18nText title, String status, boolean submitted, String openAt, String closeAt,
       String eventStartAt, String eventEndAt, String feeRate, String createdAt, String updatedAt, String resolutionMode, String origin, String pool,
-      int bettors) {}
+      int bettors, boolean todaySlate) {}
 
   /** 各状态的市场数（小写状态 → 数量，没删除的）和待上架（已提交上架的草稿）数，后台列表的分组标签和仪表盘用（S9） */
   record Counts(Map<String, Long> byStatus, long review) {}
@@ -49,21 +58,46 @@ public interface MarketAdminApi {
 
   /**
    * 市场详情。{@code missing}：现在提交上架 / 上架会缺哪些必填项（第 4.1 节，空表示齐全），后台按它显示检查清单。
+   * S13 加 todaySlate（列入今日场次）、origin（manual / autogen / sports，和列表一致）。
    */
   record Detail(String publicNo, String category, I18nText title, I18nText rules, String status, boolean submitted, String settlePhase,
       String resolutionMode, String sourcePrimary, String sourceBackup, Map<String, Object> sourceRef, String openAt, String closeAt,
       String eventStartAt, String eventEndAt, String feeRate, String userCap, Integer disputeWindowMinutes, String coverPath,
       String cancelReason, String voidReason, Long createdBy, Long listedBy, int version, String createdAt, String updatedAt,
       List<OptionView> options, List<ValidationException.Field> missing, List<StatusLogView> statusLog, List<FeeChangeView> feeChanges,
-      List<ClarificationView> clarifications) {}
+      List<ClarificationView> clarifications, boolean todaySlate, String origin) {}
 
   record Page<T>(List<T> items, long total, int page, int pageSize) {}
 
   /** 改费率的结果：前后的费率（百分比）、这次通知了几个客户（#22） */
   record FeeChange(String oldRate, String newRate, int notified, Detail market) {}
 
-  /** 列表：状态（小写；S9 起可以逗号分隔多个，例如 {@code listed,paused}）、品类、是否已提交上架、关键字（题目或编号）筛选；草稿删除后不列出 */
-  Page<Summary> list(String status, String category, Boolean submitted, String keyword, int page, int pageSize);
+  /**
+   * 列表：状态（小写；S9 起可以逗号分隔多个，例如 {@code listed,paused}）、品类、是否已提交上架、是否列入今日场次（S13）、关键字（题目或编号）筛选；
+   * 草稿删除后不列出
+   */
+  Page<Summary> list(String status, String category, Boolean submitted, Boolean todaySlate, String keyword, int page, int pageSize);
+
+  /** S13 以前的写法（不按今日场次筛选） */
+  default Page<Summary> list(String status, String category, Boolean submitted, String keyword, int page, int pageSize) {
+    return list(status, category, submitted, null, keyword, page, pageSize);
+  }
+
+  /** 同时开放的市场数和上限（S13，MF-3，需求第 4.2 节）：limit 0 = 不限；上架前后台按它提示"当前已开放 X 个，上限 Y 个" */
+  record OpenLimit(long open, int limit) {
+
+    /** 再上架一个会不会超过上限 */
+    public boolean exceededByOneMore() {
+      return limit > 0 && open + 1 > limit;
+    }
+  }
+
+  OpenLimit openLimit();
+
+  /** 仪表盘的"场次"（S13，SQ-21）：同时开放的市场数和上限、今天（UTC）列入今日场次的市场数 */
+  record SlateStats(long open, int limit, long today) {}
+
+  SlateStats slateStats();
 
   /** 各状态的数量（S9） */
   Counts counts();
@@ -87,8 +121,20 @@ public interface MarketAdminApi {
 
   /**
    * 上架（market:publish）：DRAFT → LISTED。要求勾选"已检查以上各项"（{@code checked}）、必填项齐全、截止时间还没到。
+   * S13（MF-3）：{@code todaySlate} 不为空时同时写"列入今日场次"；上架后会超过"同时开放的市场数上限"时，没勾选"仍要上架"（{@code overLimit}）
+   * 一律拒绝（字段 overLimit：required），勾选了照常上架（审计里记下当时的数量和上限）。
    */
-  Detail publish(long publicNo, boolean checked, long adminId);
+  Detail publish(long publicNo, boolean checked, Boolean todaySlate, boolean overLimit, long adminId);
+
+  /** 测试和内部调用的简写：不改今日场次标记、不受同时开放上限阻止（后台接口一律走上面的完整写法） */
+  default Detail publish(long publicNo, boolean checked, long adminId) {
+    return publish(publicNo, checked, null, true, adminId);
+  }
+
+  /**
+   * 改"列入今日场次"（market:publish，S13 MF-3）：草稿、已上架、已暂停的市场可以改（上架后临时加进今日场次或拿掉）；其他状态 409 ILLEGAL_TRANSITION。
+   */
+  Detail setTodaySlate(long publicNo, boolean todaySlate, long adminId);
 
   /** 暂停（market:pause）：LISTED → PAUSED */
   Detail pause(long publicNo, long adminId, String reason);

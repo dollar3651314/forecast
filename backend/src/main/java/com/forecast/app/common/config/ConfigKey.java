@@ -156,7 +156,12 @@ public enum ConfigKey {
   RISK_LONGSHOT_ACCOUNT_DAYS("risk.longshot.accountDays", Unit.COUNT, "risk", BigDecimal.ONE, BigDecimal.valueOf(365), 0, Params.BETTING),
   RISK_LONGSHOT_MIN_AMOUNT("risk.longshot.minAmount", Unit.USDT, "risk", new BigDecimal("0.01"), new BigDecimal("1000000000"), 2, Params.BETTING),
   RISK_LONGSHOT_MIN_ODDS("risk.longshot.minOdds", Unit.MULTIPLE, "risk", BigDecimal.ONE, BigDecimal.valueOf(1000), 2, Params.BETTING),
-  RISK_LINK_MAX_USERS("risk.link.maxUsersPerKey", Unit.COUNT, "risk", BigDecimal.valueOf(2), BigDecimal.valueOf(1000), 0, Params.BETTING);
+  RISK_LINK_MAX_USERS("risk.link.maxUsersPerKey", Unit.COUNT, "risk", BigDecimal.valueOf(2), BigDecimal.valueOf(1000), 0, Params.BETTING),
+  /**
+   * forecast S13（MF-3，需求第 4.2 节）：同时开放的市场数上限，默认 2（迁移 V21），0 = 不限。"同时开放" = 已上架或已暂停、还没到截止时间的市场
+   * （包括还没到开放下注时间的）。人工上架超过时提示、勾选"仍要上架"才能上；加密模板自动生成的计入数量但不受阻止。参数设置页"场次"一组
+   */
+  MARKET_MAX_OPEN("market.maxOpen", Unit.COUNT, "slate", BigDecimal.ZERO, BigDecimal.valueOf(1000), 0, Params.BETTING);
 
   /**
    * 参数设置页的哪一组（决定改它要哪个权限点）；{@link #NONE} 不在参数设置页。

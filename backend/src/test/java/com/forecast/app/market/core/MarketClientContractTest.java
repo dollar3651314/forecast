@@ -23,7 +23,7 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * 客户端市场接口的最小契约（forecast S3；页面在原型确认后 S11 做）：{@code GET /api/markets}、{@code GET /api/markets/{publicNo}} 的字段名、格式，
- * 草稿看不到，要登录。字段一变这里就失败，客户端照着这里接。奖池、概率、预计赔率在 S4 加进来时同步改这里。
+ * 草稿看不到；S13 起不登录也能看（MF-4）。字段一变这里就失败，客户端照着这里接。奖池、概率、预计赔率在 S4 加进来时同步改这里。
  */
 class MarketClientContractTest extends MarketTestSupport {
 
@@ -65,9 +65,16 @@ class MarketClientContractTest extends MarketTestSupport {
   }
 
   @Test
-  void 没登录401() throws Exception {
-    assertThat(call("/api/markets", null).getStatus()).isEqualTo(401);
-    assertThat(call("/api/markets/1", null).getStatus()).isEqualTo(401);
+  void 没登录也能看_S13公开浏览() throws Exception {
+    // S13（MF-4）：forecast.public-browse.enabled 默认打开，列表、今日场次、详情不登录也能看（关掉时 401，见 S13PublicBrowseOffTest）
+    String no = listedMarket();
+    assertThat(call("/api/markets", null).getStatus()).isEqualTo(200);
+    assertThat(call("/api/markets/today", null).getStatus()).isEqualTo(200);
+    assertThat(call("/api/markets/" + no, null).getStatus()).isEqualTo(200);
+    assertThat(call("/api/markets/123", null).getStatus()).isEqualTo(404);
+    // 下注、我的下注、资产仍要登录
+    assertThat(call("/api/me/bets", null).getStatus()).isEqualTo(401);
+    assertThat(call("/api/ledger/account", null).getStatus()).isEqualTo(401);
   }
 
   @Test
@@ -86,7 +93,8 @@ class MarketClientContractTest extends MarketTestSupport {
     assertThat(item).as("新上架的在第一页（newest）").isNotNull();
     // pool（S4）由 pool 模块提供，这里的替身不给（null）；结构见 pool/PoolClientContractTest
     assertThat(keys(item)).containsExactly("publicNo", "category", "title", "status", "openAt", "closeAt", "eventStartAt", "eventEndAt", "feeRate", "options", "pool",
-        "winningOptionNo");
+        "winningOptionNo", "todaySlate");
+    assertThat(item.get("todaySlate").asBoolean()).as("S13：人工上架不勾选时不列入今日场次").isFalse();
     assertThat(item.get("publicNo").isString()).as("编号是字符串").isTrue();
     assertThat(item.get("category").asString()).isEqualTo("FOOTBALL");
     assertThat(keys(item.get("title"))).containsExactly("en", "zhCN", "zhTW");

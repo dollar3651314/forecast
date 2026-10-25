@@ -42,7 +42,7 @@ test('市场：上架 → 客户端可见 → 改费率公开 → 到点截止�
       );
       expect(draft.feeRate, '新建按品类默认 5%').toBe('5');
       expect(draft.missing).toEqual([]);
-      const listed = await json<{ status: string }>(await admin.post(`/api/admin/markets/${draft.publicNo}/publish`, { data: { checked: true } }), '上架');
+      const listed = await json<{ status: string }>(await admin.post(`/api/admin/markets/${draft.publicNo}/publish`, { data: { checked: true, overLimit: true } }), '上架');
       expect(listed.status).toBe('listed');
       return draft.publicNo;
     });

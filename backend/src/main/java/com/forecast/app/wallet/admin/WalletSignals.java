@@ -36,6 +36,15 @@ class WalletSignals implements WalletSignalsApi {
     return mapper.withdrawalsAfter(afterId, limit).stream().map(r -> new WithdrawalRequest(r.id, r.publicNo, r.userId, r.amount, r.at)).toList();
   }
 
+  @Override
+  @Transactional(readOnly = true)
+  public java.util.Map<Long, java.time.LocalDateTime> firstCredited(java.util.Collection<Long> userIds) {
+    if (userIds == null || userIds.isEmpty()) return java.util.Map.of();
+    java.util.Map<Long, java.time.LocalDateTime> out = new java.util.LinkedHashMap<>();
+    for (WalletSignalsMapper.FirstCredit f : mapper.firstCredited(java.util.Set.copyOf(userIds))) out.put(f.userId, f.at);
+    return out;
+  }
+
   /** 以太坊体系（0x 开头）不分大小写，统一小写；TRON 的 Base58 区分大小写，原样 */
   static String addressKey(String chain, String address) {
     if (address == null) return "";

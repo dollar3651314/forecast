@@ -192,7 +192,7 @@ test('开赛提醒（#23）：只给用邮箱和密码登录过的客户；订�
         }),
         '建草稿',
       );
-      await json(await admin.post(`/api/admin/markets/${d.publicNo}/publish`, { data: { checked: true } }), '上架');
+      await json(await admin.post(`/api/admin/markets/${d.publicNo}/publish`, { data: { checked: true, overLimit: true } }), '上架');
       return d.publicNo;
     };
     const a = await step('后台上架两个还没开放的市场（10 分钟、20 分钟后开放）', () => upcoming(`提醒 A ${uniqueId()}`, 10));

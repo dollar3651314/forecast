@@ -116,7 +116,8 @@ test('客户主流程（手机 390px）和后台审核', async ({ browser }) => 
       await expectEnvBanner(page);
       await expectNoHorizontalScroll(page, '首页');
       // 标签页标题和页面文字是现在的品牌名，没有旧品牌名
-      await expect(page).toHaveTitle(BRAND);
+      // S13 起标签页标题是"页面名 | 品牌名"
+      await expect(page).toHaveTitle(new RegExp(`(^| \\| )${BRAND}$`));
       expect(await page.locator('body').innerText(), '客户端页面文字').not.toMatch(OLD_BRAND);
       await expect(page.getByRole('dialog'), '新手引导看过（跳过）就不再自动弹').toHaveCount(0);
     });

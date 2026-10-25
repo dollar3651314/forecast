@@ -96,13 +96,13 @@ interface MarketMapper {
   List<Long> dueToEnd(@Param("now") LocalDateTime now, @Param("limit") int limit);
 
   List<MarketRows.Market> adminList(@Param("statuses") java.util.List<String> statuses, @Param("category") String category, @Param("submitted") Boolean submitted,
-      @Param("keyword") String keyword, @Param("no") Long no, @Param("offset") int offset, @Param("limit") int limit);
+      @Param("todaySlate") Boolean todaySlate, @Param("keyword") String keyword, @Param("no") Long no, @Param("offset") int offset, @Param("limit") int limit);
 
   /** 各状态（和是否已提交上架）的数量，没删除的（S9） */
   List<MarketRows.StatusCount> statusCounts();
 
   long adminCount(@Param("statuses") java.util.List<String> statuses, @Param("category") String category, @Param("submitted") Boolean submitted,
-      @Param("keyword") String keyword, @Param("no") Long no);
+      @Param("todaySlate") Boolean todaySlate, @Param("keyword") String keyword, @Param("no") Long no);
 
   /** 客户端列表：只列 statuses 里的状态（不含草稿），sort = closeAt（截止时间先到的在前）/ newest（新上架的在前） */
   List<MarketRows.Market> clientList(@Param("statuses") Collection<String> statuses, @Param("category") String category, @Param("keyword") String keyword,
@@ -116,4 +116,32 @@ interface MarketMapper {
 
   /** 自动生成模板在 [from, to] 里已经生成的市场（按窗口开始时间） */
   List<MarketRows.Market> generated(@Param("autogenId") long autogenId, @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+  // ---------- S13 推广功能 ----------
+
+  /** 上架时勾选的"列入今日场次"：只改草稿 */
+  int setTodaySlate(@Param("id") long id, @Param("slate") boolean slate, @Param("now") LocalDateTime now);
+
+  /** 同时开放的市场数：已上架 / 已暂停、截止时间在 now 之后（需求第 4.2 节） */
+  long countOpen(@Param("now") LocalDateTime now);
+
+  /** 今日场次：带标记、不是草稿、事件开始时间在 [from, to) */
+  List<MarketRows.Market> slate(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to, @Param("limit") int limit);
+
+  /** 下一场：带标记、已上架 / 已暂停、事件开始时间 ≥ from */
+  MarketRows.Market nextSlate(@Param("from") LocalDateTime from);
+
+  long countSlate(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+  /** 开奖记录：statuses 里的终点状态，按结束时间倒序；from、to 是结束时间的范围（可以为空） */
+  List<MarketRows.Market> endedList(@Param("statuses") Collection<String> statuses, @Param("category") String category, @Param("from") LocalDateTime from,
+      @Param("to") LocalDateTime to, @Param("offset") int offset, @Param("limit") int limit);
+
+  long endedCount(@Param("statuses") Collection<String> statuses, @Param("category") String category, @Param("from") LocalDateTime from,
+      @Param("to") LocalDateTime to);
+
+  LocalDateTime firstEndedAt();
+
+  /** 站点地图：不是草稿的市场，最近更新的在前 */
+  List<MarketRows.Market> sitemap(@Param("limit") int limit);
 }

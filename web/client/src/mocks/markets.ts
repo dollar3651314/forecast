@@ -17,6 +17,14 @@
  */
 import { ApiError } from '../api/errors';
 import type {
+  HowToPage,
+  Lang,
+  ResultItem,
+  ResultQuery,
+  TodaySlate,
+  WeekDetail,
+  WeekList,
+  WeekReport,
   BetRequest,
   BetResult,
   AutoResolutionSource,
@@ -104,6 +112,8 @@ interface StoredMarket {
   voidReason?: string;
   bets: Array<{ betNo: string; optionSeq: number; amount: string; receivedAt: number; multAtBet: string; feeRateAtBet: string }>;
   createdAt: number;
+  /** 列入今日场次（S13，MF-3）：BTC 场次表生成的、焦点战 */
+  todaySlate?: boolean;
 }
 
 /** 自动裁决（S6 ResolutionViews）：结果由 winSeq 定（1 = 涨） */
@@ -204,6 +214,7 @@ function seedMarkets(): StoredMarket[] {
     market({
       category: 'FOOTBALL',
       league: L('英超 · 第 10 轮', 'Premier League · Matchweek 10', '英超 · 第 10 輪'),
+      todaySlate: true,
       title: L('曼城 vs 利物浦（90 分钟胜平负）', 'Man City vs Liverpool (90-min result)', '曼城 vs 利物浦（90 分鐘勝平負）'),
       status: 'listed',
       openAt: now - 2 * DAY,
@@ -238,6 +249,7 @@ function seedMarkets(): StoredMarket[] {
       title: L(`BTC 涨还是跌？${utcHm(btcStart)}–${utcHm(btcStart + HOUR)} UTC`, `BTC up or down? ${utcHm(btcStart)}–${utcHm(btcStart + HOUR)} UTC`, `BTC 漲還是跌？${utcHm(btcStart)}–${utcHm(btcStart + HOUR)} UTC`),
       status: 'listed',
       openAt: btcStart - 3 * HOUR,
+      todaySlate: true,
       closeAt: btcStart - 30_000,
       eventStartAt: btcStart,
       eventEndAt: btcStart + HOUR,
@@ -492,6 +504,7 @@ function seedMarkets(): StoredMarket[] {
       title: L(`BTC 涨还是跌？${utcHm(nextSession)}–${utcHm(nextSession + HOUR)} UTC`, `BTC up or down? ${utcHm(nextSession)}–${utcHm(nextSession + HOUR)} UTC`, `BTC 漲還是跌？${utcHm(nextSession)}–${utcHm(nextSession + HOUR)} UTC`),
       status: 'listed',
       openAt: nextSession - 3 * HOUR,
+      todaySlate: true,
       closeAt: nextSession - 30_000,
       eventStartAt: nextSession,
       eventEndAt: nextSession + HOUR,
@@ -576,6 +589,7 @@ function cardOf(m: StoredMarket): MarketCard {
     pool: poolOf(m, false),
     league: m.league,
     winningOptionNo: m.status === 'settled' ? winNo(m) : undefined,
+    todaySlate: !!m.todaySlate,
   };
 }
 
@@ -928,4 +942,185 @@ export function unsubscribeByToken(token: string): Promise<ReminderUnsubscribed>
     if (reminders.get(m.publicNo) === 'active') reminders.set(m.publicNo, 'cancelled');
     return { marketNo: m.publicNo, title: m.title, status: reminders.get(m.publicNo) ?? 'none' };
   });
+}
+
+// =====================================================================
+// S13 推广功能：今日场次、开奖记录、周报、说明页（结构和后端 MarketPublicService、PublicContent 一致）
+// =====================================================================
+
+/** 今日场次：带标记、事件开始时间在 [from, to) 里；没有时给下一场 */
+export function todaySlate(from: string, to: string): Promise<TodaySlate> {
+  return respond(
+    () => {
+      const f = Date.parse(from);
+      const t = Date.parse(to);
+      const slate = markets.filter((m) => m.todaySlate).sort((a, b) => a.eventStartAt - b.eventStartAt);
+      const items = slate.filter((m) => m.eventStartAt >= f && m.eventStartAt < t).map(cardOf);
+      const next = items.length ? null : (slate.find((m) => m.eventStartAt >= t && (m.status === 'listed' || m.status === 'paused')) ?? null);
+      return { from, to, items, next: next ? cardOf(next) : null };
+    },
+    () => ({ from, to, items: [], next: null }),
+  );
+}
+
+const ENDED: MarketStatus[] = ['settled', 'voided', 'cancelled'];
+/** 原型里市场的"结束时间"：事件结束后 10 分钟 */
+const endedAt = (m: StoredMarket): number => m.eventEndAt + 10 * MIN;
+
+function resultOf(m: StoredMarket): ResultItem {
+  const pool = poolOf(m, false);
+  const settle = settleOf(m, poolOf(m, true));
+  return {
+    publicNo: m.publicNo,
+    category: m.category,
+    title: m.title,
+    status: m.status as ResultItem['status'],
+    endedAt: iso(endedAt(m)),
+    eventStartAt: iso(m.eventStartAt),
+    options: m.options.map((o) => ({ optionNo: o.optionNo, seq: o.seq, label: o.label })),
+    winningOptionNo: m.status === 'settled' ? (winNo(m) ?? null) : null,
+    cancelReason: null,
+    voidReason: m.voidReason ?? null,
+    bettors: pool.bettors,
+    settle: settle ? { ...settle, mine: null } : null,
+    resolution: m.status === 'cancelled' ? null : (resolutionOf(m) ?? null),
+  };
+}
+
+export function listResults(q: ResultQuery, page: number, pageSize: number): Promise<Page<ResultItem>> {
+  return respond(
+    () => {
+      const from = q.from ? Date.parse(q.from) : 0;
+      const items = markets
+        .filter((m) => ENDED.includes(m.status) && (!q.category || m.category === q.category) && (!q.status || m.status === q.status) && endedAt(m) >= from)
+        .sort((a, b) => endedAt(b) - endedAt(a));
+      return { items: items.slice((page - 1) * pageSize, page * pageSize).map(resultOf), total: items.length, page, pageSize };
+    },
+    () => ({ items: [], total: 0, page, pageSize }),
+  );
+}
+
+const mondayOf = (ms: number): number => {
+  const d = new Date(ms);
+  const day = (d.getUTCDay() + 6) % 7;
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - day);
+};
+function isoWeek(monday: number): string {
+  const d = new Date(monday + 3 * DAY); // 这一周的周四决定是哪一年
+  const jan4 = Date.UTC(d.getUTCFullYear(), 0, 4);
+  const n = Math.round((monday - mondayOf(jan4)) / (7 * DAY)) + 1;
+  return `${d.getUTCFullYear()}-W${String(n).padStart(2, '0')}`;
+}
+
+function weekOf(monday: number): WeekReport {
+  const ms = markets.filter((m) => ENDED.includes(m.status) && endedAt(m) >= monday && endedAt(m) < monday + 7 * DAY);
+  let pool = 0n;
+  let pay = 0n;
+  let fee = 0n;
+  let dust = 0n;
+  let refund = 0n;
+  const reasons = new Map<string, number>();
+  for (const m of ms) {
+    const st = settleOf(m, poolOf(m, true));
+    if (m.status === 'settled' && st) {
+      pool = add(pool, dec(st.poolTotal));
+      pay = add(pay, dec(st.payoutTotal));
+      fee = add(fee, dec(st.feeTotal));
+      dust = add(dust, dec(st.dust));
+    } else {
+      const k = `${m.status}|${m.voidReason ?? ''}`;
+      reasons.set(k, (reasons.get(k) ?? 0) + 1);
+      if (st) refund = add(refund, dec(st.payoutTotal));
+    }
+  }
+  return {
+    week: isoWeek(monday),
+    from: iso(monday),
+    to: iso(monday + 7 * DAY),
+    complete: monday + 7 * DAY <= Date.now(),
+    markets: ms.length,
+    settled: ms.filter((m) => m.status === 'settled').length,
+    voided: ms.filter((m) => m.status === 'voided').length,
+    cancelled: ms.filter((m) => m.status === 'cancelled').length,
+    reasons: [...reasons.entries()].map(([k, count]) => {
+      const [status, reason] = k.split('|');
+      return { status: status as 'voided' | 'cancelled', reason: reason || null, count };
+    }),
+    poolTotal: toFixed(pool, 2),
+    payoutTotal: toFixed(pay, 2),
+    feeTotal: toFixed(fee, 2),
+    dust: toFixed(dust, 2),
+    refundTotal: toFixed(refund, 2),
+  };
+}
+
+export function listWeeks(page: number): Promise<WeekList> {
+  return respond(
+    () => {
+      const first = Math.min(...markets.filter((m) => ENDED.includes(m.status)).map(endedAt), Date.now());
+      const items: WeekReport[] = [];
+      const start = mondayOf(Date.now()) - (page - 1) * 12 * 7 * DAY;
+      for (let i = 0; i < 12; i++) {
+        const w = start - i * 7 * DAY;
+        if (w < mondayOf(first)) break;
+        items.push(weekOf(w));
+      }
+      return { items, hasMore: start - 12 * 7 * DAY >= mondayOf(first), page };
+    },
+    () => ({ items: [weekOf(mondayOf(Date.now()))], hasMore: false, page }),
+  );
+}
+
+export function getWeek(week: string): Promise<WeekDetail> {
+  return respond(() => {
+    for (let i = 0; i < 60; i++) {
+      const w = mondayOf(Date.now()) - i * 7 * DAY;
+      if (isoWeek(w) === week) {
+        const ms = markets.filter((m) => ENDED.includes(m.status) && endedAt(m) >= w && endedAt(m) < w + 7 * DAY);
+        return { week: weekOf(w), markets: ms.map(resultOf) };
+      }
+    }
+    throw new ApiError('validationFailed');
+  });
+}
+
+/** 说明页：后端的文字在 backend/src/main/resources/content/public-pages.json；原型只放精简的一份 */
+const HOWTO: Record<Lang, Omit<HowToPage, 'lang' | 'facts'>> = {
+  'zh-CN': {
+    title: '怎么玩、怎么充、怎么提',
+    description: '彩池怎么算、USDT 支持哪几条链、提现规则',
+    h1: '怎么玩、怎么充、怎么提',
+    intro: '这是一个用 USDT 押事件结果的网站。你看到的概率是散户用真钱投票的概率。平台不当庄，只从赢家的盈利里抽成。',
+    sections: [
+      { id: 'play', heading: '怎么玩', items: ['每个选项有自己的奖池。', '开奖后，没押中的选项的奖池按押注比例分给押中的人；平台只对赢家的盈利部分抽成（默认 5%）。', '截止时只有一个选项有人押，这个市场作废，所有下注全额退回。'] },
+      { id: 'deposit', heading: '怎么充', items: ['只收 USDT，支持 TRC20、ERC20、BSC（BEP20）。', '每个账户有自己的充值地址，区块确认后自动到账。'] },
+      { id: 'withdraw', heading: '怎么提', items: ['单笔最少提现 100 USDT。', '提现前要完成身份认证（证件 + 人脸）。', '新地址 24 小时后生效；每笔提现有 2 小时冷静期。'] },
+    ],
+  },
+  'zh-TW': {
+    title: '怎麼玩、怎麼充、怎麼提',
+    description: '彩池怎麼算、USDT 支援哪幾條鏈、提現規則',
+    h1: '怎麼玩、怎麼充、怎麼提',
+    intro: '這是一個用 USDT 押事件結果的網站。你看到的機率是散戶用真錢投票的機率。平台不當莊，只從贏家的盈利裡抽成。',
+    sections: [
+      { id: 'play', heading: '怎麼玩', items: ['每個選項有自己的獎池。', '開獎後，沒押中的選項的獎池按押注比例分給押中的人；平台只對贏家的盈利部分抽成（預設 5%）。', '截止時只有一個選項有人押，這個市場作廢，所有下注全額退回。'] },
+      { id: 'deposit', heading: '怎麼充', items: ['只收 USDT，支援 TRC20、ERC20、BSC（BEP20）。', '每個帳戶有自己的充值地址，區塊確認後自動到帳。'] },
+      { id: 'withdraw', heading: '怎麼提', items: ['單筆最少提現 100 USDT。', '提現前要完成身分認證（證件 + 人臉）。', '新地址 24 小時後生效；每筆提現有 2 小時冷靜期。'] },
+    ],
+  },
+  en: {
+    title: 'How to play, deposit and withdraw',
+    description: 'How the pools work, deposit networks and withdrawal rules',
+    h1: 'How to play, deposit and withdraw',
+    intro: 'Bet USDT on the outcome of real events. The probabilities are what real-money bettors think. The platform never takes the other side; it only takes a fee from winners\' profit.',
+    sections: [
+      { id: 'play', heading: 'How to play', items: ['Each option has its own pool.', 'Losing pools are shared among the winners in proportion to their bets; the platform takes 5% of winners\' profit by default.', 'If only one option has bets at close, the market is voided and every bet is refunded.'] },
+      { id: 'deposit', heading: 'How to deposit', items: ['USDT only, on TRC20, ERC20 or BSC (BEP20).', 'Every account has its own deposit address; deposits are credited after confirmations.'] },
+      { id: 'withdraw', heading: 'How to withdraw', items: ['The minimum withdrawal is 100 USDT.', 'Verify your identity (ID plus face check) before withdrawing.', 'New addresses work after 24 hours; every withdrawal has a 2-hour cooling period.'] },
+    ],
+  },
+};
+
+export function getHowTo(lang: Lang): Promise<HowToPage> {
+  return respond(() => ({ lang, ...HOWTO[lang], facts: { minWithdraw: '100', fee: '5%', coolingHours: '2', whitelistHours: '24' } }));
 }

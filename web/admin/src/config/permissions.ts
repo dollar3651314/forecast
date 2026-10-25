@@ -65,6 +65,8 @@ export const PERMISSIONS = [
   { code: 'betting_params:edit', module: 'params', highRisk: true },
   { code: 'risk_alert:view', module: 'risk', highRisk: false },
   { code: 'risk_alert:handle', module: 'risk', highRisk: false },
+  // forecast S13：来源统计（MF-1、MF-10；导出写审计）
+  { code: 'growth:view', module: 'growth', highRisk: false },
 ] as const satisfies readonly PermissionDef[];
 
 export type PermissionCode = (typeof PERMISSIONS)[number]['code'];
@@ -72,7 +74,7 @@ export type PermissionCode = (typeof PERMISSIONS)[number]['code'];
 export const ALL_PERMISSION_CODES: string[] = PERMISSIONS.map((p) => p.code);
 
 // forecast S1 删除了复制源的 trading、risk、market（品种行情）、params 四个模块；S3 按需求第 2.2 节加了市场、裁决、结算、参数、风控告警
-export const PERMISSION_MODULES = ['dashboard', 'customer', 'kyc', 'funds', 'notify', 'system', 'market', 'resolve', 'settle', 'params', 'risk'] as const;
+export const PERMISSION_MODULES = ['dashboard', 'customer', 'kyc', 'funds', 'notify', 'system', 'market', 'resolve', 'settle', 'params', 'risk', 'growth'] as const;
 
 /** 超级管理员角色编码：只有超级管理员才能把这个角色分配给别人（修复 fxsystem S4） */
 export const SUPER_ADMIN_ROLE = 'super_admin';

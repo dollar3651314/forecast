@@ -27,4 +27,12 @@ interface WalletSignalsMapper {
   List<Row> whitelistAfter(@Param("afterId") long afterId, @Param("limit") int limit);
 
   List<Row> withdrawalsAfter(@Param("afterId") long afterId, @Param("limit") int limit);
+
+  /** S13：客户第一笔已入账充值的时间 */
+  class FirstCredit {
+    long userId;
+    java.time.LocalDateTime at;
+  }
+
+  List<FirstCredit> firstCredited(@Param("userIds") java.util.Collection<Long> userIds);
 }

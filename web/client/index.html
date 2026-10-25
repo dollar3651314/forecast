@@ -13,17 +13,29 @@
         try { t = localStorage.getItem('fc.theme'); } catch (e) {}
         if (t !== 'light' && t !== 'dark') t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         document.documentElement.setAttribute('data-theme', t);
+        // S13：能运行脚本时隐藏服务器给搜索引擎的正文（.seo-static），由单页应用渲染
+        document.documentElement.classList.add('js');
       })();
     </script>
+    <style>
+      .js .seo-static { display: none; }
+    </style>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Quick Come" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <title>Quick Come</title>
+    <!--
+      S13（MF-4、NF-14、AC-85）：部署时 Nginx 用 SSI 把后端（/api/public/seo/head、/body，market/pub/SeoPages）按当前页面生成的标题、描述、
+      三种语言互相标注、Open Graph 和页面正文嵌进来，搜索引擎不运行脚本也能读到内容（deploy/nginx/site.conf.template）。
+      后端出错或开发时（npm run dev）用下面的默认标题；正文为空。
+    -->
+    <!--# block name="seo_head" --><title>Quick Come</title><!--# endblock -->
+    <!--# block name="seo_none" --><!--# endblock -->
+    <!--# include virtual="/__seo/head" stub="seo_head" -->
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><!--# include virtual="/__seo/body" stub="seo_none" --></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

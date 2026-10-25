@@ -37,6 +37,8 @@ export interface MarketSummary {
   origin: 'manual' | 'autogen' | 'sports';
   pool: string;
   bettors: number;
+  /** 列入今日场次（S13，MF-3） */
+  todaySlate: boolean;
 }
 
 export interface MarketQuery extends PageQuery {
@@ -44,6 +46,8 @@ export interface MarketQuery extends PageQuery {
   status?: string;
   category?: MarketCategory;
   submitted?: boolean;
+  /** 只看列入今日场次的（S13） */
+  todaySlate?: boolean;
   keyword?: string;
 }
 
@@ -74,6 +78,8 @@ export interface DraftInput {
   disputeWindowMinutes: number | null;
   coverPath: string | null;
   options: OptionInput[];
+  /** 列入今日场次（S13，MF-3；编辑草稿时勾选） */
+  todaySlate?: boolean;
 }
 
 export interface MarketOption {
@@ -139,6 +145,23 @@ export interface MarketDetail {
   statusLog: StatusLog[];
   feeChanges: FeeChange[];
   clarifications: Clarification[];
+  /** 列入今日场次（S13） */
+  todaySlate: boolean;
+  /** manual 手动 / autogen 加密自动生成 / sports 从赛程生成（S13 起详情也有） */
+  origin: 'manual' | 'autogen' | 'sports';
+}
+
+/** 同时开放的市场数和上限（S13，MF-3，GET /api/admin/markets/open-limit；limit 0 = 不限） */
+export interface OpenLimit {
+  open: number;
+  limit: number;
+}
+
+/** 上架（S13 起可以同时勾选"列入今日场次"、超过同时开放上限时"仍要上架"） */
+export interface PublishInput {
+  checked: boolean;
+  todaySlate?: boolean;
+  overLimit?: boolean;
 }
 
 export interface FeeChangeResult {
@@ -615,8 +638,61 @@ export interface MarketDashboard {
   today: DashPeriod;
   week: DashPeriod;
   pending: DashPending;
+  /** S13（SQ-21）：同时开放的市场数和上限（0 = 不限）、今天（UTC）列入今日场次的市场数 */
+  slate: { open: number; limit: number; today: number };
   updatedAt: string;
 }
+
+// ---------- S13：来源统计（MF-1、MF-10；后端 growth.api.GrowthAdminApi） ----------
+export interface GrowthCohort {
+  week: string;
+  src: string;
+  cmp: string;
+  ref: string;
+  visits: number;
+  registrations: number;
+  firstDeposits: number;
+  activated: number;
+  week2Active: number;
+  week2Eligible: number;
+}
+export interface GrowthMarketWeek {
+  week: string;
+  ended: number;
+  settled: number;
+  voided: number;
+  cancelled: number;
+  validRate: string | null;
+  medianBettors: string | null;
+}
+export interface GrowthMarketRow {
+  marketNo: string;
+  category: MarketCategory;
+  titleZhCN: string;
+  titleEn: string;
+  status: 'settled' | 'voided' | 'cancelled';
+  endedAt: string;
+  bettors: number;
+  pool: string;
+  reason: string | null;
+}
+export interface GrowthReport {
+  from: string;
+  to: string;
+  basis: 'first' | 'reg';
+  cohorts: GrowthCohort[];
+  totals: Omit<GrowthCohort, 'week' | 'src' | 'cmp' | 'ref'>;
+  marketWeeks: GrowthMarketWeek[];
+  reasons: Array<{ status: 'voided' | 'cancelled'; reason: string | null; count: number }>;
+  markets: GrowthMarketRow[];
+  truncated: boolean;
+}
+export interface GrowthQuery {
+  from?: string;
+  to?: string;
+  basis?: 'first' | 'reg';
+}
+export type GrowthExportKind = 'sources' | 'markets' | 'customers';
 
 // ---------------------------------------------------------------- 风控告警、员工账户（forecast S10，后端 admin/ops/RiskOps、CustomerOps）
 

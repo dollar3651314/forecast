@@ -65,6 +65,13 @@ final class PoolRows {
     int n;
   }
 
+  /** 一个市场收到过的全部下注（含已退回的，S13）：金额合计、下注人数 */
+  static class MarketPlaced {
+    long marketId;
+    java.math.BigDecimal amount;
+    int n;
+  }
+
   /** 我的下注每个分组的笔数和金额 */
   static class TabSum {
     String tab;

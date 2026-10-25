@@ -8,6 +8,7 @@ import * as auth from './auth';
 import * as account from './account';
 import { handleUserMessage, subscribeEvents } from './events';
 import * as notifications from './notifications';
+import * as pub from './public';
 import { setLoggedIn } from './session';
 import * as user from './user';
 import * as wallet from './wallet';
@@ -386,5 +387,44 @@ describe('Web Push 订阅', () => {
     await syncPushSubscription(true);
     expect(st.unsubscribed).toBe(1);
     expect(st.subscribed).toBe(1);
+  });
+});
+
+describe('S13 不登录也能看的接口（MF-1、MF-3、MF-4、MF-6）', () => {
+  it('今日场次、开奖记录、周报、说明页的地址；401 不当成登录失效', async () => {
+    let lost = 0;
+    const off = onUnauthorized(() => lost++);
+    stubFetch({ body: { from: 'a', to: 'b', items: [], next: null } }, { body: { items: [], total: 0, page: 2, pageSize: 20 } }, { body: { items: [], hasMore: false, page: 1 } },
+      { body: { week: {}, markets: [] } }, { body: { sections: [] } }, { status: 401, body: { code: 'UNAUTHORIZED', message: 'x', fields: [] } });
+    await pub.todaySlate('2026-10-13T16:00:00.000Z', '2026-10-14T16:00:00.000Z');
+    await pub.listResults({ category: 'FOOTBALL', status: 'voided' }, 2, 20);
+    await pub.listWeeks(1);
+    await pub.getWeek('2026-W44');
+    await pub.getHowTo('zh-TW');
+    await expect(pub.listResults({}, 1, 20)).rejects.toMatchObject({ reason: 'unauthorized' });
+    expect(calls.map((c) => c.url)).toEqual([
+      '/api/markets/today?from=2026-10-13T16%3A00%3A00.000Z&to=2026-10-14T16%3A00%3A00.000Z',
+      '/api/public/results?category=FOOTBALL&status=voided&page=2&pageSize=20',
+      '/api/public/weekly?page=1',
+      '/api/public/weekly/2026-W44',
+      '/api/public/pages/how-to-play?lang=zh-TW',
+      '/api/public/results?page=1&pageSize=20',
+    ]);
+    expect(lost).toBe(0);
+    off();
+  });
+
+  it('来源访问：POST 带设备号', async () => {
+    stubFetch({ status: 204 });
+    await pub.recordVisit({ src: 'tg', cmp: 'w1' });
+    expect(calls[0]).toMatchObject({ url: '/api/attribution/visit', method: 'POST', body: { src: 'tg', cmp: 'w1' } });
+    expect(calls[0].headers?.['X-Device-Id']).toBeTruthy();
+  });
+
+  it('注册：带上浏览器里记的来源', async () => {
+    stubFetch({ body: { userId: '1', email: 'a@b.c' } });
+    await auth.register({ email: 'a@b.c', code: '123456', password: 'abc12345', firstName: 'A', middleName: '', lastName: 'B', birthDate: '1990-01-01', nationality: 'CN',
+      adultConfirmed: true, attribution: { first: { src: 'x', at: '2026-10-01T00:00:00.000Z' }, last: { src: 'tg', at: '2026-10-03T00:00:00.000Z' } } });
+    expect(calls[0].body).toMatchObject({ attribution: { first: { src: 'x' }, last: { src: 'tg' } } });
   });
 });

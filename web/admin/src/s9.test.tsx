@@ -224,7 +224,9 @@ describe('仪表盘、参数设置、自动生成、体育', () => {
 
   it('自动生成：场次同时显示北京时间；启用中的不能改', async () => {
     renderAs(<AutogenPage />, { path: '/markets/autogen' });
-    expect(await screen.findByText('13:00 UTC · 北京 21:00')).toBeInTheDocument();
+    // S13：场次带星期（按 UTC 日期），没选星期 = 每天；UTC 16:00 以后在北京是次日
+    expect(await screen.findByText('20:00 UTC · 北京 04:00（次日） · 周六、周日')).toBeInTheDocument();
+    expect(await screen.findByText('13:00 UTC · 北京 21:00 · 每天')).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /编辑/ })[0]).toBeDisabled();
   });
 

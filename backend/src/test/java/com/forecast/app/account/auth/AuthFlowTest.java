@@ -13,6 +13,7 @@ import com.forecast.app.notification.api.MailApi;
 import com.forecast.app.ledger.api.LedgerApi;
 import jakarta.servlet.http.Cookie;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.Test;
@@ -116,6 +117,51 @@ class AuthFlowTest {
     assertThat(jdbc.queryForObject("SELECT nationality FROM account_profile WHERE user_id = ?", String.class, id)).isEqualTo("CN");
     assertThat(ledger.snapshot(id).balance()).isEqualByComparingTo("0");
     assertThat(jdbc.queryForObject("SELECT password_hash FROM account_user WHERE id = ?", String.class, id)).startsWith("$2").doesNotContain("password123");
+  }
+
+  /**
+   * forecast S13（MF-1，AC-83）：注册时带上浏览器记的来源。先带 src=x 再带 src=tg 访问后注册：首次来源 = x、注册来源 = tg；
+   * 只有一次来源时两个都是它；Telegram 机器人 start 参数解码；不合法的值当成没有、不影响注册；客户自己的接口里看不到来源。
+   */
+  @Test
+  void 注册带来源_首次来源和注册来源_机器人start参数_客户看不到_S13() throws Exception {
+    String e1 = email();
+    String code = sendCode(e1, "REGISTER");
+    String attr = ",\"attribution\":{\"first\":{\"src\":\"x\",\"cmp\":\"w1\",\"ref\":\"10023\",\"at\":\"2026-10-20T00:00:00Z\"},"
+        + "\"last\":{\"src\":\"tg\",\"cmp\":\"w2\",\"at\":\"2099-01-01T00:00:00Z\"}}";
+    String body = registerJson(e1, code, "password123");
+    MockHttpServletResponse r = call(post("/api/auth/register"), ip(), null, body.substring(0, body.length() - 1) + attr + "}");
+    assertThat(r.getStatus()).as(r.getContentAsString()).isEqualTo(200);
+    Map<String, Object> row = jdbc.queryForMap("SELECT * FROM account_attribution WHERE user_id = ?", userId(e1));
+    assertThat(row.get("first_src")).isEqualTo("x");
+    assertThat(row.get("first_cmp")).isEqualTo("w1");
+    assertThat(row.get("first_ref")).isEqualTo("10023");
+    assertThat(row.get("reg_src")).isEqualTo("tg");
+    assertThat(row.get("reg_cmp")).isEqualTo("w2");
+    assertThat(row.get("reg_ref")).isNull();
+    assertThat(row.get("reg_seen_at")).as("未来的时间不信，用服务器时间").isNotEqualTo(java.sql.Timestamp.valueOf("2099-01-01 00:00:00"));
+    // 客户自己看不到
+    Cookie c = r.getCookie("fc_session");
+    assertThat(call(get("/api/me/session"), ip(), c, null).getContentAsString()).doesNotContain("tg").doesNotContain("src");
+    assertThat(call(get("/api/me/profile"), ip(), c, null).getContentAsString()).doesNotContain("\"src\"").doesNotContain("10023");
+
+    // 只有机器人深链的 start 参数（解码出 src、cmp、ref）：首次来源 = 注册来源
+    String e2 = email();
+    String code2 = sendCode(e2, "REGISTER");
+    String b2 = registerJson(e2, code2, "password123");
+    r = call(post("/api/auth/register"), ip(), null, b2.substring(0, b2.length() - 1) + ",\"attribution\":{\"first\":{\"start\":\"s-tgbot__c-btc__r-7\"}}}");
+    assertThat(r.getStatus()).as(r.getContentAsString()).isEqualTo(200);
+    row = jdbc.queryForMap("SELECT * FROM account_attribution WHERE user_id = ?", userId(e2));
+    assertThat(List.of(row.get("first_src"), row.get("first_cmp"), row.get("first_ref"), row.get("first_start"))).containsExactly("tgbot", "btc", "7", "s-tgbot__c-btc__r-7");
+    assertThat(List.of(row.get("reg_src"), row.get("reg_cmp"), row.get("reg_ref"))).containsExactly("tgbot", "btc", "7");
+
+    // 值不合法：当成没有，注册照常；没有来源的不写
+    String e3 = email();
+    String code3 = sendCode(e3, "REGISTER");
+    String b3 = registerJson(e3, code3, "password123");
+    r = call(post("/api/auth/register"), ip(), null, b3.substring(0, b3.length() - 1) + ",\"attribution\":{\"first\":{\"src\":\"<script>\"}}}");
+    assertThat(r.getStatus()).as(r.getContentAsString()).isEqualTo(200);
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM account_attribution WHERE user_id = ?", Long.class, userId(e3))).isZero();
   }
 
   @Test

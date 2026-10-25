@@ -36,11 +36,12 @@ class AuthService {
   private final LedgerApi ledger;
   private final WalletApi wallet;
   private final NotifyApi notify;
+  private final com.forecast.app.account.attribution.AttributionService attribution;
   private final Clock clock;
   private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(10);
 
   AuthService(AuthMapper mapper, EmailCodeService codes, SessionService sessions, LoginLimiter limiter, SendCodeLimiter codeLimiter, LedgerApi ledger,
-      WalletApi wallet, NotifyApi notify, Clock clock) {
+      WalletApi wallet, NotifyApi notify, com.forecast.app.account.attribution.AttributionService attribution, Clock clock) {
     this.mapper = mapper;
     this.codes = codes;
     this.sessions = sessions;
@@ -49,6 +50,7 @@ class AuthService {
     this.ledger = ledger;
     this.wallet = wallet;
     this.notify = notify;
+    this.attribution = attribution;
     this.clock = clock;
   }
 
@@ -108,6 +110,13 @@ class AuthService {
       throw new BizException("EMAIL_TAKEN", "邮箱已注册"); // 同一邮箱同时注册，唯一键兜底
     }
     mapper.insertProfile(new Profile(u.id, r.firstName().trim(), r.middleName() == null ? "" : r.middleName().trim(), r.lastName().trim(), r.birthDate(), r.nationality()));
+    // forecast S13（MF-1）：浏览器里记的来源（首次来源、注册来源），只用于来源统计
+    if (r.attribution() != null) {
+      AuthRequests.Touch f = r.attribution().first();
+      AuthRequests.Touch l = r.attribution().last();
+      attribution.record(u.id, f == null ? null : new com.forecast.app.account.attribution.AttributionService.Touch(f.src(), f.cmp(), f.ref(), f.start(), f.at()),
+          l == null ? null : new com.forecast.app.account.attribution.AttributionService.Touch(l.src(), l.cmp(), l.ref(), l.start(), l.at()));
+    }
     ledger.openAccount(u.id);
     // 注册时同步分配充值地址（需求 4.4-1）；服务器还没配置合约地址参数（ERC20、BEP20）或 TRON xpub 时那个体系跳过，打开资产页时补分配
     wallet.allocateAddresses(u.id);
