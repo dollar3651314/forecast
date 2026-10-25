@@ -49,6 +49,8 @@ services:
       FC_REDIS_PASSWORD: ${FC_REDIS_PASSWORD:?缺少 FC_REDIS_PASSWORD}
       FC_COOKIE_SECURE: "true"
       FC_ENV_LABEL: test
+      # 客户端地址（forecast S11）：#23 开赛提醒邮件里的市场链接、退订链接用它拼完整地址
+      FC_CLIENT_URL: https://${APP_DOMAIN:?缺少 APP_DOMAIN}
       # JVM 各部分上限（C75，覆盖镜像里的默认值；镜像默认值按 768 MB 容器设，见 deploy/app.Dockerfile）：
       #   堆 256 + 元空间 128 + 代码缓存 48 + 直接内存 32 + 线程栈 512K × 约 110 个线程（Tomcat 最多 60 个 + 连接池、定时任务、推送等）≈ 55
       #   = 519 MB，加 GC、JIT 编译、类库等其他本地内存约 50 MB，合计约 570 MB ≤ mem_limit 576 MB

@@ -21,7 +21,8 @@
     "save": "Save",
     "search": "Search",
     "submitting": "Submitting…",
-    "viewAll": "View all"
+    "viewAll": "View all",
+    "loadMoreFailed": "Could not load more: {{reason}}"
   },
   "nav": {
     "assets": "Assets",
@@ -83,7 +84,6 @@
     "passwordRule": "8–64 characters with letters and numbers",
     "confirmPassword": "Confirm password",
     "newPassword": "New password",
-    "agree": "I have read and agree to the Terms of Service, Privacy Policy and Risk Disclosure (pending legal review)",
     "register": "Sign up",
     "forgotTitle": "Reset password",
     "forgotSubtitle": "Set a new password with an email code. All other sessions will be signed out.",
@@ -91,8 +91,9 @@
     "resetDone": "Password reset",
     "resetDoneBody": "Please log in with your new password",
     "backToLogin": "Back to log in",
-    "riskNotice": "Risk warning: predictions can lose; stakes on the wrong outcome are not returned. (Final wording by PM, pending legal review)",
-    "codeSentReal": "Code sent to {{email}}, valid for 10 minutes"
+    "riskNotice": "Risk warning: predictions can be lost. If your option loses, your stake is not returned. Only use money you can afford to lose.",
+    "codeSentReal": "Code sent to {{email}}, valid for 10 minutes",
+    "adultAgree": "I am 18 or older and have read and agree to the <terms>Terms of Service</terms>, <privacy>Privacy Policy</privacy> and <risk>Risk Disclosure</risk>"
   },
   "profile": {
     "section": "Personal details",
@@ -299,7 +300,13 @@
     "version": "{{brand}} · v0.1",
     "onboarding": "Getting started",
     "themeSystem": "System",
-    "howItWorks": "How it works"
+    "howItWorks": "How it works",
+    "help": "Rules and terms",
+    "rules": "How it works",
+    "faq": "FAQ",
+    "terms": "Terms of Service",
+    "privacy": "Privacy Policy",
+    "risk": "Risk Disclosure"
   },
   "kyc": {
     "intro": "Verification is only required before withdrawing.",
@@ -336,7 +343,7 @@
   },
   "notifications": {
     "empty": "No notifications",
-    "emptyHint": "We will notify you of fills, liquidations, funding and verification results",
+    "emptyHint": "We will notify you about bets, settlements, deposits, withdrawals and verification results",
     "markAll": "Mark all read",
     "allReadDone": "All marked as read",
     "unread": "Unread",
@@ -346,13 +353,14 @@
       "withdraw": "Withdrawal",
       "kyc": "KYC",
       "system": "System"
-    }
+    },
+    "open": "Open"
   },
   "prefs": {
     "push": "Push notifications",
-    "pushDesc": "Fills, liquidations, funding and KYC results on your phone or browser",
+    "pushDesc": "Settlements, proposed results, refunds, deposits, withdrawals and verification results on your phone or browser (bet confirmations and clarifications are in-app only)",
     "email": "Email notifications",
-    "emailDesc": "The same events by email",
+    "emailDesc": "Deposits, withdrawals, verification results, refunds, compensation and the opening reminders you subscribed to are emailed to you (settlement results are not emailed)",
     "inbox": "Inbox",
     "inboxDesc": "The inbox is always on",
     "browserPerm": "Browser permission",
@@ -432,7 +440,10 @@
     "optionNotFound": "This option does not exist. Please refresh and try again",
     "disputeClosed": "The dispute window is closed",
     "disputeNotBettor": "Only customers who bet on this market can dispute",
-    "disputeExists": "You have already disputed this market"
+    "disputeExists": "You have already disputed this market",
+    "reminderNotAvailable": "Betting on this market has opened or it has ended, so reminders are no longer available.",
+    "reminderLoginRequired": "Reminders are available once you have signed in with your email and password: sign out and sign in again to subscribe.",
+    "reminderTooMany": "You have too many active reminders (100 max). Unsubscribe from some under Notification settings first."
   },
   "validation": {
     "fixAll": "Please fix the highlighted fields",
@@ -522,7 +533,7 @@
     "depositNow": "Deposit now",
     "kyc": {
       "title": "Verify your identity",
-      "body": "Small bets only need a verified email. Above 1,000 USDT in total deposits, or before withdrawing, you need an ID and a selfie holding it — usually reviewed within 1 business day.",
+      "body": "Small bets only need a verified email. Once your total deposits pass the verification threshold (1,000 USDT by default), or before withdrawing, you need an ID and a selfie holding it — usually reviewed within 1 business day.",
       "items": [
         "ID card (both sides) or passport photo page",
         "A selfie holding the document"
@@ -533,7 +544,7 @@
       "title": "Deposit USDT to start",
       "body": "In Assets → Deposit, pick a network, copy your personal address and send USDT from an exchange or wallet.",
       "items": [
-        "ERC20, TRC20 and BEP20 are supported",
+        "ERC20, TRC20 and BSC (BEP20) are supported",
         "Your balance updates automatically and you get a notification"
       ],
       "note": "Send USDT only, on the matching network. Wrong transfers can’t be recovered."
@@ -549,7 +560,7 @@
     },
     "odds": {
       "title": "Win a share of the losing pool",
-      "body": "When the result is in, money on losing options is shared among winners by stake. Odds move with the pool and are fixed at close; the platform only takes 5% of profit.",
+      "body": "When the result is in, money on losing options is shared among winners by stake. Odds move with the pool and are fixed at close; the platform only takes a fee on profit (5% by default, shown on each market).",
       "example": "Bet 100 → about 162.29 back if you win\nAfter fee; 0 if you lose",
       "note": "Bets can’t be cancelled."
     },
@@ -581,6 +592,7 @@
     "count": "{{n}} markets",
     "poolLine": "Pool {{amount}} USDT",
     "people": "{{n}} bettors",
+    "people_one": "{{n}} bettor",
     "closesIn": "{{t}} left",
     "closesAt": "Closes {{t}}",
     "closedAt": "Closed {{t}}",
@@ -601,17 +613,21 @@
       "disputed": "Dispute in progress",
       "settled": "Settled",
       "cancelled": "Cancelled",
-      "voided": "Voided"
+      "voided": "Voided",
+      "upcoming": "Not open yet"
     },
     "more": "{{n}} more options",
     "result": "Result: {{opt}}",
     "noBetsYet": "No bets yet — if you bet first and win, you take the whole losing pool (after fees)",
     "empty": "No markets",
-    "emptyHint": "Try another category or filter. New crypto markets open every 15 minutes.",
+    "emptyHint": "New markets will appear here once they are listed.",
     "mine": "You bet {{amount}}",
     "probAria": "{{opt}}: probability {{pct}}, est. payout {{mult}}",
     "oddsNote": "Probability = option pool ÷ total pool. The multiplier is the estimated payout after fees; it changes with the pool and is fixed at close.",
-    "firstBet": "No bets yet — be the first"
+    "firstBet": "No bets yet — be the first",
+    "clearFilters": "Clear filters",
+    "emptyFilteredHint": "No markets match the current category, filter or search. Ended markets are under Show → Ended.",
+    "emptySearch": "Nothing found for \"{{q}}\""
   },
   "md": {
     "totalPool": "Total pool",
@@ -636,6 +652,7 @@
     "winner": "Winner",
     "mine": "My bets in this market",
     "mineLine": "{{amount}} USDT · {{n}} bets",
+    "mineLine_one": "{{amount}} USDT · {{n}} bet",
     "ifWin": "If it wins: about {{v}}",
     "tabs": {
       "rules": "Rules",
@@ -720,7 +737,18 @@
         "overturned": "Decided: overturned",
         "voided": "Decided: voided",
         "closed": "Closed"
-      }
+      },
+      "settling": "Settling",
+      "settlingNote": "The result is final and payouts are being credited in batches. This takes a few minutes.",
+      "poolTotal": "Total pool",
+      "positions": "Winning / losing positions",
+      "positionsV": "{{w}} / {{l}}",
+      "myStake": "My stake",
+      "myRefund": "My refund",
+      "myCompensation": "My compensation",
+      "refundTitle": "Refunds",
+      "refundTotal": "Total refunded (in full)",
+      "conservation": "Total payouts + total fees + remainder = total pool; the platform only receives the fees and the remainder."
     },
     "how": {
       "title": "How a pari-mutuel pool works",
@@ -733,7 +761,8 @@
       "exampleEmpty": "No bets yet. If you bet first and win, you take the whole losing pool (after fee).",
       "final": "The pool keeps changing until close, when final odds are set. Bets can’t be cancelled; cancelled or voided markets are refunded in full."
     },
-    "feeOnProfit": "of winnings only"
+    "feeOnProfit": "of winnings only",
+    "openAt": "Betting opens"
   },
   "bet": {
     "title": "Place a bet",
@@ -780,7 +809,7 @@
     "staked": "Total staked",
     "payout": "Total paid out",
     "net": "Net P/L",
-    "sumNote": "Settled payouts minus settled stakes",
+    "sumNote": "Total staked excludes refunds; total payouts include compensation; net = total payouts − settled stakes",
     "col": {
       "market": "Market",
       "option": "Option",
@@ -809,9 +838,10 @@
       "settled": "No settled bets yet",
       "refunded": "No refunded bets"
     },
-    "emptyHint": "Find a question you have a view on.",
+    "emptyHint": "Browse the markets to see what you can bet on.",
     "goMarkets": "Browse markets",
-    "count": "{{n}}"
+    "count": "{{n}}",
+    "positionNote": "{{n}} bets on this option, {{amount}} in total, settled together"
   },
   "dispute": {
     "title": "Dispute the result",
@@ -831,8 +861,8 @@
   },
   "authSide": {
     "title": "Back the outcome you believe in",
-    "sub": "Football, NBA, crypto up/down and macro events. Pari-mutuel: winners share the losing pool, and the platform only takes 5% of profit.",
-    "p1": "USDT only — deposit via ERC20, TRC20 or BEP20",
+    "sub": "Football, NBA, crypto up/down and macro events. Pari-mutuel: winners share the losing pool, and the platform only takes a fee on profit (5% by default).",
+    "p1": "USDT only — deposit via ERC20, TRC20 or BSC (BEP20)",
     "p2": "No house, no market making; results and evidence are public",
     "p3": "Works on phone and desktop; add it to your home screen",
     "exHome": "Man City",
@@ -841,5 +871,34 @@
     "exLeague": "Football · Premier League",
     "exPool": "Pool 10,000 USDT",
     "exTitle": "Man City vs Liverpool (90-min result)"
+  },
+  "remind": {
+    "title": "Opening reminders",
+    "desc": "On a market that has not opened yet, tap \"Remind me when it opens\". We will email your account address once when betting opens (each email has an unsubscribe link).",
+    "emailOff": "Email notifications are off, so reminders will not be sent. Turn on Email above to receive them.",
+    "empty": "No reminders yet",
+    "emptyHint": "Subscribe from a market that has not opened yet.",
+    "pitch": "Betting has not opened yet. We can email you when it does.",
+    "subscribe": "Remind me when it opens",
+    "subscribed": "Subscribed: we will email you when betting opens",
+    "active": "Reminder on: we will email you when betting opens.",
+    "unsubscribe": "Unsubscribe",
+    "unsubscribed": "Reminder cancelled",
+    "sent": "The reminder has been sent to your email.",
+    "closed": "Betting is open, so no reminder is needed.",
+    "missed": "This market ended before it opened, so no reminder was sent.",
+    "needLogin": "Reminders are available once you have signed in with your email and password: sign out and sign in again to subscribe.",
+    "manage": "Manage reminders",
+    "unsubTitle": "Unsubscribe from reminder",
+    "unsubDone": "You have unsubscribed from the reminder for \"{{title}}\". We will not email you about it.",
+    "unsubSent": "The reminder for \"{{title}}\" was already sent and will not be sent again.",
+    "unsubInvalid": "This unsubscribe link is invalid or incomplete. You can manage reminders under Me → Notification settings after signing in.",
+    "status": {
+      "none": "Not subscribed",
+      "active": "Subscribed",
+      "sent": "Sent",
+      "cancelled": "Unsubscribed",
+      "missed": "Not sent (market ended)"
+    }
   }
 }

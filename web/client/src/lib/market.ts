@@ -5,7 +5,8 @@
  * - 倒计时按分钟显示，最后 1 分钟按秒（需求 P1）；刷新只换数字，不闪色（C84）。
  */
 import { useEffect, useState } from 'react';
-import type { I18nText, Lang, MarketDetail, MarketResolution, MarketStatus } from '../api/types';
+import type { I18nText, Lang, MarketDetail, MarketPool, MarketResolution, MarketStatus } from '../api/types';
+import { payout, rateFromPercent } from './pool';
 
 export function pickText(t: I18nText | undefined, lang: Lang): string {
   if (!t) return '';
@@ -114,4 +115,14 @@ export function resolverText(r: MarketResolution, t: (k: string) => string): str
   if (by === 'AUTO') return t('md.res.auto');
   if (by === 'SYSTEM') return t('md.res.system');
   return by;
+}
+
+/** 推来的奖池（不含本人的持仓、限额）合进详情的奖池：持仓的"赢了约回"按新奖池和费率重算（lib/pool.payout，和后端同一套规则） */
+export function mergePool(prev: MarketPool, next: MarketPool): MarketPool {
+  const rate = rateFromPercent(next.feeRate);
+  const mine = prev.mine?.map((x) => {
+    const o = next.options.find((p) => p.optionNo === x.optionNo);
+    return o ? { ...x, ifWin: payout(x.amount, o.amount, next.total, rate).payout } : x;
+  });
+  return { ...next, mine, limits: prev.limits };
 }

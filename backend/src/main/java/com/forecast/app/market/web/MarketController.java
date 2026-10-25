@@ -23,11 +23,15 @@ class MarketController {
     this.markets = markets;
   }
 
-  /** 市场列表：category（FOOTBALL 等）、status（不传为全部；active / closed / ended 或某个状态）、sort（closeAt / newest）、分页（每页最多 50） */
+  /**
+   * 市场列表：category（FOOTBALL 等）、status（不传为全部；active / closed / ended 或某个状态）、sort（closeAt / newest / pool，S11 加奖池）、
+   * q（S11：题目包含或市场编号等于）、分页（每页最多 50）
+   */
   @GetMapping("/api/markets")
   ClientViews.Page<ClientViews.Card> list(@RequestParam(required = false) String category, @RequestParam(required = false) String status,
-      @RequestParam(required = false) String sort, @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize) {
-    return markets.clientList(status, category, sort, page, pageSize);
+      @RequestParam(required = false) String sort, @RequestParam(required = false) String q, @RequestParam(defaultValue = "1") int page,
+      @RequestParam(defaultValue = "20") int pageSize) {
+    return markets.clientList(status, category, sort, q, page, pageSize);
   }
 
   /** 市场详情：草稿和不存在的都返回 404；奖池里带本人的持仓 */

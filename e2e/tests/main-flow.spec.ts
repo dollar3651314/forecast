@@ -6,7 +6,7 @@
  * 注册后第一次进来弹出新手引导（这里点"跳过"）。
  * 每轮用新邮箱、新证件号，不依赖上一轮的数据。外部依赖（邮件、链、提现广播）由后端 e2e profile 的替身代替。
  * 两种形态共用（tests/targets.ts）：默认经 server.mjs；部署形态经 Nginx 镜像（HTTPS、两个域名），另外检查登录 Cookie 带 Secure、
- * 两个前端顶部有"测试环境"标识条。下注、结算的步骤在 S11 以后加回来。
+ * 两个前端顶部有"测试环境"标识条。下注、结算、开赛提醒的客户端步骤在 client.spec.ts（S11）。
  */
 import { expect, request as apiRequest, test, type BrowserContext, type Page } from '@playwright/test';
 import { adminLogin, cjk, confirmAndWait, setConfig } from './admin';

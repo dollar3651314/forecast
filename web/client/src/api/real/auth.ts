@@ -21,7 +21,10 @@ export async function login(email: string, password: string): Promise<Session> {
 }
 
 export async function register(req: RegisterRequest): Promise<Session> {
-  return toSession(await post<SessionView>('/api/auth/register', req, { codeFields: { CODE_INVALID: 'code', EMAIL_TAKEN: 'email' }, device: true }));
+  // 勾选框在表单里叫 agree（"已年满 18 周岁并同意服务条款"，S11）
+  return toSession(
+    await post<SessionView>('/api/auth/register', req, { codeFields: { CODE_INVALID: 'code', EMAIL_TAKEN: 'email' }, fieldNames: { adultConfirmed: 'agree' }, device: true }),
+  );
 }
 
 /**

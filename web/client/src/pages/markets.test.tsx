@@ -19,7 +19,7 @@ function setDesktop(on: boolean) {
 }
 
 async function marketNo(prefix: string, status?: string): Promise<string> {
-  const all = await listMarkets({ status: 'all' });
+  const all = (await listMarkets({ status: 'all' }, 1, 100)).items;
   return all.find((m) => m.title.zhCN.startsWith(prefix) && (!status || m.status === status))!.publicNo;
 }
 
@@ -49,7 +49,7 @@ describe('P1 市场列表', () => {
   it('默认只列可下注的：二选一直接两个按钮，多选项显示概率条；已结束的要筛选才显示', async () => {
     renderPage(<Markets />, '/markets');
     const cards = await screen.findAllByTestId('market-card');
-    expect(cards.length).toBe(6);
+    expect(cards.length).toBe(7);
     const btc = cards.find((c) => c.textContent?.includes('BTC 涨还是跌'))!;
     expect(within(btc).getAllByRole('button')).toHaveLength(2);
     expect(within(btc).getByRole('button', { name: /涨：概率 58%/ })).toBeInTheDocument();

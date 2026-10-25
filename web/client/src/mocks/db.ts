@@ -22,10 +22,13 @@ const seedNo = (minutes: number, seq: number): string => snowflakeAt(Date.now() 
 export interface StoredNotification {
   id: string;
   kind: NotificationKind;
-  title: { zh: string; en: string };
-  body: { zh: string; en: string };
+  /** 三种语言（S11：和后端模板一样，繁体空时用简体） */
+  title: { zh: string; en: string; tw?: string };
+  body: { zh: string; en: string; tw?: string };
   read: boolean;
   createdAt: string;
+  /** 点进去的页面（S11，和后端 NotifyService.link 一样） */
+  link?: string;
 }
 
 export interface Db {
@@ -91,36 +94,85 @@ function seedLedger(): LedgerItem[] {
   return out;
 }
 
-const N = (kind: NotificationKind, zhT: string, enT: string, zhB: string, enB: string, minutes: number, read: boolean, i: number): StoredNotification => ({
+type T3 = [zh: string, en: string, tw: string];
+const N = (kind: NotificationKind, title: T3, body: T3, minutes: number, read: boolean, i: number, link?: string): StoredNotification => ({
   id: `N${5000 + i}`,
   kind,
-  title: { zh: zhT, en: enT },
-  body: { zh: zhB, en: enB },
+  title: { zh: title[0], en: title[1], tw: title[2] },
+  body: { zh: body[0], en: body[1], tw: body[2] },
   read,
   createdAt: minutesAgo(minutes),
+  link,
 });
 
+/** 站内信：文案和后端模板（迁移 V17，S9 PM 定稿）一致，三种语言；市场相关的点进"我的下注"（原型里市场编号每次生成，不写死） */
 function seedNotifications(): StoredNotification[] {
   const base: StoredNotification[] = [
-    N('deposit', '充值已到账', 'Deposit credited', '您通过 TRC20 充值的 1,000.00 USDT 已到账。', 'Your deposit of 1,000.00 USDT via TRC20 has been credited.', 18, false, 0),
-    N('withdraw', '提现已进入冷静期', 'Withdrawal in cooling-off period', '1,000.00 USDT 提现已提交，2 小时内可撤销。', 'Your 1,000.00 USDT withdrawal was submitted and can be cancelled within 2 hours.', 25, false, 3),
-    N('system', '系统公告：<b>周末维护</b> 安排', 'Notice: <b>weekend maintenance</b> schedule', '本周六 02:00–04:00（北京时间）进行系统维护，期间无法登录。标题里的 <b> 是测试用的特殊符号，应原样显示。', 'System maintenance on Saturday 02:00–04:00 (UTC+8). The <b> in the title is a test symbol and should be shown as-is.', 1440, false, 4),
-    // 和后端模板 KYC_APPROVED（基线迁移 V3）同一段文案
-    N('kyc', '身份认证已通过', 'Identity verified', '您的身份认证已通过，提现已开通。', 'Your identity has been verified. Withdrawals are now available.', 2880, true, 5),
+    N(
+      'system',
+      ['「美国 9 月 CPI 同比 ≥ 3.0%？」已结算：你押中了', '"US Sep CPI YoY ≥ 3.0%?" settled: your option won', '「美國 9 月 CPI 年增 ≥ 3.0%？」已結算：你押中了'],
+      [
+        '「美国 9 月 CPI 同比 ≥ 3.0%？」结果是「否」。你的派彩 323.40 USDT 已到可用余额（本金 200.00 + 盈利 129.89 − 抽成 6.49，抽成为盈利的 5%）。',
+        '"US Sep CPI YoY ≥ 3.0%?" resolved to "No". Your payout of 323.40 USDT is in your available balance (stake 200.00 + profit 129.89 − fee 6.49; the fee is 5% of the profit).',
+        '「美國 9 月 CPI 年增 ≥ 3.0%？」結果是「否」。你的派彩 323.40 USDT 已到可用餘額（本金 200.00 + 盈利 129.89 − 抽成 6.49，抽成為盈利的 5%）。',
+      ],
+      12,
+      false,
+      1,
+      '/bets?tab=settled',
+    ),
+    N(
+      'deposit',
+      ['充值已到账', 'Deposit credited', '充值已到帳'],
+      ['你通过 TRC20 充值的 1,000.00 USDT 已到账，已计入可用余额。', 'Your deposit of 1,000.00 USDT via TRC20 has been credited to your available balance.', '你透過 TRC20 充值的 1,000.00 USDT 已到帳，已計入可用餘額。'],
+      18,
+      false,
+      0,
+      '/assets',
+    ),
+    N(
+      'withdraw',
+      ['提现状态更新', 'Withdrawal update', '提現狀態更新'],
+      ['你的提现（1,000.00 USDT）已提交，冷静期内可以撤销。', 'Your withdrawal (1,000.00 USDT) was submitted and can be cancelled during the cooling-off period.', '你的提現（1,000.00 USDT）已提交，冷靜期內可以撤銷。'],
+      25,
+      false,
+      3,
+      '/assets/withdraw',
+    ),
+    N(
+      'system',
+      ['下注成功', 'Bet placed', '下注成功'],
+      [
+        '你已在「曼城 vs 利物浦（90 分钟胜平负）」押「主胜 曼城」40.00 USDT。下注后不能撤销；赔率随奖池变化，最终赔率在截止时确定。',
+        'You bet 40.00 USDT on "Man City" in "Man City vs Liverpool (90-min result)". Bets cannot be cancelled. Odds change with the pool; final odds are set at the close.',
+        '你已在「曼城 vs 利物浦（90 分鐘勝平負）」押「主勝 曼城」40.00 USDT。下注後不能撤銷；賠率隨獎池變化，最終賠率在截止時確定。',
+      ],
+      300,
+      true,
+      4,
+      '/bets',
+    ),
+    N(
+      'kyc',
+      ['身份认证已通过', 'Identity verified', '身分認證已通過'],
+      [
+        '你的身份认证已通过，现在可以提现，下注也不再受累计充值的认证门槛限制。',
+        'Your identity has been verified. You can now withdraw, and the verification threshold on total deposits no longer limits your bets.',
+        '你的身分認證已通過，現在可以提現，下注也不再受累計充值的認證門檻限制。',
+      ],
+      2880,
+      true,
+      5,
+      '/me/kyc',
+    ),
   ];
   const out = [...base];
   for (let i = 0; i < 18; i++) {
+    const n = i % 2 ? (100 * (i + 1)).toLocaleString('en-US') : (250 * (i + 1)).toLocaleString('en-US');
     out.push(
-      N(
-        i % 2 ? 'withdraw' : 'deposit',
-        i % 2 ? '提现已完成' : '充值已到账',
-        i % 2 ? 'Withdrawal completed' : 'Deposit credited',
-        i % 2 ? `${(100 * (i + 1)).toLocaleString('en-US')}.00 USDT（TRC20）提现已完成。` : `${(250 * (i + 1)).toLocaleString('en-US')}.00 USDT（ERC20）已到账。`,
-        i % 2 ? `Your ${(100 * (i + 1)).toLocaleString('en-US')}.00 USDT (TRC20) withdrawal has completed.` : `${(250 * (i + 1)).toLocaleString('en-US')}.00 USDT (ERC20) credited.`,
-        6000 + i * 1440,
-        true,
-        10 + i,
-      ),
+      i % 2
+        ? N('withdraw', ['提现状态更新', 'Withdrawal update', '提現狀態更新'], [`你的提现（${n}.00 USDT）已完成。`, `Your withdrawal (${n}.00 USDT) has completed.`, `你的提現（${n}.00 USDT）已完成。`], 6000 + i * 1440, true, 10 + i, '/assets/withdraw')
+        : N('deposit', ['充值已到账', 'Deposit credited', '充值已到帳'], [`你通过 ERC20 充值的 ${n}.00 USDT 已到账，已计入可用余额。`, `Your deposit of ${n}.00 USDT via ERC20 has been credited to your available balance.`, `你透過 ERC20 充值的 ${n}.00 USDT 已到帳，已計入可用餘額。`], 6000 + i * 1440, true, 10 + i, '/assets'),
     );
   }
   return out;

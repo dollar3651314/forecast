@@ -76,6 +76,10 @@ public class GlobalExceptionHandler {
       Map.entry("COMPENSATION_EXISTS", HttpStatus.CONFLICT),
       Map.entry("COMPENSATION_NOTHING", HttpStatus.CONFLICT),
       Map.entry("COMPENSATION_SAME_RESULT", HttpStatus.CONFLICT),
+      // S11 #23 开赛提醒：市场已经开放 / 已结束，不能再订阅；订阅中的太多；还没有用邮箱和密码登录过（SQ-20，403）
+      Map.entry("REMINDER_NOT_AVAILABLE", HttpStatus.CONFLICT),
+      Map.entry("REMINDER_TOO_MANY", HttpStatus.CONFLICT),
+      Map.entry("REMINDER_LOGIN_REQUIRED", HttpStatus.FORBIDDEN),
       Map.entry("NOT_FOUND", HttpStatus.NOT_FOUND));
 
   @ExceptionHandler(BizException.class)

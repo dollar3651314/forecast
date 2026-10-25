@@ -1,8 +1,9 @@
 /**
- * 注册（线框图 W5）：邮箱 + 验证码 + 密码 + 名 / 中间名 / 姓 / 出生日期 / 国籍。
+ * 注册（需求 P8）：邮箱 + 验证码 + 密码 + 名 / 中间名 / 姓 / 出生日期 / 国籍 + 勾选"已年满 18 周岁并同意服务条款"
+ * （S11：后端 adultConfirmed 必须为 true，出生日期也要满 18 周岁；条款链到官网，带当前语言）。
  */
 import { useState, type FormEvent } from 'react';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { register } from '../../api/auth';
 import { errorKey, isApiError } from '../../api/errors';
@@ -10,6 +11,8 @@ import { useAuth } from '../../app/contexts';
 import { DateFields } from '../../components/DateFields';
 import { FieldErrors, PasswordField, Select, TextField } from '../../components/Form';
 import { COUNTRIES } from '../../lib/countries';
+import { siteLink } from '../../lib/siteUrl';
+import { currentLang } from '../../i18n';
 import { hasErrors, validateRegister, type RegisterForm } from '../../lib/validators';
 import { AuthLayout } from './AuthLayout';
 import { EmailCodeFields } from './EmailCodeField';
@@ -38,7 +41,7 @@ export default function Register() {
     setBusy(true);
     try {
       setSession(
-        await register({ email: f.email.trim(), code: f.code, password: f.password, firstName: f.firstName.trim(), middleName: f.middleName.trim(), lastName: f.lastName.trim(), birthDate: f.birthDate.trim(), nationality: f.nationality }),
+        await register({ email: f.email.trim(), code: f.code, password: f.password, firstName: f.firstName.trim(), middleName: f.middleName.trim(), lastName: f.lastName.trim(), birthDate: f.birthDate.trim(), nationality: f.nationality, adultConfirmed: f.agree }),
       );
       navigate('/', { replace: true });
     } catch (err) {
@@ -82,7 +85,16 @@ export default function Register() {
         </div>
         <label className="check">
           <input type="checkbox" checked={f.agree} onChange={(e) => set('agree', e.target.checked)} aria-describedby="agree-err" />
-          <span>{t('auth.agree')}</span>
+          <span>
+            <Trans
+              i18nKey="auth.adultAgree"
+              components={{
+                terms: <a href={siteLink('terms', currentLang())} target="_blank" rel="noreferrer noopener" />,
+                privacy: <a href={siteLink('privacy', currentLang())} target="_blank" rel="noreferrer noopener" />,
+                risk: <a href={siteLink('risk', currentLang())} target="_blank" rel="noreferrer noopener" />,
+              }}
+            />
+          </span>
         </label>
         <FieldErrors id="agree-err" errors={shown('agree')} />
         {submitted && hasErrors(errs) && (

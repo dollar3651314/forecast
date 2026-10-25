@@ -85,7 +85,8 @@ class MarketClientContractTest extends MarketTestSupport {
     }
     assertThat(item).as("新上架的在第一页（newest）").isNotNull();
     // pool（S4）由 pool 模块提供，这里的替身不给（null）；结构见 pool/PoolClientContractTest
-    assertThat(keys(item)).containsExactly("publicNo", "category", "title", "status", "openAt", "closeAt", "eventStartAt", "eventEndAt", "feeRate", "options", "pool");
+    assertThat(keys(item)).containsExactly("publicNo", "category", "title", "status", "openAt", "closeAt", "eventStartAt", "eventEndAt", "feeRate", "options", "pool",
+        "winningOptionNo");
     assertThat(item.get("publicNo").isString()).as("编号是字符串").isTrue();
     assertThat(item.get("category").asString()).isEqualTo("FOOTBALL");
     assertThat(keys(item.get("title"))).containsExactly("en", "zhCN", "zhTW");
@@ -109,7 +110,7 @@ class MarketClientContractTest extends MarketTestSupport {
     JsonNode d = body("/api/markets/" + no, c);
     assertThat(keys(d)).containsExactly("publicNo", "category", "title", "rules", "status", "resolutionMode", "sourcePrimary", "sourceBackup", "openAt", "closeAt",
         "eventStartAt", "eventEndAt", "feeRate", "userCap", "disputeWindowMinutes", "coverPath", "cancelReason", "voidReason", "winningOptionNo", "settling", "options", "clarifications", "feeChanges",
-        "pool", "resolution");
+        "pool", "resolution", "settle", "reminder");
     assertThat(d.get("status").asString()).isEqualTo("listed");
     assertThat(d.get("winningOptionNo").isNull()).as("S5：已结算的市场才公开结果").isTrue();
     assertThat(d.get("settling").asBoolean()).as("S5：派彩中才是 true（结算中）").isFalse();

@@ -139,10 +139,18 @@ describe('HTTP：同源、Cookie、错误转换', () => {
 
   it('注册：验证码错误标在验证码输入框上', async () => {
     stubFetch({ status: 400, body: { code: 'CODE_INVALID', message: '验证码错误', fields: [] } });
-    const e = await auth.register({ email: 'a@b.com', code: '000000', password: 'password1', firstName: 'A', middleName: '', lastName: 'B', birthDate: '1990-01-01', nationality: 'CN' }).catch((x: unknown) => x);
+    const e = await auth.register({ email: 'a@b.com', code: '000000', password: 'password1', firstName: 'A', middleName: '', lastName: 'B', birthDate: '1990-01-01', nationality: 'CN', adultConfirmed: true }).catch((x: unknown) => x);
     expect(e).toBeInstanceOf(ApiError);
     expect((e as ApiError).reason).toBe('codeInvalid');
     expect((e as ApiError).fieldErrors).toEqual({ code: ['errors.codeInvalid'] });
+  });
+
+  it('注册（S11）：没勾"已满 18 岁并同意条款"标在勾选框上，未满 18 岁标在出生日期上', async () => {
+    stubFetch({ status: 400, body: { code: 'VALIDATION_FAILED', fields: [{ field: 'adultConfirmed', code: 'ADULT_REQUIRED' }, { field: 'birthDate', code: 'AGE_UNDER_18' }] } });
+    const e = (await auth
+      .register({ email: 'a@b.com', code: '123456', password: 'password1', firstName: 'A', middleName: '', lastName: 'B', birthDate: '2012-01-01', nationality: 'CN', adultConfirmed: false })
+      .catch((x: unknown) => x)) as ApiError;
+    expect(e.fieldErrors).toEqual({ agree: ['validation.mustAgree'], birthDate: ['validation.ageUnder18'] });
   });
 
   it('改密码：字段名对应到页面表单', async () => {

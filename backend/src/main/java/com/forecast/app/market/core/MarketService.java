@@ -17,6 +17,8 @@ import com.forecast.app.market.api.MarketCategory;
 import com.forecast.app.market.api.MarketListener;
 import com.forecast.app.market.api.MarketPoolView;
 import com.forecast.app.market.api.MarketResolutionView;
+import com.forecast.app.market.api.MarketSettleView;
+import com.forecast.app.market.remind.ReminderService;
 import com.forecast.app.market.api.MarketStatus;
 import com.forecast.app.market.api.ResolutionMode;
 import com.forecast.app.market.api.SettlePhase;
@@ -71,6 +73,8 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
   static final Set<MarketStatus> VISIBLE = EnumSet.complementOf(EnumSet.of(MarketStatus.DRAFT));
   /** 客户端详情里有裁决信息（resolution 字段）的状态（S7 起含公示中、争议中、已作废） */
   static final Set<MarketStatus> RESOLUTION_VISIBLE = EnumSet.of(MarketStatus.PUBLICIZING, MarketStatus.DISPUTED, MarketStatus.SETTLED, MarketStatus.VOIDED);
+  /** 客户端详情里有结算信息的状态（S11） */
+  static final Set<MarketStatus> SETTLE_VISIBLE = EnumSet.of(MarketStatus.SETTLED, MarketStatus.CANCELLED, MarketStatus.VOIDED);
   /** 截止任务、事件结束任务每轮最多处理几个市场（处理不完的下一轮接着处理） */
   static final int BATCH = 200;
   /** 发补充说明、文字长度上限 */
@@ -86,11 +90,14 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
   private final ObjectProvider<MarketPoolView> pool;
   private final ObjectProvider<MarketListener> listeners;
   private final ObjectProvider<MarketResolutionView> resolution;
+  private final ObjectProvider<MarketSettleView> settleView;
+  private final ObjectProvider<ReminderService> reminders;
   private final ObjectMapper json;
   private final TransactionTemplate tx;
 
   MarketService(MarketMapper mapper, SystemConfig config, Snowflake ids, Clock clock, NotifyApi notify, StaffAlertApi staff, ObjectProvider<MarketPoolView> pool,
-      ObjectProvider<MarketListener> listeners, ObjectProvider<MarketResolutionView> resolution, ObjectMapper json, PlatformTransactionManager tm) {
+      ObjectProvider<MarketListener> listeners, ObjectProvider<MarketResolutionView> resolution, ObjectProvider<MarketSettleView> settleView,
+      ObjectProvider<ReminderService> reminders, ObjectMapper json, PlatformTransactionManager tm) {
     this.mapper = mapper;
     this.config = config;
     this.ids = ids;
@@ -100,6 +107,8 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
     this.pool = pool;
     this.listeners = listeners;
     this.resolution = resolution;
+    this.settleView = settleView;
+    this.reminders = reminders;
     this.json = json;
     this.tx = new TransactionTemplate(tm);
   }
@@ -569,6 +578,7 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
         v.put("text", t.zhCN());
         v.put("textEn", t.en());
         v.put("textTw", t.zhTW());
+        v.put("marketNo", String.valueOf(m.publicNo)); // 通知中心点进市场（S11）
         notices.add(new NotifyApi.Notice(uid, v));
       }
       notify.toUsers("MARKET_CLARIFIED", notices);
@@ -637,6 +647,7 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
       params.put("old", percent(m.feeRate) + "%");
       params.put("new", percent(rate) + "%");
       params.put("at", MarketFormats.noticeTime(now));
+      params.put("marketNo", String.valueOf(m.publicNo)); // 通知中心点进市场（S11）
       for (Long uid : users) {
         notify.toUser(uid, "FEE_CHANGED", params);
         notified++;
@@ -649,33 +660,66 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
   // 客户端（market/web/MarketController）
   // =====================================================================
 
+  /** 按奖池排序时最多比较多少个市场（S11；可下注的市场第一期只有几个到几十个，"已结束"很多时只在截止时间最近的这些里排） */
+  static final int POOL_SORT_LIMIT = 2000;
+
   /**
    * 客户端列表。status：不传为全部（不含草稿）；可以是一个状态（小写），或一组：{@code active}（已上架、已暂停）、
-   * {@code closed}（截止下注到争议中，等结果）、{@code ended}（已结算、已取消、已作废）。sort：{@code closeAt}（默认）/ {@code newest}。
+   * {@code closed}（截止下注到争议中，等结果）、{@code ended}（已结算、已取消、已作废）。sort：{@code closeAt}（默认）/ {@code newest} /
+   * {@code pool}（奖池合计从大到小，S11；奖池由 pool 模块给，见 {@link #POOL_SORT_LIMIT}）。
+   * keyword（S11）：题目（三种语言）包含它，或者市场编号等于它；最多 100 个字。
    */
   @Transactional(readOnly = true)
-  public ClientViews.Page<ClientViews.Card> clientList(String status, String category, String sort, int page, int pageSize) {
+  public ClientViews.Page<ClientViews.Card> clientList(String status, String category, String sort, String keyword, int page, int pageSize) {
     ValidationException.Collector errs = new ValidationException.Collector();
     Set<MarketStatus> statuses = clientStatuses(status);
     if (statuses == null) errs.add("status", "invalid");
     MarketCategory cat = category == null || category.isBlank() ? null : MarketCategory.of(category);
     if (category != null && !category.isBlank() && cat == null) errs.add("category", "invalid");
     String srt = sort == null || sort.isBlank() ? "closeAt" : sort.strip();
-    if (!srt.equals("closeAt") && !srt.equals("newest")) errs.add("sort", "invalid");
+    if (!srt.equals("closeAt") && !srt.equals("newest") && !srt.equals("pool")) errs.add("sort", "invalid");
+    String kw = keyword == null || keyword.isBlank() ? null : keyword.strip();
+    if (kw != null && kw.length() > 100) errs.add("keyword", "tooLong");
     errs.throwIfAny();
     int p = Math.max(1, page);
     int size = Math.min(50, Math.max(1, pageSize));
     List<String> st = statuses.stream().map(Enum::name).toList();
     String c = cat == null ? null : cat.name();
-    List<MarketRows.Market> rows = mapper.clientList(st, c, srt, (p - 1) * size, size);
+    String like = kw == null ? null : kw.replace("!", "!!").replace("%", "!%").replace("_", "!_");
+    Long no = kw != null && kw.matches("\\d{1,19}") ? parseNo(kw) : null;
+    List<MarketRows.Market> rows;
+    long total;
+    if (srt.equals("pool")) {
+      List<Long> ids = mapper.clientIds(st, c, like, no, POOL_SORT_LIMIT);
+      MarketPoolView pv = pool.getIfAvailable();
+      Map<Long, MarketPoolView.Totals> totals = pv == null || ids.isEmpty() ? Map.of() : pv.totals(ids);
+      // 奖池大的在前；一样大时保持截止时间的顺序（ids 已按截止时间排好，排序是稳定的）
+      List<Long> sorted = ids.stream().sorted(java.util.Comparator.comparing((Long id) -> totals.containsKey(id) ? totals.get(id).amount() : BigDecimal.ZERO).reversed())
+          .toList();
+      List<Long> pageIds = sorted.subList(Math.min(sorted.size(), (p - 1) * size), Math.min(sorted.size(), p * size));
+      Map<Long, MarketRows.Market> byId = pageIds.isEmpty() ? Map.of() : mapper.findByIds(pageIds).stream().collect(Collectors.toMap(r -> r.id, r -> r));
+      rows = pageIds.stream().map(byId::get).filter(java.util.Objects::nonNull).toList();
+      total = ids.size();
+    } else {
+      rows = mapper.clientList(st, c, like, no, srt, (p - 1) * size, size);
+      total = mapper.clientCount(st, c, like, no);
+    }
     Map<Long, List<MarketRows.Option>> opts = rows.isEmpty() ? Map.of()
         : mapper.optionsOf(rows.stream().map(r -> r.id).toList()).stream().collect(Collectors.groupingBy(o -> o.marketId));
     Map<Long, Object> pools = clientPools(rows, opts, null);
     List<ClientViews.Card> items = rows.stream().map(m -> new ClientViews.Card(String.valueOf(m.publicNo), m.category, title(m), status(m).api(), iso(m.openAt),
         iso(m.closeAt), iso(m.eventStartAt), iso(m.eventEndAt), percent(m.feeRate),
         opts.getOrDefault(m.id, List.of()).stream().map(o -> new ClientViews.OptionCard(String.valueOf(o.publicNo), o.seq, label(o))).toList(),
-        pools.get(m.id))).toList();
-    return new ClientViews.Page<>(items, mapper.clientCount(st, c), p, size);
+        pools.get(m.id), winningOptionNo(m, opts.getOrDefault(m.id, List.of())))).toList();
+    return new ClientViews.Page<>(items, total, p, size);
+  }
+
+  private static Long parseNo(String s) {
+    try {
+      return Long.parseLong(s);
+    } catch (NumberFormatException e) {
+      return null;
+    }
   }
 
   /** 客户端详情；草稿、删除的、不存在的都是空（404）。userId：当前客户，详情的奖池里带上他的持仓（S4） */
@@ -694,10 +738,15 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
     // （结果、依据、裁决人编号、争议截止时间、争议结论，需求第 4.4 节、第 5.2 节 P2、AC-34），公示中、争议中、已结算、已作废时有
     MarketResolutionView rv = resolution.getIfAvailable();
     Object resolved = rv != null && RESOLUTION_VISIBLE.contains(status(m)) ? rv.clientResolution(m.id, status(m), userId) : null;
+    // S11：结算合计和本人的结果（settle 模块提供），已结算、已取消、已作废时有；本人的开赛提醒（#23）
+    MarketSettleView sv = settleView.getIfAvailable();
+    Object settled = sv != null && SETTLE_VISIBLE.contains(status(m)) ? sv.clientSettle(m.id, status(m), userId) : null;
+    ReminderService rs = reminders.getIfAvailable();
+    Object reminder = rs == null ? null : rs.state(userId, m.id, status(m), m.openAt);
     return Optional.of(new ClientViews.Detail(String.valueOf(m.publicNo), m.category, title(m), rules(m), status(m).api(), m.resolutionMode, m.sourcePrimary,
         m.sourceBackup, iso(m.openAt), iso(m.closeAt), iso(m.eventStartAt), iso(m.eventEndAt), percent(m.feeRate), money(m.userCap), m.disputeWindowMin,
         m.coverPath, m.cancelReason, m.voidReason, winningOptionNo(m, optionRows), SettlePhase.PAYING.name().equals(m.settlePhase), options, cl, fees,
-        poolView, resolved));
+        poolView, resolved, settled, reminder));
   }
 
   /** 已结算的市场才公开结果（S5 超管填的结果；公示中的拟定结果在 S7 另给） */

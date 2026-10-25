@@ -385,10 +385,11 @@ public class SettleService {
       if (!repeated.isEmpty()) log.warn("结算单 {} 有 {} 个客户的派彩之前已经记过账（幂等键挡住，没有重复记）", run.id, repeated.size());
       List<NotifyApi.Notice> won = new ArrayList<>();
       List<NotifyApi.Notice> lost = new ArrayList<>();
+      String marketNo = marketNoOf(run.marketId);
       for (Map.Entry<Long, List<SettleRows.Item>> e : byUser.entrySet()) {
         if (repeated.contains(e.getKey())) continue;
         boolean w = e.getValue().stream().anyMatch(i -> i.win);
-        (w ? won : lost).add(new NotifyApi.Notice(e.getKey(), settledParams(e.getValue(), title, win, run)));
+        (w ? won : lost).add(new NotifyApi.Notice(e.getKey(), settledParams(e.getValue(), title, win, run, marketNo)));
       }
       notify.toUsers("SETTLE_WON", won);
       notify.toUsers("SETTLE_LOST", lost);
@@ -403,9 +404,15 @@ public class SettleService {
     return done;
   }
 
+  /** 市场的对外编号（通知里带上，客户在通知中心点进市场，S11）；找不到时为空串 */
+  private String marketNoOf(long marketId) {
+    return markets.findById(marketId).map(r -> String.valueOf(r.publicNo())).orElse("");
+  }
+
   /** 结算通知的变量：赢了（#11）写派彩、抽成合计；只输（#12）写输掉的本金 */
-  private Map<String, String> settledParams(List<SettleRows.Item> items, I18nText title, MarketApi.OptionRef win, SettleRows.Run run) {
+  private Map<String, String> settledParams(List<SettleRows.Item> items, I18nText title, MarketApi.OptionRef win, SettleRows.Run run, String marketNo) {
     Map<String, String> p = new LinkedHashMap<>();
+    p.put("marketNo", marketNo); // 通知中心点进市场（S11）
     p.put("market", title.zhCN());
     p.put("marketEn", title.en());
     p.put("marketTw", title.zhTW());
@@ -626,11 +633,12 @@ public class SettleService {
     Long runId = chunk.get(0).runId;
     SettleRows.Run run = runId == null ? null : mapper.runById(runId); // 取消、作废时通知里写退款单上的原因
     String runReason = run == null ? null : run.reason;
+    String marketNo = marketNoOf(marketId);
     for (Map.Entry<Long, List<SettleRows.Refund>> e : byUser.entrySet()) {
       if (repeated.contains(e.getKey())) continue;
       String template = refundTemplate(e.getValue().get(0).reason);
       if (template != null) {
-        notices.computeIfAbsent(template, k -> new ArrayList<>()).add(new NotifyApi.Notice(e.getKey(), refundParams(e.getValue(), title, at, runReason)));
+        notices.computeIfAbsent(template, k -> new ArrayList<>()).add(new NotifyApi.Notice(e.getKey(), refundParams(e.getValue(), title, at, runReason, marketNo)));
       }
     }
     notices.forEach(notify::toUsers);
@@ -645,9 +653,10 @@ public class SettleService {
     };
   }
 
-  private static Map<String, String> refundParams(List<SettleRows.Refund> rows, I18nText title, Instant at, String runReason) {
+  private static Map<String, String> refundParams(List<SettleRows.Refund> rows, I18nText title, Instant at, String runReason, String marketNo) {
     String reason = rows.get(0).reason;
     Map<String, String> p = new LinkedHashMap<>();
+    p.put("marketNo", marketNo); // 通知中心点进市场（S11）
     p.put("market", title.zhCN());
     p.put("marketEn", title.en());
     p.put("marketTw", title.zhTW());

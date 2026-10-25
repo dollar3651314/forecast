@@ -39,21 +39,22 @@ export function ProtoBanner() {
   );
 }
 
+/** 电脑顶栏：可用、下注中都显示（PQ-3），点进资产 */
 function TopAccount() {
   const { t } = useTranslation();
   const { metrics, error } = useAccount();
   const dash = error ? '—' : undefined;
   return (
-    <div className="top-acc">
-      <div>
-        {t('account.balance')}
-        <span className="num">{dash ?? formatAmount(metrics?.balance)}</span>
-      </div>
+    <NavLink to="/assets" className="top-acc" aria-label={t('nav.assets')}>
       <div>
         {t('account.available')}
         <span className="num">{dash ?? formatAmount(metrics?.available)}</span>
       </div>
-    </div>
+      <div>
+        {t('assets.betLocked')}
+        <span className="num">{dash ?? formatAmount(metrics?.betLocked)}</span>
+      </div>
+    </NavLink>
   );
 }
 

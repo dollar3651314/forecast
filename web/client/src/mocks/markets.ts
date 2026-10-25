@@ -11,8 +11,9 @@
  * - 布伦特福德 vs 富勒姆：两个比分源不一致转平台裁决，公示中，本人押了主胜，可以"提交争议"；
  * - 美国 9 月 CPI：平台裁决、已结算（结果、依据、裁决人编号 A01），本人押中；
  * - BTC 1 小时涨跌（上一个窗口）：自动裁决、已结算（开始价、结束价、两个来源），本人没押中；
- * - 赫罗纳 vs 塞维利亚：比赛延期超过 48 小时，已作废、全额退回。
- * "空数据"场景下列表和我的下注都为空。
+ * - 赫罗纳 vs 塞维利亚：比赛延期超过 48 小时，已作废、全额退回；
+ * - BTC 1 小时涨跌（明天 13:00 UTC 的场次）：已上架、还没到开放时间，可以订阅开赛提醒（S11，#23）。
+ * "空数据"场景下列表和我的下注都为空。结算信息 settle、开赛提醒 reminder、我的下注的 result / totals 的结构和后端 S11 一致。
  */
 import { ApiError } from '../api/errors';
 import type {
@@ -28,10 +29,15 @@ import type {
   MarketPool,
   MarketQuery,
   MarketResolution,
+  MarketSettle,
   MarketStatus,
   MyBet,
   MyBets,
   MyBetTab,
+  Page,
+  ReminderListing,
+  ReminderState,
+  ReminderUnsubscribed,
 } from '../api/types';
 import { expectedReturn, multiplier, payout, percent, rateFromPercent } from '../lib/pool';
 import { add, dec, sub, sum, toFixed } from '../lib/decimal';
@@ -190,6 +196,9 @@ function seedMarkets(): StoredMarket[] {
   const bre = now - 4 * HOUR;
   const prevBtcStart = ceilTo(now, HOUR) - 3 * HOUR;
   const gir = now - 3 * DAY;
+  // 下一个"每天 13:00 UTC"的场次（离现在至少 4 小时，开放下注在开始前 3 小时，所以还没开放）
+  let nextSession = Date.UTC(new Date(now).getUTCFullYear(), new Date(now).getUTCMonth(), new Date(now).getUTCDate(), 13);
+  while (nextSession - 3 * HOUR <= now + HOUR) nextSession += DAY;
 
   const list: StoredMarket[] = [
     market({
@@ -477,18 +486,41 @@ function seedMarkets(): StoredMarket[] {
       voidReason: 'POSTPONED_48H',
       createdAgo: 8 * DAY,
     }),
+    market({
+      category: 'CRYPTO_1H',
+      league: L('BTC · 1 小时 · 每日场次', 'BTC · 1 hour · daily session', 'BTC · 1 小時 · 每日場次'),
+      title: L(`BTC 涨还是跌？${utcHm(nextSession)}–${utcHm(nextSession + HOUR)} UTC`, `BTC up or down? ${utcHm(nextSession)}–${utcHm(nextSession + HOUR)} UTC`, `BTC 漲還是跌？${utcHm(nextSession)}–${utcHm(nextSession + HOUR)} UTC`),
+      status: 'listed',
+      openAt: nextSession - 3 * HOUR,
+      closeAt: nextSession - 30_000,
+      eventStartAt: nextSession,
+      eventEndAt: nextSession + HOUR,
+      feeRate: '5',
+      resolutionMode: 'AUTO',
+      sourcePrimary: 'Binance BTC/USDT 1m',
+      sourceBackup: 'OKX BTC-USDT 1m',
+      rules: cryptoRules('BTC', nextSession, nextSession + HOUR, nextSession - 30_000),
+      options: [
+        option(L('涨', 'Up', '漲'), L('结束价 ≥ 开始价', 'End price ≥ start price', '結束價 ≥ 開始價'), '0.00', 0),
+        option(L('跌', 'Down', '跌'), L('结束价 < 开始价', 'End price < start price', '結束價 < 開始價'), '0.00', 0),
+      ],
+      createdAgo: 20 * MIN,
+    }),
   ];
   return list;
 }
 
 let markets: StoredMarket[] = seedMarkets();
 const disputes = new Map<string, DisputeRequest>();
+/** 开赛提醒（S11）：市场编号 → 状态；原型里的账户算"登录过"（可以订阅） */
+const reminders = new Map<string, ReminderState['status']>();
 const winNo = (m: StoredMarket): string | undefined => (m.winSeq ? m.options[m.winSeq - 1]?.optionNo : undefined);
 
 /** 原型：重置（和 db 的重置一起调用） */
 export function resetMarkets(): void {
   markets = seedMarkets();
   disputes.clear();
+  reminders.clear();
 }
 
 // ---------- 视图 ----------
@@ -592,23 +624,57 @@ function resolutionOf(m: StoredMarket): MarketResolution | undefined {
   };
 }
 
-/** M1 提议的结算合计和本人派彩（后端没有；原型按需求第 3.5 节现算，合计把赢方奖池当一个持仓近似） */
-function settleOf(m: StoredMarket, pool: MarketPool): Pick<MarketDetail, 'settleSummary' | 'myPayout'> {
+/** 结算信息（S11，结构和后端 ClientSettleViews 一致）：按需求第 3.5 节逐个持仓算（模拟层只有本人这一个持仓，其余的人合成一个持仓） */
+function settleOf(m: StoredMarket, pool: MarketPool): MarketSettle | null {
+  const mineStake = toFixed(sum(m.bets.map((b) => dec(b.amount))), 2);
+  if (m.status === 'voided' || m.status === 'cancelled') {
+    const has = m.bets.length > 0;
+    return {
+      kind: 'refund',
+      status: 'done',
+      feeRate: null,
+      poolTotal: pool.total,
+      payoutTotal: pool.total,
+      feeTotal: '0.00',
+      dust: '0.00',
+      winnerPositions: 0,
+      loserPositions: 0,
+      doneAt: iso(m.eventEndAt),
+      mine: has ? { stake: '0.00', payout: '0.00', fee: '0.00', refund: mineStake, compensation: '0.00' } : null,
+    };
+  }
   const no = winNo(m);
-  if (m.status !== 'settled' || !no) return {};
+  if (m.status !== 'settled' || !no) return null;
   const win = m.options.find((o) => o.optionNo === no)!;
   const rate = rateFromPercent(m.feeRate);
-  const p = payout(win.pool, win.pool, pool.total, rate);
-  const loser = sub(dec(pool.total), dec(win.pool));
-  const out: Pick<MarketDetail, 'settleSummary' | 'myPayout'> = {
-    settleSummary: { feeRate: m.feeRate, payoutTotal: p.payout, feeTotal: p.fee, dust: toFixed(sub(loser, dec(p.gross)), 2) },
-  };
   const mine = pool.mine?.find((x) => x.optionNo === win.optionNo);
-  if (mine) {
-    const pm = payout(mine.amount, win.pool, pool.total, rate);
-    out.myPayout = { payout: pm.payout, fee: pm.fee };
-  }
-  return out;
+  // 本人赢方持仓单独算，其余赢方奖池合成一个持仓（两次舍入，尾差 = 输方 − ΣG）
+  const others = toFixed(sub(dec(win.pool), dec(mine?.amount ?? '0')), 2);
+  const pm = mine ? payout(mine.amount, win.pool, pool.total, rate) : null;
+  const po = dec(others) > 0n ? payout(others, win.pool, pool.total, rate) : null;
+  const gross = add(dec(pm?.gross ?? '0'), dec(po?.gross ?? '0'));
+  const loser = sub(dec(pool.total), dec(win.pool));
+  return {
+    kind: 'payout',
+    status: 'done',
+    feeRate: m.feeRate,
+    poolTotal: pool.total,
+    payoutTotal: toFixed(add(dec(pm?.payout ?? '0'), dec(po?.payout ?? '0')), 2),
+    feeTotal: toFixed(add(dec(pm?.fee ?? '0'), dec(po?.fee ?? '0')), 2),
+    dust: toFixed(sub(loser, gross), 2),
+    winnerPositions: win.bettors,
+    loserPositions: m.options.filter((o) => o.optionNo !== no).reduce((n, o) => n + o.bettors, 0),
+    doneAt: iso(m.eventEndAt + 10 * MIN),
+    mine: m.bets.length ? { stake: mineStake, payout: pm?.payout ?? '0.00', fee: pm?.fee ?? '0.00', refund: '0.00', compensation: '0.00' } : null,
+  };
+}
+
+/** 开赛提醒（S11）：还没开放、或者订阅过才有 */
+function reminderOf(m: StoredMarket): ReminderState | null {
+  const available = (m.status === 'listed' || m.status === 'paused') && m.openAt > Date.now();
+  const st = reminders.get(m.publicNo);
+  if (!available && !st) return null;
+  return { available, eligible: true, status: st ?? 'none' };
 }
 
 function detailOf(m: StoredMarket): MarketDetail {
@@ -629,33 +695,32 @@ function detailOf(m: StoredMarket): MarketDetail {
     winningOptionNo: m.status === 'settled' ? winNo(m) : null,
     settling: false,
     resolution: resolutionOf(m),
-    ...settleOf(m, pool),
+    settle: settleOf(m, pool),
+    reminder: reminderOf(m),
   };
 }
 
 const ACTIVE: MarketStatus[] = ['listed', 'paused'];
 const CLOSED: MarketStatus[] = ['closed', 'pending_resolution', 'publicizing', 'disputed'];
 
-export function listMarkets(q: MarketQuery): Promise<MarketCard[]> {
-  return respond(
-    () => {
-      const status = q.status ?? 'active';
-      const k = (q.keyword ?? '').trim().toLowerCase();
-      const items = markets.filter((m) => {
-        if (q.category && m.category !== q.category) return false;
-        if (status === 'active' && !ACTIVE.includes(m.status)) return false;
-        if (status === 'closed' && !CLOSED.includes(m.status)) return false;
-        if (status === 'ended' && (ACTIVE.includes(m.status) || CLOSED.includes(m.status))) return false;
-        return !k || [m.title.zhCN, m.title.en, m.title.zhTW].some((s) => s.toLowerCase().includes(k));
-      });
-      const sorted = [...items];
-      if (q.sort === 'newest') sorted.sort((a, b) => b.createdAt - a.createdAt);
-      else if (q.sort === 'pool') sorted.sort((a, b) => Number(poolOf(b, false).total) - Number(poolOf(a, false).total));
-      else sorted.sort((a, b) => (status === 'ended' ? b.closeAt - a.closeAt : a.closeAt - b.closeAt));
-      return sorted.map(cardOf);
-    },
-    () => [],
-  );
+export function listMarkets(q: MarketQuery, page: number, pageSize: number): Promise<Page<MarketCard>> {
+  const empty = (): Page<MarketCard> => ({ items: [], total: 0, page, pageSize });
+  return respond(() => {
+    const status = q.status ?? 'active';
+    const k = (q.keyword ?? '').trim().toLowerCase();
+    const items = markets.filter((m) => {
+      if (q.category && m.category !== q.category) return false;
+      if (status === 'active' && !ACTIVE.includes(m.status)) return false;
+      if (status === 'closed' && !CLOSED.includes(m.status)) return false;
+      if (status === 'ended' && (ACTIVE.includes(m.status) || CLOSED.includes(m.status))) return false;
+      return !k || m.publicNo === k || [m.title.zhCN, m.title.en, m.title.zhTW].some((s) => s.toLowerCase().includes(k));
+    });
+    const sorted = [...items];
+    if (q.sort === 'newest') sorted.sort((a, b) => b.createdAt - a.createdAt);
+    else if (q.sort === 'pool') sorted.sort((a, b) => Number(poolOf(b, false).total) - Number(poolOf(a, false).total));
+    else sorted.sort((a, b) => a.closeAt - b.closeAt);
+    return { items: sorted.slice((page - 1) * pageSize, page * pageSize).map(cardOf), total: sorted.length, page, pageSize };
+  }, empty);
 }
 
 function find(publicNo: string): StoredMarket {
@@ -754,19 +819,16 @@ export function listMyBets(tab: MyBetTab, page: number, pageSize: number): Promi
           multAtBet: b.multAtBet,
           feeRateAtBet: b.feeRateAtBet,
           category: m.category,
+          finalMult: pool.frozen && t !== 'refunded' ? pool.options.find((x) => x.optionNo === o.optionNo)!.mult : null,
+          result: null,
         };
-        if (pool.frozen && t !== 'refunded') item.finalMult = pool.options.find((x) => x.optionNo === o.optionNo)!.mult;
         if (t === 'settled') {
+          // 结算按持仓算：同一选项的几笔下注合成一个持仓
+          const same = m.bets.filter((x) => x.optionSeq === b.optionSeq);
+          const amount = toFixed(sum(same.map((x) => dec(x.amount))), 2);
           const won = winNo(m) === o.optionNo;
-          item.won = won;
-          if (won) {
-            const p = payout(b.amount, o.pool, pool.total, rate);
-            item.payout = p.payout;
-            item.fee = p.fee;
-          } else {
-            item.payout = '0.00';
-            item.fee = '0.00';
-          }
+          const p = won ? payout(amount, o.pool, pool.total, rate) : null;
+          item.result = { won, positionAmount: amount, positionBets: same.length, payout: p?.payout ?? '0.00', fee: p?.fee ?? '0.00' };
         }
         all.push(item);
       }
@@ -779,7 +841,18 @@ export function listMyBets(tab: MyBetTab, page: number, pageSize: number): Promi
     }
     const settled = all.filter((x) => x.tab === 'settled');
     const staked = sum(settled.map((x) => dec(x.amount)));
-    const paid = sum(settled.map((x) => dec(x.payout ?? '0')));
+    // 每个持仓的派彩只算一次（同一持仓的几笔下注带着同一个 result）
+    const seen = new Set<string>();
+    const paid = sum(
+      settled
+        .filter((x) => {
+          const key = `${x.marketNo}:${x.optionNo}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .map((x) => dec(x.result?.payout ?? '0')),
+    );
     out.totals = { staked: toFixed(sum(all.filter((x) => x.tab !== 'refunded').map((x) => dec(x.amount))), 2), payout: toFixed(paid, 2), net: toFixed(sub(paid, staked), 2) };
     const items = all.filter((x) => x.tab === tab);
     out.items = items.slice((page - 1) * pageSize, page * pageSize);
@@ -809,3 +882,50 @@ export function submitDispute(publicNo: string, req: DisputeRequest): Promise<Di
 
 /** 本注预计回报（下注抽屉用，和 lib/pool 同一个函数；测试用） */
 export const previewReturn = (pool: string, total: string, stake: string, feeRate: string): string => expectedReturn(pool, total, stake, rateFromPercent(feeRate));
+
+// ---------- 开赛提醒（S11，#23） ----------
+function reminderState(publicNo: string): ReminderState {
+  const m = find(publicNo);
+  return reminderOf(m) ?? { available: false, eligible: true, status: reminders.get(publicNo) ?? 'none' };
+}
+
+export function subscribeReminder(publicNo: string): Promise<ReminderState> {
+  return mutate(() => {
+    const m = find(publicNo);
+    if (!((m.status === 'listed' || m.status === 'paused') && m.openAt > Date.now())) throw new ApiError('reminderNotAvailable');
+    reminders.set(publicNo, 'active');
+    return reminderState(publicNo);
+  });
+}
+
+export function unsubscribeReminder(publicNo: string): Promise<ReminderState> {
+  return mutate(() => {
+    if (reminders.get(publicNo) === 'active') reminders.set(publicNo, 'cancelled');
+    return reminderState(publicNo);
+  });
+}
+
+export function listReminders(): Promise<ReminderListing> {
+  return respond(
+    () => ({
+      eligible: true,
+      items: [...reminders.entries()]
+        .map(([no, status]) => {
+          const m = find(no);
+          return { marketNo: no, title: m.title, marketStatus: m.status, openAt: iso(m.openAt), closeAt: iso(m.closeAt), status, sentAt: null };
+        })
+        .sort((a, b) => Date.parse(a.openAt) - Date.parse(b.openAt)),
+    }),
+    () => ({ eligible: true, items: [] }),
+  );
+}
+
+export function unsubscribeByToken(token: string): Promise<ReminderUnsubscribed> {
+  return mutate(() => {
+    // 原型：随机串就是市场编号
+    const m = markets.find((x) => x.publicNo === token);
+    if (!m) throw new ApiError('notFound');
+    if (reminders.get(m.publicNo) === 'active') reminders.set(m.publicNo, 'cancelled');
+    return { marketNo: m.publicNo, title: m.title, status: reminders.get(m.publicNo) ?? 'none' };
+  });
+}

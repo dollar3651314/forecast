@@ -29,7 +29,9 @@ class SessionFilter extends OncePerRequestFilter {
    * 不登录浏览市场列表待 MF 结论（技术方案/v1-架构方案.md 第 18 节，开关 forecast.public-browse.enabled，S3 以后）。
    */
   static final Set<String> PUBLIC = Set.of(
-      "/api/health", "/api/auth/email-code", "/api/auth/register", "/api/auth/login", "/api/auth/logout", "/api/auth/password/reset");
+      "/api/health", "/api/auth/email-code", "/api/auth/register", "/api/auth/login", "/api/auth/logout", "/api/auth/password/reset",
+      // forecast S11：#23 开赛提醒邮件里的退订链接（凭随机串只能退订那一条，ReminderController）
+      "/api/reminders/unsubscribe");
 
   private final SessionService sessions;
   private final AuthProperties props;

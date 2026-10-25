@@ -20,12 +20,20 @@ export function CategoryIcon({ category, size = 16 }: { category: MarketCategory
   );
 }
 
-/** 截止时间：一天以内显示"还剩 xx"，更远显示"截止 11-01 14:55 UTC" */
-export function CloseLabel({ closeAt, now, status }: { closeAt: string; now: number; status: MarketStatus }) {
+/** 截止时间：一天以内显示"还剩 xx"，更远显示"截止 11-01 14:55 UTC"；还没开放的显示"11-02 10:00 UTC 开放"（S11） */
+export function CloseLabel({ closeAt, openAt, now, status }: { closeAt: string; openAt?: string; now: number; status: MarketStatus }) {
   const { t } = useTranslation();
   const left = useRemainText(closeAt, now);
   const ms = Date.parse(closeAt) - now;
   if (status !== 'listed' && status !== 'paused') return null;
+  if (openAt && Date.parse(openAt) > now) {
+    return (
+      <span className="mk-close upcoming">
+        <Icon name="clock" size={13} strokeWidth={2.2} />
+        {t('mk.opensAt', { t: utcText(openAt) })}
+      </span>
+    );
+  }
   if (left && ms < 24 * 3_600_000) {
     return (
       <span className={`mk-close${ms < 3_600_000 ? ' soon' : ''}`}>

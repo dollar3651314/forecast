@@ -198,6 +198,7 @@ public class CompensationService {
         v.put("optionEn", correct == null ? "VOID" : correct.label().en());
         v.put("optionTw", correct == null ? "VOID" : correct.label().zhTW());
         v.put("amount", money(l.amount()));
+        v.put("marketNo", String.valueOf(m.publicNo())); // 通知中心点进市场（S11）
         notices.add(new NotifyApi.Notice(l.userId(), v));
       }
       notify.toUsers("COMPENSATION_PAID", notices);

@@ -54,7 +54,7 @@ class UserPushTest {
     ArgumentCaptor<Map<String, String>> p = ArgumentCaptor.forClass(Map.class);
     verify(mail, atLeastOnce()).send(eq(email), eq("EMAIL_CODE"), p.capture());
     HttpResponse<String> r = post("/api/auth/register", "{\"email\":\"" + email + "\",\"code\":\"" + p.getValue().get("code")
-        + "\",\"password\":\"password123\",\"firstName\":\"A\",\"lastName\":\"B\",\"birthDate\":\"1990-05-01\",\"nationality\":\"CN\"}");
+        + "\",\"password\":\"password123\",\"firstName\":\"A\",\"lastName\":\"B\",\"birthDate\":\"1990-05-01\",\"nationality\":\"CN\",\"adultConfirmed\":true}");
     assertThat(r.statusCode()).as(r.body()).isEqualTo(200);
     String cookie = r.headers().firstValue("Set-Cookie").orElseThrow().split(";", 2)[0];
     HttpResponse<String> me = http.send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/me/session")).header("Cookie", cookie).build(),

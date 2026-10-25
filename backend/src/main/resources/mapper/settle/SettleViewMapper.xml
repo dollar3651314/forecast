@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 客户端要的结算信息（forecast S11，只读：市场详情的 settle 字段、我的下注的派彩和汇总）。 -->
+<mapper namespace="com.forecast.app.settle.view.SettleViewMapper">
+
+  <select id="run" resultType="com.forecast.app.settle.view.SettleViewMapper$RunRow">
+    SELECT id, kind, status, fee_rate, pool_total, sum_fee, dust, sum_payout, winner_positions, loser_positions, done_at
+    FROM settle_run WHERE market_id = #{marketId} AND kind = #{kind}
+  </select>
+
+  <select id="userItems" resultType="com.forecast.app.settle.view.SettleViewMapper$ItemRow">
+    SELECT i.market_id, i.option_id, i.win, i.stake, i.fee, i.payout
+    FROM settle_item i JOIN settle_run r ON r.id = i.run_id
+    WHERE i.user_id = #{userId} AND r.kind = 'PAYOUT' AND r.status = 'DONE'
+      AND i.market_id IN <foreach collection="marketIds" item="m" open="(" separator="," close=")">#{m}</foreach>
+  </select>
+
+  <select id="userSettled" resultType="com.forecast.app.settle.view.SettleViewMapper$SumRow">
+    SELECT COALESCE(SUM(i.stake), 0) AS stake, COALESCE(SUM(i.payout), 0) AS payout, COALESCE(SUM(i.fee), 0) AS fee
+    FROM settle_item i JOIN settle_run r ON r.id = i.run_id
+    WHERE i.user_id = #{userId} AND r.kind = 'PAYOUT' AND r.status = 'DONE'
+  </select>
+
+  <select id="userCompensation" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(amount), 0) FROM settle_compensation_item WHERE user_id = #{userId}
+    <if test="marketId != null">AND market_id = #{marketId}</if>
+  </select>
+
+  <select id="userRefunded" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(amount), 0) FROM settle_refund_item WHERE user_id = #{userId} AND market_id = #{marketId} AND status = 'DONE'
+  </select>
+</mapper>

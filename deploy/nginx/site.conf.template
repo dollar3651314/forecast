@@ -89,12 +89,18 @@ server {
     expires 30d;
     try_files $uri =404;
   }
+  # 页面里的官网地址占位符（注册页、"我的"里的服务条款、隐私、风险披露链接，forecast S11）换成官网域名（web/client/src/lib/siteUrl.ts）；
+  # 只替换 HTML（sub_filter 默认只处理 text/html），脚本、Service Worker 不受影响
   location ~ ^/(index\.html|sw\.js|push-sw\.js|registerSW\.js|manifest\.webmanifest)$ {
     expires -1;
+    sub_filter_once on;
+    sub_filter '__FC_SITE_URL__' 'https://${WWW_DOMAIN}';
   }
   # 页面路由：有这个文件就返回文件，否则回到 index.html（不按目录查找，/assets 目录不会被当成页面）
   location / {
     expires -1;
+    sub_filter_once on;
+    sub_filter '__FC_SITE_URL__' 'https://${WWW_DOMAIN}';
     try_files $uri /index.html;
   }
 }

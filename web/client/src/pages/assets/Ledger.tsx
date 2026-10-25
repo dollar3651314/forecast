@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { listLedger } from '../../api/wallet';
 import type { LedgerQuery, LedgerType } from '../../api/types';
-import { EmptyState, ErrorState, Loading } from '../../components/AsyncView';
+import { EmptyState, ErrorState, LoadMore, Loading } from '../../components/AsyncView';
 import { Chips } from '../../components/Form';
 import { PageHeader } from '../../components/Layout';
 import { usePaged } from '../../hooks/usePaged';
@@ -42,13 +42,7 @@ export default function Ledger() {
           <>
             <div className="list-meta">{t('ledger.total', { total: s.total })}</div>
             <LedgerList items={s.items} />
-            {s.hasMore ? (
-              <button type="button" className="btn btn-ghost btn-block" onClick={s.loadMore} disabled={s.loading}>
-                {s.loading ? t('common.loading') : t('common.loadMore', { shown: s.items.length, total: s.total })}
-              </button>
-            ) : (
-              <p className="list-end">{t('common.noMore', { total: s.total })}</p>
-            )}
+            <LoadMore shown={s.items.length} total={s.total} hasMore={s.hasMore} loading={s.loadingMore} error={s.moreError} onMore={() => void s.loadMore()} />
           </>
         )}
       </section>

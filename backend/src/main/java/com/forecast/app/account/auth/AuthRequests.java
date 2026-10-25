@@ -1,5 +1,6 @@
 package com.forecast.app.account.auth;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -30,7 +31,9 @@ final class AuthRequests {
       @Size(max = 64, message = "TOO_LONG") String middleName,
       @NotBlank(message = "REQUIRED") @Size(max = 64, message = "TOO_LONG") String lastName,
       @NotNull(message = "REQUIRED") @Past(message = "BIRTH_DATE_INVALID") LocalDate birthDate,
-      @NotBlank(message = "REQUIRED") @Pattern(regexp = "[A-Z]{2}", message = "NATIONALITY_INVALID") String nationality) {}
+      @NotBlank(message = "REQUIRED") @Pattern(regexp = "[A-Z]{2}", message = "NATIONALITY_INVALID") String nationality,
+      // forecast S11（需求 P8）：勾选"已年满 18 周岁并同意服务条款"；没勾（false 或没传）一律拒绝
+      @NotNull(message = "ADULT_REQUIRED") @AssertTrue(message = "ADULT_REQUIRED") Boolean adultConfirmed) {}
 
   record Login(@NotBlank(message = "REQUIRED") String email, @NotBlank(message = "REQUIRED") String password) {}
 

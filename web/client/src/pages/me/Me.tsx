@@ -1,4 +1,7 @@
-/** 我的（需求 P7）：资料、身份认证、通知、安全、新手引导、语言（三种）、主题（跟随系统 / 浅色 / 深色，RQ-1）、退出登录。 */
+/**
+ * 我的（需求 P7）：资料、身份认证、通知、安全、新手引导、语言（三种，C82）、主题（跟随系统 / 浅色 / 深色，RQ-1）、
+ * 规则说明 · 常见问题 · 服务条款 · 隐私 · 风险披露（S11：链到官网，带当前语言）、退出登录。
+ */
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BRAND_NAME } from '../../lib/brand';
@@ -16,6 +19,20 @@ import { useAsync } from '../../hooks/useAsync';
 import { openOnboarding } from '../../hooks/useOnboarding';
 import { useUnread } from '../../hooks/useUnread';
 import { displayName } from '../../lib/profile';
+import { siteLink } from '../../lib/siteUrl';
+
+/** 链到官网的一项（新窗口打开） */
+function ExtItem({ href, icon, label }: { href: string; icon: IconName; label: string }) {
+  return (
+    <li>
+      <a href={href} className="menu-item" target="_blank" rel="noreferrer noopener">
+        <Icon name={icon} size={20} />
+        <span className="menu-label">{label}</span>
+        <Icon name="external" size={14} className="chev" />
+      </a>
+    </li>
+  );
+}
 
 function MenuItem({ to, icon, label, extra }: { to: string; icon: IconName; label: string; extra?: ReactNode }) {
   return (
@@ -108,6 +125,17 @@ export default function Me() {
             ]}
           />
         </div>
+      </section>
+
+      <section className="card flush">
+        <h2 className="menu-title">{t('me.help')}</h2>
+        <ul className="menu">
+          <ExtItem href={`${siteLink('home', currentLang())}#how`} icon="info" label={t('me.rules')} />
+          <ExtItem href={`${siteLink('home', currentLang())}#faq`} icon="info" label={t('me.faq')} />
+          <ExtItem href={siteLink('terms', currentLang())} icon="list" label={t('me.terms')} />
+          <ExtItem href={siteLink('privacy', currentLang())} icon="lock" label={t('me.privacy')} />
+          <ExtItem href={siteLink('risk', currentLang())} icon="warn" label={t('me.risk')} />
+        </ul>
       </section>
 
       <button type="button" className="btn btn-danger-outline btn-lg btn-block logout" onClick={() => setConfirmOut(true)}>

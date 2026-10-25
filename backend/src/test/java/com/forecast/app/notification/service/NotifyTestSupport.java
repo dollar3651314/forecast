@@ -112,7 +112,7 @@ abstract class NotifyTestSupport {
     Matcher m = Pattern.compile("验证码是 (\\d{6})").matcher(body(mails.getFirst()));
     assertThat(m.find()).isTrue();
     MockHttpServletResponse r = call(post("/api/auth/register"), null, "{\"email\":\"" + email + "\",\"code\":\"" + m.group(1)
-        + "\",\"password\":\"password123\",\"firstName\":\"A\",\"lastName\":\"B\",\"birthDate\":\"1990-05-01\",\"nationality\":\"CN\"}");
+        + "\",\"password\":\"password123\",\"firstName\":\"A\",\"lastName\":\"B\",\"birthDate\":\"1990-05-01\",\"nationality\":\"CN\",\"adultConfirmed\":true}");
     assertThat(r.getStatus()).as(r.getContentAsString()).isEqualTo(200);
     long id = jdbc.queryForObject("SELECT id FROM account_user WHERE email = ?", Long.class, email);
     return new User(id, email, r.getCookie("fc_session"));

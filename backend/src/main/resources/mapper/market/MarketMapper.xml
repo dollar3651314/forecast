@@ -205,6 +205,12 @@
   <sql id="clientWhere">
     WHERE deleted_at IS NULL AND status IN <foreach collection="statuses" item="s" open="(" separator="," close=")">#{s}</foreach>
     <if test="category != null">AND category = #{category}</if>
+    <!-- S11 搜索：题目（三种语言）包含关键字，或市场编号等于它；关键字里的 % _ ! 已在 MarketService 里用 ! 转义 -->
+    <if test="keyword != null">
+      AND (title_en LIKE CONCAT('%', #{keyword}, '%') ESCAPE '!' OR title_zh_cn LIKE CONCAT('%', #{keyword}, '%') ESCAPE '!'
+        OR title_zh_tw LIKE CONCAT('%', #{keyword}, '%') ESCAPE '!'
+        <if test="no != null">OR public_no = #{no}</if>)
+    </if>
   </sql>
 
   <select id="clientList" resultType="com.forecast.app.market.core.MarketRows$Market">
@@ -218,5 +224,10 @@
 
   <select id="clientCount" resultType="long">
     SELECT COUNT(*) FROM market_question <include refid="clientWhere"/>
+  </select>
+
+  <!-- S11 按奖池排序：先取符合条件的全部 id（按截止时间，最多 limit 个），奖池合计由 pool 模块给，在 MarketService 里排序和分页 -->
+  <select id="clientIds" resultType="long">
+    SELECT id FROM market_question <include refid="clientWhere"/> ORDER BY close_at, id LIMIT #{limit}
   </select>
 </mapper>

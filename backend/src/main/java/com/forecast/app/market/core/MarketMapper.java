@@ -105,10 +105,14 @@ interface MarketMapper {
       @Param("keyword") String keyword, @Param("no") Long no);
 
   /** 客户端列表：只列 statuses 里的状态（不含草稿），sort = closeAt（截止时间先到的在前）/ newest（新上架的在前） */
-  List<MarketRows.Market> clientList(@Param("statuses") Collection<String> statuses, @Param("category") String category, @Param("sort") String sort,
-      @Param("offset") int offset, @Param("limit") int limit);
+  List<MarketRows.Market> clientList(@Param("statuses") Collection<String> statuses, @Param("category") String category, @Param("keyword") String keyword,
+      @Param("no") Long no, @Param("sort") String sort, @Param("offset") int offset, @Param("limit") int limit);
 
-  long clientCount(@Param("statuses") Collection<String> statuses, @Param("category") String category);
+  long clientCount(@Param("statuses") Collection<String> statuses, @Param("category") String category, @Param("keyword") String keyword, @Param("no") Long no);
+
+  /** 按奖池排序用（S11）：符合条件的 id，按截止时间，最多 limit 个 */
+  List<Long> clientIds(@Param("statuses") Collection<String> statuses, @Param("category") String category, @Param("keyword") String keyword,
+      @Param("no") Long no, @Param("limit") int limit);
 
   /** 自动生成模板在 [from, to] 里已经生成的市场（按窗口开始时间） */
   List<MarketRows.Market> generated(@Param("autogenId") long autogenId, @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);

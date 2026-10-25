@@ -186,6 +186,11 @@ forecast:
     # 加密市场自动生成任务（forecast S6，market/autogen/CryptoAutogenJob）：每分钟一轮，按后台启用的自动生成模板生成并直接上架。
     # 模板（按场次 / 滚动、币种、周期）在后台"加密自动生成"里配置，新库默认 BTC 1 小时每天 13:00 UTC 一场、关闭（启用要 market:publish 检查一次）
     autogen-enabled: true
+    # #23 开赛提醒（forecast S11，market/remind/ReminderJob）：每 30 秒一轮，市场到开放时间时给订阅了的客户发一封邮件（租约 market.reminder）
+    reminder-enabled: true
+  # 客户端的地址（forecast S11）：邮件里的链接（#23 开赛提醒的市场链接、退订链接）用它拼成完整地址，例如 https://fc-test.quickcome.online；
+  # 部署时由 compose 按 APP_DOMAIN 填（deploy/kit/docker-compose.yml）。没填时链接只有路径（邮件里点不开），健康检查不受影响
+  client-url: ${FC_CLIENT_URL:}
   # 结算（forecast S5，settle/run/SettleProperties）。batch-size：派彩时每批的持仓数（退款时每批的下注数）；
   # 500（默认）= 先算好、落结算单，再每批一个事务分批派彩、可以续跑（架构方案第 4.3 节方案 B，AQ-3 Amos 2026-10-25 定）；
   # 0 = 计算和派彩在同一个事务里一次完成（保留为可配置项）。派彩任务每 2 秒推进分批派彩的单（提交后也立即跑一轮）；彩池对账每天 UTC 00:30。

@@ -7,10 +7,12 @@ import com.forecast.app.account.auth.AuthRequests.Register;
 import com.forecast.app.account.auth.Rows.Profile;
 import com.forecast.app.account.auth.Rows.UserRow;
 import com.forecast.app.common.error.BizException;
+import com.forecast.app.common.error.ValidationException;
 import com.forecast.app.notification.api.NotifyApi;
 import com.forecast.app.ledger.api.LedgerApi;
 import com.forecast.app.wallet.api.WalletApi;
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -93,8 +95,13 @@ class AuthService {
   long register(Register r) {
     String email = normalizeEmail(r.email());
     if (mapper.findUserByEmail(email) != null) throw new BizException("EMAIL_TAKEN", "邮箱已注册");
+    // forecast S11（需求 P8、第 3.10 节）：年满 18 周岁（按 UTC 日期，和客户端 validateBirthDate、后台 CustomerAdmin 一致）；先于验证码检查，不消耗验证码
+    if (r.birthDate().plusYears(18).isAfter(LocalDate.now(clock.withZone(ZoneOffset.UTC)))) {
+      throw new ValidationException(List.of(new ValidationException.Field("birthDate", "AGE_UNDER_18")));
+    }
     if (!codes.verifyAndConsume(email, EmailCodeService.Purpose.REGISTER, r.code())) throw new BizException("CODE_INVALID", "验证码错误或已失效");
     UserInsert u = new UserInsert(email, encoder.encode(r.password()));
+    u.termsAcceptedAt = LocalDateTime.now(clock.withZone(ZoneOffset.UTC));
     try {
       mapper.insertUser(u);
     } catch (DuplicateKeyException e) {
@@ -143,6 +150,13 @@ class AuthService {
     mapper.updatePassword(userId, encoder.encode(newPassword));
     securityEvent(userId, SecurityEvent.PASSWORD_CHANGE);
     sessions.revokeAll(userId, currentToken);
+  }
+
+  /** 用邮箱和密码成功登录过（forecast S11，#23 订阅的条件，SQ-20） */
+  boolean hasLoggedIn(long userId) {
+    Boolean v = mapper.hasLoggedIn(userId);
+    if (v == null) throw new BizException("USER_NOT_FOUND", "用户不存在");
+    return v;
   }
 
   /** 员工账户（不能下注，forecast S4） */

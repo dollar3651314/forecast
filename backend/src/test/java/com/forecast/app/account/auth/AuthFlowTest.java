@@ -76,7 +76,7 @@ class AuthFlowTest {
 
   private String registerJson(String email, String code, String password) {
     return "{\"email\":\"" + email + "\",\"code\":\"" + code + "\",\"password\":\"" + password
-        + "\",\"firstName\":\"Siyuan\",\"middleName\":\"\",\"lastName\":\"Ouyang\",\"birthDate\":\"1990-05-01\",\"nationality\":\"CN\"}";
+        + "\",\"firstName\":\"Siyuan\",\"middleName\":\"\",\"lastName\":\"Ouyang\",\"birthDate\":\"1990-05-01\",\"nationality\":\"CN\",\"adultConfirmed\":true}";
   }
 
   /** 注册一个用户，返回会话 Cookie */
@@ -136,14 +136,39 @@ class AuthFlowTest {
         "{\"email\":\"bad\",\"code\":\"12\",\"password\":\"short\",\"firstName\":\"\",\"lastName\":\"\",\"birthDate\":\"2999-01-01\",\"nationality\":\"china\"}");
     assertThat(r.getStatus()).isEqualTo(400);
     assertThat(r.getContentAsString()).contains("VALIDATION_FAILED").contains("EMAIL_INVALID").contains("CODE_FORMAT").contains("PASSWORD_LENGTH")
-        .contains("PASSWORD_MIX").contains("firstName").contains("lastName").contains("BIRTH_DATE_INVALID").contains("NATIONALITY_INVALID");
+        .contains("PASSWORD_MIX").contains("firstName").contains("lastName").contains("BIRTH_DATE_INVALID").contains("NATIONALITY_INVALID")
+        .as("S11：没勾选已满 18 岁并同意条款").contains("{\"field\":\"adultConfirmed\",\"code\":\"ADULT_REQUIRED\"}");
+  }
+
+  @Test
+  void 注册_必须勾选已满18岁并同意条款_未满18岁拒绝_通过后记下勾选时间() throws Exception {
+    String email = email();
+    String code = sendCode(email, "REGISTER");
+    String base = "{\"email\":\"" + email + "\",\"code\":\"" + code + "\",\"password\":\"password123\",\"firstName\":\"A\",\"lastName\":\"B\",\"nationality\":\"CN\"";
+    // 没勾、勾了 false：拒绝（验证码没被消耗）
+    for (String adult : new String[] {"", ",\"adultConfirmed\":false"}) {
+      MockHttpServletResponse r = call(post("/api/auth/register"), ip(), null, base + ",\"birthDate\":\"1990-05-01\"" + adult + "}");
+      assertThat(r.getStatus()).isEqualTo(400);
+      assertThat(r.getContentAsString()).contains("ADULT_REQUIRED");
+    }
+    // 未满 18 周岁（按 UTC 日期，差一天也不行）：字段 birthDate、代码 AGE_UNDER_18
+    String under = java.time.LocalDate.now(java.time.ZoneOffset.UTC).minusYears(18).plusDays(1).toString();
+    MockHttpServletResponse young = call(post("/api/auth/register"), ip(), null, base + ",\"birthDate\":\"" + under + "\",\"adultConfirmed\":true}");
+    assertThat(young.getStatus()).isEqualTo(400);
+    assertThat(young.getContentAsString()).contains("{\"field\":\"birthDate\",\"code\":\"AGE_UNDER_18\"}");
+    // 正好 18 周岁：通过，记下勾选时间
+    String exactly = java.time.LocalDate.now(java.time.ZoneOffset.UTC).minusYears(18).toString();
+    MockHttpServletResponse ok = call(post("/api/auth/register"), ip(), null, base + ",\"birthDate\":\"" + exactly + "\",\"adultConfirmed\":true}");
+    assertThat(ok.getStatus()).as(ok.getContentAsString()).isEqualTo(200);
+    assertThat(jdbc.queryForObject("SELECT terms_accepted_at IS NOT NULL FROM account_user WHERE email = ?", Boolean.class, email)).isTrue();
+    assertThat(jdbc.queryForObject("SELECT last_login_at IS NULL FROM account_user WHERE email = ?", Boolean.class, email)).as("注册时的自动登录不记登录时间（SQ-20 的判断）").isTrue();
   }
 
   @Test
   void 密码必须同时包含字母和数字() throws Exception {
     for (String pw : new String[] {"onlyletters", "1234567890"}) {
       MockHttpServletResponse r = call(post("/api/auth/register"), ip(), null, "{\"email\":\"" + email() + "\",\"code\":\"123456\",\"password\":\"" + pw
-          + "\",\"firstName\":\"A\",\"lastName\":\"B\",\"birthDate\":\"1990-01-01\",\"nationality\":\"CN\"}");
+          + "\",\"firstName\":\"A\",\"lastName\":\"B\",\"birthDate\":\"1990-01-01\",\"nationality\":\"CN\",\"adultConfirmed\":true}");
       assertThat(r.getStatus()).isEqualTo(400);
       assertThat(r.getContentAsString()).contains("PASSWORD_MIX").doesNotContain("PASSWORD_LENGTH");
     }

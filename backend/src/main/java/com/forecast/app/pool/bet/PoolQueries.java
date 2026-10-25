@@ -12,6 +12,7 @@ import com.forecast.app.pool.api.Odds;
 import com.forecast.app.pool.api.PoolAdminApi;
 import com.forecast.app.pool.api.PoolApi;
 import com.forecast.app.pool.api.PoolMath;
+import com.forecast.app.pool.api.PoolResultView;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
@@ -23,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
@@ -45,12 +47,15 @@ public class PoolQueries implements PoolApi, PoolAdminApi {
   private final MarketApi markets;
   private final SystemConfig config;
   private final ObjectMapper json;
+  /** 已结算的结果（settle 实现，S11）；没有实现时我的下注里没有派彩、抽成 */
+  private final ObjectProvider<PoolResultView> results;
 
-  PoolQueries(PoolMapper mapper, MarketApi markets, SystemConfig config, ObjectMapper json) {
+  PoolQueries(PoolMapper mapper, MarketApi markets, SystemConfig config, ObjectMapper json, ObjectProvider<PoolResultView> results) {
     this.mapper = mapper;
     this.markets = markets;
     this.config = config;
     this.json = json;
+    this.results = results;
   }
 
   // =====================================================================
@@ -174,14 +179,42 @@ public class PoolQueries implements PoolApi, PoolAdminApi {
     List<PoolRows.BetLine> lines = mapper.myBets(userId, t, (p - 1) * size, size);
     Map<String, PoolViews.TabSum> summary = new LinkedHashMap<>();
     for (String x : TABS) summary.put(x, new PoolViews.TabSum(0, "0.00"));
-    for (PoolRows.TabSum s : mapper.mySummary(userId)) summary.put(s.tab, new PoolViews.TabSum(s.n, money(s.amount)));
-    return new PoolViews.MyBets(myBetViews(lines), mapper.countMyBets(userId, t), p, size, summary);
+    BigDecimal staked = BigDecimal.ZERO;
+    for (PoolRows.TabSum s : mapper.mySummary(userId)) {
+      summary.put(s.tab, new PoolViews.TabSum(s.n, money(s.amount)));
+      if (!"refunded".equals(s.tab)) staked = staked.add(s.amount);
+    }
+    PoolResultView rv = results.getIfAvailable();
+    PoolResultView.Totals tot = rv == null ? null : rv.totals(userId);
+    BigDecimal paid = tot == null ? BigDecimal.ZERO : tot.payout().add(tot.compensation());
+    BigDecimal net = tot == null ? BigDecimal.ZERO : paid.subtract(tot.settledStake());
+    PoolViews.Totals totals = new PoolViews.Totals(money(staked), money(paid), money(net));
+    return new PoolViews.MyBets(myBetViews(userId, lines), mapper.countMyBets(userId, t), p, size, summary, totals);
   }
 
-  List<PoolViews.MyBet> myBetViews(List<PoolRows.BetLine> lines) {
+  /**
+   * 我的下注的每一条（S4；S11 加品类、截止后的最终赔率、已结算的结果）。最终赔率 = 定格的奖池 + 市场当前的费率（第 3.4 节：截止后只有结算前改了费率才会变；
+   * 结算开始后费率不能再改，所以已结算的就是结算用的费率）。
+   */
+  List<PoolViews.MyBet> myBetViews(long userId, List<PoolRows.BetLine> lines) {
     if (lines.isEmpty()) return List.of();
-    Map<Long, MarketApi.MarketRef> refs = markets.refs(lines.stream().map(l -> l.marketId).collect(Collectors.toSet()));
+    Set<Long> marketIds = lines.stream().map(l -> l.marketId).collect(Collectors.toSet());
+    Map<Long, MarketApi.MarketRef> refs = markets.refs(marketIds);
     Map<Long, MarketApi.OptionRef> opts = markets.optionsById(lines.stream().map(l -> l.optionId).collect(Collectors.toSet()));
+    // 定格的奖池：marketId → (optionId → final_amount)；没定格的市场不在里面
+    Map<Long, Map<Long, BigDecimal>> finals = new java.util.HashMap<>();
+    for (PoolRows.OptionTotal r : mapper.totalsOf(marketIds)) {
+      if (r.finalAmount != null) finals.computeIfAbsent(r.marketId, k -> new java.util.HashMap<>()).put(r.optionId, r.finalAmount);
+    }
+    // 已结算的结果（settle 提供）和持仓的笔数
+    Set<Long> settled = lines.stream().filter(l -> "settled".equals(l.tab)).map(l -> l.marketId).collect(Collectors.toSet());
+    PoolResultView rv = settled.isEmpty() ? null : results.getIfAvailable();
+    Map<String, PoolResultView.PositionResult> res = new java.util.HashMap<>();
+    Map<String, PoolRows.Position> pos = new java.util.HashMap<>();
+    if (rv != null) {
+      for (PoolResultView.PositionResult r : rv.results(userId, settled)) res.put(r.marketId() + ":" + r.optionId(), r);
+      for (PoolRows.Position x : mapper.positionsOf(userId, settled)) pos.put(x.marketId + ":" + x.optionId, x);
+    }
     return lines.stream().map(l -> {
       MarketApi.MarketRef m = refs.get(l.marketId);
       MarketApi.OptionRef o = opts.get(l.optionId);
@@ -191,9 +224,22 @@ public class PoolQueries implements PoolApi, PoolAdminApi {
         BigDecimal pi = s.pools.getOrDefault(String.valueOf(l.optionNo), BigDecimal.ZERO);
         mult = Odds.multiplier(pi, s.total, s.feeRate);
       }
+      String finalMult = null;
+      Map<Long, BigDecimal> f = finals.get(l.marketId);
+      if (f != null && m != null && !"refunded".equals(l.tab)) {
+        BigDecimal total = f.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        finalMult = Odds.multiplier(f.getOrDefault(l.optionId, BigDecimal.ZERO), total, m.feeRate());
+      }
+      PoolViews.Result result = null;
+      PoolResultView.PositionResult r = "settled".equals(l.tab) ? res.get(l.marketId + ":" + l.optionId) : null;
+      if (r != null) {
+        PoolRows.Position x = pos.get(l.marketId + ":" + l.optionId);
+        result = new PoolViews.Result(r.win(), money(r.stake()), x == null ? 1 : x.betCount, money(r.payout()), money(r.fee()));
+      }
       return new PoolViews.MyBet(String.valueOf(l.publicNo), m == null ? null : String.valueOf(m.publicNo()), text(m == null ? null : m.title()),
           MarketStatus.valueOf(l.marketStatus).api(), String.valueOf(l.optionNo), l.seq, text(o == null ? null : o.label()), money(l.amount), iso(l.receivedAt),
-          l.tab, l.status.toLowerCase(java.util.Locale.ROOT), l.refundReason, mult, s == null ? null : percent(s.feeRate));
+          l.tab, l.status.toLowerCase(java.util.Locale.ROOT), l.refundReason, mult, s == null ? null : percent(s.feeRate),
+          m == null ? null : m.category().name(), finalMult, result);
     }).toList();
   }
 

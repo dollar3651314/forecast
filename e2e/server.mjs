@@ -62,7 +62,9 @@ function serveStatic(req, res) {
   }
   const type = TYPES[path.extname(file)] || 'application/octet-stream';
   res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-store' });
-  fs.createReadStream(file).pipe(res);
+  // 客户端页面里的官网地址占位符（服务条款等链接，forecast S11）换成本机官网地址；Nginx 换成 https://${WWW_DOMAIN}
+  if (site.prefix === '/' && file.endsWith('.html')) res.end(fs.readFileSync(file, 'utf8').replace('__FC_SITE_URL__', `http://127.0.0.1:${SITE_PORT}`));
+  else fs.createReadStream(file).pipe(res);
 }
 
 function proxy(req, res) {

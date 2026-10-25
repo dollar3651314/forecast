@@ -71,6 +71,9 @@ forecast:
     clock-enabled: false
     # 加密自动生成不定时跑，测试里直接调用（market/autogen/ 下的测试）
     autogen-enabled: false
+    # #23 开赛提醒不定时发，测试里直接调用 ReminderService.sendDue（S11）
+    reminder-enabled: false
+  client-url: https://app.forecast.test
   # 自动裁决不定时跑，测试里直接调用（resolve/ 下的测试）。数据源不连外网：地址指向本机不监听的端口，用到的测试把地址换成本机的 HTTP 替身（ResolveTestSupport）。
   # 超时、退避改短，测试不用等几秒
   resolve:
