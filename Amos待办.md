@@ -20,7 +20,7 @@ flowchart LR
 | # | 做什么 | 为什么 | 怎么确认做好了 | 提出时间 |
 |---|---|---|---|---|
 | T2 | 给朋友的《预测平台项目情况简介》（https://claude.ai/artifact/CYg8Ei1uhynh1YLm6NSeey）：在页面右上角"分享"里打开访问权限 | 现在只有你能打开，朋友看不到 | 朋友能打开链接 | 10-24 |
-| T3 | （到部署测试环境时再做）开 Resend 账号，验证发信子域名 `fc-email.quickcome.online`，把 API key **自己填进服务器 `.env` 的 `FC_RESEND_API_KEY`**。**不要把 key 发给我**：密钥不经过 AI | 发邮件（验证码、通知）要用 | 测试环境注册能收到验证码邮件 | 10-25 |
+| T3 | （到部署测试环境时再做）开 Resend 账号，验证发信子域名 `fc-email.quickcome.online`，把 API key **自己填进服务器 `.env` 的 `FC_MAIL_PASSWORD`**（Resend 的 SMTP 密码就是 API key，架构 v1.2 定的变量名）。**不要把 key 发给我**：密钥不经过 AI | 发邮件（验证码、通知）要用 | 测试环境注册能收到验证码邮件 | 10-25 |
 | T4 | （用到时再做）Gemini API key **自己填进服务器 `.env` 的 `FC_GEMINI_API_KEY`**，同样不要发给我 | 体育数据抓取的解析、自动化文章生成会用 | 后台自动化日志里 Gemini 调用成功 | 10-25 |
 
 ## ⏸ 充值合约部署（到部署测试环境时再做；操作说明 `部署方案/v1-归集合约部署.md`）
