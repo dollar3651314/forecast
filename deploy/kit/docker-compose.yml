@@ -1,7 +1,10 @@
-# 测试环境的容器（沿用复制源，forecast 的部署方案在 S14 写）。放在服务器 /opt/forecast/，由 deploy.sh 用两个变量文件启动：
+# 测试环境的容器（部署方案 `部署方案/v1-测试环境与切换.md`）。放在服务器 /opt/forecast/，由 deploy.sh 用两个变量文件启动：
 #   .env               ← 密钥和域名，只由 Amos 填（变量名见 env.example），权限 600
 #   state/image.env    ← 当前版本 IMAGE_TAG=<提交号>（deploy.sh、rollback.sh 写）
-# 内存上限按 2 核 2G 服务器设置（部署方案第 2 节）；数据库、Redis、后端端口都不对公网开放。
+# 内存（C75，部署方案第 3 节"内存总账"）：测试环境和另一个项目轮流用同一台 2 核 2G 服务器（AQ-23，`free -m` 总量 1,613 MB），
+# 同一时间只运行一个项目。四个容器上限合计 992 MB（web 32 + app 576 + mysql 320 + redis 64），加系统和 Docker 约 450 MB，余量约 170 MB。
+# 每个容器 memswap_limit 等于 mem_limit：到上限就被杀掉、自动重启，不用交换分区拖垮整台机器。
+# 数据库、Redis、后端端口都不对公网开放。部署形态的端到端测试（e2e/run-deployed.sh）也用这份文件，所以 CI 每次都在这些上限下跑主流程。
 name: forecast
 
 x-logging: &logging
@@ -27,8 +30,9 @@ services:
       - /var/www/certbot:/var/www/certbot:ro
     depends_on:
       - app
-    mem_limit: 64m
-    memswap_limit: 64m
+    # Nginx 实测十几 MB 以内（复制源测试服务器 `docker stats`）
+    mem_limit: 32m
+    memswap_limit: 32m
     logging: *logging
 
   app:
@@ -45,6 +49,13 @@ services:
       FC_REDIS_PASSWORD: ${FC_REDIS_PASSWORD:?缺少 FC_REDIS_PASSWORD}
       FC_COOKIE_SECURE: "true"
       FC_ENV_LABEL: test
+      # JVM 各部分上限（C75，覆盖镜像里的默认值；镜像默认值按 768 MB 容器设，见 deploy/app.Dockerfile）：
+      #   堆 256 + 元空间 128 + 代码缓存 48 + 直接内存 32 + 线程栈 512K × 约 110 个线程（Tomcat 最多 60 个 + 连接池、定时任务、推送等）≈ 55
+      #   = 519 MB，加 GC、JIT 编译、类库等其他本地内存约 50 MB，合计约 570 MB ≤ mem_limit 576 MB
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx256m -XX:MaxMetaspaceSize=128m -XX:ReservedCodeCacheSize=48m -XX:MaxDirectMemorySize=32m -Xss512k -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError"
+      # 线程数和数据库连接数也有上限，线程栈和 MySQL 的连接内存才算得清（测试环境的访问量远用不到）
+      SERVER_TOMCAT_THREADS_MAX: "60"
+      FC_DB_POOL_SIZE: "15"
       FC_ADMIN_INIT_USERNAME: ${FC_ADMIN_INIT_USERNAME:-}
       FC_ADMIN_INIT_PASSWORD: ${FC_ADMIN_INIT_PASSWORD:-}
       FC_MAIL_HOST: ${FC_MAIL_HOST:-}
@@ -94,8 +105,8 @@ services:
     # 单实例：停机时先处理完队列再退出
     stop_grace_period: 60s
     # 不给容器用交换分区（memswap = mem）：到上限就被杀掉重启，不能拖着整台机器换页卡死（部署方案第 19 节）
-    mem_limit: 768m
-    memswap_limit: 768m
+    mem_limit: 576m
+    memswap_limit: 576m
     logging: *logging
 
   mysql:
@@ -107,11 +118,12 @@ services:
       MYSQL_USER: forecast
       MYSQL_PASSWORD: ${FC_DB_PASSWORD:?缺少 FC_DB_PASSWORD}
       TZ: UTC
-    # 2G 内存：调小缓存、关闭性能监控（部署方案第 2 节）
+    # 2G 内存、和另一个项目轮流用（部署方案第 3 节）：缓冲池 128M、关闭性能监控、连接数 30（后端连接池 15 + 备份 + 余量）。
+    # 合计：缓冲池 128 + 日志缓冲 8 + 键缓冲 8 + 其他全局约 100 + 连接 30 × 约 2 MB = 60，约 300 MB ≤ mem_limit 320 MB
     command:
-      - --innodb-buffer-pool-size=256M
+      - --innodb-buffer-pool-size=128M
       - --performance-schema=OFF
-      - --max-connections=60
+      - --max-connections=30
       - --innodb-log-buffer-size=8M
       - --key-buffer-size=8M
       - --tmp-table-size=16M
@@ -126,15 +138,15 @@ services:
       timeout: 5s
       retries: 30
       start_period: 30s
-    mem_limit: 450m
-    memswap_limit: 450m
+    mem_limit: 320m
+    memswap_limit: 320m
     logging: *logging
 
   redis:
     image: redis:7
     restart: unless-stopped
     # 密码从容器的环境变量读，不写进 compose 的命令行
-    command: ["sh", "-c", "exec redis-server --requirepass \"$$REDIS_PASSWORD\" --maxmemory 64mb --maxmemory-policy noeviction --save 300 10"]
+    command: ["sh", "-c", "exec redis-server --requirepass \"$$REDIS_PASSWORD\" --maxmemory 32mb --maxmemory-policy noeviction --save 300 10"]
     volumes:
       - ./data/redis:/data
     healthcheck:
@@ -144,6 +156,7 @@ services:
       retries: 20
     environment:
       REDIS_PASSWORD: ${FC_REDIS_PASSWORD:?缺少 FC_REDIS_PASSWORD}
-    mem_limit: 96m
-    memswap_limit: 96m
+    # maxmemory 32 MB + 进程约 10 MB；数据只有限流计数和推送广播，实测十几 MB
+    mem_limit: 64m
+    memswap_limit: 64m
     logging: *logging

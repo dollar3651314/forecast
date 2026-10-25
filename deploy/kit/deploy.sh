@@ -15,6 +15,16 @@ cur=$(current_tag)
 [ "$new" = "$cur" ] && exit 0
 # 失败过的版本、手动回滚时跳过的版本不再重试，等下一次合并
 [ "$new" = "$(cat "$FC_DIR/state/skip" 2>/dev/null || true)" ] && exit 0
+# 同一台服务器轮流运行两个项目（AQ-23，部署方案第 5 节）：另一个项目占着 443 时不更新，等切换回来再说。
+# 正常切换时 stop.sh 已经停用了本定时器，这里只是保险；同一个版本只记一次日志
+busy=$(docker ps --filter publish=443 --format '{{.Names}}' | grep -v '^forecast-' || true)
+if [ -n "$busy" ]; then
+  if [ "$new" != "$(cat "$FC_DIR/state/paused" 2>/dev/null || true)" ]; then
+    log "另一个项目正在运行（$busy 占着 443 端口），新版本 $new 先不更新；切换回本项目时运行 start.sh"
+    echo "$new" > "$FC_DIR/state/paused"
+  fi
+  exit 0
+fi
 
 log "发现新版本 $new（当前 ${cur:-无}）"
 pull "$REG-app:$new"

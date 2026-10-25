@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# 第一次启动（S20，部署方案 v1.1 第 6 节第 7 步）。用 root 运行：sudo bash /opt/forecast/first-start.sh
-# 前提：server-setup.sh 已运行；.env 已填好；三个域名（客户端、后台、官网 WWW_DOMAIN）已经解析到这台服务器；防火墙已开 80、443。
+# 第一次启动（复制源 S20；forecast 的步骤见 `部署方案/v1-测试环境与切换.md` 第 5.2 节）。用 root 运行：sudo bash /opt/forecast/first-start.sh
+# 前提：同一台服务器上的另一个项目已经停掉（部署方案第 4 节）；server-setup.sh 已运行；.env 已填好；三个域名（客户端、后台、官网 WWW_DOMAIN）已经解析到这台服务器；防火墙已开 80、443。
 # 已经启动过的服务器加官网域名时不用重跑本脚本，按部署方案第 14 节扩展证书。
 # 做的事：检查 .env → 申请 HTTPS 证书 → 启动 staging 最新版本 → 证书改为自动续期 → 打开自动更新和每天备份。
 set -euo pipefail
 [ "$(id -u)" = 0 ] || { echo "请用 root 运行（sudo）" >&2; exit 1; }
 cd /opt/forecast
+
+echo "== 0/5 启动前检查（另一个项目已停、磁盘、内存，部署方案 \`部署方案/v1-测试环境与切换.md\` 第 4、5 节）"
+bash ./preflight.sh || { echo "启动前检查没有通过" >&2; exit 1; }
 
 echo "== 1/5 检查 .env（只检查有没有填，不显示值）"
 missing=0
