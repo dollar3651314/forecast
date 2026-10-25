@@ -23,8 +23,17 @@ interface AddressMapper {
 
   List<AddressRow> byUser(@Param("userId") long userId);
 
-  /** 这个用户这个体系正在用的地址（加行锁） */
+  /**
+   * 这个用户这个体系正在用的地址（加排他锁）。<b>只在确定这一行存在时用</b>：行不存在时可重复读下加的是间隙锁，
+   * 新客户的 {@code active_key} 都落在同一个间隙里，两个事务各拿一个间隙锁再各自插入就会死锁（SQ-8）。
+   */
   AddressRow lockActive(@Param("userId") long userId, @Param("family") String family);
+
+  /** 这个用户这个体系正在用的地址（普通读，不加锁） */
+  AddressRow findActive(@Param("userId") long userId, @Param("family") String family);
+
+  /** 同上，但读最新提交的数据并加共享锁（插入被唯一键挡住以后，看别的事务刚提交的那一行） */
+  AddressRow shareActive(@Param("userId") long userId, @Param("family") String family);
 
   /** 插入一个正在用的地址；这个体系已经有正在用的、或者同一套参数的地址已经有了时不插（返回 0） */
   int insertActive(@Param("userId") long userId, @Param("family") String family, @Param("scheme") String scheme, @Param("schemeVer") int schemeVer,

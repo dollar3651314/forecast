@@ -3,6 +3,7 @@ package com.forecast.app.wallet.address;
 import com.forecast.app.wallet.Chain;
 import com.forecast.app.wallet.SweepEvmProperties;
 import com.forecast.app.wallet.WalletProperties;
+import com.forecast.app.ledger.api.LedgerApi;
 import com.forecast.app.wallet.api.WalletApi;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -12,6 +13,7 @@ import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -40,20 +42,30 @@ public class AddressService implements WalletApi {
   private final ForwarderSchemes schemes;
   private final Clock clock;
   private final TransactionTemplate tx;
+  private final LedgerApi ledger;
 
-  AddressService(AddressMapper mapper, WalletProperties props, SweepEvmProperties sweep, ForwarderSchemes schemes, Clock clock, TransactionTemplate tx) {
+  AddressService(AddressMapper mapper, WalletProperties props, SweepEvmProperties sweep, ForwarderSchemes schemes, Clock clock, TransactionTemplate tx,
+      LedgerApi ledger) {
     this.mapper = mapper;
     this.props = props;
     this.sweep = sweep;
     this.schemes = schemes;
     this.clock = clock;
     this.tx = tx;
+    this.ledger = ledger;
   }
 
   private LocalDateTime now() {
     return LocalDateTime.now(clock.withZone(ZoneOffset.UTC));
   }
 
+  /**
+   * 分配充值地址（注册时、第一次打开充值页时）。很多客户同时调用时不能互相锁住（SQ-8）：
+   * <b>不对可能不存在的行做加锁读</b>。可重复读下 {@code SELECT … FOR UPDATE} 查不存在的 {@code active_key} 加的是间隙锁，
+   * 新客户的键都落在唯一索引同一个间隙里，两个事务各拿一个间隙锁（互相兼容），再各自 INSERT 要插入意向锁时都被对方挡住 → 死锁。
+   * 现在先普通读；没有就直接 {@code INSERT IGNORE}，靠唯一键 {@code uk_wallet_address_active} 保证每人每体系只有一个正在用的地址
+   * （同一客户的几个请求同时到时，后来的插入被唯一键挡住、什么也不做）。插入只要插入意向锁，不同客户之间互不阻塞。
+   */
   @Override
   @Transactional
   public void allocateAddresses(long userId) {
@@ -64,7 +76,7 @@ public class AddressService implements WalletApi {
         useForwarder(userId, scheme.get());
         continue;
       }
-      if (mapper.lockActive(userId, f.name()) != null) continue; // 已经有正在用的地址（可能是合约地址：配置去掉后保持不变）
+      if (mapper.findActive(userId, f.name()) != null) continue; // 已经有正在用的地址（可能是合约地址：配置去掉后保持不变）
       String xpub = xpub(f);
       if (xpub == null) {
         log.warn("没有配置 {} 的 xpub，暂不分配充值地址 user={}", f, userId);
@@ -72,18 +84,32 @@ public class AddressService implements WalletApi {
       }
       int index = (int) userId;
       String address = derive(f, xpub, index);
-      mapper.insertActive(userId, f.name(), XPUB, 0, index, address, Addresses.key(f, address), null);
+      mapper.insertActive(userId, f.name(), XPUB, 0, index, address, Addresses.key(f, address), null); // 别的请求刚插了同一个：唯一键挡住，返回 0
     }
   }
 
-  /** 以太坊体系换成这一套合约地址：原来正在用的地址停用（继续扫块 N 天），新地址启用。已经是这一套时什么也不做 */
+  private static boolean isCurrent(AddressMapper.AddressRow a, ForwarderScheme s) {
+    return a != null && FORWARDER.equals(a.scheme()) && a.schemeVer() == s.ver();
+  }
+
+  /**
+   * 以太坊体系换成这一套合约地址：原来正在用的地址停用（继续扫块 N 天），新地址启用。已经是这一套时什么也不做。
+   * 新客户（还没有地址）直接插入，不加锁读（SQ-8）；只有确实有一个旧地址要停用时，才对那一行（已存在）加排他锁。
+   */
   private void useForwarder(long userId, ForwarderScheme s) {
     String family = Chain.Family.ETH.name();
-    AddressMapper.AddressRow active = mapper.lockActive(userId, family);
-    if (active != null && FORWARDER.equals(active.scheme()) && active.schemeVer() == s.ver()) return;
-    if (active != null) mapper.retire(active.id(), now());
+    AddressMapper.AddressRow seen = mapper.findActive(userId, family);
+    if (isCurrent(seen, s)) return;
     String salt = Create2.salt(userId);
     String address = Create2.forwarderAddress(s.factory(), s.implementation(), s.parent(), s.feeAddress(), salt);
+    if (seen == null) {
+      if (mapper.insertActive(userId, family, FORWARDER, s.ver(), (int) userId, address, address.toLowerCase(), salt) == 1) return;
+      // 被唯一键挡住：别的请求刚给这个客户插了（读最新提交的那一行，已存在，只是行锁），或者以前停用过同一套参数的地址（下面重新启用）
+      if (isCurrent(mapper.shareActive(userId, family), s)) return;
+    }
+    AddressMapper.AddressRow active = mapper.lockActive(userId, family);
+    if (isCurrent(active, s)) return;
+    if (active != null) mapper.retire(active.id(), now());
     if (mapper.insertActive(userId, family, FORWARDER, s.ver(), (int) userId, address, address.toLowerCase(), salt) == 0) {
       mapper.reactivate(userId, family, FORWARDER, s.ver());
     }
@@ -113,15 +139,43 @@ public class AddressService implements WalletApi {
     return n;
   }
 
-  /** 用户在这条链上正在用的充值地址；还没分配（或者以太坊体系还不是当前这一套合约地址）时先分配 */
-  @Transactional
+  /**
+   * 用户在这条链上正在用的充值地址；还没分配（或者以太坊体系还不是当前这一套合约地址）时先分配。
+   * <p>不包在一个大事务里（SQ-8）：可重复读的快照建在第一次读时，同一客户另一个请求刚提交的地址在快照里看不到，分配完再读会读成"没有"。
+   * 现在每次读都是最新提交的数据；分配单独一个事务，事务开头先锁这个客户的账户行（{@link LedgerApi#lock}，下注、提现也从这一行排队）：
+   * 同一客户几个请求同时到时排队分配，后面的读到前面刚提交的地址就不再插入。不锁的话，两个插入同时撞上唯一键的事务会在主键末尾各留一个间隙锁，
+   * 再插下一个体系时互相等待，被 InnoDB 判死锁。锁账户行以后不再碰别的锁，充值、提现锁了账户行也不碰本表，没有环。
+   * 万一仍被判死锁（例如账户行被长事务占着以外的情况），重试，最多 3 次、间隔逐次加长。
+   */
   public Optional<String> addressOf(long userId, Chain chain) {
     Optional<AddressMapper.AddressRow> a = active(userId, chain.family);
     boolean stale = chain.family == Chain.Family.ETH && schemes.current().map(s -> a.isEmpty() || !FORWARDER.equals(a.get().scheme())
         || a.get().schemeVer() != s.ver()).orElse(false);
     if (a.isPresent() && !stale) return a.map(AddressMapper.AddressRow::address);
-    allocateAddresses(userId);
+    for (int attempt = 1; ; attempt++) {
+      try {
+        tx.executeWithoutResult(st -> {
+          ledger.lock(userId); // 同一客户的分配排队（锁定读不建快照，下面的普通读看得到前一个请求刚提交的地址）
+          allocateAddresses(userId);
+        });
+        break;
+      } catch (PessimisticLockingFailureException e) {
+        if (attempt >= ALLOCATE_ATTEMPTS) throw e;
+        log.info("分配充值地址被判死锁回滚（同一客户的请求同时到），第 {} 次重试 user={}", attempt, userId);
+        sleepQuietly(20L * attempt);
+      }
+    }
     return active(userId, chain.family).map(AddressMapper.AddressRow::address);
+  }
+
+  static final int ALLOCATE_ATTEMPTS = 3;
+
+  private static void sleepQuietly(long ms) {
+    try {
+      Thread.sleep(ms);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
   }
 
   /** 链上收款地址属于哪个用户：正在用的地址，或停用不超过 retiredScanDays 天的老地址 */

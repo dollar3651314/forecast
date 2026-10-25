@@ -39,6 +39,14 @@
     SELECT <include refid="cols"/> FROM wallet_address WHERE active_key = CONCAT(#{userId}, ':', #{family}) FOR UPDATE
   </select>
 
+  <select id="findActive" resultMap="row">
+    SELECT <include refid="cols"/> FROM wallet_address WHERE active_key = CONCAT(#{userId}, ':', #{family})
+  </select>
+
+  <select id="shareActive" resultMap="row">
+    SELECT <include refid="cols"/> FROM wallet_address WHERE active_key = CONCAT(#{userId}, ':', #{family}) FOR SHARE
+  </select>
+
   <insert id="insertActive">
     INSERT IGNORE INTO wallet_address (user_id, family, scheme, scheme_ver, address_index, address, address_key, salt, status, active_key)
     VALUES (#{userId}, #{family}, #{scheme}, #{schemeVer}, #{index}, #{address}, #{key}, #{salt}, 'ACTIVE', CONCAT(#{userId}, ':', #{family}))
