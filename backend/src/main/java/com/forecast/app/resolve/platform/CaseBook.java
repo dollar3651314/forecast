@@ -60,6 +60,11 @@ public class CaseBook {
       default -> null;
     };
     if (stage == null) return;
+    // 先普通读（不加锁）：没有进度行就什么都不做。不能直接 UPDATE 一个还不存在的行——调用方是 market 的状态跳转事务（可重复读），
+    // 对不存在的主键 UPDATE 会加间隙锁，两个新市场同时进入待裁决时各自 sync 再 open（插入）会死锁（整合 2 的 CI 发现，CaseBookGapLockTest；项目地图约定 34）。
+    // 普通读看得到的范围：调用方都是先拿到市场行锁再跳转，进度行在市场跳到待裁决的同一事务里建（listener），或在自动裁决转人工时建
+    // （CryptoResolver.manual，市场停在待裁决）；从待裁决往后的跳转（裁决台、公示、结算）都是读已提交的事务，读得到最新提交的进度行。
+    if (mapper.findCase(marketId) == null) return;
     LocalDateTime now = now();
     if (mapper.syncStage(marketId, stage, now) == 1 && "CLOSED".equals(stage)) mapper.decideDisputes(marketId, "CLOSED", null, null, now);
   }
