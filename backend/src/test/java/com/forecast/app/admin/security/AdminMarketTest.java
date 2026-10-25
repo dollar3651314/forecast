@@ -402,7 +402,9 @@ class AdminMarketTest extends AdminTestSupport {
         "dispute.windowMinutes.MACRO=1440", "kyc.depositThreshold=1000",
         // S7（迁移 V15）：裁决时限、争议处理时限、加密转人工的争议窗口
         "resolve.proposeMinutes.FOOTBALL=120", "resolve.proposeMinutes.MACRO=1440", "resolve.confirmMinutes=120", "dispute.handleMinutes=1440",
-        "dispute.windowMinutes.CRYPTO_1H=120");
+        "dispute.windowMinutes.CRYPTO_1H=120",
+        // S8（迁移 V16）：体育从赛程生成草稿时带出的截止提前量、事件时长
+        "sports.closeLeadMinutes.FOOTBALL=5", "sports.closeLeadMinutes.NBA=5", "sports.eventMinutes.FOOTBALL=120", "sports.eventMinutes.NBA=180");
     assertThat(body(call(get("/api/admin/configs"), s.cookie(), null)).toString()).doesNotContain("withdraw.minAmount").doesNotContain("market.fee");
     assertThat(call(put("/api/admin/configs/withdraw.minAmount"), s.cookie(), "{\"value\":\"120\",\"reason\":\"x\"}").getStatus()).as("系统配置页改不到了").isEqualTo(404);
     Admin configOnly = withRoles(role(Permission.CONFIG_VIEW, Permission.CONFIG_EDIT));

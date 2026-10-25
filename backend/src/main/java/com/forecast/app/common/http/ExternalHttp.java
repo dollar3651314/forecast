@@ -33,8 +33,23 @@ import java.util.concurrent.TimeoutException;
  */
 public final class ExternalHttp {
 
-  /** 一次请求的结果（任何 HTTP 状态码都算拿到了响应，由调用方判断） */
-  public record Response(int status, byte[] body) {}
+  /**
+   * 一次请求的结果（任何 HTTP 状态码都算拿到了响应，由调用方判断）。
+   *
+   * @param headers 响应头（forecast S8：限频时读 Retry-After 等），键是小写
+   */
+  public record Response(int status, byte[] body, Map<String, List<String>> headers) {
+
+    public Response(int status, byte[] body) {
+      this(status, body, Map.of());
+    }
+
+    /** 某个响应头的第一个值（名字不分大小写），没有为 null */
+    public String header(String name) {
+      List<String> v = headers == null ? null : headers.get(name.toLowerCase(java.util.Locale.ROOT));
+      return v == null || v.isEmpty() ? null : v.get(0);
+    }
+  }
 
   public enum Kind {
     /** 连接超时 */
@@ -80,7 +95,9 @@ public final class ExternalHttp {
     try {
       // 总时长 = 连接超时 + 读取超时（连接阶段由 connectTimeout 自己报错，这里是兜底）
       HttpResponse<byte[]> r = f.get(connectTimeout.plus(readTimeout).toMillis(), TimeUnit.MILLISECONDS);
-      return new Response(r.statusCode(), r.body());
+      Map<String, List<String>> h = new java.util.HashMap<>();
+      r.headers().map().forEach((k, v) -> h.put(k.toLowerCase(java.util.Locale.ROOT), v));
+      return new Response(r.statusCode(), r.body(), h);
     } catch (TimeoutException e) {
       f.cancel(true);
       throw new Failure(Kind.READ_TIMEOUT, "读取超时（" + readTimeout.toMillis() + " 毫秒）", e);

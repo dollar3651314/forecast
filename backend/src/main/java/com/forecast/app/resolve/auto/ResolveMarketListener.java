@@ -7,6 +7,7 @@ import com.forecast.app.market.api.MarketStatus;
 import com.forecast.app.market.api.ResolutionMode;
 import com.forecast.app.resolve.platform.CaseBook;
 import com.forecast.app.resolve.source.ResolveProperties;
+import com.forecast.app.resolve.sports.SportsResolver;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -28,6 +29,7 @@ import tools.jackson.databind.ObjectMapper;
  * <p>自动裁决参数（{@code source_ref}）不全的（例如手工建的加密市场没写币种）：直接建成"转人工"、写 AUTO_FAILED，事务提交后邮件告警——不让它停在待裁决没人管。
  * <p>forecast S7：其他市场（平台裁决的、体育在 S8 之前）进入待裁决时建平台裁决的进度行（{@link CaseBook#open}），转人工的加密市场也建；
  * 每次状态跳转同步进度行的阶段（公示中、争议中、结束）。
+ * <p>forecast S8：足球、NBA 裁决方式自动的市场进入待裁决时交给 {@link SportsResolver#onPending}（建体育自动裁决的进度；参数不全、只有一个来源的直接转人工）。
  */
 @Component
 class ResolveMarketListener implements MarketListener {
@@ -39,16 +41,18 @@ class ResolveMarketListener implements MarketListener {
   private final MarketApi markets;
   private final ResolveProperties props;
   private final CryptoResolver resolver;
+  private final SportsResolver sports;
   private final CaseBook cases;
   private final Clock clock;
   private final ObjectMapper json;
 
-  ResolveMarketListener(ResolveMapper mapper, MarketApi markets, ResolveProperties props, CryptoResolver resolver, CaseBook cases, Clock clock,
-      ObjectMapper json) {
+  ResolveMarketListener(ResolveMapper mapper, MarketApi markets, ResolveProperties props, CryptoResolver resolver, SportsResolver sports, CaseBook cases,
+      Clock clock, ObjectMapper json) {
     this.mapper = mapper;
     this.markets = markets;
     this.props = props;
     this.resolver = resolver;
+    this.sports = sports;
     this.cases = cases;
     this.clock = clock;
     this.json = json;
@@ -60,8 +64,13 @@ class ResolveMarketListener implements MarketListener {
     if (to != MarketStatus.PENDING_RESOLUTION) return;
     MarketApi.AutoRef m = markets.autoRef(marketId).orElse(null);
     if (m == null) return;
+    if (SportsResolver.handles(m)) {
+      // S8：体育自动裁决
+      sports.onPending(m);
+      return;
+    }
     if (!CRYPTO.contains(m.category()) || m.resolutionMode() != ResolutionMode.AUTO) {
-      // 平台裁决的市场；自动裁决的体育市场（S8 之前没有自动裁决）也先进裁决台
+      // 平台裁决的市场；没有自动裁决的（时事选了自动等）也进裁决台
       cases.open(marketId, m.resolutionMode() == ResolutionMode.PLATFORM ? CaseBook.PLATFORM : CaseBook.NO_AUTO, m.category());
       return;
     }

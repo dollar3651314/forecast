@@ -520,17 +520,50 @@ public class ResolveDesk implements ResolveDeskApi {
       PlatformRows.Case c = lockOpenCase(m);
       if (c.holdKind != null) throw onHold(c);
       if (c.proposalId != null) throw new BizException("PROPOSAL_PENDING", "已经有一条待确认的提议，先确认或退回");
-      // E6：原定开赛后 48 小时内完赛的按实际结果，超过的作废；E7：48 小时内没有宣布的作废（从标记时算）
-      LocalDateTime until = "POSTPONED".equals(k) ? ldt(m.eventStartAt()).plus(PlatformParams.HOLD_MAX) : now.plus(PlatformParams.HOLD_MAX);
+      LocalDateTime until = holdUntil(m, k, now);
       if (!until.isAfter(now)) throw new ValidationException(List.of(new ValidationException.Field("kind", "expired")));
-      PlatformRows.Record rec = record(id, HOLD, null, null, String.valueOf(adminId), now);
-      rec.detail = json.writeValueAsString(Map.of("hold", k, "until", iso(until)));
-      rec.note = cut(r, NOTE_MAX);
-      mapper.insertRecord(rec);
-      if (mapper.setHold(id, k, until, now) != 1) throw stateChanged();
+      if (!applyHold(m, k, until, cut(r, NOTE_MAX), String.valueOf(adminId), Map.of(), now)) throw stateChanged();
       return null;
     });
     return detail(marketNo).orElseThrow();
+  }
+
+  /** E6：原定开赛后 48 小时内完赛的按实际结果，超过的作废；E7：48 小时内没有宣布的作废（从标记时算） */
+  private static LocalDateTime holdUntil(MarketApi.PlatformRef m, String kind, LocalDateTime now) {
+    return "POSTPONED".equals(kind) ? ldt(m.eventStartAt()).plus(PlatformParams.HOLD_MAX) : now.plus(PlatformParams.HOLD_MAX);
+  }
+
+  /** 写 HOLD 记录、标记等待（调用方已锁市场行、进度行）；进度行状态不对返回 false */
+  private boolean applyHold(MarketApi.PlatformRef m, String kind, LocalDateTime until, String note, String actor, Map<String, Object> extra,
+      LocalDateTime now) {
+    PlatformRows.Record rec = record(m.marketId(), HOLD, null, null, actor, now);
+    Map<String, Object> d = new LinkedHashMap<>(extra);
+    d.put("hold", kind);
+    d.put("until", iso(until));
+    rec.detail = json.writeValueAsString(d);
+    rec.note = note;
+    mapper.insertRecord(rec);
+    return mapper.setHold(m.marketId(), kind, until, now) == 1;
+  }
+
+  /**
+   * 系统标记 E6 延期 / E7 腰斩等待（forecast S8：体育数据源报告延期、中断时自动触发，和裁决台的"标记等待"效果相同：等待期间不能提议，
+   * 48 小时内由人解除后照常提议，到时间没解除系统作废）。<b>必须在调用方的事务里</b>（这里锁市场行、进度行；进度行要已经建好，见 {@link CaseBook#open}）。
+   * 不能标记（市场不在待裁决、结算已开始、已经在等待、有待确认的提议、E6 的 48 小时已经过了）时返回 false、什么都不改。
+   *
+   * @param kind POSTPONED / ABANDONED
+   * @param detail 依据（数据源报告的状态等），写进 HOLD 记录
+   */
+  public boolean systemHold(long marketId, String kind, String reason, Map<String, Object> detail) {
+    if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new IllegalStateException("systemHold 必须在事务里调用");
+    LocalDateTime now = now();
+    MarketApi.PlatformRef m = markets.lockPlatform(marketId);
+    if (m.status() != MarketStatus.PENDING_RESOLUTION || m.settlePhase() != SettlePhase.NONE) return false;
+    PlatformRows.Case c = mapper.lockCase(marketId);
+    if (c == null || !"OPEN".equals(c.stage) || c.holdKind != null || c.proposalId != null) return false;
+    LocalDateTime until = holdUntil(m, kind, now);
+    if (!until.isAfter(now)) return false;
+    return applyHold(m, kind, until, cut(reason, NOTE_MAX), SYSTEM, detail == null ? Map.of() : detail, now);
   }
 
   @Override

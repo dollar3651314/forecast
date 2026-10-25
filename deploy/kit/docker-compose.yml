@@ -65,6 +65,10 @@ services:
       FC_SETTLE_BATCH_SIZE: ${FC_SETTLE_BATCH_SIZE:-500}
       # 加密自动裁决的第三源 Coinbase（forecast S6，AQ-13）：默认关闭；true = 主备一方拿不到时用它补位
       FC_SOURCE_COINBASE_ENABLED: ${FC_SOURCE_COINBASE_ENABLED:-false}
+      # 体育数据源的 key（forecast S8，AQ-17）：Amos 注册后填进 .env；没填的来源"未开通"（健康检查 alerts 里显示，用到它的体育市场转人工）
+      FC_SRC_FOOTBALL_DATA_TOKEN: ${FC_SRC_FOOTBALL_DATA_TOKEN:-}
+      FC_SRC_BALLDONTLIE_KEY: ${FC_SRC_BALLDONTLIE_KEY:-}
+      FC_SRC_THESPORTSDB_KEY: ${FC_SRC_THESPORTSDB_KEY:-}
       # 区块链（D4 第二步才填，全部用测试网）；没配置的链不扫块
       FC_WALLET_ETH_XPUB: ${FC_WALLET_ETH_XPUB:-}
       FC_WALLET_TRON_XPUB: ${FC_WALLET_TRON_XPUB:-}

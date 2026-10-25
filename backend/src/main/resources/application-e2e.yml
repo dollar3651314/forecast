@@ -38,3 +38,21 @@ forecast:
         base-url: http://127.0.0.1:${server.port:8080}/api/e2e/candles/okx
       coinbase:
         enabled: false
+      # 体育（forecast S8）：football-data、balldontlie、TheSportsDB 的地址指向后端自己的替身 /api/e2e/sports/**（resolve/web/E2eSports），
+      # 端到端走真实的适配器、网关、赛程同步、候选、生成草稿和体育裁决器，不连外网。key 是端到端的测试值（替身只检查有没有带）；不限频，避免重跑时排队
+      football-data:
+        base-url: http://127.0.0.1:${server.port:8080}/api/e2e/sports/football-data
+        key: e2e
+        rate-limit: 0
+      balldontlie:
+        base-url: http://127.0.0.1:${server.port:8080}/api/e2e/sports/balldontlie
+        key: e2e
+        rate-limit: 0
+      thesportsdb:
+        base-url: http://127.0.0.1:${server.port:8080}/api/e2e/sports/thesportsdb
+        key: e2e
+        rate-limit: 0
+  # 体育：赛程同步、自动裁决都由用例触发（后台"立即同步"、/api/e2e/sports/tick），不定时跑
+  sports:
+    sync-enabled: false
+    resolver-enabled: false

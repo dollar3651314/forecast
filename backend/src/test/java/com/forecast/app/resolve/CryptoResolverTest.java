@@ -380,14 +380,15 @@ class CryptoResolverTest extends CryptoTestSupport {
   }
 
   @Test
-  void 不是加密自动裁决的市场不建进度_S7起进平台裁决台() throws Exception {
+  void 不是加密自动裁决的市场不建加密进度_S8起体育自动裁决接手() throws Exception {
     Market m = shortMarket(2);
     bothSides(m);
     closeAndEnd(m);
     assertThat(status(m)).isEqualTo("PENDING_RESOLUTION");
     assertThat(taskStatus(m)).isNull();
-    // 体育自动裁决在 S8：S7 先进平台裁决台（NO_AUTO）
-    assertThat(jdbc.queryForObject("SELECT origin FROM resolve_case WHERE market_id = ?", String.class, m.id())).isEqualTo("NO_AUTO");
+    // S7 时体育先进平台裁决台（NO_AUTO）；S8 起体育自动裁决接手：手工建的足球市场没有赛程参数，直接转人工（AUTO_FAILED）
+    assertThat(jdbc.queryForObject("SELECT status FROM resolve_sports_task WHERE market_id = ?", String.class, m.id())).isEqualTo("MANUAL");
+    assertThat(jdbc.queryForObject("SELECT origin FROM resolve_case WHERE market_id = ?", String.class, m.id())).isEqualTo("AUTO_FAILED");
     verify(staff, never()).notifyStaff(eq("RESOLVE_AUTO_FAILED"), argThat(p -> m.no().equals(p.get("marketNo"))));
   }
 }

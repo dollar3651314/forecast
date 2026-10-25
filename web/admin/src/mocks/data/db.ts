@@ -574,6 +574,11 @@ export const params: ParamItem[] = [
     updatedAt: null,
   })),
   { key: 'resolve.confirmMinutes', value: '120', unit: 'minutes', group: 'resolve', section: 'betting', updatedAt: null },
+  // S8（迁移 V16）：体育从赛程生成草稿时带出的截止提前量、事件时长
+  ...(['FOOTBALL', 'NBA'] as const).flatMap((c) => [
+    { key: `sports.closeLeadMinutes.${c}`, value: '5', unit: 'minutes' as const, group: 'sports', section: 'betting' as const, updatedAt: null },
+    { key: `sports.eventMinutes.${c}`, value: c === 'NBA' ? '180' : '120', unit: 'minutes' as const, group: 'sports', section: 'betting' as const, updatedAt: null },
+  ]),
   { key: 'kyc.depositThreshold', value: '1000', unit: 'usdt', group: 'kyc', section: 'betting', updatedAt: null },
 ];
 
