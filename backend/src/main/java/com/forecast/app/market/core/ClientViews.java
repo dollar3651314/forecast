@@ -36,11 +36,12 @@ public final class ClientViews {
    * 市场详情：规则区要的全部内容（判定条件在选项里、规则全文、裁决方式和来源、时间、费率和修改记录、补充说明）；
    * 取消、作废时带原因（系统作废是原因代码，例如 NOT_ENOUGH_OPTIONS、NO_WINNER，客户端翻译）。
    * S5 起：{@code winningOptionNo} 已结算市场的结果（其他状态为空）；{@code settling} 正在分批派彩（客户端显示"结算中"，架构方案 X-2）。
+   * S6 起：{@code resolution} 已结算市场的裁决依据（自动裁决的开始价、结束价、来源，结构由 resolve 定：{@code resolve/auto/ResolutionViews}；其他状态为空）。
    */
   public record Detail(String publicNo, String category, I18nText title, I18nText rules, String status, String resolutionMode, String sourcePrimary,
       String sourceBackup, String openAt, String closeAt, String eventStartAt, String eventEndAt, String feeRate, String userCap,
       Integer disputeWindowMinutes, String coverPath, String cancelReason, String voidReason, String winningOptionNo, boolean settling,
-      List<OptionDetail> options, List<Clarification> clarifications, List<FeeChange> feeChanges, Object pool) {}
+      List<OptionDetail> options, List<Clarification> clarifications, List<FeeChange> feeChanges, Object pool, Object resolution) {}
 
   public record Page<T>(List<T> items, long total, int page, int pageSize) {}
 }

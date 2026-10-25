@@ -102,4 +102,7 @@ interface MarketMapper {
       @Param("offset") int offset, @Param("limit") int limit);
 
   long clientCount(@Param("statuses") Collection<String> statuses, @Param("category") String category);
+
+  /** 自动生成模板在 [from, to] 里已经生成的市场（按窗口开始时间） */
+  List<MarketRows.Market> generated(@Param("autogenId") long autogenId, @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 }

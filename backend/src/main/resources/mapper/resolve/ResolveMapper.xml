@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  自动裁决（forecast S6）。只有 resolve 模块使用（表名以 resolve_ 开头）。
+  - resolve_source_fetch（数据源原始返回存档）、resolve_record（裁决记录）只增不改：这里没有它们的 UPDATE、DELETE（ResolveAppendOnlyTest 检查）。
+  - resolve_auto_task 的改动都是带旧状态的条件更新（PENDING 的还带版本号）：多实例、重复执行只生效一次。
+-->
+<mapper namespace="com.forecast.app.resolve.auto.ResolveMapper">
+
+  <sql id="taskCols">
+    market_id, symbol, window_start, window_end, status, attempts, next_attempt_at, deadline_at, result_option_id, last_reason, last_attempt_at, version,
+    created_at, updated_at
+  </sql>
+
+  <insert id="insertTaskIgnore">
+    INSERT IGNORE INTO resolve_auto_task (market_id, symbol, window_start, window_end, status, attempts, next_attempt_at, deadline_at, last_reason, version,
+      created_at, updated_at)
+    VALUES (#{marketId}, #{symbol}, #{windowStart}, #{windowEnd}, #{status}, 0, #{nextAttemptAt}, #{deadlineAt}, #{lastReason}, 0, #{createdAt}, #{updatedAt})
+  </insert>
+
+  <select id="task" resultType="com.forecast.app.resolve.auto.ResolveRows$Task">
+    SELECT <include refid="taskCols"/> FROM resolve_auto_task WHERE market_id = #{marketId}
+  </select>
+
+  <select id="dueTasks" resultType="long">
+    SELECT market_id FROM resolve_auto_task WHERE status IN ('PENDING', 'RESOLVING') AND next_attempt_at &lt;= #{now}
+    ORDER BY next_attempt_at, market_id LIMIT #{limit}
+  </select>
+
+  <update id="retryLater">
+    UPDATE resolve_auto_task SET attempts = attempts + 1, next_attempt_at = #{next}, last_reason = #{reason}, last_attempt_at = #{now},
+      version = version + 1, updated_at = #{now}
+    WHERE market_id = #{marketId} AND status = 'PENDING' AND version = #{version}
+  </update>
+
+  <update id="toResolving">
+    UPDATE resolve_auto_task SET status = 'RESOLVING', attempts = attempts + 1, result_option_id = #{optionId}, next_attempt_at = #{next},
+      last_reason = #{reason}, last_attempt_at = #{now}, version = version + 1, updated_at = #{now}
+    WHERE market_id = #{marketId} AND status = 'PENDING' AND version = #{version}
+  </update>
+
+  <update id="toResolved">
+    UPDATE resolve_auto_task SET status = 'RESOLVED', last_reason = #{reason}, version = version + 1, updated_at = #{now}
+    WHERE market_id = #{marketId} AND status = 'RESOLVING'
+  </update>
+
+  <update id="resolvingLater">
+    UPDATE resolve_auto_task SET next_attempt_at = #{next}, last_reason = #{reason}, version = version + 1, updated_at = #{now}
+    WHERE market_id = #{marketId} AND status = 'RESOLVING'
+  </update>
+
+  <update id="toManual">
+    UPDATE resolve_auto_task SET status = 'MANUAL', attempts = attempts + 1, last_reason = #{reason}, last_attempt_at = #{now}, version = version + 1,
+      updated_at = #{now}
+    WHERE market_id = #{marketId} AND status = 'PENDING' AND version = #{version}
+  </update>
+
+  <update id="close">
+    UPDATE resolve_auto_task SET status = 'CLOSED', last_reason = #{reason}, version = version + 1, updated_at = #{now}
+    WHERE market_id = #{marketId} AND status IN ('PENDING', 'RESOLVING')
+  </update>
+
+  <select id="manualTasks" resultType="com.forecast.app.resolve.auto.ResolveRows$Task">
+    SELECT <include refid="taskCols"/> FROM resolve_auto_task WHERE status = 'MANUAL' ORDER BY updated_at DESC, market_id DESC LIMIT #{offset}, #{limit}
+  </select>
+
+  <select id="countManual" resultType="long">
+    SELECT COUNT(*) FROM resolve_auto_task WHERE status = 'MANUAL'
+  </select>
+
+  <insert id="insertRecord" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO resolve_record (market_id, kind, option_id, detail, note, actor, created_at)
+    VALUES (#{marketId}, #{kind}, #{optionId}, #{detail}, #{note}, #{actor}, #{createdAt})
+  </insert>
+
+  <select id="records" resultType="com.forecast.app.resolve.auto.ResolveRows$Record">
+    SELECT id, market_id, kind, option_id, detail, note, actor, created_at FROM resolve_record WHERE market_id = #{marketId} ORDER BY id
+  </select>
+
+  <select id="latestRecord" resultType="com.forecast.app.resolve.auto.ResolveRows$Record">
+    SELECT id, market_id, kind, option_id, detail, note, actor, created_at FROM resolve_record WHERE market_id = #{marketId} AND kind = #{kind}
+    ORDER BY id DESC LIMIT 1
+  </select>
+
+  <sql id="fetchCols">
+    id, market_id, source, attempt, request_url, http_status, body, body_sha256, outcome, parsed, error, fetched_at, elapsed_ms
+  </sql>
+
+  <insert id="insertFetch" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO resolve_source_fetch (market_id, source, attempt, request_url, http_status, body, body_sha256, outcome, parsed, error, fetched_at, elapsed_ms)
+    VALUES (#{marketId}, #{source}, #{attempt}, #{requestUrl}, #{httpStatus}, #{body}, #{bodySha256}, #{outcome}, #{parsed}, #{error}, #{fetchedAt},
+      #{elapsedMs})
+  </insert>
+
+  <select id="fetches" resultType="com.forecast.app.resolve.auto.ResolveRows$Fetch">
+    SELECT <include refid="fetchCols"/> FROM resolve_source_fetch WHERE market_id = #{marketId} ORDER BY id DESC LIMIT #{limit}
+  </select>
+
+  <select id="fetchesByIds" resultType="com.forecast.app.resolve.auto.ResolveRows$Fetch">
+    SELECT <include refid="fetchCols"/> FROM resolve_source_fetch WHERE id IN
+    <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
+  </select>
+</mapper>

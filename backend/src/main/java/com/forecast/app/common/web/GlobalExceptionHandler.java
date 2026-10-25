@@ -54,6 +54,11 @@ public class GlobalExceptionHandler {
       Map.entry("POOL_RECON_OPEN", HttpStatus.CONFLICT),
       Map.entry("SETTLE_STATE_CHANGED", HttpStatus.CONFLICT),
       Map.entry("ISSUE_ALREADY_RESOLVED", HttpStatus.CONFLICT),
+      // S6 加密自动生成
+      Map.entry("AUTOGEN_EXISTS", HttpStatus.CONFLICT),
+      Map.entry("AUTOGEN_ENABLED", HttpStatus.CONFLICT),
+      Map.entry("AUTOGEN_STATE_CHANGED", HttpStatus.CONFLICT),
+      Map.entry("TEMPLATE_IN_USE", HttpStatus.CONFLICT),
       Map.entry("NOT_FOUND", HttpStatus.NOT_FOUND));
 
   @ExceptionHandler(BizException.class)

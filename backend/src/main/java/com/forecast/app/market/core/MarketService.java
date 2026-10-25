@@ -16,6 +16,7 @@ import com.forecast.app.market.api.MarketApi;
 import com.forecast.app.market.api.MarketCategory;
 import com.forecast.app.market.api.MarketListener;
 import com.forecast.app.market.api.MarketPoolView;
+import com.forecast.app.market.api.MarketResolutionView;
 import com.forecast.app.market.api.MarketStatus;
 import com.forecast.app.market.api.ResolutionMode;
 import com.forecast.app.market.api.SettlePhase;
@@ -80,11 +81,12 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
   private final NotifyApi notify;
   private final ObjectProvider<MarketPoolView> pool;
   private final ObjectProvider<MarketListener> listeners;
+  private final ObjectProvider<MarketResolutionView> resolution;
   private final ObjectMapper json;
   private final TransactionTemplate tx;
 
   MarketService(MarketMapper mapper, SystemConfig config, Snowflake ids, Clock clock, NotifyApi notify, ObjectProvider<MarketPoolView> pool,
-      ObjectProvider<MarketListener> listeners, ObjectMapper json, PlatformTransactionManager tm) {
+      ObjectProvider<MarketListener> listeners, ObjectProvider<MarketResolutionView> resolution, ObjectMapper json, PlatformTransactionManager tm) {
     this.mapper = mapper;
     this.config = config;
     this.ids = ids;
@@ -92,6 +94,7 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
     this.notify = notify;
     this.pool = pool;
     this.listeners = listeners;
+    this.resolution = resolution;
     this.json = json;
     this.tx = new TransactionTemplate(tm);
   }
@@ -214,6 +217,16 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
     return ok;
   }
 
+  @Override
+  @Transactional(readOnly = true)
+  public Optional<AutoRef> autoRef(long marketId) {
+    MarketRows.Market m = mapper.findById(marketId);
+    if (m == null || m.deletedAt != null) return Optional.empty();
+    List<OptionRef> opts = mapper.options(m.id).stream().map(MarketService::optionRef).toList();
+    return Optional.of(new AutoRef(m.id, m.publicNo, status(m), MarketCategory.valueOf(m.category), ResolutionMode.of(m.resolutionMode), sourceRef(m),
+        instant(m.eventStartAt), instant(m.eventEndAt), title(m), opts, m.autogenId));
+  }
+
   /**
    * 状态跳转的唯一入口：只允许 17 条边；带旧状态的条件更新（0 行 = 状态已被别人改过，返回 false，什么都不做）；同一事务写状态历史；
    * 进入取消、作废时通知 {@link MarketListener#onRefundRequired}（S5 建退款单）。
@@ -239,6 +252,7 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
       }
       p.changed(id, to);
     }
+    listeners.orderedStream().forEach(x -> x.onStatusChanged(id, from, to));
     if (to == MarketStatus.CANCELLED || to == MarketStatus.VOIDED) listeners.orderedStream().forEach(x -> x.onRefundRequired(id, to, cut));
     return true;
   }
@@ -584,10 +598,13 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
     List<ClientViews.Clarification> cl = mapper.clarifications(m.id).stream()
         .map(c -> new ClientViews.Clarification(new I18nText(c.textEn, c.textZhCn, c.textZhTw), iso(c.createdAt))).toList();
     List<ClientViews.FeeChange> fees = mapper.feeChanges(m.id).stream().map(f -> new ClientViews.FeeChange(percent(f.oldRate), percent(f.newRate), iso(f.changedAt))).toList();
+    // 已结算市场的裁决依据（S6：自动裁决的开始价、结束价、来源，需求第 4.3 节、AC-27；resolve 模块提供）
+    MarketResolutionView rv = resolution.getIfAvailable();
+    Object resolved = rv != null && status(m) == MarketStatus.SETTLED ? rv.clientResolution(m.id) : null;
     return Optional.of(new ClientViews.Detail(String.valueOf(m.publicNo), m.category, title(m), rules(m), status(m).api(), m.resolutionMode, m.sourcePrimary,
         m.sourceBackup, iso(m.openAt), iso(m.closeAt), iso(m.eventStartAt), iso(m.eventEndAt), percent(m.feeRate), money(m.userCap), m.disputeWindowMin,
         m.coverPath, m.cancelReason, m.voidReason, winningOptionNo(m, optionRows), SettlePhase.PAYING.name().equals(m.settlePhase), options, cl, fees,
-        poolView));
+        poolView, resolved));
   }
 
   /** 已结算的市场才公开结果（S5 超管填的结果；公示中的拟定结果在 S7 另给） */
@@ -802,6 +819,101 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
       return new BigDecimal("0.0500");
     }
     return r;
+  }
+
+  // =====================================================================
+  // 自动生成（S6，market/autogen 调用）
+  // =====================================================================
+
+  /** 状态历史里自动生成上架的 actor */
+  public static final String AUTOGEN = "AUTOGEN";
+
+  /**
+   * 按自动生成模板渲染好的一个市场（加密涨跌，需求第 4.2 节）。费率不在这里：按品类默认值带出（第 3.8 节第 2 条）。
+   *
+   * @param userCap 为空用品类默认值
+   */
+  public record Generated(long autogenId, MarketCategory category, I18nText title, I18nText rules, String sourcePrimary, String sourceBackup,
+      Map<String, Object> sourceRef, Instant openAt, Instant closeAt, Instant eventStartAt, Instant eventEndAt, BigDecimal userCap,
+      List<OptionInput> options) {}
+
+  /**
+   * 渲染出来的市场缺哪些必填项（第 4.1 节，和上架检查同一个清单）、时间先后对不对。启用模板时检查一次（空表示齐全）。
+   */
+  public List<ValidationException.Field> generatedMissing(Generated g) {
+    MarketRows.Market m = generatedRow(g);
+    List<MarketRows.Option> opts = new ArrayList<>();
+    for (OptionInput o : g.options()) {
+      MarketRows.Option r = new MarketRows.Option();
+      r.labelEn = o.label().en();
+      r.labelZhCn = o.label().zhCN();
+      r.labelZhTw = o.label().zhTW();
+      r.winCondition = json.writeValueAsString(o.winCondition());
+      opts.add(r);
+    }
+    List<ValidationException.Field> out = new ArrayList<>(missing(m, opts));
+    if (opts.size() > 10) out.add(new ValidationException.Field("options", "max10"));
+    if (!m.openAt.isBefore(m.closeAt)) out.add(new ValidationException.Field("closeAt", "notAfterOpen"));
+    if (m.closeAt.isAfter(m.eventStartAt)) out.add(new ValidationException.Field("eventStartAt", "beforeClose"));
+    if (!m.eventStartAt.isBefore(m.eventEndAt)) out.add(new ValidationException.Field("eventEndAt", "notAfterStart"));
+    return out;
+  }
+
+  /**
+   * 生成一个市场并<b>直接上架</b>（第 4.2 节"按模板生成的市场直接上架"；第 1 条边 DRAFT → LISTED，actor {@code AUTOGEN}）。必须在调用方的事务里。
+   * 同一模板同一窗口只有一个（唯一键 {@code uk_market_autogen_window}，重复插入抛 {@link org.springframework.dao.DuplicateKeyException}，调用方当作"已生成"）。
+   * 必填项不齐、时间不对、截止时间已过时抛 {@link ValidationException}，什么都不写。
+   *
+   * @return 新市场的对外编号
+   */
+  @Transactional(propagation = Propagation.MANDATORY)
+  public long createGenerated(Generated g) {
+    LocalDateTime now = now();
+    List<ValidationException.Field> errs = new ArrayList<>(generatedMissing(g));
+    if (!ldt(g.closeAt()).isAfter(now)) errs.add(new ValidationException.Field("closeAt", "passed"));
+    if (!errs.isEmpty()) throw new ValidationException(errs);
+    MarketRows.Market m = generatedRow(g);
+    m.publicNo = ids.next();
+    m.createdAt = now;
+    m.updatedAt = now;
+    mapper.insertMarket(m);
+    insertOptions(m.id, g.options().stream().map(o -> new OptionInput(o.label().normalized(), o.winCondition().normalized())).toList(), now);
+    if (!move(m.id, MarketStatus.DRAFT, MarketStatus.LISTED, AUTOGEN, null, null, now)) throw stateChanged();
+    return m.publicNo;
+  }
+
+  /** 自动生成模板在 [from, to]（窗口开始时间）里已经生成的市场：窗口开始时间 → 对外编号 */
+  @Transactional(readOnly = true)
+  public Map<Instant, Long> generatedOf(long autogenId, Instant from, Instant to) {
+    Map<Instant, Long> out = new LinkedHashMap<>();
+    for (MarketRows.Market m : mapper.generated(autogenId, ldt(from), ldt(to))) out.put(instant(m.eventStartAt), m.publicNo);
+    return out;
+  }
+
+  private MarketRows.Market generatedRow(Generated g) {
+    MarketRows.Market m = new MarketRows.Market();
+    m.category = g.category().name();
+    I18nText t = g.title().normalized();
+    I18nText r = g.rules().normalized();
+    m.titleEn = t.en();
+    m.titleZhCn = t.zhCN();
+    m.titleZhTw = t.zhTW();
+    m.rulesEn = r.en();
+    m.rulesZhCn = r.zhCN();
+    m.rulesZhTw = r.zhTW();
+    m.resolutionMode = ResolutionMode.AUTO.name();
+    m.sourcePrimary = clean(g.sourcePrimary());
+    m.sourceBackup = clean(g.sourceBackup());
+    m.sourceRef = g.sourceRef() == null ? null : json.writeValueAsString(g.sourceRef());
+    m.openAt = ldt(g.openAt());
+    m.closeAt = ldt(g.closeAt());
+    m.eventStartAt = ldt(g.eventStartAt());
+    m.eventEndAt = ldt(g.eventEndAt());
+    BigDecimal def = config.decimal(g.category().userCapKey, null);
+    m.userCap = g.userCap() != null ? g.userCap() : def;
+    m.feeRate = defaultFeeRate(g.category());
+    m.autogenId = g.autogenId();
+    return m;
   }
 
   // =====================================================================

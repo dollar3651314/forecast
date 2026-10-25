@@ -42,6 +42,8 @@ final class MarketRows {
     String voidReason;
     String cancelReason;
     String coverPath;
+    /** 由哪个自动生成模板生成（S6），手工建的为空 */
+    Long autogenId;
     Long createdBy;
     Long listedBy;
     LocalDateTime deletedAt;

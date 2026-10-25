@@ -90,4 +90,18 @@ public interface MarketApi {
 
   /** 结算阶段 from → to（带旧值的条件更新）；当前不是 from 时返回 false、什么都不改 */
   boolean casSettlePhase(long marketId, SettlePhase from, SettlePhase to);
+
+  /**
+   * 自动裁决要用的市场信息（forecast S6）。
+   *
+   * @param resolutionMode 裁决方式（草稿可能为空）
+   * @param sourceRef 自动裁决用的结构化参数（{@code source_ref}，加密：{@code kind = CRYPTO_UPDOWN}、{@code symbol}、{@code windowStart}、
+   *     {@code windowEnd}、{@code options}（结果 → 选项序号，例如 {@code {"UP": 1, "DOWN": 2}}）），没有为空
+   * @param autogenId 由哪个自动生成模板生成（内部 id），手工建的为空
+   */
+  record AutoRef(long marketId, long publicNo, MarketStatus status, MarketCategory category, ResolutionMode resolutionMode, Map<String, Object> sourceRef,
+      Instant eventStartAt, Instant eventEndAt, I18nText title, List<OptionRef> options, Long autogenId) {}
+
+  /** 按内部 id 取自动裁决要用的信息；可以在调用方的事务里调用（只读） */
+  Optional<AutoRef> autoRef(long marketId);
 }

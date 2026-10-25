@@ -93,7 +93,23 @@ class E2eProfileTest {
     void 接口都在_不需要登录() throws Exception {
       assertThat(e2ePaths(mapping)).contains("/api/e2e/mail/code", "/api/e2e/wallet/deposit", "/api/e2e/wallet/mine",
           "/api/e2e/wallet/withdrawals/advance", "/api/e2e/wallet/withdrawals/{id}/confirm", "/api/e2e/clock", "/api/e2e/clock/advance", "/api/e2e/clock/reset",
-          "/api/e2e/markets/tick", "/api/e2e/settle/tick", "/api/e2e/settle/recon");
+          "/api/e2e/markets/tick", "/api/e2e/settle/tick", "/api/e2e/settle/recon", "/api/e2e/autogen/tick", "/api/e2e/resolve/tick", "/api/e2e/candles",
+          "/api/e2e/candles/binance/api/v3/klines", "/api/e2e/candles/okx/api/v5/market/history-candles");
+      // 替身数据源（S6）：设一个窗口的价格，照币安、OKX 的格式回出来，真实的适配器能解析
+      HttpResponse<String> set = HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/e2e/candles"))
+          .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString("{\"symbol\":\"BTCUSDT\",\"windowStart\":\"2026-11-01T13:00:00Z\","
+              + "\"windowEnd\":\"2026-11-01T14:00:00Z\",\"open\":\"100\",\"close\":\"100\"}")).build(), HttpResponse.BodyHandlers.ofString());
+      assertThat(set.statusCode()).isEqualTo(200);
+      com.forecast.app.resolve.source.CandleQuery q = new com.forecast.app.resolve.source.CandleQuery("BTCUSDT",
+          java.time.Instant.parse("2026-11-01T13:00:00Z"), java.time.Instant.parse("2026-11-01T14:00:00Z"));
+      String base = "http://localhost:" + port + "/api/e2e/candles";
+      com.forecast.app.resolve.source.BinanceSpot bn = new com.forecast.app.resolve.source.BinanceSpot();
+      com.forecast.app.resolve.source.OkxSpot ok = new com.forecast.app.resolve.source.OkxSpot();
+      String bBody = HttpClient.newHttpClient().send(HttpRequest.newBuilder(bn.uri(base + "/binance", q)).build(), HttpResponse.BodyHandlers.ofString()).body();
+      String oBody = HttpClient.newHttpClient().send(HttpRequest.newBuilder(ok.uri(base + "/okx", q)).build(), HttpResponse.BodyHandlers.ofString()).body();
+      assertThat(bn.parse(bBody, q).direction()).isEqualTo("UP");
+      assertThat(bn.parse(bBody, q).count()).isEqualTo(60);
+      assertThat(ok.parse(oBody, q).open()).isEqualByComparingTo("100");
       // 可调时钟（S3）：往后拨，业务时钟跟着走；reset 回到系统时间
       assertThat(clock.getClass().getSimpleName()).as("e2e 下业务时钟是可调时钟").isEqualTo("OffsetClock");
       java.time.Instant before = clock.instant();
