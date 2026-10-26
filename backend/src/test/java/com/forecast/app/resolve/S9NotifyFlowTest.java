@@ -87,12 +87,14 @@ class S9NotifyFlowTest extends PlatformTestSupport {
       }
     }
     assertThat(problems).isEmpty();
-    // 需求第 7 节写"不发"的四类没有模板；客户模板一共 20 个
-    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM notify_template WHERE audience IN ('USER', 'ANY')", Integer.class)).isEqualTo(20);
+    // 需求第 7 节写"不发"的四类没有模板；客户模板一共 20 个；S16 加了等候页的两封（按邮箱发给订阅的人，不一定是客户，SQ-22：确认订阅、正式上线了）
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM notify_template WHERE audience IN ('USER', 'ANY')", Integer.class)).isEqualTo(22);
+    assertThat(jdbc.queryForList("SELECT code FROM notify_template WHERE audience = 'ANY' AND req_no IS NULL AND code LIKE 'WAITLIST%' ORDER BY code", String.class))
+        .containsExactly("WAITLIST_CONFIRM", "WAITLIST_LAUNCH");
     // 员工模板都配了按角色的收件人或者明确发告警邮箱（复用的）
     assertThat(jdbc.queryForList("SELECT code FROM notify_template WHERE audience = 'STAFF' AND staff_perms <> '' ORDER BY code", String.class))
         .containsExactly("DISPUTE_NEW", "MARKET_SUBMITTED", "POOL_RECON_DIFF", "RESOLVE_AUTO_FAILED", "RESOLVE_OVERDUE", "RESOLVE_PROPOSED", "RISK_ALERT", "SETTLE_ABNORMAL",
-            "SPORTS_AUTO_FAILED", "SPORTS_KICKOFF_CHANGED");
+            "SPORTS_AUTO_FAILED", "SPORTS_KICKOFF_CHANGED", "TELEGRAM_ALERT");
   }
 
   /** 这个市场的员工邮件发给了谁 */
@@ -201,16 +203,19 @@ class S9NotifyFlowTest extends PlatformTestSupport {
     // S9 的菜单在 V17，S10 的风控告警在 V19，S13 的来源统计在 V21
     String v17;
     try (var in = getClass().getResourceAsStream("/db/migration/V17__s9_admin_notify.sql"); var in19 = getClass().getResourceAsStream("/db/migration/V19__s10_riskalert.sql");
-        var in21 = getClass().getResourceAsStream("/db/migration/V21__s13_growth.sql")) {
+        var in21 = getClass().getResourceAsStream("/db/migration/V21__s13_growth.sql");
+        var in41 = getClass().getResourceAsStream("/db/migration/V41__s16_waitlist.sql"); var in42 = getClass().getResourceAsStream("/db/migration/V42__s16_telegram.sql")) {
       v17 = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8) + new String(in19.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
-          + new String(in21.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+          + new String(in21.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8) + new String(in41.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
+          + new String(in42.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
     }
-    for (String k : keys) assertThat(v17).as("V17 / V19 / V21 里的菜单 " + k).contains("('" + k + "', ");
+    // S16 的等候页订阅、Telegram 机器人在 V41、V42
+    for (String k : keys) assertThat(v17).as("V17 / V19 / V21 / V41 / V42 里的菜单 " + k).contains("('" + k + "', ");
     List<String> saved = jdbc.queryForList("SELECT menu_key FROM admin_menu", String.class);
     assertThat(saved).containsAll(keys.stream().filter(k -> !k.equals("audit")).toList());
-    // 一级菜单的默认顺序：仪表盘、市场管理、裁决、结算与补偿、报表、来源统计（S13）、参数设置、客户、KYC、资金、风控告警（S10）、通知、系统
-    assertThat(Menus.TREE.stream().map(Menus.Item::key).toList()).containsExactly("dashboard", "market", "judge", "settle", "reports", "growth", "params", "customers", "kyc",
-        "funds", "risk-alerts", "notify", "system");
+    // 一级菜单的默认顺序：仪表盘、市场管理、裁决、结算与补偿、报表、来源统计（S13）、等候页订阅、Telegram 机器人（S16）、参数设置、客户、KYC、资金、风控告警（S10）、通知、系统
+    assertThat(Menus.TREE.stream().map(Menus.Item::key).toList()).containsExactly("dashboard", "market", "judge", "settle", "reports", "growth", "waitlist", "telegram",
+        "params", "customers", "kyc", "funds", "risk-alerts", "notify", "system");
   }
 
   static void collect(List<Menus.Item> items, List<String> out) {

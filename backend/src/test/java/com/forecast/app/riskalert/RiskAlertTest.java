@@ -53,10 +53,10 @@ class RiskAlertTest extends SettleTestSupport {
   @AfterEach
   void restoreParams() {
     for (ConfigKey k : List.of(ConfigKey.RISK_LINK_MAX_USERS, ConfigKey.RISK_LATE_BET_MINUTES, ConfigKey.RISK_LATE_BET_POOL_PCT, ConfigKey.RISK_LONGSHOT_ACCOUNT_DAYS,
-        ConfigKey.RISK_LONGSHOT_MIN_AMOUNT, ConfigKey.RISK_LONGSHOT_MIN_ODDS)) {
+        ConfigKey.RISK_LONGSHOT_MIN_AMOUNT, ConfigKey.RISK_LONGSHOT_MIN_ODDS, ConfigKey.RISK_LATE_BET_MIN_AMOUNT)) {
       jdbc.update("UPDATE common_config SET value = ? WHERE config_key = ?", Map.of(ConfigKey.RISK_LINK_MAX_USERS, "10", ConfigKey.RISK_LATE_BET_MINUTES, "5",
           ConfigKey.RISK_LATE_BET_POOL_PCT, "30", ConfigKey.RISK_LONGSHOT_ACCOUNT_DAYS, "7", ConfigKey.RISK_LONGSHOT_MIN_AMOUNT, "1000",
-          ConfigKey.RISK_LONGSHOT_MIN_ODDS, "5").get(k), k.key);
+          ConfigKey.RISK_LONGSHOT_MIN_ODDS, "5", ConfigKey.RISK_LATE_BET_MIN_AMOUNT, "100").get(k), k.key);
     }
     jdbc.update("UPDATE common_config SET value = '1' WHERE config_key = 'withdraw.autoApprove.R8.multiple'");
     config.refresh();
@@ -226,13 +226,45 @@ class RiskAlertTest extends SettleTestSupport {
     verify(staff).notifyStaff(eq("RISK_ALERT"), anyMap());
     Map<String, String> detail = riskAdmin.alerts("LATE_LARGE_BET", null, List.of(late2.id()), 0, 10).items().getFirst().detail();
     assertThat(detail).containsEntry("poolAfter", "4463.27").containsEntry("pct", "35.9").containsEntry("limitPct", "30").containsEntry("secondsBeforeClose", "300")
-        .containsEntry("limitMinutes", "5");
+        .containsEntry("limitMinutes", "5").containsEntry("limitAmount", "100.00");
     // 参数可调：改成 40% 以后同样的下注不告警
     param(ConfigKey.RISK_LATE_BET_POOL_PCT, "40");
     User late3 = user("9000", true);
     bet(late3.id(), m, 0, "2000"); // 4463.27 + 2000 = 6463.27，30.9%
     scan();
     assertThat(alerts(late3.id())).isEmpty();
+  }
+
+  @Test
+  void SQ24_尾盘大额_单笔最低金额默认100_不到不告警_正好等于告警_参数可改_0等于不限() throws Exception {
+    // 人少的市场：奖池只有几十 USDT，截止前 5 分钟内的小注占比很高
+    Market m = market(2, Instant.now(clock).plus(Duration.ofMinutes(10)), null);
+    User early = user("1000", true);
+    bet(early.id(), m, 1, "20");
+    advance(Duration.ofMinutes(6)); // 截止前 4 分钟
+    User small = user("1000", true);
+    bet(small.id(), m, 0, "99.99"); // 99.99 / 119.99 = 83%，但不到 100
+    scan();
+    assertThat(alerts(small.id())).as("不到 100 USDT 不告警（SQ-24）").isEmpty();
+    User exact = user("1000", true);
+    bet(exact.id(), m, 1, "100"); // 100 / 219.99 = 45%，正好 100
+    scan();
+    assertThat(alerts(exact.id())).as("正好等于最低金额算").containsExactly("LATE_LARGE_BET " + m.id() + " NEW");
+    // 参数改成 0：不限金额，小注也告警（另一个人少的市场）
+    param(ConfigKey.RISK_LATE_BET_MIN_AMOUNT, "0");
+    Market m2 = market(2, Instant.now(clock).plus(Duration.ofMinutes(4)), null);
+    User e2 = user("1000", true);
+    bet(e2.id(), m2, 1, "20");
+    User tiny = user("1000", true);
+    bet(tiny.id(), m2, 0, "30"); // 30 / 50 = 60%
+    scan();
+    assertThat(alerts(tiny.id())).as("0 = 不限：30 USDT 也告警").containsExactly("LATE_LARGE_BET " + m2.id() + " NEW");
+    // 改成 200：199.99 不告警
+    param(ConfigKey.RISK_LATE_BET_MIN_AMOUNT, "200");
+    User mid = user("1000", true);
+    bet(mid.id(), m2, 1, "199.99");
+    scan();
+    assertThat(alerts(mid.id())).isEmpty();
   }
 
   /** 改客户的注册时间（测试的固定时钟比数据库时间早） */

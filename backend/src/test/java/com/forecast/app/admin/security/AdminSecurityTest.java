@@ -198,6 +198,6 @@ class AdminSecurityTest extends AdminTestSupport {
     assertThat(m.get("name")).isEqualTo("n");
     @SuppressWarnings("unchecked") Map<String, Object> nested = (Map<String, Object>) m.get("nested");
     assertThat(nested).containsEntry("apiToken", "***").containsEntry("secretKey", "***").containsEntry("ok", 1);
-    assertThat(Set.of(Permission.values())).as("复制源 52 个，forecast S1 删掉差价合约的 20 个剩 32 个，S3 按需求第 2.2 节加 21 个，S13 加 growth:view").hasSize(54);
+    assertThat(Set.of(Permission.values())).as("复制源 52 个，forecast S1 删掉差价合约的 20 个剩 32 个，S3 按需求第 2.2 节加 21 个，S13 加 growth:view，S16 加 content:view、content:publish").hasSize(56);
   }
 }

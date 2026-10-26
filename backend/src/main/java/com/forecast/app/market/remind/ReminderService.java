@@ -30,7 +30,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * #23 开赛提醒（forecast S11；需求说明书第 7 节 #23、v1.3.2 第 18.2 节 SQ-20；开发记录/S11-客户端.md 第 3 节）。
  * <ul>
- *   <li><b>谁能订阅</b>：注册后用邮箱和密码成功登录过至少一次的客户（{@link AccountApi#hasLoggedIn}，SQ-20："开放给登录成功过的客户"）；
+ *   <li><b>谁能订阅</b>：成功登录过至少一次的客户（{@link AccountApi#hasLoggedIn}，SQ-20："开放给登录成功过的客户"；S16 起注册后的自动登录也算，SQ-27）；
  *       发到账户邮箱，不能填别的邮箱。</li>
  *   <li><b>订阅什么</b>：一个还没开放下注的市场（已上架或已暂停、开放时间在将来），在市场详情点"开放时提醒我"；"通知偏好"里列出订阅、可以退订。</li>
  *   <li><b>什么时候发</b>：市场到开放时间时，{@link ReminderJob}（每 30 秒，租约 {@code market.reminder}）发一封邮件（模板 MATCH_REMINDER：
@@ -58,7 +58,7 @@ public class ReminderService {
    * 市场详情里本人的提醒状态（{@code reminder} 字段）。
    *
    * @param available 现在能订阅（市场已上架或已暂停、还没到开放时间）
-   * @param eligible 本人能订阅（用邮箱和密码登录过，SQ-20）
+   * @param eligible 本人能订阅（登录过，SQ-20；注册后的自动登录也算，SQ-27）
    * @param status none 没订阅 / active 订阅中 / sent 已发 / cancelled 已退订 / missed 没有发（开放前市场已结束）
    */
   public record State(boolean available, boolean eligible, String status) {}
@@ -117,7 +117,7 @@ public class ReminderService {
   public State subscribe(long userId, long publicNo) {
     ReminderMapper.MarketRow m = market(publicNo);
     if (!subscribable(m.status, m.openAt, m.deletedAt)) throw new BizException("REMINDER_NOT_AVAILABLE", "这个市场已经开放下注或已结束，不能再订阅开赛提醒");
-    if (!accounts.hasLoggedIn(userId)) throw new BizException("REMINDER_LOGIN_REQUIRED", "开赛提醒只开放给用邮箱和密码登录过的账户");
+    if (!accounts.hasLoggedIn(userId)) throw new BizException("REMINDER_LOGIN_REQUIRED", "开赛提醒只开放给登录过的账户");
     ReminderMapper.Row r = mapper.find(userId, m.id);
     if (r != null && "ACTIVE".equals(r.status)) return new State(true, true, "active");
     if (mapper.countActive(userId) >= MAX_ACTIVE) throw new BizException("REMINDER_TOO_MANY", "订阅中的开赛提醒太多，请先退订一些");

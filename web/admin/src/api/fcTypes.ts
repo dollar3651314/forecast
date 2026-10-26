@@ -749,3 +749,122 @@ export interface StaffRefund {
   bets: number;
   amount: string;
 }
+
+// ---------- S16：等候页订阅（MF-8；后端 growth.api.WaitlistAdminApi）、Telegram 机器人（MF-7；growth.api.TelegramAdminApi） ----------
+export type WaitlistStatus = 'pending' | 'confirmed' | 'notified' | 'unsubscribed';
+export interface WaitlistItem {
+  id: number;
+  /** 打码后的邮箱（a***@example.com） */
+  email: string;
+  lang: 'en' | 'zh-CN' | 'zh-TW';
+  status: WaitlistStatus;
+  src: string | null;
+  cmp: string | null;
+  ref: string | null;
+  start: string | null;
+  createdAt: string;
+  confirmedAt: string | null;
+  notifiedAt: string | null;
+  unsubscribedAt: string | null;
+}
+export interface WaitlistCounts {
+  pending: number;
+  confirmed: number;
+  notified: number;
+  unsubscribed: number;
+}
+/** 上线通知（全站只发一次）：none 还没发 / sending 发送中 / done 发完了 */
+export interface WaitlistLaunch {
+  status: 'none' | 'sending' | 'done';
+  at: string | null;
+  adminId: number | null;
+  reason: string | null;
+  recipients: number;
+  sent: number;
+  finishedAt: string | null;
+}
+export interface WaitlistPage {
+  items: WaitlistItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  counts: WaitlistCounts;
+  launch: WaitlistLaunch;
+}
+export interface WaitlistQuery {
+  status?: WaitlistStatus;
+  page: number;
+  pageSize: number;
+}
+
+export interface TelegramStatus {
+  /** 配置了 FC_TELEGRAM_BOT_TOKEN（没配置时机器人不启动） */
+  configured: boolean;
+  botUsername: string | null;
+  healthy: boolean;
+  lastError: string | null;
+  lastOkAt: string | null;
+  emergencyStop: boolean;
+  stopReason: string | null;
+  stopAt: string | null;
+  stopBy: number | null;
+}
+export type TelegramTargetKey = 'CHANNEL_ZH' | 'CHANNEL_EN';
+export interface TelegramTarget {
+  key: TelegramTargetKey;
+  lang: 'zh-CN' | 'en';
+  chatId: string | null;
+  enabled: boolean;
+  enabledAt: string | null;
+  failStreak: number;
+  disabledReason: string | null;
+  updatedAt: string | null;
+}
+export interface TelegramGroup {
+  chatId: string;
+  title: string;
+  type: string;
+  status: 'active' | 'left';
+  broadcast: boolean;
+  lang: 'zh-CN' | 'en';
+  startParam: string | null;
+  addedAt: string;
+  broadcastAt: string | null;
+}
+export interface TelegramTemplate {
+  kind: 'RESULT';
+  lang: 'zh-CN' | 'en';
+  status: 'draft' | 'approved' | 'disabled';
+  /** 已审定，但审定以后模板文字改过（按草稿处理，要重新审定） */
+  changed: boolean;
+  approvedAt: string | null;
+  approvedBy: number | null;
+}
+export interface TelegramOverview {
+  status: TelegramStatus;
+  targets: TelegramTarget[];
+  groups: TelegramGroup[];
+  templates: TelegramTemplate[];
+}
+export type TelegramPostStatus = 'pending' | 'sent' | 'failed' | 'skipped' | 'stopped';
+export interface TelegramPost {
+  id: number;
+  marketNo: string;
+  kind: string;
+  target: string;
+  lang: string;
+  status: TelegramPostStatus;
+  attempts: number;
+  postUrl: string | null;
+  note: string | null;
+  createdAt: string;
+  sentAt: string | null;
+}
+export interface TelegramPreview {
+  kind: 'RESULT';
+  lang: 'zh-CN' | 'en';
+  marketNo: string;
+  text: string;
+  /** 这一版模板文字的指纹，审定时原样带回 */
+  fingerprint: string;
+}

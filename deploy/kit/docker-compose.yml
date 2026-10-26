@@ -84,6 +84,8 @@ services:
       FC_SRC_FOOTBALL_DATA_TOKEN: ${FC_SRC_FOOTBALL_DATA_TOKEN:-}
       FC_SRC_BALLDONTLIE_KEY: ${FC_SRC_BALLDONTLIE_KEY:-}
       FC_SRC_THESPORTSDB_KEY: ${FC_SRC_THESPORTSDB_KEY:-}
+      # 官方 Telegram 机器人的 token（forecast S16，MF-7）：Amos 在 BotFather 建好后填进 .env；空着时机器人不启动（alerts 提示，不影响 status）
+      FC_TELEGRAM_BOT_TOKEN: ${FC_TELEGRAM_BOT_TOKEN:-}
       # 区块链（D4 第二步才填，全部用测试网）；没配置的链不扫块
       FC_WALLET_TRON_XPUB: ${FC_WALLET_TRON_XPUB:-}
       FC_WALLET_ETH_RPC_URL: ${FC_WALLET_ETH_RPC_URL:-}

@@ -94,8 +94,9 @@ describe('风控告警', () => {
 
   it('判定依据的说明（四种）', () => {
     const base = { id: '1', userId: '1', customer: null, marketNo: null, market: null, amount: null, status: 'new' as const, note: null, handledBy: null, handledAt: null, createdAt: '2026-10-25T08:00:00Z' };
-    expect(riskSummary(t, { ...base, kind: 'late_large_bet', detail: { pct: '35.9', poolAfter: '4463.27', secondsBeforeClose: '300', limitPct: '30', limitMinutes: '5' } })).toBe(
-      '截止前 300 秒下注，占下注后奖池 35.9%（奖池 4,463.27；阈值：截止前 5 分钟内、≥ 30%）',
+    expect(riskSummary(t, { ...base, kind: 'late_large_bet', detail: { pct: '35.9', poolAfter: '4463.27', secondsBeforeClose: '300', limitPct: '30', limitMinutes: '5', limitAmount: '100.00' } })).toBe(
+      // S16（SQ-24）：阈值加单笔最低金额
+      '截止前 300 秒下注，占下注后奖池 35.9%（奖池 4,463.27；阈值：截止前 5 分钟内、≥ 30%、单笔 ≥ 100.00）',
     );
     expect(riskSummary(t, { ...base, kind: 'linked_opposite', detail: { linkedUsers: '7,9' } })).toBe('关联账户 7、9 在同一市场押了不同的选项');
     expect(riskSummary(t, { ...base, kind: 'new_account_longshot', detail: { odds: '5.75', accountDays: '6', limitDays: '7' } })).toBe('注册第 6 天押中 5.75 倍的结果（阈值：注册 7 天内）');

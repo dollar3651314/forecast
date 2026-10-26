@@ -442,9 +442,11 @@
     "disputeNotBettor": "Only customers who bet on this market can dispute",
     "disputeExists": "You have already disputed this market",
     "reminderNotAvailable": "Betting on this market has opened or it has ended, so reminders are no longer available.",
-    "reminderLoginRequired": "Reminders are available once you have signed in with your email and password: sign out and sign in again to subscribe.",
+    "reminderLoginRequired": "Reminders are available to accounts that have signed in: sign out and sign in again to subscribe.",
     "reminderTooMany": "You have too many active reminders (100 max). Unsubscribe from some under Notification settings first.",
-    "cardNotAvailable": "This card can't be created now: challenge cards are for options you have bet on while betting is open; result cards are for settled markets you won."
+    "cardNotAvailable": "This card can't be created now: challenge cards are for options you have bet on while betting is open; result cards are for settled markets you won.",
+    "waitlistClosed": "We have launched and the waitlist is closed. Just register.",
+    "waitlistLinkExpired": "This confirmation link has expired (7 days). Please leave your email again on the data page."
   },
   "validation": {
     "fixAll": "Please fix the highlighted fields",
@@ -889,7 +891,7 @@
     "sent": "The reminder has been sent to your email.",
     "closed": "Betting is open, so no reminder is needed.",
     "missed": "This market ended before it opened, so no reminder was sent.",
-    "needLogin": "Reminders are available once you have signed in with your email and password: sign out and sign in again to subscribe.",
+    "needLogin": "Reminders are available to accounts that have signed in: sign out and sign in again to subscribe.",
     "manage": "Manage reminders",
     "unsubTitle": "Unsubscribe from reminder",
     "unsubDone": "You have unsubscribed from the reminder for \"{{title}}\". We will not email you about it.",
@@ -922,7 +924,8 @@
     "results": "Results",
     "weekly": "Weekly reports",
     "howTo": "How to play, deposit and withdraw",
-    "toMarkets": "Browse markets"
+    "toMarkets": "Browse markets",
+    "data": "Data"
   },
   "res": {
     "title": "Results",
@@ -984,5 +987,45 @@
     "showAmount": "Show my payout on the card",
     "imageError": "The card image can't be shown right now; you can still share the link",
     "refNote": "The link includes your customer number, used only to count where visitors come from. No rewards are paid."
+  },
+  "data": {
+    "title": "Data",
+    "intro": "Real numbers only: BTC hourly up/down (Binance public data) and our own real-money pools. How it works: you stake USDT on an outcome, winners share the losing side's pool in proportion to their stakes, and the platform only takes a fee (5% by default) from winners' profit. We never bet against you.",
+    "btcTitle": "BTC price and hourly up/down",
+    "btcPrice": "BTC price",
+    "btcHours": "Last {{hours}} hours",
+    "upN": "{{n}} up ({{pct}}%)",
+    "downN": "{{n}} down ({{pct}}%)",
+    "barLabel": "{{up}}% up, {{down}}% down",
+    "btcRule": "An hour counts as up when its close is greater than or equal to its open, the same rule as our BTC markets.",
+    "btcSource": "Data: Binance public market data, updated {{time}}",
+    "btcNone": "BTC data is temporarily unavailable. Please check back later.",
+    "slateTitle": "Our markets today",
+    "slateNone": "No markets today.",
+    "slateNext": "Next market: {{time}}",
+    "slateLogin": "Sign in to see today's markets.",
+    "bettors": "{{n}} bettors",
+    "pool": "Pool {{pool}} USDT · {{n}} bettors",
+    "upcoming": "Betting not open yet",
+    "launchTitle": "Launching soon",
+    "launchText": "After launch this shows today's markets with the number of bettors and the probability on each side. Leave your email and we will send you a single email when we launch, nothing else. Unsubscribe any time.",
+    "wlEmail": "Email",
+    "wlHint": "We will send a confirmation email; you are subscribed only after clicking the link in it.",
+    "wlSubmit": "Notify me at launch",
+    "wlDoneTitle": "Check your inbox",
+    "wlDone": "If {{email}} was not subscribed yet, we just sent a confirmation email. Click the link in it and we will notify you at launch.",
+    "telegram": "Official Telegram:",
+    "tgChannelZh": "Chinese channel",
+    "tgChannelEn": "English channel",
+    "tgBot": "Bot",
+    "confirmTitle": "Confirm the launch notice",
+    "confirmText": "Click below to confirm: we will send this address a single email when we launch, and nothing else.",
+    "confirmBtn": "Confirm",
+    "confirmed": "Confirmed. We will email you once when we launch; use the unsubscribe link in that email if you change your mind.",
+    "confirmUnsubscribed": "This address has unsubscribed. To subscribe again, leave your email on the data page.",
+    "linkInvalid": "This link is not valid. Please open the full link from the email.",
+    "backToData": "Back to the data page",
+    "unsubTitle": "Unsubscribe from the launch notice",
+    "unsubDone": "Unsubscribed. We will not email this address because of the waitlist again."
   }
 }

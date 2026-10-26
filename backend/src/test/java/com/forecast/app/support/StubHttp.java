@@ -54,6 +54,8 @@ public final class StubHttp implements AutoCloseable {
   private final List<URI> requests = new CopyOnWriteArrayList<>();
   /** 每个请求的请求头（名字小写，取第一个值；forecast S8：核对 key 有没有带） */
   private final List<java.util.Map<String, String>> headers = new CopyOnWriteArrayList<>();
+  /** 每个请求的请求体（forecast S16：POST 的 JSON / multipart，和 {@link #requests()} 一一对应） */
+  private final List<byte[]> bodies = new CopyOnWriteArrayList<>();
   private volatile Function<URI, Reply> handler = u -> Reply.status(404, "{}");
 
   public StubHttp() {
@@ -85,6 +87,16 @@ public final class StubHttp implements AutoCloseable {
     return List.copyOf(headers);
   }
 
+  /** 收到的请求体（和 {@link #requests()} 一一对应；GET 是空的） */
+  public List<byte[]> bodies() {
+    return List.copyOf(bodies);
+  }
+
+  /** 第 i 个请求体按 UTF-8 解成文字 */
+  public String bodyText(int i) {
+    return new String(bodies.get(i), StandardCharsets.UTF_8);
+  }
+
   public int hits() {
     return requests.size();
   }
@@ -92,6 +104,7 @@ public final class StubHttp implements AutoCloseable {
   public void clear() {
     requests.clear();
     headers.clear();
+    bodies.clear();
   }
 
   private void serve(HttpExchange ex) throws IOException {
@@ -99,6 +112,7 @@ public final class StubHttp implements AutoCloseable {
     java.util.Map<String, String> h = new java.util.HashMap<>();
     ex.getRequestHeaders().forEach((k, v) -> h.put(k.toLowerCase(java.util.Locale.ROOT), v.isEmpty() ? "" : v.get(0)));
     headers.add(h);
+    bodies.add(ex.getRequestBody().readAllBytes());
     requests.add(u);
     Reply r;
     try {

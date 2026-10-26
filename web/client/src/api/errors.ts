@@ -57,6 +57,9 @@ export type ApiErrorReason =
   | 'reminderTooMany'
   // 分享卡片（forecast S14，market/card/CardController）：只能为自己押过、还在下注期的选项生成挑战卡，为押中的已结算市场生成开奖卡
   | 'cardNotAvailable'
+  // 等候页（forecast S16，growth/waitlist/WaitlistController）：已经正式上线（不再收邮箱）、确认链接过期
+  | 'waitlistClosed'
+  | 'waitlistLinkExpired'
   | 'validationFailed'
   | 'badRequest'
   | 'forbidden'
@@ -143,11 +146,13 @@ export const SERVER_CODES: Record<string, ApiErrorReason> = {
   DISPUTE_CLOSED: 'disputeClosed',
   DISPUTE_NOT_BETTOR: 'disputeNotBettor',
   DISPUTE_EXISTS: 'disputeExists',
-  // #23 开赛提醒（forecast S11）：已开放或已结束 / 没用邮箱和密码登录过（403，SQ-20）/ 订阅中的太多
+  // #23 开赛提醒（forecast S11）：已开放或已结束 / 没登录过（403，SQ-20；注册后的自动登录也算，SQ-27）/ 订阅中的太多
   REMINDER_NOT_AVAILABLE: 'reminderNotAvailable',
   REMINDER_LOGIN_REQUIRED: 'reminderLoginRequired',
   REMINDER_TOO_MANY: 'reminderTooMany',
   CARD_NOT_AVAILABLE: 'cardNotAvailable',
+  WAITLIST_CLOSED: 'waitlistClosed',
+  WAITLIST_LINK_EXPIRED: 'waitlistLinkExpired',
   // 钱包
   WALLET_NOT_READY: 'walletNotReady',
   WHITELIST_FULL: 'whitelistFull',

@@ -1,11 +1,11 @@
-/** AC-35：后台每个页面都能从菜单进入；forecast S9 按需求第 6.1 节有 11 个一级菜单，S10 加风控告警成 12 个，S13 加来源统计成 13 个（和后端 Menus.java、迁移 V17、V19、V21 一致） */
+/** AC-35：后台每个页面都能从菜单进入；forecast S9 按需求第 6.1 节有 11 个一级菜单，S10 加风控告警成 12 个，S13 加来源统计成 13 个，S16 加等候页订阅、Telegram 机器人成 15 个（和后端 Menus.java、迁移 V17、V19、V21、V41、V42 一致） */
 import { MENU, flattenMenu, findMenuByPath, visibleMenu, type ServerMenuNode } from './menu';
 import { APP_ROUTES } from './routes';
 import { ALL_PERMISSION_CODES } from './permissions';
 
 describe('菜单', () => {
-  it('一级菜单共 13 个，顺序和后端 Menus.java 一致', () => {
-    expect(MENU.map((m) => m.key)).toEqual(['dashboard', 'market', 'judge', 'settle', 'reports', 'growth', 'params', 'customers', 'kyc', 'funds', 'risk-alerts', 'notify', 'system']);
+  it('一级菜单共 15 个，顺序和后端 Menus.java 一致', () => {
+    expect(MENU.map((m) => m.key)).toEqual(['dashboard', 'market', 'judge', 'settle', 'reports', 'growth', 'waitlist', 'telegram', 'params', 'customers', 'kyc', 'funds', 'risk-alerts', 'notify', 'system']);
   });
 
   it('每个页面路由都对应一个菜单入口', () => {

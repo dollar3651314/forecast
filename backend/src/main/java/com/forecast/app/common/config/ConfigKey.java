@@ -153,6 +153,8 @@ public enum ConfigKey {
    */
   RISK_LATE_BET_MINUTES("risk.lateBet.minutes", Unit.MINUTES, "risk", BigDecimal.ONE, BigDecimal.valueOf(1440), 0, Params.BETTING),
   RISK_LATE_BET_POOL_PCT("risk.lateBet.poolPct", Unit.PERCENT, "risk", BigDecimal.ONE, BigDecimal.valueOf(100), 2, Params.BETTING),
+  /** forecast S16（SQ-24，Amos 2026-10-26 按建议）：尾盘大额只看单笔 ≥ 这个金额的下注（默认 100 USDT，迁移 V40；0 = 不限） */
+  RISK_LATE_BET_MIN_AMOUNT("risk.lateBet.minAmount", Unit.USDT, "risk", BigDecimal.ZERO, new BigDecimal("1000000000"), 2, Params.BETTING),
   RISK_LONGSHOT_ACCOUNT_DAYS("risk.longshot.accountDays", Unit.COUNT, "risk", BigDecimal.ONE, BigDecimal.valueOf(365), 0, Params.BETTING),
   RISK_LONGSHOT_MIN_AMOUNT("risk.longshot.minAmount", Unit.USDT, "risk", new BigDecimal("0.01"), new BigDecimal("1000000000"), 2, Params.BETTING),
   RISK_LONGSHOT_MIN_ODDS("risk.longshot.minOdds", Unit.MULTIPLE, "risk", BigDecimal.ONE, BigDecimal.valueOf(1000), 2, Params.BETTING),

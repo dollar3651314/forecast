@@ -54,6 +54,11 @@ public class E2eGuard implements BeanFactoryPostProcessor, EnvironmentAware {
       String v = env.getProperty(key, "");
       if (!v.isBlank()) out.add("配置了 " + key + "（只有测试环境和生产才有）");
     }
+    // forecast S16：端到端的 Telegram 只能指向本机的替身（/api/e2e/telegram），不能拿真实的机器人 token 去发帖
+    String tgUrl = env.getProperty("forecast.telegram.api-url", "");
+    if (!tgUrl.isBlank() && !tgUrl.startsWith("http://127.0.0.1") && !tgUrl.startsWith("http://localhost")) {
+      out.add("forecast.telegram.api-url 指向了真实的 Telegram（端到端只能用本机的替身）");
+    }
     return out;
   }
 

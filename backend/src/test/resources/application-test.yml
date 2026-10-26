@@ -134,3 +134,22 @@ forecast:
     scan-lag: 0s
   storage:
     local-dir: ${java.io.tmpdir}/forecast-test-storage
+  # 推广功能（S16）：数据页行情不定时刷新、上线通知不定时发、Telegram 不跑后台线程也不报健康检查告警，测试里直接调用；
+  # 外部地址指向本机不监听的端口，用到的测试换成本机的 HTTP 替身（StubHttp）。token 是测试假值（ci_only_ 开头）
+  growth:
+    board:
+      refresh-enabled: false
+      binance-url: http://127.0.0.1:9
+      connect-timeout: 500ms
+      read-timeout: 1s
+    waitlist:
+      launch-enabled: false
+  telegram:
+    token: ci_only_test_telegram
+    api-url: http://127.0.0.1:9
+    jobs-enabled: false
+    alert-enabled: false
+    connect-timeout: 500ms
+    read-timeout: 2s
+    chat-interval: 0s
+    send-interval: 0s

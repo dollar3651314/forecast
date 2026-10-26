@@ -67,6 +67,9 @@ export const PERMISSIONS = [
   { code: 'risk_alert:handle', module: 'risk', highRisk: false },
   // forecast S13：来源统计（MF-1、MF-10；导出写审计）
   { code: 'growth:view', module: 'growth', highRisk: false },
+  // forecast S16：内容中心（需求第 2.2 节 v1.3）——先用于 Telegram 机器人页和"发送上线通知"；content:publish 是对外发布（C73），高危
+  { code: 'content:view', module: 'content', highRisk: false },
+  { code: 'content:publish', module: 'content', highRisk: true },
 ] as const satisfies readonly PermissionDef[];
 
 export type PermissionCode = (typeof PERMISSIONS)[number]['code'];
@@ -74,7 +77,7 @@ export type PermissionCode = (typeof PERMISSIONS)[number]['code'];
 export const ALL_PERMISSION_CODES: string[] = PERMISSIONS.map((p) => p.code);
 
 // forecast S1 删除了复制源的 trading、risk、market（品种行情）、params 四个模块；S3 按需求第 2.2 节加了市场、裁决、结算、参数、风控告警
-export const PERMISSION_MODULES = ['dashboard', 'customer', 'kyc', 'funds', 'notify', 'system', 'market', 'resolve', 'settle', 'params', 'risk', 'growth'] as const;
+export const PERMISSION_MODULES = ['dashboard', 'customer', 'kyc', 'funds', 'notify', 'system', 'market', 'resolve', 'settle', 'params', 'risk', 'growth', 'content'] as const;
 
 /** 超级管理员角色编码：只有超级管理员才能把这个角色分配给别人（修复 fxsystem S4） */
 export const SUPER_ADMIN_ROLE = 'super_admin';

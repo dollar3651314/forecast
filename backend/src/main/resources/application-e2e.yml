@@ -67,3 +67,19 @@ forecast:
   sports:
     sync-enabled: false
     resolver-enabled: false
+  # 推广功能（forecast S16）：数据页的币安行情指向后端自己的替身 /api/e2e/board/**（growth/board/E2eBoard），用例设 K 线后调 /api/e2e/board/refresh，
+  # 不定时刷新；Telegram 的 Bot API 指向后端自己的替身 /api/e2e/telegram/**（growth/telegram/E2eTelegram），token 是端到端的假值（ci_only_ 开头），
+  # 不连真实的 Telegram；取消息、发帖由用例调 /api/e2e/telegram/tick 触发（不跑后台线程），健康检查照常有 telegram.bot；
+  # "没有 token"用 /api/e2e/telegram/configured 模拟。频率限制调成 0（用例里连着发）
+  growth:
+    board:
+      refresh-enabled: false
+      binance-url: http://127.0.0.1:${server.port:8080}/api/e2e/board/binance
+      breaker-open: 1s
+  telegram:
+    token: ci_only_e2e_telegram
+    api-url: http://127.0.0.1:${server.port:8080}/api/e2e/telegram
+    jobs-enabled: false
+    retries: 1
+    chat-interval: 0s
+    send-interval: 0s

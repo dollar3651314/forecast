@@ -122,6 +122,9 @@ class AuthService {
     wallet.allocateAddresses(u.id);
     // 欢迎站内信（体验优化 1021 UX-9）：内容和客户端新手引导一致，下一步是认证 → 充值；模板 WELCOME 只发站内信，不推送、不发邮件
     notify.toUser(u.id, "WELCOME", Map.of());
+    // forecast S16（SQ-27，Amos 2026-10-26）：注册成功后系统自动登录（AuthController 接着建会话），这也是一次成功登录——验证码已经验证过邮箱。
+    // 记下登录时间，开赛提醒（#23，SQ-20"登录成功过的客户"）的订阅资格按它判断，客户不用退出再登录一次
+    mapper.touchLogin(u.id);
     return u.id;
   }
 
@@ -161,7 +164,7 @@ class AuthService {
     sessions.revokeAll(userId, currentToken);
   }
 
-  /** 用邮箱和密码成功登录过（forecast S11，#23 订阅的条件，SQ-20） */
+  /** 成功登录过（forecast S11，#23 订阅的条件，SQ-20）；S16 起注册时的自动登录也算（SQ-27） */
   boolean hasLoggedIn(long userId) {
     Boolean v = mapper.hasLoggedIn(userId);
     if (v == null) throw new BizException("USER_NOT_FOUND", "用户不存在");

@@ -39,6 +39,8 @@ import { CompensationsPage } from '../pages/settle/CompensationsPage';
 import { PoolReconPage } from '../pages/funds/PoolReconPage';
 import { ReportsPage } from '../pages/reports/ReportsPage';
 import { GrowthPage } from '../pages/growth/GrowthPage';
+import { WaitlistPage } from '../pages/growth/WaitlistPage';
+import { TelegramPage } from '../pages/telegram/TelegramPage';
 import { ParamsPage } from '../pages/params/ParamsPage';
 import { RiskAlertsPage } from '../pages/risk/RiskAlertsPage';
 
@@ -63,6 +65,8 @@ export const APP_ROUTES: RouteDef[] = [
   { path: '/settle/compensations', menuKey: 'compensations', element: <CompensationsPage /> },
   { path: '/reports', menuKey: 'reports', element: <ReportsPage /> },
   { path: '/growth', menuKey: 'growth', element: <GrowthPage /> },
+  { path: '/waitlist', menuKey: 'waitlist', element: <WaitlistPage /> },
+  { path: '/telegram', menuKey: 'telegram', element: <TelegramPage /> },
   { path: '/params', menuKey: 'params', element: <ParamsPage /> },
   { path: '/customers', menuKey: 'customers', element: <CustomerListPage /> },
   { path: '/customers/:id', menuKey: 'customers', element: <CustomerDetailPage /> },

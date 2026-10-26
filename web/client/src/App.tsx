@@ -5,6 +5,7 @@
  * S13（MF-4，需求第 5.1 节虚线框）：市场列表（顶部今日场次）、市场详情、开奖记录 /results、周报 /results/weekly、说明页 /how-to-play
  * 不登录也能看，和登录后同一个框架（Layout 没登录时右上角是"登录 / 注册"，C90 位置不变）；下注、我的下注、资产、我的仍要登录
  * （点"押注"先去登录，登录后回到原市场和原选项）。分享链接 /m/:publicNo（架构方案第 18 节预留）跳到市场详情，查询参数（src、ref）保留。
+ * S16（MF-8、MF-17）：数据页兼上线前等候页 /data 不登录也能看；等候页邮件里的确认、退订链接 /data/confirm、/data/unsubscribe 不用登录。
  * 地址里的来源参数（src、cmp、ref、start）由 AttributionCapture 记下（MF-1，lib/attribution.ts）。
  */
 import { lazy, Suspense, useEffect, type ReactNode } from 'react';
@@ -40,6 +41,9 @@ const Results = lazy(() => import('./pages/results/Results'));
 const Weekly = lazy(() => import('./pages/results/Weekly'));
 const WeekPage = lazy(() => import('./pages/results/WeekPage'));
 const HowTo = lazy(() => import('./pages/HowTo'));
+const DataPage = lazy(() => import('./pages/data/DataPage'));
+const WaitlistConfirm = lazy(() => import('./pages/data/Confirm'));
+const WaitlistUnsubscribe = lazy(() => import('./pages/data/Unsubscribe'));
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { session, checking, loggedOut } = useAuth();
@@ -101,6 +105,9 @@ export function AppRoutes() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         {/* 开赛提醒邮件里的退订链接（不用登录，S11） */}
         <Route path="/unsubscribe" element={<Unsubscribe />} />
+        {/* 等候页邮件里的确认、退订链接（不用登录，S16） */}
+        <Route path="/data/confirm" element={<WaitlistConfirm />} />
+        <Route path="/data/unsubscribe" element={<WaitlistUnsubscribe />} />
         <Route path="/m/:publicNo" element={<ShareLink />} />
         <Route element={<Shell />}>
           <Route index element={<Navigate to="/markets" replace />} />
@@ -112,6 +119,8 @@ export function AppRoutes() {
           <Route path="results/weekly" element={<Weekly />} />
           <Route path="results/weekly/:week" element={<WeekPage />} />
           <Route path="how-to-play" element={<HowTo />} />
+          {/* 数据页兼上线前等候页（S16，MF-8、MF-17） */}
+          <Route path="data" element={<DataPage />} />
           {/* 要登录 */}
           <Route
             element={

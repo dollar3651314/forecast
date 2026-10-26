@@ -95,7 +95,14 @@ public enum Permission {
   RISK_ALERT_VIEW("risk_alert:view", "risk", false),
   RISK_ALERT_HANDLE("risk_alert:handle", "risk", false),
   /** 来源统计、增长数据 CSV 导出（S13，MF-1、MF-10；需求第 6.2 节） */
-  GROWTH_VIEW("growth:view", "growth", false);
+  GROWTH_VIEW("growth:view", "growth", false),
+  /**
+   * 内容中心（需求第 2.2 节 v1.3；forecast S16 先用于"官方 Telegram 机器人"页和等候页的"发送上线通知"）：content:view 查看机器人状态、渠道、模板、发布日志；
+   * content:publish（高危）对外发布——审定 / 停用卡片模板、渠道开关、紧急停止、发送上线通知（C73：对外发布由 Amos 决定，默认只有超管有）。
+   * S15 的"内容中心"整合时沿用这两个权限点（同名同义），content:edit 由 S15 加
+   */
+  CONTENT_VIEW("content:view", "content", false),
+  CONTENT_PUBLISH("content:publish", "content", true);
 
   public final String code;
   public final String module;

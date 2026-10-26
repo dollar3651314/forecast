@@ -31,7 +31,7 @@ class ReminderController {
     return reminders.list(CurrentUser.id());
   }
 
-  /** 订阅（市场详情"开放时提醒我"）：REMINDER_NOT_AVAILABLE 已开放或已结束、REMINDER_LOGIN_REQUIRED 没用邮箱和密码登录过（403）、REMINDER_TOO_MANY */
+  /** 订阅（市场详情"开放时提醒我"）：REMINDER_NOT_AVAILABLE 已开放或已结束、REMINDER_LOGIN_REQUIRED 没登录过（403；S16 起注册后的自动登录也算，SQ-27）、REMINDER_TOO_MANY */
   @UserWriteLimited
   @PostMapping("/api/markets/{publicNo}/reminder")
   ReminderService.State subscribe(@PathVariable String publicNo) {

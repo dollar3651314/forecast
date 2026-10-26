@@ -104,7 +104,7 @@ class PublicController {
       // S14：分享卡片的图片要让 X（Twitterbot 遵守 robots.txt）、Telegram 等取得到，比 Disallow: /api/ 更具体，放在前面
       sb.append("Allow: /api/public/cards/\n");
       for (String p : List.of("/assets$", "/assets/ledger", "/assets/withdraw", "/assets/whitelist", "/bets", "/me", "/login", "/register",
-          "/forgot-password", "/unsubscribe", "/api/", "/admin/")) {
+          "/forgot-password", "/unsubscribe", "/data/confirm", "/data/unsubscribe", "/api/", "/admin/")) { // S16：等候页的确认、退订链接不收录
         sb.append("Disallow: ").append(p).append('\n');
       }
       sb.append("Allow: /\n\nSitemap: ").append(base(req)).append("/sitemap.xml\n");
@@ -120,6 +120,7 @@ class PublicController {
     sb.append("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\" xmlns:xhtml=\"http://www.w3.org/1999/xhtml\">\n");
     if (publicBrowse) {
       for (String p : List.of("/markets", "/results", "/results/weekly", "/how-to-play")) url(sb, b, p, null);
+      for (String p : seo.extraSitemapPaths()) url(sb, b, p, null); // S16：数据页 /data 等别的模块的公开页面
       for (MarketPublicService.Week w : pub.weeks(1).items()) if (w.complete()) url(sb, b, "/results/weekly/" + w.week(), null);
       for (MarketPublicService.SitemapEntry e : pub.sitemap(SITEMAP_MARKETS)) url(sb, b, "/markets/" + e.publicNo(), e.lastModified());
     }

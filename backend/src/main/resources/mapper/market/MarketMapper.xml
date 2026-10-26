@@ -287,6 +287,26 @@
     SELECT MIN(ended_at) FROM market_question WHERE deleted_at IS NULL AND status IN ('SETTLED', 'CANCELLED', 'VOIDED')
   </select>
 
+  <!-- S16：某个币对的自动生成市场里"当前这一场"（MF-7 机器人 /btc）：已上架 / 已暂停、还没截止；已开放下注的排前面，再按截止时间 -->
+  <select id="currentAutogen" resultType="com.forecast.app.market.core.MarketRows$Market">
+    SELECT <include refid="marketCols"/> FROM market_question
+    WHERE autogen_id IN (SELECT id FROM market_autogen WHERE symbol = #{symbol}) AND status IN ('LISTED', 'PAUSED') AND deleted_at IS NULL AND close_at &gt; #{now}
+    ORDER BY (open_at &lt;= #{now}) DESC, close_at, id LIMIT 1
+  </select>
+
+  <!-- S16：since 之后结束的"今日场次"市场（频道开奖卡，需求第 6.3 节：没有标记的市场一张都不发） -->
+  <select id="endedSlateSince" resultType="com.forecast.app.market.core.MarketRows$Market">
+    SELECT <include refid="marketCols"/> FROM market_question
+    WHERE today_slate = 1 AND deleted_at IS NULL AND status IN ('SETTLED', 'CANCELLED', 'VOIDED') AND ended_at &gt;= #{since}
+    ORDER BY ended_at, id LIMIT #{limit}
+  </select>
+
+  <!-- S16：最近结束的一个市场（模板审定页的预览） -->
+  <select id="latestEndedNo" resultType="java.lang.Long">
+    SELECT public_no FROM market_question WHERE deleted_at IS NULL AND status IN ('SETTLED', 'CANCELLED', 'VOIDED') AND ended_at IS NOT NULL
+    ORDER BY ended_at DESC, id DESC LIMIT 1
+  </select>
+
   <!-- 站点地图：客户端看得到的市场（不含草稿），最近更新的在前 -->
   <select id="sitemap" resultType="com.forecast.app.market.core.MarketRows$Market">
     SELECT <include refid="marketCols"/> FROM market_question WHERE deleted_at IS NULL AND status &lt;&gt; 'DRAFT' ORDER BY updated_at DESC, id DESC LIMIT #{limit}

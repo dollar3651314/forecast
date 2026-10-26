@@ -34,7 +34,8 @@ import org.springframework.stereotype.Service;
  *
  * <h2>告警</h2>
  * <ul>
- *   <li><b>尾盘大额</b> LATE_LARGE_BET：收到下注的时间在截止前 N 分钟内（[截止 − N, 截止)），且单笔 ≥ 下注后这个市场奖池合计的 X%（默认 5 分钟、30%，参数设置可改）。</li>
+ *   <li><b>尾盘大额</b> LATE_LARGE_BET：收到下注的时间在截止前 N 分钟内（[截止 − N, 截止)），且单笔 ≥ 下注后这个市场奖池合计的 X%，
+ *       且单笔 ≥ 最低金额（默认 5 分钟、30%、100 USDT，参数设置可改；最低金额是 S16 按 SQ-24 加的，人少时截止前几十 USDT 的小注不再告警，0 = 不限）。</li>
  *   <li><b>关联账户对押</b> LINKED_OPPOSITE：同一市场里，本客户和他的关联账户的有效下注押了不同的选项（一有新下注、一有新关联都检查；新关联只看近 30 天的市场）。
  *       本客户和对方各记一条。</li>
  *   <li><b>新账户押中冷门</b> NEW_ACCOUNT_LONGSHOT：市场派彩完成后，赢方选项的赔率（扣费后，按结算单的奖池和费率，同客户端显示的算法 {@link Odds#multiplier}）
@@ -167,9 +168,12 @@ public class RiskRules {
     if (m == null || bet.poolAfter() == null || bet.poolAfter().signum() <= 0) return;
     int minutes = config.integer(ConfigKey.RISK_LATE_BET_MINUTES, 5);
     BigDecimal pct = config.decimal(ConfigKey.RISK_LATE_BET_POOL_PCT, BigDecimal.valueOf(30));
+    BigDecimal minAmount = config.decimal(ConfigKey.RISK_LATE_BET_MIN_AMOUNT, BigDecimal.valueOf(100));
     LocalDateTime close = LocalDateTime.ofInstant(m.closeAt(), ZoneOffset.UTC);
     LocalDateTime from = close.minusMinutes(minutes);
     if (bet.receivedAt().isBefore(from) || !bet.receivedAt().isBefore(close)) return;
+    // SQ-24：单笔不到最低金额的不算（正好等于算）
+    if (bet.amount().compareTo(minAmount) < 0) return;
     // 单笔 ≥ 奖池 × X%：用乘法比较，不做除法舍入
     if (bet.amount().multiply(HUNDRED).compareTo(bet.poolAfter().multiply(pct)) < 0) return;
     Map<String, String> d = new LinkedHashMap<>();
@@ -178,6 +182,7 @@ public class RiskRules {
     d.put("poolAfter", AlertBook.money(bet.poolAfter()));
     d.put("pct", bet.amount().multiply(HUNDRED).divide(bet.poolAfter(), 1, RoundingMode.DOWN).toPlainString());
     d.put("limitPct", pct.stripTrailingZeros().toPlainString());
+    d.put("limitAmount", AlertBook.money(minAmount));
     d.put("secondsBeforeClose", String.valueOf(Duration.between(bet.receivedAt(), close).toSeconds()));
     d.put("limitMinutes", String.valueOf(minutes));
     alerts.raise("LATE_LARGE_BET", bet.userId(), bet.marketId(), "M:" + bet.marketId(), bet.amount(), d,

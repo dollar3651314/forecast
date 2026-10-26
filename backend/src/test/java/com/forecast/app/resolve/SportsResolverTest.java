@@ -486,12 +486,15 @@ class SportsResolverTest extends SportsTestSupport {
       return new Reply(r.status(), r.body(), 400, false, 0);
     });
     try {
+      // 另一方要么看到"已被认领"（busy），要么在对方做完以后才查、这个市场已经不到时间（-，机器忙时会出现，S16 全量测试遇到过一次）；两种都只取了一次数
       List<String> first = twice(m);
-      assertThat(first).containsExactlyInAnyOrder("waiting", "busy");
+      assertThat(first).contains("waiting");
+      assertThat(first).anyMatch(r -> r.equals("busy") || r.equals("-")).hasSize(2);
       assertThat(fetchRows(m, "FOOTBALL_DATA")).as("完赛那一轮主源只取一次").isEqualTo(1);
       advance(Duration.ofMinutes(30));
       List<String> second = twice(m);
-      assertThat(second).containsExactlyInAnyOrder("settled", "busy");
+      assertThat(second).contains("settled");
+      assertThat(second).anyMatch(r -> r.equals("busy") || r.equals("-")).hasSize(2);
     } finally {
       STUB.handle(BOOK.handler());
     }

@@ -4,21 +4,7 @@
  * S10 加风控告警（12 个）；S13 加来源统计（13 个，MF-1、MF-10）。
  */
 import type { ReactNode } from 'react';
-import {
-  AppstoreOutlined,
-  AuditOutlined,
-  BarChartOutlined,
-  BellOutlined,
-  ControlOutlined,
-  FundOutlined,
-  IdcardOutlined,
-  ReconciliationOutlined,
-  RiseOutlined,
-  SafetyOutlined,
-  SettingOutlined,
-  TeamOutlined,
-  WalletOutlined,
-} from '@ant-design/icons';
+import { AppstoreOutlined, AuditOutlined, BarChartOutlined, BellOutlined, ControlOutlined, FundOutlined, IdcardOutlined, ReconciliationOutlined, RiseOutlined, SafetyOutlined, SettingOutlined, TeamOutlined, WalletOutlined, MailOutlined, SendOutlined } from '@ant-design/icons';
 import type { PermissionCode } from './permissions';
 
 export interface MenuItemDef {
@@ -68,6 +54,9 @@ export const MENU: MenuItemDef[] = [
   },
   { key: 'reports', labelKey: 'menu.reports', icon: <BarChartOutlined />, path: '/reports', permission: 'report:view' },
   { key: 'growth', labelKey: 'menu.growth', icon: <RiseOutlined />, path: '/growth', permission: 'growth:view' },
+  // forecast S16：等候页订阅（MF-8）、Telegram 机器人（MF-7）；迁移 V41、V42 写默认顺序
+  { key: 'waitlist', labelKey: 'menu.waitlist', icon: <MailOutlined />, path: '/waitlist', permission: 'growth:view' },
+  { key: 'telegram', labelKey: 'menu.telegram', icon: <SendOutlined />, path: '/telegram', permission: 'content:view' },
   { key: 'params', labelKey: 'menu.params', icon: <ControlOutlined />, path: '/params', permission: 'fee:edit' },
   { key: 'customers', labelKey: 'menu.customers', icon: <TeamOutlined />, path: '/customers', permission: 'customer:view' },
   { key: 'kyc', labelKey: 'menu.kyc', icon: <IdcardOutlined />, path: '/kyc', permission: 'kyc:view', badge: 'kyc' },

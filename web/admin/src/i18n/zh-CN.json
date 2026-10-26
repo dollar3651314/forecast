@@ -110,7 +110,8 @@
     "text_zhTW": "繁体补充说明",
     "options_label": "选项文字",
     "options_winCondition": "选项的判定条件",
-    "plays_line": "分界线"
+    "plays_line": "分界线",
+    "chatId": "频道编号"
   },
   "apiFieldCode": {
     "ageUnder18": "未满 18 周岁",
@@ -572,7 +573,10 @@
       "TEMPLATE_CHANGED": "模板刚被别人改过，请刷新后再操作。",
       "FIXTURE_STARTED": "已经开赛，不能改对应。",
       "NOT_MAPPED": "还没有确认对应。",
-      "OPTION_NOT_FOUND": "选项不存在，请刷新后再看。"
+      "OPTION_NOT_FOUND": "选项不存在，请刷新后再看。",
+      "LAUNCH_ALREADY_SENT": "上线通知已经发过了（全站只能发一次）。",
+      "TELEGRAM_TEMPLATE_CHANGED": "预览以后模板文字改过了，请重新打开预览再审定。",
+      "TELEGRAM_NO_PREVIEW": "还没有结束的市场，暂时没法生成预览。"
     }
   },
   "funds": {
@@ -684,7 +688,9 @@
     "reports": "报表",
     "poolRecon": "彩池对账",
     "riskAlerts": "风控告警",
-    "growth": "来源统计"
+    "growth": "来源统计",
+    "waitlist": "等候页订阅",
+    "telegram": "Telegram 机器人"
   },
   "menus": {
     "group": "分组",
@@ -755,7 +761,9 @@
     "betting_params_edit": "修改下注参数",
     "risk_alert_view": "查看风控告警",
     "risk_alert_handle": "处理风控告警",
-    "growth_view": "查看来源统计（含导出）"
+    "growth_view": "查看来源统计（含导出）",
+    "content_view": "查看 Telegram 机器人和发布日志",
+    "content_publish": "对外发布（频道、模板审定、紧急停止、上线通知）"
   },
   "permModule": {
     "customer": "客户",
@@ -769,7 +777,8 @@
     "resolve": "裁决与争议",
     "settle": "结算与对账",
     "params": "参数与费率",
-    "growth": "推广"
+    "growth": "推广",
+    "content": "内容与发布"
   },
   "permissions": {
     "code": "权限点",
@@ -1953,6 +1962,7 @@
       "sports_eventMinutes_NBA": "NBA：事件时长",
       "risk_lateBet_minutes": "尾盘大额：截止前多少分钟内",
       "risk_lateBet_poolPct": "尾盘大额：单笔占下注后奖池",
+      "risk_lateBet_minAmount": "尾盘大额：单笔最低金额（0 = 不限）",
       "risk_longshot_accountDays": "押中冷门：注册多少天内算新账户",
       "risk_longshot_minAmount": "押中冷门：单笔不少于",
       "risk_longshot_minOdds": "押中冷门：赔率不低于",
@@ -2448,7 +2458,7 @@
       "false_positive": "例如：同一家庭的两个账户，已核实"
     },
     "detail": {
-      "late_large_bet": "截止前 {{sec}} 秒下注，占下注后奖池 {{pct}}%（奖池 {{pool}}；阈值：截止前 {{limitMinutes}} 分钟内、≥ {{limitPct}}%）",
+      "late_large_bet": "截止前 {{sec}} 秒下注，占下注后奖池 {{pct}}%（奖池 {{pool}}；阈值：截止前 {{limitMinutes}} 分钟内、≥ {{limitPct}}%、单笔 ≥ {{limitAmount}}）",
       "linked_opposite": "关联账户 {{users}} 在同一市场押了不同的选项",
       "new_account_longshot": "注册第 {{days}} 天押中 {{odds}} 倍的结果（阈值：注册 {{limitDays}} 天内）",
       "deposit_no_bet": "近 30 天充值 {{deposit}}，之后有效下注 {{stake}}（要求 {{multiple}} 倍）就申请提现 {{no}}"
@@ -2499,6 +2509,143 @@
       "median": "每场下注人数中位数",
       "endedAt": "结束时间（UTC）",
       "reason": "原因"
+    }
+  },
+  "wl": {
+    "title": "等候页订阅",
+    "sub": "上线前在数据页（/data）留邮箱、并点了确认链接的人；正式上线时只发一封\"正式上线了\"（SQ-22）。",
+    "note": "邮箱已打码。订阅的人不一定是客户；不会给他们发开赛提醒或其他营销邮件。每封邮件都带免登录的退订链接。",
+    "counts": "各状态数量",
+    "all": "全部",
+    "status": {
+      "pending": "待确认",
+      "confirmed": "已确认",
+      "notified": "已通知",
+      "unsubscribed": "已退订"
+    },
+    "lang": {
+      "en": "英文",
+      "zh-CN": "简体",
+      "zh-TW": "繁体"
+    },
+    "col": {
+      "createdAt": "留邮箱时间",
+      "email": "邮箱",
+      "lang": "语言",
+      "status": "状态",
+      "source": "来源",
+      "confirmedAt": "确认时间",
+      "notifiedAt": "通知时间"
+    },
+    "empty": "还没有人留邮箱",
+    "emptyFiltered": "这个状态下没有订阅",
+    "launchBtn": "发送上线通知",
+    "launchTitle": "发送上线通知（只能发一次）",
+    "launchDesc": "给 {{n}} 个已确认的订阅各发一封\"正式上线了\"（按订阅时的语言）。发出后等候页关闭，数据页开始显示今天的场次。",
+    "launchOnce": "全站只能发一次，发出后不能撤回、不能再发。",
+    "launchConfirm": "确认发送",
+    "launched": "已开始发送上线通知",
+    "launch": {
+      "sending": "上线通知发送中（{{sent}} / {{n}}）",
+      "done": "上线通知已发（{{sent}} 封）"
+    },
+    "launchInfo": "上线通知已于 {{at}} 发出：已确认 {{n}} 个，已写成邮件 {{sent}} 封。原因：{{reason}}"
+  },
+  "tg": {
+    "title": "Telegram 机器人",
+    "sub": "官方频道只自动发开奖卡（SQ-22，和账户无关）；机器人在 Telegram 里只提供数据和链接，不能下注。",
+    "bot": "机器人",
+    "token": "Token（FC_TELEGRAM_BOT_TOKEN）",
+    "configured": "已配置",
+    "notConfigured": "未配置",
+    "username": "用户名",
+    "health": "连接",
+    "healthy": "正常",
+    "unhealthy": "异常",
+    "unconfigured": "没有配置 FC_TELEGRAM_BOT_TOKEN，机器人没有启动",
+    "unconfiguredHint": "由 Amos 在 BotFather 建好机器人后，把 token 填进服务器 .env 的 FC_TELEGRAM_BOT_TOKEN 并重启（token 不要发给任何人，这里也不能填）。不影响网站其他功能。",
+    "stopBtn": "紧急停止",
+    "resumeBtn": "恢复自动发布",
+    "stopTitle": "紧急停止所有自动发布",
+    "stopDesc": "按下后所有频道和群都不再自动发帖（之后结束的市场记\"已停止\"），写审计并邮件通知有 content:publish 的管理员。",
+    "resumeTitle": "恢复自动发布",
+    "resumeDesc": "恢复后，之后结束的市场照常发；停止期间的不补发。",
+    "stoppedInfo": "自动发布已紧急停止（{{at}}）：{{reason}}",
+    "channels": "官方频道",
+    "channel": "渠道",
+    "target": {
+      "CHANNEL_ZH": "中文频道",
+      "CHANNEL_EN": "英文频道"
+    },
+    "groupTarget": "群 {{id}}",
+    "chatId": "频道编号",
+    "chatIdHint": "公开频道填 @用户名；私有频道填 -100 开头的数字编号。机器人要先被设成这个频道的管理员。",
+    "notSet": "未填",
+    "enabled": "开关",
+    "on": "开",
+    "off": "关",
+    "failStreak": "连续失败",
+    "edit": "修改",
+    "editTarget": "修改{{name}}",
+    "targetDesc": "改频道编号或开关（高危：会对外发帖）。打开后只发打开以后结束的市场。",
+    "templates": "自动发布的模板",
+    "templatesHint": "频道和群只发开奖卡，卡片就是分享卡片里的开奖卡（文字在 content/cards.json）。默认草稿；预览确认后审定才会发。模板文字改过要重新审定。",
+    "tplKind": "卡片",
+    "tplLang": "语言",
+    "tplStatus": "状态",
+    "approvedAt": "审定时间",
+    "kind": {
+      "RESULT": "开奖卡"
+    },
+    "lang": {
+      "zh-CN": "中文",
+      "en": "英文"
+    },
+    "tpl": {
+      "draft": "草稿",
+      "approved": "已审定",
+      "disabled": "已停用"
+    },
+    "tplChanged": "文字改过，要重新审定",
+    "previewBtn": "预览",
+    "disableBtn": "停用",
+    "previewTitle": "预览：开奖卡（{{lang}}）",
+    "previewAlt": "开奖卡预览图",
+    "previewFrom": "用最近结束的市场 {{no}} 生成；发出去时用那个市场自己的数字。",
+    "approveBtn": "我确认按这个模板自动发布",
+    "approveTitle": "审定开奖卡模板（{{lang}}）",
+    "approveDesc": "审定后，带\"今日场次\"标记的市场结束时，系统按这个模板自动发到打开的频道和群（MQ-2）。",
+    "disableTitle": "停用开奖卡模板（{{lang}}）",
+    "disableDesc": "停用后这种语言的开奖卡不再自动发，重新审定才恢复。",
+    "groups": "机器人所在的群",
+    "groupsHint": "群管理员在群里发 /broadcast_on 开启开奖播报，/broadcast_off 关闭；这里只能关闭。",
+    "noGroups": "机器人还没有被拉进任何群",
+    "groupTitle": "群名",
+    "groupStatus": "状态",
+    "group": {
+      "active": "在群里",
+      "left": "已移出"
+    },
+    "broadcast": "播报",
+    "broadcastOn": "开（{{lang}}）",
+    "startParam": "加群参数",
+    "groupOffBtn": "关闭播报",
+    "groupOffTitle": "关闭\"{{name}}\"的播报",
+    "groupOffDesc": "这个群不再收到开奖卡；群管理员可以在群里重新开启。",
+    "posts": "发布日志",
+    "all": "全部",
+    "noPosts": "还没有发布记录",
+    "postTime": "时间",
+    "market": "市场",
+    "postStatus": "结果",
+    "postUrl": "帖子链接",
+    "note": "说明",
+    "post": {
+      "pending": "待发",
+      "sent": "已发",
+      "failed": "失败",
+      "skipped": "没发",
+      "stopped": "已停止"
     }
   }
 }

@@ -32,6 +32,18 @@ import type {
   GrowthQuery,
   GrowthReport,
   GrowthExportKind,
+  TelegramGroup,
+  TelegramOverview,
+  TelegramPost,
+  TelegramPostStatus,
+  TelegramPreview,
+  TelegramStatus,
+  TelegramTarget,
+  TelegramTargetKey,
+  TelegramTemplate,
+  WaitlistLaunch,
+  WaitlistPage,
+  WaitlistQuery,
   PlayInput,
   PoolIssue,
   ProposalInput,
@@ -224,3 +236,26 @@ export const getCustomerLinks = (id: number): Promise<CustomerLink[]> => request
 /** 登记 / 取消登记员工账户（customer:edit，高危，原因必填）；登记时退回已有下注（E15），返回退回的结果 */
 export const setCustomerStaff = async (id: number, staff: boolean, reason: string): Promise<StaffRefund> =>
   (await request<{ refunded: StaffRefund }>(`/customers/${id}/staff`, { method: 'POST', body: { staff, reason } })).refunded;
+
+// ---- S16 等候页订阅（growth:view；发送上线通知 content:publish ★） ----
+export const listWaitlist = (q: WaitlistQuery): Promise<WaitlistPage> =>
+  request('/waitlist', { query: { status: q.status, page: q.page, pageSize: q.pageSize } });
+/** 发送上线通知（只能一次；第二次 409 LAUNCH_ALREADY_SENT） */
+export const launchWaitlist = (reason: string): Promise<WaitlistLaunch> => request('/waitlist/launch', { method: 'POST', body: { checked: true, reason } });
+
+// ---- S16 Telegram 机器人（content:view；改动 content:publish ★） ----
+export const getTelegram = (): Promise<TelegramOverview> => request('/telegram');
+export const listTelegramPosts = (status: TelegramPostStatus | undefined, page: number, pageSize: number): Promise<Page<TelegramPost>> =>
+  request('/telegram/posts', { query: { status, page, pageSize } });
+export const updateTelegramTarget = (key: TelegramTargetKey, chatId: string | null, enabled: boolean, reason: string): Promise<TelegramTarget> =>
+  request(`/telegram/targets/${enc(key)}`, { method: 'PUT', body: { chatId, enabled, reason } });
+export const stopTelegramGroup = (chatId: string, reason: string): Promise<TelegramGroup> =>
+  request(`/telegram/groups/${enc(chatId)}/broadcast-off`, { method: 'POST', body: { reason } });
+export const getTelegramPreview = (kind: 'RESULT', lang: string): Promise<TelegramPreview> => request(`/telegram/templates/${enc(kind)}/${enc(lang)}/preview`);
+/** 预览图的地址（img 直接用，带后台的登录 Cookie） */
+export const telegramPreviewUrl = (kind: 'RESULT', lang: string): string => `${API_BASE}/telegram/templates/${enc(kind)}/${enc(lang)}/preview.png`;
+export const approveTelegramTemplate = (kind: 'RESULT', lang: string, fingerprint: string, reason: string): Promise<TelegramTemplate> =>
+  request(`/telegram/templates/${enc(kind)}/${enc(lang)}/approve`, { method: 'POST', body: { fingerprint, checked: true, reason } });
+export const disableTelegramTemplate = (kind: 'RESULT', lang: string, reason: string): Promise<TelegramTemplate> =>
+  request(`/telegram/templates/${enc(kind)}/${enc(lang)}/disable`, { method: 'POST', body: { reason } });
+export const setTelegramStop = (stop: boolean, reason: string): Promise<TelegramStatus> => request('/telegram/stop', { method: 'POST', body: { stop, reason } });

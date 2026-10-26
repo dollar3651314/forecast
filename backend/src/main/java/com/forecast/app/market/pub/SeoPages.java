@@ -1,6 +1,7 @@
 package com.forecast.app.market.pub;
 
 import com.forecast.app.market.api.I18nText;
+import com.forecast.app.market.api.PublicPageView;
 import com.forecast.app.market.card.CardModel;
 import com.forecast.app.market.card.CardService;
 import com.forecast.app.market.core.ClientViews;
@@ -33,7 +34,7 @@ import tools.jackson.databind.ObjectMapper;
  *       （有脚本的浏览器一开始就隐藏它，见 {@code web/client/index.html}），所以登录后的体验不变。</li>
  * </ul>
  * 公开的页面：{@code /}、{@code /markets}、{@code /markets/{编号}}、{@code /results}、{@code /results/weekly}、{@code /results/weekly/{周}}、
- * {@code /how-to-play}。三种语言用 {@code ?lang=en|zh-CN|zh-TW} 区分地址，不带 lang 的是 x-default（英文）。别的路径（登录后才能看的页面）只给品牌标题和 noindex。
+ * {@code /how-to-play}；S16 起还有别的模块提供的页面（{@link PublicPageView}：数据页 {@code /data}）。三种语言用 {@code ?lang=en|zh-CN|zh-TW} 区分地址，不带 lang 的是 x-default（英文）。别的路径（登录后才能看的页面）只给品牌标题和 noindex。
  * <p>只用公开数据：没有任何客户的个人数据（详情按"没登录"取，列表的奖池本来就不带个人数据）。所有文字都经过 HTML 转义。
  */
 @Component
@@ -53,9 +54,12 @@ public class SeoPages {
   private final Clock clock;
   private final CardService cards;
   private final boolean publicBrowse;
+  /** 别的模块提供的公开页面（S16：growth 的数据页 /data） */
+  private final org.springframework.beans.factory.ObjectProvider<PublicPageView> extra;
 
   SeoPages(MarketService markets, MarketPublicService pub, PublicContent content, ObjectMapper json, Clock clock, CardService cards,
-      @Value("${forecast.public-browse.enabled:true}") boolean publicBrowse) {
+      @Value("${forecast.public-browse.enabled:true}") boolean publicBrowse, org.springframework.beans.factory.ObjectProvider<PublicPageView> extra) {
+    this.extra = extra; // 用到时再取（避免启动时的依赖顺序问题）
     this.markets = markets;
     this.pub = pub;
     this.content = content;
@@ -161,6 +165,11 @@ public class SeoPages {
       }
     }
     if (path.equals("/how-to-play")) return new Meta(content.text(l, "howto.title"), content.text(l, "howto.description"), true);
+    Optional<PublicPageView> ext = extraFor(path);
+    if (ext.isPresent()) {
+      PublicPageView.Meta em = ext.get().meta(path, l, content.brand());
+      return new Meta(em.title(), em.description(), em.index());
+    }
     // 登录后才能看的页面（资产、我的下注、我的……）和登录注册页：只给品牌标题，不收录
     return new Meta(content.brand(), content.text(l, "site.description"), false);
   }
@@ -295,7 +304,20 @@ public class SeoPages {
     Matcher w = WEEK.matcher(path);
     if (w.matches()) return weekMain(w.group(1), l, q);
     if (path.equals("/how-to-play")) return howToMain(l);
+    Optional<PublicPageView> ext = extraFor(path);
+    if (ext.isPresent()) return ext.get().main(path, l, q).orElse(null);
     return null;
+  }
+
+  private Optional<PublicPageView> extraFor(String path) {
+    return extra.orderedStream().filter(v -> v.handles(path)).findFirst();
+  }
+
+  /** 别的模块要列进站点地图的路径（S16） */
+  List<String> extraSitemapPaths() {
+    List<String> out = new java.util.ArrayList<>();
+    extra.orderedStream().forEach(v -> out.addAll(v.sitemapPaths()));
+    return out;
   }
 
   private String marketsMain(String l, String q) {

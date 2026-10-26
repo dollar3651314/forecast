@@ -91,6 +91,23 @@ public final class ExternalHttp {
   public Response get(URI uri, Duration connectTimeout, Duration readTimeout, int maxBytes, Map<String, String> headers) throws Failure {
     HttpRequest.Builder b = HttpRequest.newBuilder(uri).timeout(readTimeout).header("Accept", "application/json").GET();
     if (headers != null) headers.forEach(b::header);
+    return send(b, connectTimeout, readTimeout, maxBytes);
+  }
+
+  /**
+   * POST 一个请求体（forecast S16：Telegram Bot API 的 sendMessage（JSON）、sendPhoto（multipart））。超时、响应体上限、不跟随跳转、不重试，和 {@link #get} 一样。
+   *
+   * @param contentType 请求体的类型（{@code application/json}、{@code multipart/form-data; boundary=…}）
+   */
+  public Response post(URI uri, Duration connectTimeout, Duration readTimeout, int maxBytes, Map<String, String> headers, String contentType, byte[] body)
+      throws Failure {
+    HttpRequest.Builder b = HttpRequest.newBuilder(uri).timeout(readTimeout).header("Accept", "application/json").header("Content-Type", contentType)
+        .POST(HttpRequest.BodyPublishers.ofByteArray(body == null ? new byte[0] : body));
+    if (headers != null) headers.forEach(b::header);
+    return send(b, connectTimeout, readTimeout, maxBytes);
+  }
+
+  private Response send(HttpRequest.Builder b, Duration connectTimeout, Duration readTimeout, int maxBytes) throws Failure {
     CompletableFuture<HttpResponse<byte[]>> f = client(connectTimeout).sendAsync(b.build(), info -> new Capped(maxBytes));
     try {
       // 总时长 = 连接超时 + 读取超时（连接阶段由 connectTimeout 自己报错，这里是兜底）
