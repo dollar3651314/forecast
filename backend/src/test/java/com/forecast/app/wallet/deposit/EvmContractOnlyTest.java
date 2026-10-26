@@ -64,7 +64,7 @@ class EvmContractOnlyTest {
     ArgumentCaptor<Map<String, String>> p = ArgumentCaptor.forClass(Map.class);
     verify(mail, atLeastOnce()).send(eq(email), eq("EMAIL_CODE"), p.capture());
     return mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content("{\"email\":\"" + email + "\",\"code\":\"" + p.getValue().get("code")
-        + "\",\"password\":\"password123\",\"firstName\":\"A\",\"lastName\":\"B\",\"birthDate\":\"1990-05-01\",\"nationality\":\"CN\"}")).andReturn().getResponse().getCookie("fc_session");
+        + "\",\"password\":\"password123\",\"firstName\":\"A\",\"lastName\":\"B\",\"birthDate\":\"1990-05-01\",\"nationality\":\"CN\",\"adultConfirmed\":true}")).andReturn().getResponse().getCookie("fc_session");
   }
 
   @Test

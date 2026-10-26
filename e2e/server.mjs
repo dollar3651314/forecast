@@ -3,6 +3,9 @@
 // - `/api/**`（含 WebSocket）原样转发到后端（默认 http://127.0.0.1:8080），保留浏览器的 Host 头（后端的 WebSocket 只接受同源），和测试环境 Nginx 的同源方式一致
 // - 官网（v2，web/site/dist）在另一个端口 E2E_SITE_PORT（默认 4174）：和测试环境的官网域名一样，只转发 /api/health，
 //   其他 /api/ 返回 404；页面里的客户端地址占位符换成本站客户端地址（Nginx 换成 https://${APP_DOMAIN}，见 deploy/nginx/site.conf.template）
+// - forecast S13（MF-4）：和部署形态的 Nginx 一样处理客户端页面里的 SSI 指令（向后端 /api/public/seo/head、/body 要标题和正文嵌进页面，
+//   市场详情、一周的周报、S15 的 /insights/<slug> 先问 /api/public/seo/exists，不存在返回 404 状态码）；/robots.txt、/sitemap.xml 转到后端；/m/<编号> 跳到市场详情
+//   （deploy/nginx/site.conf.template 的同名部分）
 // 环境变量：E2E_PORT（默认 4173）、E2E_SITE_PORT（默认 4174）、E2E_BACKEND（默认 http://127.0.0.1:8080）
 import http from 'node:http';
 import net from 'node:net';
@@ -41,8 +44,57 @@ for (const dir of [...SITES.map((s) => s.dir), WWW_DIR]) {
   }
 }
 
-function serveStatic(req, res) {
+/** 向后端要一段（GET，带原页面地址）；返回 { status, body }，连不上时 status 0 */
+function backendGet(path, page) {
+  return new Promise((resolve) => {
+    const r = http.request(
+      { hostname: BACKEND.hostname, port: BACKEND.port, method: 'GET', path, headers: { 'X-Fc-Page': page, Accept: 'text/html' }, timeout: 3000 },
+      (resp) => {
+        let body = '';
+        resp.setEncoding('utf8');
+        resp.on('data', (c) => (body += c));
+        resp.on('end', () => resolve({ status: resp.statusCode || 0, body }));
+      },
+    );
+    r.on('timeout', () => r.destroy());
+    r.on('error', () => resolve({ status: 0, body: '' }));
+    r.end();
+  });
+}
+
+/** Nginx SSI 的最小实现：block 定义（不输出）、include virtual="/__seo/..."（失败或为空时用 stub） */
+async function ssi(html, page) {
+  const blocks = {};
+  html = html.replace(/<!--# block name="([^"]+)" -->([\s\S]*?)<!--# endblock -->/g, (_, name, body) => {
+    blocks[name] = body;
+    return '';
+  });
+  const re = /<!--# include virtual="\/__seo\/([a-z]+)" stub="([^"]+)" -->/g;
+  const parts = [];
+  let last = 0;
+  for (const m of html.matchAll(re)) {
+    parts.push(html.slice(last, m.index));
+    const r = await backendGet(`/api/public/seo/${m[1]}`, page);
+    parts.push(r.status === 200 && r.body ? r.body : (blocks[m[2]] ?? ''));
+    last = m.index + m[0].length;
+  }
+  parts.push(html.slice(last));
+  return parts.join('');
+}
+
+async function serveStatic(req, res) {
   const url = new URL(req.url, 'http://x');
+  // robots.txt、站点地图转到后端；分享链接跳到市场详情
+  if (url.pathname === '/robots.txt' || url.pathname === '/sitemap.xml') {
+    req.url = `/api/public${url.pathname}`;
+    proxy(req, res);
+    return;
+  }
+  const share = /^\/m\/(\d{1,19})$/.exec(url.pathname);
+  if (share) {
+    res.writeHead(301, { Location: `/markets/${share[1]}${url.search}` }).end();
+    return;
+  }
   let pathname = decodeURIComponent(url.pathname);
   if (pathname === '/admin') pathname = '/admin/';
   const site = SITES.find((s) => pathname.startsWith(s.prefix));
@@ -61,6 +113,19 @@ function serveStatic(req, res) {
     file = path.join(site.dir, 'index.html');
   }
   const type = TYPES[path.extname(file)] || 'application/octet-stream';
+  // 客户端页面里的官网地址占位符（服务条款等链接，forecast S11）换成本机官网地址；Nginx 换成 https://${WWW_DOMAIN}；
+  // S13：SSI 指令换成后端给的标题和正文；市场详情、周报先问这一页存不存在（后端 403 = 不存在 → 404）
+  if (site.prefix === '/' && file.endsWith('.html')) {
+    let status = 200;
+    if (/^\/(markets|results\/weekly|insights)\/[^/]+\/?$/.test(url.pathname)) {
+      const e = await backendGet('/api/public/seo/exists', req.url);
+      if (e.status === 403) status = 404;
+    }
+    const html = await ssi(fs.readFileSync(file, 'utf8').replace('__FC_SITE_URL__', `http://127.0.0.1:${SITE_PORT}`), req.url);
+    res.writeHead(status, { 'Content-Type': type, 'Cache-Control': 'no-store' });
+    res.end(html);
+    return;
+  }
   res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-store' });
   fs.createReadStream(file).pipe(res);
 }
@@ -82,7 +147,11 @@ function proxy(req, res) {
 
 const server = http.createServer((req, res) => {
   if (req.url.startsWith('/api/')) proxy(req, res);
-  else serveStatic(req, res);
+  else
+    serveStatic(req, res).catch(() => {
+      if (!res.headersSent) res.writeHead(500);
+      res.end();
+    });
 });
 
 // WebSocket：把升级请求原样转给后端，之后双向转发字节

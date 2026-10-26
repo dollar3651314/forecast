@@ -21,7 +21,8 @@
     "save": "儲存",
     "search": "搜尋",
     "submitting": "提交中…",
-    "viewAll": "全部"
+    "viewAll": "全部",
+    "loadMoreFailed": "載入失敗：{{reason}}"
   },
   "nav": {
     "assets": "資產",
@@ -83,7 +84,6 @@
     "passwordRule": "8–64 位，至少包含字母和數字",
     "confirmPassword": "確認密碼",
     "newPassword": "新密碼",
-    "agree": "我已閱讀並同意《服務條款》《隱私政策》和《風險提示》（文案待法務稽覈）",
     "register": "註冊",
     "forgotTitle": "重置密碼",
     "forgotSubtitle": "透過郵箱驗證碼設定新密碼，其他裝置上的登入將全部失效",
@@ -91,8 +91,9 @@
     "resetDone": "密碼已重置",
     "resetDoneBody": "請用新密碼登入",
     "backToLogin": "返回登入",
-    "riskNotice": "風險提示：預測有輸有贏，押錯的本金不退。（正式文案由 PM 定稿，待法務稽覈）",
-    "codeSentReal": "驗證碼已傳送到 {{email}}，10 分鐘內有效"
+    "riskNotice": "風險提示：預測有輸有贏，押錯選項的本金不會退回。請只用你能承受損失的資金參與。",
+    "codeSentReal": "驗證碼已傳送到 {{email}}，10 分鐘內有效",
+    "adultAgree": "我已年滿 18 週歲，已閱讀並同意<terms>《服務條款》</terms>、<privacy>《隱私政策》</privacy>和<risk>《風險揭露》</risk>"
   },
   "profile": {
     "section": "個人資料",
@@ -133,7 +134,7 @@
     "warnTitle": "充值前請確認",
     "warnOnly": "只能向此地址轉入 {{network}} 網路的 USDT",
     "warnWrong": "轉錯網路或幣種，資金無法找回",
-    "warnConfirm": "到帳需要 {{n}} 個區塊確認，約 {{m}} 分鐘，到帳後會通知您",
+    "warnConfirm": "到帳需要 {{n}} 個區塊確認，約 {{m}} 分鐘，到帳後會通知你",
     "warnMin": "單筆最少 {{min}} USDT，低於該金額不會入帳",
     "records": "充值記錄",
     "recordsEmpty": "暫無充值記錄",
@@ -190,7 +191,7 @@
     "canWithdraw": "可以提現",
     "kycNeedTitle": "提現前需要完成身份認證",
     "kycNeed": {
-      "none": "您還沒有提交身份認證。認證透過後才能提現，註冊和充值不受影響。",
+      "none": "你還沒有提交身份認證。認證透過後才能提現，註冊和充值不受影響。",
       "pending": "身份認證稽覈中，通常 1 個工作日內完成，透過後即可提現。",
       "approved": "",
       "rejected": "身份認證被駁回，請檢視原因後重新提交。"
@@ -268,7 +269,7 @@
     "address": "地址",
     "label": "備註名",
     "labelHint": "方便自己識別，最多 30 個字",
-    "rule": "新地址 24 小時後生效，最多 10 個。請確認地址屬於您本人。",
+    "rule": "新地址 24 小時後生效，最多 10 個。請確認地址屬於你本人。",
     "added": "地址已新增",
     "addedBody": "24 小時後可用於提現",
     "addedAt": "新增於 {{time}}",
@@ -299,7 +300,13 @@
     "version": "{{brand}} · v0.1",
     "onboarding": "新手引導",
     "themeSystem": "跟隨系統",
-    "howItWorks": "規則說明"
+    "howItWorks": "規則說明",
+    "help": "規則和條款",
+    "rules": "規則說明",
+    "faq": "常見問題",
+    "terms": "服務條款",
+    "privacy": "隱私政策",
+    "risk": "風險揭露"
   },
   "kyc": {
     "intro": "只在提現前需要身份認證；註冊和充值不受影響。",
@@ -311,8 +318,8 @@
     },
     "statusDesc": {
       "none": "請提交證件資訊",
-      "pending": "通常 1 個工作日內完成，結果會透過站內信、推送和郵件通知您。",
-      "approved": "您已完成身份認證，可以提現。",
+      "pending": "通常 1 個工作日內完成，結果會透過站內信、推送和郵件通知你。",
+      "approved": "你已完成身份認證，可以提現。",
       "rejected": "請根據駁回原因重新提交。"
     },
     "rejectReason": "駁回原因：",
@@ -336,7 +343,7 @@
   },
   "notifications": {
     "empty": "暫無通知",
-    "emptyHint": "成交、強平、出入金和認證結果都會通知您",
+    "emptyHint": "下注、結算、充值提現和認證結果都會通知你",
     "markAll": "全部已讀",
     "allReadDone": "已全部標記為已讀",
     "unread": "未讀",
@@ -346,13 +353,14 @@
       "withdraw": "出金",
       "kyc": "認證",
       "system": "系統"
-    }
+    },
+    "open": "查看"
   },
   "prefs": {
     "push": "推送通知",
-    "pushDesc": "成交、強平、出入金和認證結果推送到手機或瀏覽器",
+    "pushDesc": "結算、公示、退款、充值提現和認證結果推送到手機或瀏覽器（下注成功、補充說明只發站內信）",
     "email": "郵件通知",
-    "emailDesc": "同樣的事件傳送到您的郵箱",
+    "emailDesc": "充值提現、認證結果、退款、補償和你訂閱的開賽提醒發到你的郵箱（結算結果不發郵件）",
     "inbox": "站內信",
     "inboxDesc": "站內信始終開啟",
     "browserPerm": "瀏覽器通知許可權",
@@ -432,7 +440,13 @@
     "optionNotFound": "這個選項不存在，請重新整理後再試",
     "disputeClosed": "不在爭議窗口內，不能提交爭議",
     "disputeNotBettor": "只有在這個市場有下注的客戶可以提交爭議",
-    "disputeExists": "你已經對這個市場提交過爭議"
+    "disputeExists": "你已經對這個市場提交過爭議",
+    "reminderNotAvailable": "這個市場已經開放下注或已經結束，不能再訂閱開賽提醒。",
+    "reminderLoginRequired": "開賽提醒只對登入過的帳戶開放：登出後重新登入一次即可訂閱。",
+    "reminderTooMany": "訂閱中的開賽提醒太多了（最多 100 個），請先在「通知偏好」裡退訂一些。",
+    "cardNotAvailable": "這張卡片現在不能生成：挑戰卡只能為自己押過、還在下注期的選項生成，開獎卡只能為押中的已結算市場生成。",
+    "waitlistClosed": "已經正式上線，等候頁不再收郵箱，直接註冊即可。",
+    "waitlistLinkExpired": "確認連結已過期（7 天），請回資料頁重新留一次郵箱。"
   },
   "validation": {
     "fixAll": "請修改以上標紅的內容後再提交",
@@ -522,7 +536,7 @@
     "depositNow": "現在去充值",
     "kyc": {
       "title": "完成身份認證",
-      "body": "小額下注只要郵箱；累計充值超過 1,000 USDT 或提現前，需要證件 + 手持證件自拍，一般 1 個工作日內稽覈完。",
+      "body": "小額下注只要郵箱；累計充值超過認證門檻（預設 1,000 USDT）或提現前，需要證件 + 手持證件自拍，一般 1 個工作日內審核完。",
       "items": [
         "身份證正反面或護照資訊頁",
         "手持證件的自拍"
@@ -533,7 +547,7 @@
       "title": "充值 USDT 開始",
       "body": "在\"資產 → 充值\"選網路、複製你的專屬地址，從交易所或錢包轉入 USDT。",
       "items": [
-        "支援 ERC20、TRC20、BEP20 三個網路",
+        "支援 ERC20、TRC20、BSC（BEP20）三個網路",
         "到帳後餘額自動更新，並收到通知"
       ],
       "note": "只能轉入 USDT，網路要和地址一致，轉錯無法找回。"
@@ -549,7 +563,7 @@
     },
     "odds": {
       "title": "押中了，分輸方的獎池",
-      "body": "開獎後，輸的選項的錢按押注比例分給押中的人。賠率隨獎池變化，截止時確定；平台只對盈利部分抽成 5%。",
+      "body": "開獎後，輸的選項的錢按押注比例分給押中的人。賠率隨獎池變化，截止時確定；平台只對盈利部分抽成（預設 5%，每個市場寫明）。",
       "example": "押 100 → 贏了約回 162.29（已扣抽成）；輸了 0",
       "note": "下注後不能撤銷。"
     },
@@ -581,6 +595,7 @@
     "count": "{{n}} 個市場",
     "poolLine": "獎池 {{amount}} USDT",
     "people": "{{n}} 人",
+    "people_one": "{{n}} 人",
     "closesIn": "還剩 {{t}}",
     "closesAt": "截止 {{t}}",
     "closedAt": "已於 {{t}} 截止",
@@ -601,17 +616,21 @@
       "disputed": "爭議處理中",
       "settled": "已結算",
       "cancelled": "已取消",
-      "voided": "已作廢"
+      "voided": "已作廢",
+      "upcoming": "未開放"
     },
     "more": "還有 {{n}} 個選項",
     "result": "結果：{{opt}}",
     "noBetsYet": "還沒有人押，先押的人贏了拿走輸方全部（扣費後）",
     "empty": "暫無市場",
-    "emptyHint": "換個品類或篩選條件看看，新的加密市場每 15 分鐘生成一次。",
+    "emptyHint": "新的市場上架後會出現在這裡。",
     "mine": "我押了 {{amount}}",
     "probAria": "{{opt}}：機率 {{pct}}，預計賠率 {{mult}}",
     "oddsNote": "機率 = 選項獎池 ÷ 總獎池；倍數是扣抽成後的預計賠率，隨獎池變化、截止時確定。",
-    "firstBet": "還沒人押，做第一個"
+    "firstBet": "還沒人押，做第一個",
+    "clearFilters": "清除篩選",
+    "emptyFilteredHint": "目前的品類、顯示或搜尋條件下沒有市場。已結束的市場在「顯示 → 已結束」裡。",
+    "emptySearch": "沒有找到「{{q}}」"
   },
   "md": {
     "totalPool": "總獎池",
@@ -636,6 +655,7 @@
     "winner": "贏",
     "mine": "我在本市場的下注",
     "mineLine": "{{amount}} USDT · {{n}} 筆",
+    "mineLine_one": "{{amount}} USDT · {{n}} 筆",
     "ifWin": "贏了約回 {{v}}",
     "tabs": {
       "rules": "規則",
@@ -707,7 +727,8 @@
         "E7_NO_RESULT": "比賽中斷，沒有有效比分",
         "E10_UNDETERMINED": "無法確定結果",
         "E11_UNDETERMINABLE": "規則無法判定",
-        "OTHER": "其他"
+        "OTHER": "其他",
+        "MANUAL": "平台按規則作廢"
       },
       "decision": {
         "upheld": "維持原結果",
@@ -720,7 +741,18 @@
         "overturned": "已處理：改判",
         "voided": "已處理：作廢",
         "closed": "已結束"
-      }
+      },
+      "settling": "結算中",
+      "settlingNote": "結果已確定，派彩正在分批入帳，幾分鐘內完成。",
+      "poolTotal": "獎池合計",
+      "positions": "押中 / 未押中持倉",
+      "positionsV": "{{w}} / {{l}}",
+      "myStake": "我的本金",
+      "myRefund": "我的退款",
+      "myCompensation": "我的補償",
+      "refundTitle": "退款",
+      "refundTotal": "退款合計（全額退回）",
+      "conservation": "派彩合計 + 抽成合計 + 尾差 = 獎池合計；平台只拿抽成和尾差。"
     },
     "how": {
       "title": "彩池（pari-mutuel）怎麼算",
@@ -733,7 +765,8 @@
       "exampleEmpty": "現在還沒有人押。先押的人如果押中，拿走輸方全部獎池（扣抽成後）。",
       "final": "獎池在截止前一直變化，最終賠率在截止時確定；下注後不能撤銷。市場取消或作廢時全額退回。"
     },
-    "feeOnProfit": "只對盈利部分收"
+    "feeOnProfit": "只對盈利部分收",
+    "openAt": "開放下注"
   },
   "bet": {
     "title": "押注",
@@ -780,7 +813,7 @@
     "staked": "總下注",
     "payout": "總派彩",
     "net": "淨盈虧",
-    "sumNote": "已結算的派彩減去已結算的下注",
+    "sumNote": "總下注不含已退回的；總派彩含補償；淨盈虧 = 總派彩 − 已結算的下注",
     "col": {
       "market": "市場",
       "option": "選項",
@@ -809,9 +842,10 @@
       "settled": "還沒有已結算的下注",
       "refunded": "沒有退回的下注"
     },
-    "emptyHint": "去市場挑一個你有把握的問題。",
+    "emptyHint": "去市場看看有哪些問題可以押。",
     "goMarkets": "去看市場",
-    "count": "{{n}} 筆"
+    "count": "{{n}} 筆",
+    "positionNote": "本選項 {{n}} 筆合計 {{amount}}，按合計結算"
   },
   "dispute": {
     "title": "提交爭議",
@@ -831,8 +865,8 @@
   },
   "authSide": {
     "title": "看好哪個結果，就押哪個",
-    "sub": "足球、NBA、加密漲跌、經濟時事。彩池玩法：贏了分輸方的獎池，平台只對盈利抽成 5%。",
-    "p1": "只用 USDT，ERC20 / TRC20 / BEP20 充值",
+    "sub": "足球、NBA、加密漲跌、經濟時事。彩池玩法：押中的人分輸方的獎池，平台只對盈利抽成（預設 5%）。",
+    "p1": "只用 USDT，ERC20 / TRC20 / BSC（BEP20）充值",
     "p2": "平台不當莊、不做市，結果和依據公開",
     "p3": "手機、電腦都能用，可以新增到主螢幕",
     "exHome": "主勝 曼城",
@@ -841,5 +875,189 @@
     "exLeague": "足球 · 英超",
     "exPool": "獎池 10,000 USDT",
     "exTitle": "曼城 vs 利物浦（90 分鐘勝平負）"
+  },
+  "remind": {
+    "title": "開賽提醒",
+    "desc": "在還沒開放下注的市場詳情裡點「開放時提醒我」，開放下注時會給你的帳戶郵箱發一封郵件（只發一次，郵件裡也能退訂）。",
+    "emailOff": "你關閉了郵件通知，開賽提醒不會發出。要收提醒請打開上面的「郵件」。",
+    "empty": "還沒有訂閱開賽提醒",
+    "emptyHint": "在還沒開放下注的市場裡訂閱。",
+    "pitch": "還沒開放下注，開放時可以發郵件提醒你。",
+    "subscribe": "開放時提醒我",
+    "subscribed": "已訂閱：開放下注時發郵件提醒你",
+    "active": "已訂閱開賽提醒，開放下注時發郵件給你。",
+    "unsubscribe": "退訂",
+    "unsubscribed": "已退訂開賽提醒",
+    "sent": "開賽提醒已發到你的郵箱。",
+    "closed": "已經開放下注，不再需要提醒。",
+    "missed": "這個市場在開放前已經結束，提醒沒有發出。",
+    "needLogin": "開賽提醒只對登入過的帳戶開放：登出後重新登入一次即可訂閱。",
+    "manage": "管理開賽提醒",
+    "unsubTitle": "退訂開賽提醒",
+    "unsubDone": "已退訂「{{title}}」的開賽提醒，不會再給你發這一場的郵件。",
+    "unsubSent": "「{{title}}」的提醒已經發過，之後不會再發。",
+    "unsubInvalid": "退訂連結無效或不完整。可以登入後在「我的 → 通知偏好」裡管理開賽提醒。",
+    "status": {
+      "none": "未訂閱",
+      "active": "訂閱中",
+      "sent": "已發送",
+      "cancelled": "已退訂",
+      "missed": "未發送（市場已結束）"
+    },
+    "guest": "還沒開放下注。登入後可以訂閱「開放時提醒我」。"
+  },
+  "guest": {
+    "login": "登入",
+    "register": "註冊",
+    "loginToBet": "登入後押注",
+    "registerToBet": "沒有帳戶？註冊",
+    "betHint": "登入後才能押注；登入後回到這裡，選中的選項不變。"
+  },
+  "slate": {
+    "title": "今日場次",
+    "none": "今天沒有場次。",
+    "next": "下一場：{{t}}（{{utc}}）{{title}}",
+    "noneNext": "下一場的時間還沒定。"
+  },
+  "pub": {
+    "linksLabel": "開獎紀錄和說明",
+    "results": "開獎紀錄",
+    "weekly": "週報",
+    "howTo": "怎麼玩、怎麼充、怎麼提",
+    "toMarkets": "去看市場",
+    "insights": "數據和文章",
+    "data": "資料"
+  },
+  "res": {
+    "title": "開獎紀錄",
+    "intro": "每個已結算、已作廢、已取消的市場：結果、依據、獎池、派彩合計、抽成和尾差，和結算紀錄一致。",
+    "statusLabel": "狀態",
+    "allStatus": "全部狀態",
+    "rangeLabel": "時間",
+    "range": {
+      "all": "全部時間",
+      "7d": "近 7 天",
+      "30d": "近 30 天"
+    },
+    "count": "{{n}} 場",
+    "empty": "還沒有已結束的市場",
+    "emptyHint": "市場結算、作廢或取消後會出現在這裡。",
+    "emptyFiltered": "沒有符合篩選條件的市場",
+    "fee": "抽成合計",
+    "dust": "尾差",
+    "refunded": "退款合計",
+    "refundedShort": "全額退款",
+    "colMarket": "市場",
+    "endedAt": "結束時間"
+  },
+  "wk": {
+    "title": "週報",
+    "intro": "每週（週一 00:00 UTC 起）結束的市場：場數、有效場數、作廢和取消的原因、獎池、派彩和抽成合計。",
+    "markets": "結束場數",
+    "settled": "有效場數",
+    "voided": "作廢或取消",
+    "pool": "獎池合計",
+    "payout": "派彩合計",
+    "fee": "抽成合計",
+    "dust": "尾差合計",
+    "refund": "退款合計",
+    "inProgress": "本週截至現在",
+    "more": "更早的週",
+    "allShown": "已全部顯示，共 {{n}} 週",
+    "empty": "還沒有週報",
+    "oneTitle": "週報 {{week}}",
+    "notFound": "沒有這一週的週報",
+    "reasons": "作廢和取消的原因",
+    "marketsTitle": "這一週結束的市場",
+    "noMarkets": "這一週沒有結束的市場"
+  },
+  "share": {
+    "button": "分享",
+    "title": "分享卡片",
+    "challengeTitle": "下注成功 · 挑戰卡",
+    "winTitle": "分享開獎卡",
+    "weeklyTitle": "分享週報",
+    "native": "分享",
+    "copy": "複製連結",
+    "copied": "連結已複製",
+    "copyFail": "複製失敗，請長按連結手動複製",
+    "download": "下載圖片",
+    "telegram": "發到 Telegram",
+    "x": "發到 X",
+    "link": "分享連結",
+    "showAmount": "在卡片上顯示我的派彩金額",
+    "imageError": "卡片圖片暫時顯示不出來，連結仍然可以分享",
+    "refNote": "連結裡帶一個隨機分享碼（不是你的客戶編號），只用於統計來源，不發任何獎勵"
+  },
+  "ins": {
+    "title": "數據和文章",
+    "intro": "焦點戰的即時獎池、BTC 每小時漲跌統計和玩法文章。文字都經人工審核，數字來自本站獎池和公開行情。",
+    "empty": "還沒有頁面",
+    "updated": "更新於 {{at}}",
+    "published": "發布於 {{at}}",
+    "fallback": "這篇還沒有目前語言的版本，先顯示另一種語言。",
+    "disclaimer": "本頁只陳述數據，不預測結果，也不構成任何建議。",
+    "total": "獎池合計",
+    "bettors": "下注人數",
+    "closeAt": "截止下注",
+    "poolNote": "獎池隨下注變化，最終以截止時為準（數據時間 {{at}}）。",
+    "toMarket": "去看這個市場",
+    "kind": {
+      "FOCUS": "焦點戰",
+      "BTC_STATS": "BTC 統計",
+      "ARTICLE": "文章"
+    },
+    "btc": {
+      "up24": "過去 24 小時收漲",
+      "up7d": "過去 7 天收漲",
+      "change24": "24 小時漲跌幅",
+      "lastClose": "最新收盤價",
+      "byHour": "按 UTC 小時：過去 7 天收漲的天數",
+      "hour": "UTC 小時",
+      "upDays": "收漲天數",
+      "pct": "比例",
+      "rule": "口徑和本站 BTC 市場一樣：一小時的收盤價 ≥ 開盤價算漲（相等也算漲），否則算跌。",
+      "source": "數據來源：{{source}}；{{from}} 到 {{to}}，共 {{bars}} 根 1 小時 K 線；取數時間 {{at}}。"
+    }
+  },
+  "data": {
+    "title": "資料",
+    "intro": "這裡是真實資料：BTC 每小時的漲跌（幣安公開行情）和我們自己的真錢獎池。玩法：用 USDT 押注一件事的結果，贏家按押注比例分輸方的獎池，平台只從贏家的盈利裡抽成（預設 5%），不當對手方。",
+    "btcTitle": "BTC 現價和每小時漲跌",
+    "btcPrice": "BTC 現價",
+    "btcHours": "過去 {{hours}} 小時",
+    "upN": "漲 {{n}} 小時（{{pct}}%）",
+    "downN": "跌 {{n}} 小時（{{pct}}%）",
+    "barLabel": "漲 {{up}}%，跌 {{down}}%",
+    "btcRule": "一小時的收盤價大於或等於開盤價算漲，和我們 BTC 場次的判定規則一樣。",
+    "btcSource": "資料來自幣安公開行情，更新時間 {{time}}",
+    "btcNone": "BTC 行情暫時取不到，稍後再來看。",
+    "slateTitle": "我們今天的場次",
+    "slateNone": "今天沒有場次。",
+    "slateNext": "下一場：{{time}}",
+    "slateLogin": "登入後可以看到今天的場次。",
+    "bettors": "{{n}} 人",
+    "pool": "獎池 {{pool}} USDT · {{n}} 人下注",
+    "upcoming": "還沒開放下注",
+    "launchTitle": "即將上線",
+    "launchText": "正式上線後，這裡顯示每天的場次和兩邊的人數、機率。留下郵箱，上線時我們只發一封郵件通知你，不發其他郵件，隨時可以退訂。",
+    "wlEmail": "郵箱",
+    "wlHint": "提交後會收到一封確認郵件，點裡面的連結確認才算訂閱。",
+    "wlSubmit": "上線時通知我",
+    "wlDoneTitle": "請查收郵件",
+    "wlDone": "如果 {{email}} 還沒訂閱過，我們剛發了一封確認郵件；點裡面的連結確認後，上線時會通知你。",
+    "telegram": "官方 Telegram：",
+    "tgChannelZh": "中文頻道",
+    "tgChannelEn": "英文頻道",
+    "tgBot": "機器人",
+    "confirmTitle": "確認訂閱上線通知",
+    "confirmText": "點下面的按鈕確認：正式上線時我們給這個郵箱發一封通知，只發這一封。",
+    "confirmBtn": "確認訂閱",
+    "confirmed": "已確認。正式上線時我們會發一封郵件通知你；不想收了，點郵件裡的退訂連結即可。",
+    "confirmUnsubscribed": "這個郵箱已經退訂了。想再訂閱，回資料頁重新留一次郵箱。",
+    "linkInvalid": "連結無效，請確認是從郵件裡完整打開的。",
+    "backToData": "回到資料頁",
+    "unsubTitle": "退訂上線通知",
+    "unsubDone": "已退訂，之後不會再因為等候頁給這個郵箱發郵件。"
   }
 }

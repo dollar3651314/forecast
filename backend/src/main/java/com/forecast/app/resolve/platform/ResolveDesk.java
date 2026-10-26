@@ -489,6 +489,7 @@ public class ResolveDesk implements ResolveDeskApi {
       v.put("optionEn", o.label().en());
       v.put("optionTw", o.label().zhTW());
       v.put("deadline", NOTICE_TIME.format(deadline));
+      v.put("marketNo", String.valueOf(m.publicNo())); // 通知中心点进市场（S11）
       notices.add(new NotifyApi.Notice(uid, v));
     }
     notify.toUsers("RESULT_PUBLICIZED", notices);
@@ -780,6 +781,7 @@ public class ResolveDesk implements ResolveDeskApi {
           v.put("oldOption", from == null ? "" : from.label().zhCN());
           v.put("oldOptionEn", from == null ? "" : from.label().en());
           v.put("oldOptionTw", from == null ? "" : from.label().zhTW());
+          v.put("marketNo", String.valueOf(m.publicNo())); // 通知中心点进市场（S11）
           notices.add(new NotifyApi.Notice(uid, v));
         }
         notify.toUsers("RESULT_OVERTURNED", notices);
@@ -809,6 +811,7 @@ public class ResolveDesk implements ResolveDeskApi {
         v.put("optionTw", finalOption.label().zhTW());
       }
       v.put("note", note);
+      v.put("marketNo", String.valueOf(m.publicNo())); // 通知中心点进市场（S11）
       notices.add(new NotifyApi.Notice(d.userId, v));
     }
     notify.toUsers("DISPUTE_DECIDED", notices);

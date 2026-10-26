@@ -11,7 +11,12 @@ import { AuthContext } from './contexts';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   // undefined：还不知道（真实环境正在问后端）
-  const [session, setSession] = useState<Session | null | undefined>(() => (IS_MOCK ? getSession() : undefined));
+  const [session, setSessionState] = useState<Session | null | undefined>(() => (IS_MOCK ? getSession() : undefined));
+  const [loggedOut, setLoggedOut] = useState(false);
+  const setSession = useCallback((s: Session | null | undefined | ((cur: Session | null | undefined) => Session | null | undefined)) => {
+    if (typeof s !== 'function' && s) setLoggedOut(false);
+    setSessionState(s);
+  }, []);
 
   useEffect(() => {
     if (session !== undefined) return;
@@ -27,7 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => onUnauthorized(() => setSession(null)), []);
+  useEffect(() => onUnauthorized(() => setSession(null)), [setSession]);
 
   const loggedIn = !!session;
   useEffect(() => {
@@ -36,8 +41,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await apiLogout().catch(() => undefined);
+    setLoggedOut(true);
     setSession(null);
-  }, []);
-  const value = useMemo(() => ({ session: session ?? null, checking: session === undefined, setSession, logout }), [session, logout]);
+  }, [setSession]);
+  const value = useMemo(() => ({ session: session ?? null, checking: session === undefined, setSession, logout, loggedOut }), [session, setSession, logout, loggedOut]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

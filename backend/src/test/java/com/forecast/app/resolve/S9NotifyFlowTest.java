@@ -87,12 +87,14 @@ class S9NotifyFlowTest extends PlatformTestSupport {
       }
     }
     assertThat(problems).isEmpty();
-    // 需求第 7 节写"不发"的四类没有模板；客户模板一共 20 个
-    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM notify_template WHERE audience IN ('USER', 'ANY')", Integer.class)).isEqualTo(20);
+    // 需求第 7 节写"不发"的四类没有模板；客户模板一共 20 个；S16 加了等候页的两封（按邮箱发给订阅的人，不一定是客户，SQ-22：确认订阅、正式上线了）
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM notify_template WHERE audience IN ('USER', 'ANY')", Integer.class)).isEqualTo(22);
+    assertThat(jdbc.queryForList("SELECT code FROM notify_template WHERE audience = 'ANY' AND req_no IS NULL AND code LIKE 'WAITLIST%' ORDER BY code", String.class))
+        .containsExactly("WAITLIST_CONFIRM", "WAITLIST_LAUNCH");
     // 员工模板都配了按角色的收件人或者明确发告警邮箱（复用的）
     assertThat(jdbc.queryForList("SELECT code FROM notify_template WHERE audience = 'STAFF' AND staff_perms <> '' ORDER BY code", String.class))
-        .containsExactly("DISPUTE_NEW", "MARKET_SUBMITTED", "POOL_RECON_DIFF", "RESOLVE_AUTO_FAILED", "RESOLVE_OVERDUE", "RESOLVE_PROPOSED", "SETTLE_ABNORMAL",
-            "SPORTS_AUTO_FAILED", "SPORTS_KICKOFF_CHANGED");
+        .containsExactly("CONTENT_ALERT", "CONTENT_DIGEST", "DISPUTE_NEW", "MARKET_SUBMITTED", "POOL_RECON_DIFF", "RESOLVE_AUTO_FAILED", "RESOLVE_OVERDUE", "RESOLVE_PROPOSED", "RISK_ALERT", "SETTLE_ABNORMAL",
+            "SPORTS_AUTO_FAILED", "SPORTS_KICKOFF_CHANGED", "TELEGRAM_ALERT");
   }
 
   /** 这个市场的员工邮件发给了谁 */
@@ -161,6 +163,9 @@ class S9NotifyFlowTest extends PlatformTestSupport {
 
   @Test
   void 提交上架_提醒有上架权限的人_再提交不重复() throws Exception {
+    // S14：自己建一个有上架权限的管理员（C80：不依赖别的测试先建过管理员；单独跑这个类时原来会因为没有收件人失败）
+    String tag = "pub" + System.nanoTime();
+    admin(tag, "market:publish");
     Market m = platformMarket(2, 2);
     // 已经上架的市场换一个草稿测：新建 → 提交
     var in = new com.forecast.app.market.api.MarketAdminApi.DraftInput("MACRO", tx("草稿待上架"), tx("规则"), "PLATFORM", "a", "b", null,
@@ -172,7 +177,7 @@ class S9NotifyFlowTest extends PlatformTestSupport {
     admin.submit(Long.parseLong(no));
     admin.submit(Long.parseLong(no));
     List<String> to = staffMailsTo("MARKET_SUBMITTED", no);
-    assertThat(to).isNotEmpty().doesNotHaveDuplicates();
+    assertThat(to).contains(tag + "@staff.test").doesNotHaveDuplicates();
     assertThat(m.no()).isNotEqualTo(no);
   }
 
@@ -191,20 +196,31 @@ class S9NotifyFlowTest extends PlatformTestSupport {
   }
 
   @Test
-  void 后台菜单表_V17写了每个菜单的默认顺序() throws Exception {
+  void 后台菜单表_迁移写了每个菜单的默认顺序() throws Exception {
     List<String> keys = new ArrayList<>();
     collect(Menus.TREE, keys);
     // 迁移脚本里每个菜单都有默认顺序（库里的行别的测试会改，例如 AdminSystemTest 删掉 audit 看兜底，所以查脚本本身）
+    // S9 的菜单在 V17，S10 的风控告警在 V19，S13 的来源统计在 V21，S15 的内容中心在 V24
     String v17;
-    try (var in = getClass().getResourceAsStream("/db/migration/V17__s9_admin_notify.sql")) {
-      v17 = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+    try (var in = getClass().getResourceAsStream("/db/migration/V17__s9_admin_notify.sql"); var in19 = getClass().getResourceAsStream("/db/migration/V19__s10_riskalert.sql");
+        var in21 = getClass().getResourceAsStream("/db/migration/V21__s13_growth.sql"); var in24 = getClass().getResourceAsStream("/db/migration/V24__s15_content.sql");
+        var in26 = getClass().getResourceAsStream("/db/migration/V26__s16_waitlist.sql"); var in27 = getClass().getResourceAsStream("/db/migration/V27__s16_telegram.sql")) {
+      v17 = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8) + new String(in19.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
+          + new String(in21.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8) + new String(in24.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
+          + new String(in26.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8) + new String(in27.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
     }
-    for (String k : keys) assertThat(v17).as("V17 里的菜单 " + k).contains("('" + k + "', ");
+    // S16 的等候页订阅、Telegram 机器人在 V26、V27（S16 分支上原编号 V41、V42，整合 4 改号）
+    for (String k : keys) assertThat(v17).as("V17 / V19 / V21 / V24 / V26 / V27 里的菜单 " + k).contains("('" + k + "', ");
     List<String> saved = jdbc.queryForList("SELECT menu_key FROM admin_menu", String.class);
     assertThat(saved).containsAll(keys.stream().filter(k -> !k.equals("audit")).toList());
-    // 一级菜单的默认顺序：仪表盘、市场管理、裁决、结算与补偿、报表、参数设置、客户、KYC、资金、通知、系统
-    assertThat(Menus.TREE.stream().map(Menus.Item::key).toList()).containsExactly("dashboard", "market", "judge", "settle", "reports", "params", "customers", "kyc",
-        "funds", "notify", "system");
+    // 一级菜单的默认顺序：仪表盘、市场管理、裁决、结算与补偿、报表、来源统计（S13）、等候页订阅（S16）、内容中心（S15，含 S16 的 Telegram 机器人）、
+    // 参数设置、客户、KYC、资金、风控告警（S10）、通知、系统
+    assertThat(Menus.TREE.stream().map(Menus.Item::key).toList()).containsExactly("dashboard", "market", "judge", "settle", "reports", "growth", "waitlist", "content",
+        "params", "customers", "kyc", "funds", "risk-alerts", "notify", "system");
+    // 整合 4：Telegram 机器人是内容中心分组的最后一项（发布渠道）
+    Menus.Item content = Menus.TREE.stream().filter(i -> i.key().equals("content")).findFirst().orElseThrow();
+    assertThat(content.children().stream().map(Menus.Item::key).toList()).containsExactly("content-drafts", "content-events", "content-pages", "content-templates",
+        "content-tools", "content-logs", "content-settings", "telegram");
   }
 
   static void collect(List<Menus.Item> items, List<String> out) {

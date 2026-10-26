@@ -469,6 +469,69 @@ class SportsResolverTest extends SportsTestSupport {
     verify(staff, never()).notifyStaff(eq("SPORTS_AUTO_FAILED"), argThat(p -> m.no().equals(p.get("marketNo"))));
   }
 
+  /**
+   * S14：两个触发（定时任务、端到端的 /api/e2e/sports/tick 或另一个实例）同时到，数据源回复放慢 400 毫秒让取数一定重叠：
+   * 每一轮只有认领到的一方取数，原始返回不多存（修复前每个来源各多一行）。
+   * <p>整合 4 复查（S16 曾把断言放宽成"busy 或 -"）：没认领到的一方按它查到的时机有三种结果，业务上都对——
+   * {@code busy}（读到任务后认领失败）、{@code notDue}（查到期列表时还在、读任务时已被对方认领推后）、{@code -}（查到期列表时已被对方认领，列表里没有它）；
+   * 三种都没有取数。所以断言的是"恰好一方做了这一轮、另一方是这三种之一"，再用每一轮这个市场的存档行数确认只取了一次数、只存了一组（同一个库里别的市场也可能到期，所以不看替身的总请求数）；
+   * {@code error}、两方都做了、两方都没做都会失败。
+   */
+  @Test
+  void 两个触发同时到_每轮只取一次数_存档不多一组() throws Exception {
+    Fx f = football(in(Duration.ofHours(3)));
+    confirm(f);
+    Market m = listed(f, "FOOTBALL_1X2", null);
+    twoSides(m, 0, 2);
+    closeAndEnd(m);
+    finished(f, 1, 0);
+    STUB.handle(u -> {
+      Reply r = BOOK.handler().apply(u);
+      return new Reply(r.status(), r.body(), 400, false, 0);
+    });
+    try {
+      oneDidIt(twice(m), "waiting");
+      assertThat(fetchRows(m, "FOOTBALL_DATA")).as("完赛那一轮主源只存一行").isEqualTo(1);
+      assertThat(fetchRows(m, "THESPORTSDB")).as("这一轮还不看备源").isZero();
+      advance(Duration.ofMinutes(30));
+      oneDidIt(twice(m), "settled");
+    } finally {
+      STUB.handle(BOOK.handler());
+    }
+    assertThat(fetchRows(m, "FOOTBALL_DATA")).as("主源两轮各一次").isEqualTo(2);
+    assertThat(fetchRows(m, "THESPORTSDB")).as("备源一次").isEqualTo(1);
+    assertThat(recordKinds(m)).containsExactly("AUTO_RESULT");
+    assertThat(status(m)).isEqualTo("SETTLED");
+  }
+
+  /** 两个同时的触发：恰好一方做了这一轮（结果是 done），另一方没有取数（busy / notDue / -，见上面的说明） */
+  private static void oneDidIt(List<String> results, String done) {
+    assertThat(results).as("两个触发的结果").hasSize(2).containsOnlyOnce(done);
+    List<String> other = new ArrayList<>(results);
+    other.remove(done);
+    assertThat(other.get(0)).as("没认领到的一方不取数（结果 " + results + "）").isIn("busy", "notDue", "-");
+  }
+
+  /** 两个线程同时跑 resolveDue，返回这个市场的两个结果 */
+  private List<String> twice(Market m) throws Exception {
+    java.util.concurrent.CyclicBarrier go = new java.util.concurrent.CyclicBarrier(2);
+    ExecutorService ex = Executors.newFixedThreadPool(2);
+    try {
+      List<Future<Map<Long, String>>> fs = new ArrayList<>();
+      for (int i = 0; i < 2; i++) {
+        fs.add(ex.submit(() -> {
+          go.await();
+          return sports.resolveDue();
+        }));
+      }
+      List<String> out = new ArrayList<>();
+      for (Future<Map<Long, String>> x : fs) out.add(x.get().getOrDefault(m.id(), "-"));
+      return out;
+    } finally {
+      ex.shutdown();
+    }
+  }
+
   @Test
   void 平台裁决的足球市场不走自动裁决() throws Exception {
     Fx f = football(in(Duration.ofHours(3)));

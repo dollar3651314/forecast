@@ -1,0 +1,31 @@
+/* 内容中心（forecast S15）：草稿编辑、检查结果、事件候选、工具、设置。颜色都用 global.css 的变量，深浅主题一致。 */
+.ct-card { margin-bottom: 16px; }
+.ct-banners { display: grid; gap: 8px; margin-bottom: 12px; }
+.ct-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.ct-note { margin: 8px 0; }
+.ct-tag-gap { margin-left: 8px; }
+.ct-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 16px; }
+.ct-editor { padding: 12px 14px; min-width: 0; }
+.ct-editor-head { margin-bottom: 8px; }
+.ct-preview { background: var(--bg); border: 1px solid var(--hair); border-radius: var(--r); padding: 8px 10px; margin-bottom: 8px; }
+.ct-preview p { margin: 6px 0 0; }
+.ct-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.ct-bad-number { background: var(--danger-bg); color: var(--danger); border-bottom: 2px solid var(--danger); padding: 0 1px; border-radius: 2px; }
+.ct-check-ok { color: var(--long); }
+.ct-check-bad { color: var(--danger); }
+.ct-check-list { color: var(--danger); margin: 0 0 8px; padding-left: 18px; }
+.ct-actions { margin: 8px 0; }
+.ct-refs { margin-top: 8px; }
+.ct-refs summary { cursor: pointer; color: var(--muted); margin-bottom: 6px; }
+.ct-focus { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 12px; }
+.ct-focus-card { padding: 10px 12px; }
+.ct-focus-card ul { margin: 6px 0 0; padding-left: 18px; }
+.ct-focus-head { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.ct-tool-image { display: block; max-width: 100%; height: auto; border: 1px solid var(--hair); border-radius: var(--r); }
+.ct-tool-text { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--bg); border: 1px solid var(--hair); border-radius: var(--r); padding: 8px 10px; font-family: var(--sans); }
+.ct-reply { padding: 10px 12px; margin-top: 8px; }
+.ct-reply p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.ct-diff { margin: 0; padding-left: 18px; }
+.ct-channels { margin-top: 8px; }
+.ct-words { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; min-height: 24px; }
+.ct-word-add { width: 100%; max-width: 360px; }

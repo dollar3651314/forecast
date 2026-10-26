@@ -11,6 +11,7 @@ import com.forecast.app.ledger.api.FundsApi;
 import com.forecast.app.ledger.api.LedgerAdminApi;
 import com.forecast.app.ledger.api.LedgerApi;
 import com.forecast.app.ledger.api.LedgerEntryType;
+import com.forecast.app.settle.api.SettleAdminApi;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -27,7 +28,7 @@ class CustomerOps {
 
   /** 字段和原型 CustomerSummary 一致 */
   record Summary(long id, String name, String email, String nationality, String status, String kycStatus, String balance,
-      String registeredAt, String lastLoginAt) {}
+      String registeredAt, String lastLoginAt, boolean staff) {}
 
   record Kyc(String status, String docType, String docNumber, String reviewedAt, String rejectReason) {}
 
@@ -39,7 +40,13 @@ class CustomerOps {
   /** 字段和原型 CustomerDetail 一致；lastLoginIp、lastLoginIpAt 是 v2 E6 加的（最近一个登录会话的 IP 和时间） */
   record Detail(long id, String name, String email, String nationality, String status, String kycStatus, String balance,
       String registeredAt, String lastLoginAt, String lastLoginIp, String lastLoginIpAt, String firstName, String middleName, String lastName,
-      String birthDate, String frozenReason, Kyc kyc, Account account, List<LedgerView> ledger) {}
+      String birthDate, String frozenReason, Kyc kyc, Account account, List<LedgerView> ledger, boolean staff) {}
+
+  /** 登记 / 取消登记员工账户（forecast S10）：{"staff": true, "reason": "…"} */
+  record StaffBody(Boolean staff, String reason) {}
+
+  /** 登记的结果：客户详情 + 退回的下注（E15，只有登记时有） */
+  record StaffResult(Detail customer, SettleAdminApi.StaffRefund refunded) {}
 
   /**
    * 编辑资料的请求体（v2 E1）。email、status 只用来拒绝：编辑里不能改邮箱，状态只能用冻结 / 解冻改。
@@ -52,8 +59,10 @@ class CustomerOps {
   private final LedgerApi ledger;
   private final FundsApi funds;
   private final Audit audit;
+  private final SettleAdminApi settle;
 
-  CustomerOps(CustomerAdminApi customers, LedgerAdminApi ledgerAdmin, LedgerApi ledger, FundsApi funds, Audit audit) {
+  CustomerOps(CustomerAdminApi customers, LedgerAdminApi ledgerAdmin, LedgerApi ledger, FundsApi funds, Audit audit, SettleAdminApi settle) {
+    this.settle = settle;
     this.customers = customers;
     this.ledgerAdmin = ledgerAdmin;
     this.ledger = ledger;
@@ -71,7 +80,7 @@ class CustomerOps {
 
   Summary summary(CustomerAdminApi.Customer c, BigDecimal balance) {
     return new Summary(c.id(), c.name(), c.email(), c.nationality(), apiStatus(c.status()), apiStatus(c.kycStatus()), Ops.money(balance == null ? BigDecimal.ZERO : balance),
-        Ops.time(c.registeredAt()), Ops.time(c.lastLoginAt()));
+        Ops.time(c.registeredAt()), Ops.time(c.lastLoginAt()), c.staff());
   }
 
   @Transactional(readOnly = true)
@@ -101,7 +110,7 @@ class CustomerOps {
     LocalDate birth = d.birthDate();
     return new Detail(c.id(), c.name(), c.email(), c.nationality(), apiStatus(c.status()), apiStatus(c.kycStatus()), Ops.money(a.balance()),
         Ops.time(c.registeredAt()), Ops.time(c.lastLoginAt()), d.lastLoginIp(), Ops.time(d.lastLoginIpAt()), d.firstName(), d.middleName(), d.lastName(),
-        birth == null ? null : birth.toString(), d.frozenReason(), kyc, account, lines);
+        birth == null ? null : birth.toString(), d.frozenReason(), kyc, account, lines, c.staff());
   }
 
   /**
@@ -169,6 +178,30 @@ class CustomerOps {
       case COMPENSATION -> "compensation";
       case FEE_INCOME, SETTLE_DUST, COMPENSATION_EXPENSE -> t.name().toLowerCase();
     };
+  }
+
+  /**
+   * 登记 / 取消登记员工账户（forecast S10，需求第 3.3、8.1 节；高危，原因必填，写审计"前 → 后"）。登记后不能下注；
+   * 漏登记事后补登的，按 E15 当场退回已有下注（结算还没开始的市场，{@code SettleAdminApi.refundStaffBets}），退回的笔数和金额写进审计。
+   * 取消登记只改标记，已经退回的下注不恢复。不加 @Transactional：标记先提交，退回每个市场一个事务（和下注、结算的加锁顺序一致）。
+   */
+  StaffResult setStaff(long id, StaffBody body) {
+    String r = Audit.requireReason(body == null ? null : body.reason());
+    if (body.staff() == null) throw new ValidationException(java.util.List.of(new ValidationException.Field("staff", "required")));
+    boolean staff = body.staff();
+    SettleAdminApi.StaffRefund refunded = audit.run(staff ? "customer.staff" : "customer.unstaff", String.valueOf(id), true, r, () -> {
+      boolean before = customers.setStaff(id, staff);
+      SettleAdminApi.StaffRefund out = staff ? settle.refundStaffBets(id) : new SettleAdminApi.StaffRefund(0, 0, "0.00");
+      Map<String, Object> is = new java.util.LinkedHashMap<>();
+      is.put("staff", staff);
+      if (staff) {
+        is.put("refundedMarkets", out.markets());
+        is.put("refundedBets", out.bets());
+        is.put("refundedAmount", out.amount());
+      }
+      return Audit.Change.of(out, Map.of("staff", before), is);
+    });
+    return new StaffResult(detail(id), refunded);
   }
 
   /** 冻结（必须填原因，客户所有登录立即失效，AC-04）或解冻 */

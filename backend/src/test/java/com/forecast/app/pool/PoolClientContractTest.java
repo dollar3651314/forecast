@@ -104,11 +104,11 @@ class PoolClientContractTest extends PoolTestSupport {
     bet(u.id(), active, 1, "5");
     admin.cancel(Long.parseLong(cancelled.no()), 1, "测试");
     JsonNode all = getJson("/api/me/bets", u.cookie());
-    assertThat(keys(all)).containsExactly("items", "total", "page", "pageSize", "summary");
+    assertThat(keys(all)).containsExactly("items", "total", "page", "pageSize", "summary", "totals");
     assertThat(all.get("total").asLong()).isEqualTo(3);
     JsonNode first = all.get("items").get(0);
     assertThat(keys(first)).containsExactly("betNo", "marketNo", "market", "marketStatus", "optionNo", "seq", "option", "amount", "receivedAt", "tab", "status",
-        "refundReason", "multAtBet", "feeRateAtBet");
+        "refundReason", "multAtBet", "feeRateAtBet", "category", "finalMult", "result");
     assertThat(first.get("amount").asString()).as("最新的在前").isEqualTo("5.00");
     assertThat(first.get("marketNo").asString()).isEqualTo(active.no());
     assertThat(first.get("market").get("zhCN").asString()).isEqualTo("曼城 vs 利物浦 简");

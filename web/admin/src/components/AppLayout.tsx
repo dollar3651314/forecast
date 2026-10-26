@@ -29,7 +29,7 @@ export function AppLayout() {
   const { me, can, identity, switchIdentity, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const [badges, setBadges] = useState<MenuBadges>({ kyc: 0, withdrawals: 0, review: 0 });
+  const [badges, setBadges] = useState<MenuBadges>({ kyc: 0, withdrawals: 0, review: 0, riskAlerts: 0 });
 
   // 每次切换页面刷新菜单角标（待审核 KYC、待审核出金）
   useEffect(() => {

@@ -191,4 +191,15 @@ class E2eProfileTest {
     real.setProperty("forecast.notify.mail.host", "smtp.example");
     assertThat(E2eGuard.problems(real)).hasSize(3);
   }
+
+  @Test
+  void 启动保护_Telegram只能指向本机的替身() {
+    MockEnvironment env = new MockEnvironment();
+    env.setActiveProfiles("e2e");
+    env.setProperty("forecast.e2e.enabled", "true");
+    env.setProperty("forecast.telegram.api-url", "http://127.0.0.1:8080/api/e2e/telegram");
+    assertThat(E2eGuard.problems(env)).isEmpty();
+    env.setProperty("forecast.telegram.api-url", "https://api.telegram.org");
+    assertThat(E2eGuard.problems(env)).singleElement().asString().contains("真实的 Telegram");
+  }
 }

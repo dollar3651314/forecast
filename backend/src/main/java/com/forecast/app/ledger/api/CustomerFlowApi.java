@@ -2,14 +2,15 @@ package com.forecast.app.ledger.api;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
- * 客户的资金流水合计（只读），给提现自动审批的 R8、R9、R10、R13 用。金额都按账本（{@code ledger_entry}）的
- * AVAILABLE（可用余额）一项算，不改任何金额。时间窗口只有下限（从 since 起），账本里不会有"将来"的记录。
- * <p><b>forecast S1 过渡</b>：差价合约删除后，"交易量""已实现盈亏""手续费""隔夜费"在账本里都没有记录了，下面这几个方法暂时恒为 0
- * （{@link #openedNotionalSince}、{@link #realizedPnl}、{@link #netProfit}）。S10 按需求说明书第 8.2 节改成下注口径
- * （有效下注本金、Σ(派彩 − 本金) + 补偿），见技术方案/v1-架构方案.md 第 1.2 节 ledger ⑤。恒为 0 时 R8 在有充值时不通过（转人工审核）；
- * S1～S9 还没有下注，客户本来就没有盈利，R9、R10、R13 按"没有盈利"判定和实际一致。
+ * 客户的资金流水合计（只读），给提现自动审批的 R8～R10、R13、R14 和下注的 KYC 阈值用。金额都按账本（{@code ledger_entry}）算，不改任何金额。
+ * 时间窗口只有下限（从 since 起），账本里不会有"将来"的记录。
+ * <p><b>已结算的盈亏</b>（forecast S10，需求说明书第 8.2 节 R9、R10、R13；S1～S9 的过渡口径"恒为 0"已删除）：
+ * 净盈利 = 派彩（PAYOUT，本金 + 盈利，派彩记录本身没扣抽成）+ 补偿（COMPENSATION）− 已结算的下注本金（BET_SETTLE 赢的 + BET_LOST 输的）− 抽成（FEE）。
+ * 退回的下注（取消、作废、E14、E15、提前截止）只有 BET_LOCK 和 REFUND，不进任何一项，等于"退款记 0"；还没结算的下注也不算（只算已实现的）。
+ * 等价于需求的 Σ(派彩 − 本金)（派彩已扣抽成；输的记 −本金；退款记 0）+ 补偿。
  */
 public interface CustomerFlowApi {
 
@@ -27,27 +28,34 @@ public interface CustomerFlowApi {
   /** 累计充值 − 冲正（全部时间） */
   BigDecimal netDeposits(long userId);
 
-  /** 已实现盈亏合计；since 为空表示全部时间。S1 过渡：恒为 0（见类注释） */
-  BigDecimal realizedPnl(long userId, LocalDateTime since);
-
   /**
-   * 累计净盈利的三个组成（R13）：从开户到现在。S1 过渡：三项都恒为 0（见类注释），S10 改成下注口径。
+   * 已结算的盈亏的组成（都是正数或 0）。
    *
-   * @param realized 已实现盈亏（盈利为正）
-   * @param fee 客户付的费用（付出为正）
-   * @param swap 复制源的隔夜费，forecast 没有这项，S10 删除
+   * @param payout 派彩合计（本金 + 盈利，抽成另记）
+   * @param compensation 补偿合计（E13）
+   * @param stake 已结算的下注本金合计（赢的 + 输的；退回的、没结算的不算）
+   * @param fee 抽成合计
    */
-  record NetProfit(BigDecimal realized, BigDecimal fee, BigDecimal swap) {
+  record Realized(BigDecimal payout, BigDecimal compensation, BigDecimal stake, BigDecimal fee) {
 
-    /** 累计净盈利 = 已实现 − 手续费 − 隔夜费 */
+    public static final Realized ZERO = new Realized(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
+
+    /** 净盈利 = 派彩 + 补偿 − 本金 − 抽成（亏损为负） */
     public BigDecimal net() {
-      return realized.subtract(fee).subtract(swap);
+      return payout.add(compensation).subtract(stake).subtract(fee);
     }
   }
 
-  /** 从开户到现在的累计净盈利（R13）。S1 过渡：恒为 0 */
-  NetProfit netProfit(long userId);
+  /** 从 since 起（含，按记账时间）的已结算盈亏；since 为空表示从开户到现在 */
+  Realized realized(long userId, LocalDateTime since);
 
-  /** 从 since 起（含）的交易量（R8）。S1 过渡：恒为 0（见类注释），S10 改成有效下注本金 */
-  BigDecimal openedNotionalSince(long userId, LocalDateTime since);
+  /**
+   * 一个市场里这个客户的已结算盈亏（全部时间），R14 用。
+   *
+   * @param firstPayoutAt 这个市场第一笔派彩的记账时间
+   */
+  record MarketRealized(long marketId, Realized realized, LocalDateTime firstPayoutAt) {}
+
+  /** 从 since 起（含）有派彩的市场，每个市场一行（按市场 id 升序） */
+  List<MarketRealized> paidMarketsSince(long userId, LocalDateTime since);
 }

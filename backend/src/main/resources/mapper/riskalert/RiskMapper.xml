@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 风控告警（forecast S10）：线索、关联账户、告警、扫描进度。只有 riskalert 模块使用。 -->
+<mapper namespace="com.forecast.app.riskalert.core.RiskMapper">
+
+  <insert id="insertSignal">
+    INSERT IGNORE INTO riskalert_signal (kind, value, user_id, first_seen_at) VALUES (#{kind}, #{value}, #{userId}, #{at})
+  </insert>
+
+  <select id="signalUsers" resultType="long">
+    SELECT user_id FROM riskalert_signal WHERE kind = #{kind} AND value = #{value} ORDER BY user_id LIMIT #{limit}
+  </select>
+
+  <insert id="insertLink">
+    INSERT IGNORE INTO riskalert_link (user_a, user_b, reason, evidence, first_seen_at) VALUES (#{a}, #{b}, #{reason}, #{evidence}, #{at})
+  </insert>
+
+  <select id="linksOf" resultType="com.forecast.app.riskalert.core.RiskMapper$LinkRow">
+    SELECT other, reason, evidence, first_seen_at FROM (
+      SELECT user_b AS other, reason, evidence, first_seen_at FROM riskalert_link WHERE user_a = #{userId}
+      UNION ALL
+      SELECT user_a AS other, reason, evidence, first_seen_at FROM riskalert_link WHERE user_b = #{userId}
+    ) t ORDER BY other, reason
+  </select>
+
+  <select id="linkedUsers" resultType="long">
+    SELECT user_b FROM riskalert_link WHERE user_a = #{userId}
+    UNION
+    SELECT user_a FROM riskalert_link WHERE user_b = #{userId}
+    ORDER BY 1
+  </select>
+
+  <sql id="alertCols">id, kind, user_id, market_id, ref_key, amount, detail, status, note, handled_by, handled_at, created_at</sql>
+
+  <insert id="insertAlert" useGeneratedKeys="true" keyProperty="id">
+    INSERT IGNORE INTO riskalert_alert (kind, user_id, market_id, ref_key, amount, detail, status, created_at)
+    VALUES (#{kind}, #{userId}, #{marketId}, #{refKey}, #{amount}, #{detail}, 'NEW', #{createdAt})
+  </insert>
+
+  <sql id="alertWhere">
+    <where>
+      <if test="kind != null">AND kind = #{kind}</if>
+      <if test="status != null">AND status = #{status}</if>
+      <if test="userIds != null">AND user_id IN <foreach collection="userIds" item="u" open="(" separator="," close=")">#{u}</foreach></if>
+    </where>
+  </sql>
+
+  <select id="alerts" resultType="com.forecast.app.riskalert.core.RiskMapper$AlertRow">
+    SELECT <include refid="alertCols"/> FROM riskalert_alert <include refid="alertWhere"/> ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="countAlerts" resultType="long">
+    SELECT COUNT(*) FROM riskalert_alert <include refid="alertWhere"/>
+  </select>
+
+  <select id="countByKindStatus" resultType="com.forecast.app.riskalert.core.RiskMapper$CountRow">
+    SELECT kind, status, COUNT(*) AS n FROM riskalert_alert GROUP BY kind, status
+  </select>
+
+  <select id="lockAlert" resultType="com.forecast.app.riskalert.core.RiskMapper$AlertRow">
+    SELECT <include refid="alertCols"/> FROM riskalert_alert WHERE id = #{id} FOR UPDATE
+  </select>
+
+  <select id="alert" resultType="com.forecast.app.riskalert.core.RiskMapper$AlertRow">
+    SELECT <include refid="alertCols"/> FROM riskalert_alert WHERE id = #{id}
+  </select>
+
+  <update id="setStatus">
+    UPDATE riskalert_alert SET status = #{to}, note = #{note}, handled_by = #{by}, handled_at = #{at} WHERE id = #{id} AND status = #{from}
+  </update>
+
+  <select id="openAlertsOf" resultType="long">
+    SELECT COUNT(*) FROM riskalert_alert
+    WHERE user_id = #{userId} AND status IN ('NEW', 'SEEN') AND created_at &gt;= #{since}
+      AND kind IN <foreach collection="kinds" item="k" open="(" separator="," close=")">#{k}</foreach>
+  </select>
+
+  <select id="cursor" resultType="com.forecast.app.riskalert.core.RiskMapper$CursorRow">
+    SELECT name, last_id FROM riskalert_cursor WHERE name = #{name}
+  </select>
+
+  <update id="moveCursor">
+    UPDATE riskalert_cursor SET last_id = #{lastId} WHERE name = #{name}
+  </update>
+</mapper>

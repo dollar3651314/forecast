@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -24,6 +25,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * 加密市场的自动裁决（forecast S6；需求说明书第 4.3 节、E9、E10、AC-27、AC-29；技术方案第 5.2、6 节）。替身数据源（本机 HTTP，照真实格式），真实的网关、存档、结算。
@@ -349,6 +351,74 @@ class CryptoResolverTest extends CryptoTestSupport {
     assertThat(available(up.id())).isEqualByComparingTo("109.5");
     assertThat(recordKinds(m)).containsExactly("AUTO_RESULT");
     assertThat(inbox(up.id(), "SETTLE_WON")).isEqualTo(1);
+    settledConserved(m, "20");
+    // S14：三个触发只有一个去取数，原始返回每个来源一行
+    assertThat(fetchRows(m, "BINANCE")).isEqualTo(1);
+    assertThat(fetchRows(m, "OKX")).isEqualTo(1);
+  }
+
+  /**
+   * S14（端到端 crypto.spec.ts 偶发多一组原始返回的根因）：定时任务（resolveDue）和端到端的 /api/e2e/resolve/tick（同样是 resolveDue）同时跑到同一个市场，
+   * 两边都读到 PENDING、都在事务外取数，各存一组原始返回，只有一边的条件更新成功。数据源回复故意放慢 400 毫秒，让两次取数一定重叠。
+   * 修复后：取数前先用条件更新"认领"这一次尝试，没认领到的不取数。
+   */
+  @Test
+  void 定时任务和手动触发同时到_只取一次数_存档只有一组() throws Exception {
+    Instant ws = nextWindow();
+    Market m = cryptoMarket(ws);
+    bothSides(m);
+    endAndWaitFirstFetch(m);
+    prices(ws, "100", "101");
+    BOOK.delay(400);
+    CyclicBarrier go = new CyclicBarrier(2);
+    ExecutorService ex = Executors.newFixedThreadPool(2);
+    Future<Map<Long, String>> job = ex.submit(() -> {
+      go.await();
+      return resolver.resolveDue();
+    });
+    Future<Map<Long, String>> tick = ex.submit(() -> {
+      go.await();
+      return resolver.resolveDue();
+    });
+    List<String> results = new ArrayList<>();
+    results.add(job.get().getOrDefault(m.id(), "-"));
+    results.add(tick.get().getOrDefault(m.id(), "-"));
+    ex.shutdown();
+    assertThat(results).containsOnlyOnce("settled");
+    assertThat(status(m)).isEqualTo("SETTLED");
+    assertThat(fetchRows(m, "BINANCE")).as("币安只取一次").isEqualTo(1);
+    assertThat(fetchRows(m, "OKX")).as("OKX 只取一次").isEqualTo(1);
+    assertThat(STUB.hits()).isEqualTo(2);
+    assertThat(recordKinds(m)).containsExactly("AUTO_RESULT");
+    // 裁决记录引用的存档行就是仅有的那两行
+    JsonNode detail = new ObjectMapper().readTree(
+        jdbc.queryForObject("SELECT detail FROM resolve_record WHERE market_id = ?", String.class, m.id()));
+    List<Long> used = new ArrayList<>();
+    for (JsonNode s : detail.path("sources")) used.add(s.path("fetchId").asLong());
+    assertThat(used).containsExactlyInAnyOrderElementsOf(
+        jdbc.queryForList("SELECT id FROM resolve_source_fetch WHERE market_id = ?", Long.class, m.id()));
+    settledConserved(m, "20");
+  }
+
+  /** S14：认领以后、取数之前进程退出（只留下认领）：认领期内不再取，认领期（2 分钟）过了下一轮接着取并结算 */
+  @Test
+  void 认领后进程退出_认领期过了接着取() throws Exception {
+    Instant ws = nextWindow();
+    Market m = cryptoMarket(ws);
+    bothSides(m);
+    endAndWaitFirstFetch(m);
+    prices(ws, "100", "101");
+    // 模拟另一个实例认领了这一次尝试后退出（和 ResolveMapper.claim 同样的改动）
+    assertThat(jdbc.update("UPDATE resolve_auto_task SET next_attempt_at = ?, version = version + 1 WHERE market_id = ? AND status = 'PENDING'",
+        java.sql.Timestamp.valueOf(java.time.LocalDateTime.ofInstant(Instant.now(clock).plus(resolveProps.getClaimTtl()), java.time.ZoneOffset.UTC)),
+        m.id())).isEqualTo(1);
+    assertThat(resolver.resolveDue()).doesNotContainKey(m.id());
+    assertThat(resolver.resolveOne(m.id())).isEqualTo("notDue");
+    assertThat(STUB.hits()).isZero();
+    advance(resolveProps.getClaimTtl());
+    assertThat(resolver.resolveOne(m.id())).isEqualTo("settled");
+    assertThat(fetchRows(m, "BINANCE")).isEqualTo(1);
+    assertThat(fetchRows(m, "OKX")).isEqualTo(1);
     settledConserved(m, "20");
   }
 

@@ -5,7 +5,7 @@
 
   <!-- 客户 + 资料 + 最近一次 KYC 申请 -->
   <sql id="customerSelect">
-    SELECT u.id, u.email, u.status, u.frozen_reason, u.created_at, u.last_login_at,
+    SELECT u.id, u.email, u.status, u.frozen_reason, u.created_at, u.last_login_at, u.is_staff AS staff,
       p.first_name, p.middle_name, p.last_name, p.birth_date, p.nationality,
       COALESCE(k.status, 'NONE') AS kyc_status, k.doc_type, k.doc_number, k.reviewed_at AS kyc_reviewed_at, k.reject_reason AS kyc_reject_reason
     FROM account_user u
@@ -43,6 +43,14 @@
   <select id="lastLogin" resultType="com.forecast.app.account.admin.CustomerAdminMapper$LastLogin">
     SELECT ip, created_at FROM account_session WHERE user_id = #{userId} ORDER BY id DESC LIMIT 1
   </select>
+
+  <select id="lockStaff" resultType="java.lang.Boolean">
+    SELECT is_staff FROM account_user WHERE id = #{id} FOR UPDATE
+  </select>
+
+  <update id="setStaff">
+    UPDATE account_user SET is_staff = #{staff} WHERE id = #{id}
+  </update>
 
   <insert id="upsertProfile">
     INSERT INTO account_profile (user_id, first_name, middle_name, last_name, birth_date, nationality)

@@ -78,7 +78,16 @@ export function CustomerListPage() {
             ),
           },
           { title: t('customers.nationality'), dataIndex: 'nationality' },
-          { title: t('customers.status'), dataIndex: 'status', render: (v: string) => <Pill tone={customerTone[v]}>{t(`customerStatus.${v}`)}</Pill> },
+          {
+            title: t('customers.status'),
+            dataIndex: 'status',
+            render: (v: string, r) => (
+              <>
+                <Pill tone={customerTone[v]}>{t(`customerStatus.${v}`)}</Pill>
+                {r.staff ? <Pill tone="admin">{t('customers.staffTag')}</Pill> : null}
+              </>
+            ),
+          },
           { title: t('customers.kyc'), dataIndex: 'kycStatus', render: (v: string) => <Pill tone={kycTone[v]}>{t(`kycStatus.${v}`)}</Pill> },
           { title: t('customers.balance'), dataIndex: 'balance', align: 'right', render: (v: string) => <Amount value={v} /> },
           { title: t('customers.registeredAt'), dataIndex: 'registeredAt', render: (v: string) => <Num>{shortTime(v)}</Num> },

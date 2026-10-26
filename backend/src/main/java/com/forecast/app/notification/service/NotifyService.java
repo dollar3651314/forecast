@@ -47,9 +47,15 @@ class NotifyService implements NotifyApi, NotifyAdminApi {
 
   private static final Logger log = LoggerFactory.getLogger(NotifyService.class);
   private static final TypeReference<Map<String, String>> PARAMS = new TypeReference<>() {};
+  /** audience 是 ANY（也能按邮箱发）、又能发给客户的模板（forecast S11：#23 开赛提醒发到客户的账户邮箱） */
+  static final java.util.Set<String> USER_MAIL_TEMPLATES = java.util.Set.of("MATCH_REMINDER");
 
   /** 站内信，字段和客户端 NotificationItem 一致 */
-  record Item(String id, String kind, String title, String body, boolean read, String createdAt) {}
+  /**
+   * 站内信的一条。link（forecast S11，需求 P6"点击跳到对应市场或提现"）：客户端页面的路径——有 marketNo 变量的去市场详情，
+   * 提现、充值、身份认证的去对应页面；没有时为空。
+   */
+  record Item(String id, String kind, String title, String body, boolean read, String createdAt, String link) {}
 
   record Page<T>(List<T> items, long total, int page, int pageSize) {}
 
@@ -83,7 +89,10 @@ class NotifyService implements NotifyApi, NotifyAdminApi {
   @Transactional
   public void toUser(long userId, String template, Map<String, String> params) {
     Rows.TemplateRow t = mapper.template(template);
-    if (t == null || !"USER".equals(t.audience)) throw new IllegalArgumentException("不是发给客户的模板：" + template);
+    // audience ANY 里只有列在 USER_MAIL_TEMPLATES 的（forecast S11：#23 开赛提醒）也能发给客户（用账户邮箱、客户的语言，遵守邮件开关）；验证码等不行
+    if (t == null || !("USER".equals(t.audience) || ("ANY".equals(t.audience) && USER_MAIL_TEMPLATES.contains(t.code)))) {
+      throw new IllegalArgumentException("不是发给客户的模板：" + template);
+    }
     if (!t.enabled) {
       log.info("模板 {} 已停用，不发送 user={}", template, userId);
       return;
@@ -142,7 +151,9 @@ class NotifyService implements NotifyApi, NotifyAdminApi {
   public void toUsers(String template, List<NotifyApi.Notice> notices) {
     if (notices == null || notices.isEmpty()) return;
     Rows.TemplateRow t = mapper.template(template);
-    if (t == null || !"USER".equals(t.audience)) throw new IllegalArgumentException("不是发给客户的模板：" + template);
+    if (t == null || !("USER".equals(t.audience) || ("ANY".equals(t.audience) && USER_MAIL_TEMPLATES.contains(t.code)))) {
+      throw new IllegalArgumentException("不是发给客户的模板：" + template);
+    }
     if (!t.enabled) {
       log.info("模板 {} 已停用，不发送（{} 个客户）", template, notices.size());
       return;
@@ -583,11 +594,26 @@ class NotifyService implements NotifyApi, NotifyAdminApi {
   private Item view(Rows.MessageRow m, Rows.TemplateRow t, String lang) {
     String title = m.title;
     String body = m.body;
+    Map<String, String> params = Map.of();
     if (t != null) {
-      Render.Text text = Render.render(t, json.readValue(m.params == null ? "{}" : m.params, PARAMS), lang);
+      params = json.readValue(m.params == null ? "{}" : m.params, PARAMS);
+      Render.Text text = Render.render(t, params, lang);
       title = text.title();
       body = text.body();
     }
-    return new Item(String.valueOf(m.id), m.kind, title, body, m.readAt != null, m.createdAt.toInstant(ZoneOffset.UTC).toString());
+    return new Item(String.valueOf(m.id), m.kind, title, body, m.readAt != null, m.createdAt.toInstant(ZoneOffset.UTC).toString(), link(m.kind, params));
+  }
+
+  /** 站内信点进去的页面（客户端路径，S11）：有市场编号的去市场详情；提现、充值、身份认证去对应页面；其他为空 */
+  static String link(String kind, Map<String, String> params) {
+    String no = params == null ? null : params.get("marketNo");
+    if (no != null && no.matches("\\d{1,19}")) return "/markets/" + no;
+    if (kind == null) return null;
+    return switch (kind) {
+      case "withdraw" -> "/assets/withdraw";
+      case "deposit" -> "/assets";
+      case "kyc" -> "/me/kyc";
+      default -> null;
+    };
   }
 }

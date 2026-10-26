@@ -110,7 +110,8 @@
     "text_zhTW": "繁体补充说明",
     "options_label": "选项文字",
     "options_winCondition": "选项的判定条件",
-    "plays_line": "分界线"
+    "plays_line": "分界线",
+    "chatId": "频道编号"
   },
   "apiFieldCode": {
     "ageUnder18": "未满 18 周岁",
@@ -183,7 +184,9 @@
     "customer": {
       "edit": "编辑客户资料",
       "freeze": "冻结客户",
-      "unfreeze": "解冻客户"
+      "unfreeze": "解冻客户",
+      "staff": "登记员工账户",
+      "unstaff": "取消员工账户"
     },
     "holiday": {
       "create": "新增假期",
@@ -226,6 +229,12 @@
       "settings_update": "修改归集参数",
       "target_request": "提交冷钱包地址修改",
       "target_cancel": "取消冷钱包地址修改"
+    },
+    "risk_alert": {
+      "status": "处理风控告警"
+    },
+    "growth": {
+      "export": "导出来源统计"
     }
   },
   "auth": {
@@ -405,7 +414,29 @@
     "time": "时间",
     "title": "客户",
     "unfreeze": "解冻客户",
-    "unfreezeImpact": "解冻后客户可以重新登录和提现。"
+    "unfreezeImpact": "解冻后客户可以重新登录和提现。",
+    "staffTag": "员工",
+    "staffOn": "登记为员工",
+    "staffOff": "取消员工登记",
+    "staffOnImpact": "登记后这个账户不能下注；已有的下注里，结算还没开始的会当场全额退回（E15），已结算的不变。",
+    "staffOffImpact": "取消后可以下注；已经退回的下注不会恢复。",
+    "confirmStaffOn": "确认登记",
+    "confirmStaffOff": "确认取消",
+    "staffRefunded": "已退回 {{markets}} 个市场的 {{bets}} 笔下注，合计 {{amount}} USDT",
+    "staffNoRefund": "没有需要退回的下注",
+    "staffBanner": "这是登记的员工账户：不能下注",
+    "linksTitle": "关联账户",
+    "noLinks": "没有发现关联账户",
+    "linkedCustomer": "客户",
+    "linkReason": "关联原因",
+    "linkEvidence": "共同的值",
+    "linkSince": "发现时间",
+    "linkReasons": {
+      "device": "同设备",
+      "ip": "同 IP（注册 / 登录）",
+      "deposit_from": "同充值来源地址",
+      "withdraw_to": "同提现地址"
+    }
   },
   "dashboard": {
     "failedTasks": "失败任务",
@@ -542,7 +573,25 @@
       "TEMPLATE_CHANGED": "模板刚被别人改过，请刷新后再操作。",
       "FIXTURE_STARTED": "已经开赛，不能改对应。",
       "NOT_MAPPED": "还没有确认对应。",
-      "OPTION_NOT_FOUND": "选项不存在，请刷新后再看。"
+      "OPTION_NOT_FOUND": "选项不存在，请刷新后再看。",
+      "CONTENT_DISABLED": "内容程序已关闭（FC_CONTENT_ENABLED），其他功能照常。",
+      "AI_UNAVAILABLE": "AI 起草暂时用不了：{{detail}}。可以手写，或稍后重试。",
+      "DATA_UNAVAILABLE": "{{detail}}",
+      "DRAFT_STATE_CHANGED": "草稿刚被别人处理过，请刷新后再看。",
+      "DRAFT_CHECK_FAILED": "{{detail}}（改好保存后才能发布）",
+      "DRAFT_EXPIRED": "草稿已过期（市场已截止或数据太旧），不能发布。",
+      "DRAFT_COPY_ONLY": "这类草稿只能复制后手动发，不在网站发布。",
+      "PUBLISH_STOPPED": "已紧急停止发布，恢复后才能发布或复制。",
+      "PAGE_LIMIT": "{{detail}}",
+      "ARTICLE_LIMIT": "{{detail}}",
+      "MARKET_STARTED": "市场已开始或已截止，不能再生成这类草稿。",
+      "ECON_STATE_CHANGED": "这条经济日历刚被处理过，请刷新后再看。",
+      "CONTENT_TEMPLATE_CHANGED": "模板刚被别人改过，请刷新后再改。",
+      "WORD_BUILT_IN": "内置词不能删除。",
+      "CONTENT_BANNED_WORDS": "{{detail}}",
+      "LAUNCH_ALREADY_SENT": "上线通知已经发过了（全站只能发一次）。",
+      "TELEGRAM_TEMPLATE_CHANGED": "预览以后模板文字改过了，请重新打开预览再审定。",
+      "TELEGRAM_NO_PREVIEW": "还没有结束的市场，暂时没法生成预览。"
     }
   },
   "funds": {
@@ -652,7 +701,19 @@
     "settleRuns": "结算记录",
     "compensations": "补偿",
     "reports": "报表",
-    "poolRecon": "彩池对账"
+    "poolRecon": "彩池对账",
+    "riskAlerts": "风控告警",
+    "growth": "来源统计",
+    "content": "内容中心",
+    "contentDrafts": "草稿箱",
+    "contentEvents": "事件候选",
+    "contentPages": "页面",
+    "contentTemplates": "模板",
+    "contentTools": "工具",
+    "contentLogs": "日志",
+    "contentSettings": "用量和设置",
+    "waitlist": "等候页订阅",
+    "telegram": "Telegram 机器人"
   },
   "menus": {
     "group": "分组",
@@ -722,7 +783,11 @@
     "fee_edit": "修改费率",
     "betting_params_edit": "修改下注参数",
     "risk_alert_view": "查看风控告警",
-    "risk_alert_handle": "处理风控告警"
+    "risk_alert_handle": "处理风控告警",
+    "growth_view": "查看来源统计（含导出）",
+    "content_view": "查看内容中心（含 Telegram 机器人和发布日志）",
+    "content_edit": "生成和编辑内容草稿",
+    "content_publish": "对外发布：发布内容、改内容设置、Telegram 频道和模板审定、紧急停止、上线通知（高危）"
   },
   "permModule": {
     "customer": "客户",
@@ -735,7 +800,9 @@
     "market": "市场",
     "resolve": "裁决与争议",
     "settle": "结算与对账",
-    "params": "参数与费率"
+    "params": "参数与费率",
+    "growth": "推广",
+    "content": "内容与发布"
   },
   "permissions": {
     "code": "权限点",
@@ -1131,24 +1198,24 @@
     },
     "R8": {
       "name": "充值后的下注量",
-      "desc": "近 30 天入账的充值，在最早那笔入账之后的下注金额 ≥ 充值合计 × N 倍（S1 还没有下注功能，下注金额记为 0：有充值的客户提现都转人工）",
+      "desc": "近 30 天入账的充值，在最早那笔入账之后的有效下注本金 ≥ 充值合计 × N 倍（取消、作废、晚于开赛、员工的退回不算）",
       "param": {
         "multiple": "倍数"
       },
-      "pass": "充值后下注量 {{volume}} / 充值 {{deposit}} = {{ratio}} 倍 ≥ {{limit}} 倍",
-      "fail": "充值后下注量 {{volume}} / 充值 {{deposit}} = {{ratio}} 倍 < {{limit}} 倍",
+      "pass": "充值后有效下注 {{volume}} / 充值 {{deposit}} = {{ratio}} 倍 ≥ {{limit}} 倍",
+      "fail": "充值后有效下注 {{volume}} / 充值 {{deposit}} = {{ratio}} 倍 < {{limit}} 倍",
       "noDeposit": "近 30 天没有充值，不检查"
     },
     "R9": {
       "name": "提现不超过充值 + 盈亏",
-      "desc": "累计提现（含本笔，含进行中的）≤ 累计充值 + 已实现盈亏；超过就人工（S1 还没有下注功能，已实现盈亏记为 0）",
+      "desc": "累计提现（含本笔，含进行中的）≤ 累计充值 + 已结算盈亏（派彩 + 补偿 − 已结算本金 − 抽成）；超过就人工",
       "fixed": "没有数值：超过就人工",
       "pass": "累计提现 {{withdrawn}} ≤ 充值 {{deposit}} + 盈亏 {{pnl}} = {{cap}}",
       "fail": "累计提现 {{withdrawn}} > 充值 {{deposit}} + 盈亏 {{pnl}} = {{cap}}"
     },
     "R10": {
       "name": "近 7 天盈利",
-      "desc": "近 7 天（滚动）已实现盈利不超过金额上限，或不超过本金的 N%（满足其一即通过）",
+      "desc": "近 7 天（滚动）已结算盈利不超过金额上限，或不超过本金的 N%（满足其一即通过）",
       "param": {
         "maxProfit7d": "金额上限",
         "maxProfitPct": "或本金的"
@@ -1179,12 +1246,31 @@
     },
     "R13": {
       "name": "盈利客户",
-      "desc": "从开户到现在的累计净盈利（已实现盈亏 − 手续费）不超过门槛；超过就人工，等于门槛算通过（S1 还没有下注功能，记为 0）",
+      "desc": "从开户到现在的累计净盈利（派彩 + 补偿 − 已结算本金 − 抽成；退回的、没结算的下注不算）不超过门槛；超过就人工，等于门槛算通过",
       "param": {
         "maxNetProfit": "门槛"
       },
-      "pass": "累计净盈利 {{net}} = 已实现 {{realized}} − 手续费 {{fee}} − 隔夜费 {{swap}}，门槛 {{limit}}（未超过）",
-      "fail": "累计净盈利 {{net}} = 已实现 {{realized}} − 手续费 {{fee}} − 隔夜费 {{swap}}，门槛 {{limit}}（超过，转人工）"
+      "pass": "累计净盈利 {{net}} = 派彩 {{payout}} + 补偿 {{compensation}} − 本金 {{stake}} − 抽成 {{fee}}，门槛 {{limit}}（未超过）",
+      "fail": "累计净盈利 {{net}} = 派彩 {{payout}} + 补偿 {{compensation}} − 本金 {{stake}} − 抽成 {{fee}}，门槛 {{limit}}（超过，转人工）"
+    },
+    "R14": {
+      "name": "关联账户对押",
+      "desc": "近 N 天本客户有派彩的市场里，有关联账户（同设备、同 IP、同充值来源 / 提现地址）押了其他选项的，这部分盈利不超过门槛；超过就人工",
+      "param": {
+        "days": "近",
+        "minProfit": "盈利门槛"
+      },
+      "pass": "近 {{days}} 天关联账户对押的市场 {{markets}} 个，盈利 {{profit}} ≤ {{limit}}",
+      "fail": "近 {{days}} 天关联账户对押的市场 {{markets}} 个（关联账户 {{linked}} 个），盈利 {{profit}} > {{limit}}"
+    },
+    "R15": {
+      "name": "可疑押中",
+      "desc": "近 N 天没有还没处理（新 / 已查看）的\"新账户押中冷门\"\"尾盘大额\"风控告警；有就人工",
+      "param": {
+        "days": "近"
+      },
+      "pass": "近 {{days}} 天没有没处理的可疑告警",
+      "fail": "近 {{days}} 天有 {{count}} 条没处理的可疑告警（到\"风控告警\"处理）"
     }
   },
   "autoReview": {
@@ -1640,7 +1726,9 @@
     "reviewSub": "运营提交的草稿：按第 4.1 节清单检查后上架，或写理由退回",
     "reviewHint": "一个有 market:publish 的人检查即可（RQ-17）；有权限的人也可以直接上架自己建的草稿",
     "reviewEmpty": "没有待上架的草稿",
-    "emptyFiltered": "没有符合筛选条件的市场，可以清空筛选再看"
+    "emptyFiltered": "没有符合筛选条件的市场，可以清空筛选再看",
+    "slateOnly": "只看今日场次",
+    "slateTag": "今日场次"
   },
   "mke": {
     "titleEdit": "编辑市场草稿",
@@ -1706,7 +1794,15 @@
     "return": "退回草稿",
     "deleteTitle": "删除草稿",
     "deleteNote": "说明（删除后不能恢复；只有草稿能删）",
-    "delete": "删除草稿"
+    "delete": "删除草稿",
+    "slate": "列入今日场次",
+    "slateHint": "客户端市场页顶部\"今日场次\"只显示勾选了的、今天开始的市场（场次表自动生成的会自动勾上）",
+    "openNowLabel": "同时开放",
+    "openNow": "当前已开放 {{open}} 个，上限 {{limit}} 个",
+    "openNoLimit": "当前已开放 {{open}} 个，不限",
+    "overWarn": "再上架一个就超过同时开放上限（{{limit}} 个）。建议同时开放少量市场，让下注集中（需求第 4.2 节）；确实需要时勾选\"仍要上架\"",
+    "overOk": "仍要上架（超过上限）",
+    "overFirst": "超过同时开放上限：先勾选\"仍要上架\""
   },
   "rs": {
     "title": "裁决台",
@@ -1840,7 +1936,7 @@
   },
   "pm": {
     "title": "参数设置",
-    "sub": "品类默认费率、下注限额、争议窗口、KYC 阈值、单笔最小提现",
+    "sub": "品类默认费率、下注限额、争议窗口、KYC 阈值、单笔最小提现、风控告警阈值",
     "hint": "修改是高危操作：原因必填、显示前 → 后、写审计。改品类默认费率只影响之后新建的市场。",
     "group": {
       "fee": "品类默认费率",
@@ -1850,7 +1946,9 @@
       "crypto": "加密市场时间",
       "dispute": "争议窗口（平台裁决）",
       "resolve": "裁决时限（平台裁决）",
-      "sports": "体育赛程"
+      "sports": "体育赛程",
+      "risk": "风控告警",
+      "slate": "场次"
     },
     "key": {
       "market_fee_FOOTBALL": "足球",
@@ -1885,7 +1983,15 @@
       "sports_closeLeadMinutes_FOOTBALL": "足球：开赛前几分钟截止",
       "sports_closeLeadMinutes_NBA": "NBA：开赛前几分钟截止",
       "sports_eventMinutes_FOOTBALL": "足球：事件时长",
-      "sports_eventMinutes_NBA": "NBA：事件时长"
+      "sports_eventMinutes_NBA": "NBA：事件时长",
+      "risk_lateBet_minutes": "尾盘大额：截止前多少分钟内",
+      "risk_lateBet_poolPct": "尾盘大额：单笔占下注后奖池",
+      "risk_lateBet_minAmount": "尾盘大额：单笔最低金额（0 = 不限）",
+      "risk_longshot_accountDays": "押中冷门：注册多少天内算新账户",
+      "risk_longshot_minAmount": "押中冷门：单笔不少于",
+      "risk_longshot_minOdds": "押中冷门：赔率不低于",
+      "risk_link_maxUsersPerKey": "关联账户：同一设备 / IP / 地址最多几个客户",
+      "market_maxOpen": "同时开放的市场数上限"
     },
     "hours": "{{n}} 小时",
     "minutes": "{{n}} 分钟",
@@ -1903,7 +2009,18 @@
     "feeNote": "只对赢家的盈利部分抽成；单个市场的费率在市场管理里改。",
     "noPerm": "没有权限（{{perm}}）",
     "resolveNote": "超过时限裁决台标红并提醒（按角色发邮件）",
-    "sportsNote": "从赛程生成草稿时用：开赛前几分钟截止、事件结束 = 开赛 + 多少分钟"
+    "sportsNote": "从赛程生成草稿时用：开赛前几分钟截止、事件结束 = 开赛 + 多少分钟",
+    "countUnit": {
+      "risk_longshot_accountDays": "{{n}} 天",
+      "risk_link_maxUsersPerKey": "{{n}} 个",
+      "market_maxOpen": "{{n}} 个"
+    },
+    "multiple": "{{n}} 倍",
+    "pctUnit": "%",
+    "usdtUnit": "USDT",
+    "multUnit": "倍",
+    "riskNote": "赔率是扣抽成后的（和客户看到的一样）；同一个值的客户超过上限时（公共网络、交易所地址）不再按它关联。",
+    "slateNote": "上架后会超过这个数时，上架要再勾\"仍要上架\"（不硬拦，审计里记下）；0 = 不限。建议 1～3（需求第 4.2 节）"
   },
   "dash": {
     "sub": "今日 / 近 7 天按 UTC；待处理事项点进去处理",
@@ -1933,7 +2050,11 @@
       "poolReconOpen": "彩池对账差异",
       "withdrawalsPending": "出金待审核",
       "kyc": "KYC 待审核"
-    }
+    },
+    "slate": "场次",
+    "openNow": "同时开放 / 上限",
+    "noLimit": "不限",
+    "todaySlate": "今日场次（今天 UTC 开始）"
   },
   "mkd": {
     "pool": "奖池和下注",
@@ -2004,7 +2125,11 @@
     "feeChanges": "费率修改记录（{{n}}）",
     "statusLog": "状态历史",
     "none": "无",
-    "notified": "已通知"
+    "notified": "已通知",
+    "slateAdd": "加入今日场次",
+    "slateRemove": "移出今日场次",
+    "slateOn": "已加入今日场次",
+    "slateOff": "已移出今日场次"
   },
   "ag": {
     "title": "加密自动生成",
@@ -2055,7 +2180,31 @@
     "tplSaveNote": "改了以后要重新检查才能启用用它的自动生成",
     "tplInUse": "有启用中的自动生成在用这个模板，先关闭再改",
     "vars": "可用变量",
-    "tplName": "名称"
+    "tplName": "名称",
+    "slotsHint2": "每行一个 UTC 时刻（1 小时只能整点、15 分钟要是 15 的倍数）；星期按 UTC 日期，不选 = 每天。场次表生成的市场自动列入今日场次",
+    "slotTime": "时刻（UTC）",
+    "addSlot": "加一个时刻",
+    "everyDay": "每天",
+    "nextDay": "（次日）",
+    "wdSep": "、",
+    "wd": {
+      "1": "周一",
+      "2": "周二",
+      "3": "周三",
+      "4": "周四",
+      "5": "周五",
+      "6": "周六",
+      "7": "周日"
+    },
+    "wdShort": {
+      "1": "一",
+      "2": "二",
+      "3": "三",
+      "4": "四",
+      "5": "五",
+      "6": "六",
+      "7": "日"
+    }
   },
   "sp": {
     "title": "体育赛程",
@@ -2291,5 +2440,616 @@
     "date": "日期",
     "byMarket": "按市场（已完成的结算单）",
     "noRuns": "还没有完成的结算单"
+  },
+  "ra": {
+    "title": "风控告警",
+    "sub": "尾盘大额、关联账户对押、新账户押中冷门、充了不玩就提；新告警会发邮件，核对后标记处理结果",
+    "kindAll": "全部类型",
+    "kindAllN": "全部类型 · {{n}}",
+    "kind": {
+      "late_large_bet": "尾盘大额",
+      "linked_opposite": "关联账户对押",
+      "new_account_longshot": "新账户押中冷门",
+      "deposit_no_bet": "充了不玩就提"
+    },
+    "status": {
+      "new": "新",
+      "seen": "已查看",
+      "handled": "已处理",
+      "false_positive": "误报"
+    },
+    "statusAll": "全部状态",
+    "keyword": "客户",
+    "keywordPh": "客户编号、邮箱或姓名",
+    "emptyNew": "没有新的告警",
+    "empty": "没有告警",
+    "emptyFiltered": "没有符合筛选条件的告警",
+    "time": "告警时间（UTC）",
+    "kindCol": "类型",
+    "customer": "客户",
+    "market": "市场",
+    "amount": "金额",
+    "detailCol": "判定依据",
+    "statusCol": "处理状态",
+    "to": {
+      "seen": "标记已查看",
+      "handled": "已处理",
+      "false_positive": "误报"
+    },
+    "noteLabel": "处理说明（必填，写进审计）",
+    "notePh": {
+      "handled": "例如：已联系客户核实，限制提现",
+      "false_positive": "例如：同一家庭的两个账户，已核实"
+    },
+    "detail": {
+      "late_large_bet": "截止前 {{sec}} 秒下注，占下注后奖池 {{pct}}%（奖池 {{pool}}；阈值：截止前 {{limitMinutes}} 分钟内、≥ {{limitPct}}%、单笔 ≥ {{limitAmount}}）",
+      "linked_opposite": "关联账户 {{users}} 在同一市场押了不同的选项",
+      "new_account_longshot": "注册第 {{days}} 天押中 {{odds}} 倍的结果（阈值：注册 {{limitDays}} 天内）",
+      "deposit_no_bet": "近 30 天充值 {{deposit}}，之后有效下注 {{stake}}（要求 {{multiple}} 倍）就申请提现 {{no}}"
+    }
+  },
+  "gr": {
+    "title": "来源统计",
+    "sub": "注册、首充、首次下注、第 2 周仍下注，按来源和注册周",
+    "range": "{{from}} ~ {{to}}（UTC，按周对齐）",
+    "recent8": "最近 8 周",
+    "basis": {
+      "first": "按首次来源",
+      "reg": "按注册来源"
+    },
+    "exportCsv": "导出 CSV",
+    "export": {
+      "sources": "按来源（注册周 × 来源）",
+      "markets": "按市场（结束的市场）",
+      "customers": "按客户（只有客户编号）"
+    },
+    "exported": "已导出",
+    "note": "周按 UTC 的 ISO 周（周一起）。首次来源 = 第一次带来源参数打开网站时记下的；注册来源 = 注册那次带的。没带来源的归\"直接访问\"。第 2 周仍下注 = 注册后第 8～14 天下过注，第 2 周还没过完的客户不算进分母。导出的文件里没有邮箱、地址、证件信息",
+    "truncated": "范围内注册的人太多，只统计了前面的一部分：缩小日期范围再看",
+    "totals": "合计",
+    "visits": "访问",
+    "registrations": "注册",
+    "firstDeposits": "首充",
+    "activated": "激活（首次下注）",
+    "week2": "第 2 周仍下注",
+    "ofEligible": "/ {{n}} 人 · {{pct}}",
+    "bySource": "按注册周和来源",
+    "direct": "直接访问",
+    "refBy": "推荐 {{ref}}",
+    "notYet": "还没到",
+    "emptyCohorts": "这段时间没有注册",
+    "marketWeeks": "按周的市场情况",
+    "marketWeeksHint": "有效市场率 = 已结算 / 已结束",
+    "reasons": "作废和取消的原因",
+    "noReasons": "这段时间没有作废或取消的市场",
+    "noReason": "没写原因",
+    "endedMarkets": "结束的市场（{{n}}）",
+    "emptyMarkets": "这段时间没有结束的市场",
+    "col": {
+      "week": "周",
+      "source": "来源（src / cmp / ref）",
+      "ended": "结束",
+      "validRate": "有效市场率",
+      "median": "每场下注人数中位数",
+      "endedAt": "结束时间（UTC）",
+      "reason": "原因"
+    },
+    "refCustomer": "分享人 {{no}}"
+  },
+  "ct": {
+    "kind": {
+      "PREVIEW": "赛前前瞻",
+      "BRIEF": "赛后简报",
+      "SEO_INTRO": "SEO 页面说明",
+      "ARTICLE": "文章",
+      "POST_X": "X 帖子",
+      "POST_TG": "Telegram 帖子",
+      "REPLY": "回复",
+      "BTC_STATS": "BTC 统计",
+      "FOCUS": "焦点战",
+      "FOMC": "FOMC",
+      "CPI": "美国 CPI",
+      "SPORTS": "体育赛程",
+      "DATA_CARD": "数据卡",
+      "COMPARE": "对照图"
+    },
+    "status": {
+      "GENERATING": "生成中",
+      "PENDING": "待审核",
+      "PUBLISHED": "已发布",
+      "REJECTED": "已驳回",
+      "EXPIRED": "已过期",
+      "FAILED": "生成失败"
+    },
+    "lang": {
+      "zh": "中文",
+      "en": "英文"
+    },
+    "drafts": {
+      "title": "草稿箱",
+      "sub": "程序生成的所有内容都先进这里，你看过、点发布才会出现在网站上；帖子和回复只能复制后手动发。",
+      "generate": "生成草稿",
+      "kind": "种类",
+      "lang": "语言",
+      "titleCol": "标题",
+      "status": "状态",
+      "checks": "检查",
+      "target": "对象",
+      "created": "生成时间（UTC）",
+      "expires": "过期时间（UTC）",
+      "empty": "没有草稿",
+      "generating": "生成中…"
+    },
+    "checks": {
+      "ok": "通过",
+      "bad": "{{n}} 处问题",
+      "allOk": "检查通过：数字都能在引用数据里找到，没有禁用词和倾向用语。",
+      "numbers": "数字对不上引用数据（已标红）：{{list}}",
+      "banned": "有禁用词：{{list}}",
+      "tendency": "有倾向用语：{{list}}",
+      "polymarket": "引用了 Polymarket 但没写\"仅供参考，不是本站数据\"",
+      "length": "太长：{{n}} 字，上限 {{max}}",
+      "missing": "缺少：{{list}}"
+    },
+    "drawer": {
+      "title": "草稿（中文 / 英文）",
+      "title2": "标题",
+      "body": "正文",
+      "length": "{{n}} / {{max}} 字",
+      "preview": "预览",
+      "expires": "{{at}} 过期",
+      "failed": "失败原因：{{reason}}",
+      "rejected": "驳回原因：{{reason}}",
+      "saved": "已保存，重新检查过了",
+      "saveFirst": "先保存修改",
+      "cannotPublish": "检查没通过、已过期或状态不对，不能发布",
+      "publish": "发布",
+      "publishTitle": "发布到网站",
+      "publishDesc": "发布后网站上马上能看到（SEO 页面会进站点地图）。",
+      "approve": "审核通过",
+      "approveTitle": "审核通过（复制后手动发）",
+      "approveDesc": "这条只能复制后由你手动发到 X / Telegram，程序不会自动发。",
+      "defaultReason": "已核对数字和措辞",
+      "copy": "复制",
+      "copied": "已复制，记了日志",
+      "reject": "驳回",
+      "rejectLabel": "驳回原因",
+      "rejectPh": "例如：数字不对、措辞不合适",
+      "retry": "重新生成",
+      "retried": "已重新排队生成",
+      "site": "在网站上看"
+    },
+    "refs": {
+      "title": "引用的数据（{{n}} 条）",
+      "label": "项目",
+      "value": "数值",
+      "source": "来源",
+      "at": "时间（UTC）"
+    },
+    "gen": {
+      "title": "生成草稿",
+      "ok": "生成",
+      "note": "程序取数据后让 Gemini 起草中英文两份；没配 Gemini 时只给数据和空白模板，你手写。",
+      "market": "市场编号",
+      "marketHint": {
+        "PREVIEW": "开赛前的体育市场（或任意已上架市场）",
+        "BRIEF": "已结算的市场",
+        "POST_X": "已上架的市场，帖子里带分享链接",
+        "POST_TG": "已上架的市场，帖子里带分享链接"
+      },
+      "page": "页面",
+      "pageHint": "btc-hourly 或 focus-xxx（看\"页面\"列表）",
+      "topic": "主题",
+      "topicHint": "例如：BTC 一小时涨跌统计；只能写引用数据里有的内容",
+      "langs": "语言",
+      "langsValue": "中文、英文各一份（繁体由程序从简体转换）"
+    },
+    "banner": {
+      "stopped": "已紧急停止发布：草稿照常生成，但不能发布或复制。",
+      "unconfigured": "Gemini 未配置：AI 起草不可用，只能看数据、手写。",
+      "paused": "Gemini 被限流，这一类功能暂停中。",
+      "quota": "今天的 Gemini 额度已用完，明天 00:00 UTC 恢复。",
+      "disabled": "AI 起草已在设置里关闭。",
+      "still": "市场草稿、数据卡、页面数据照常更新。"
+    },
+    "geminiState": {
+      "ok": "正常",
+      "unconfigured": "未配置",
+      "paused": "限流暂停中",
+      "quota": "今天额度用完",
+      "disabled": "已关闭"
+    },
+    "econKind": {
+      "FOMC": "FOMC 利率决议",
+      "CPI": "美国 CPI"
+    },
+    "econStatus": {
+      "SCHEDULED": "等待生成",
+      "DRAFTING": "生成中",
+      "DRAFTED": "已生成草稿",
+      "FILTERED": "已过滤",
+      "FAILED": "生成失败",
+      "CANCELLED": "已取消",
+      "EXPIRED": "已过期"
+    },
+    "source": {
+      "SPORTS": "体育赛程",
+      "ECON": "经济日历"
+    },
+    "filterReason": {
+      "CATEGORY": "品类不在白名单",
+      "KEYWORD": "敏感词"
+    },
+    "events": {
+      "title": "事件候选",
+      "sub": "经济日历（FOMC、美国 CPI）按模板生成市场草稿；体育赛程给焦点战建议。生成的都只是草稿，要有上架权限的人检查后上架。",
+      "addEcon": "录入经济日历",
+      "econ": "经济日历",
+      "econHint": "发布前 7 天自动生成市场草稿",
+      "econEmpty": "还没有录入",
+      "kind": "类型",
+      "period": "期间",
+      "releaseAt": "发布时间（UTC）",
+      "prev": "上一期",
+      "dueAt": "生成草稿时间（UTC）",
+      "status": "状态",
+      "market": "市场草稿",
+      "draftNow": "立即生成",
+      "drafted": "已生成市场草稿，去\"待上架\"检查",
+      "cancel": "取消",
+      "focus": "焦点战建议",
+      "toSports": "去体育赛程生成",
+      "focusEmpty": "未来几天没有合适的比赛",
+      "football": "足球",
+      "play": "建议玩法：{{play}}",
+      "fixtures": "赛程",
+      "kickoff": "开赛（UTC）",
+      "match": "比赛",
+      "league": "联赛",
+      "mapping": "映射",
+      "mapped": "已确认",
+      "unmapped": "未确认",
+      "markets": "已有市场",
+      "filtered": "过滤",
+      "filteredBy": "敏感词：{{by}}",
+      "filteredLog": "已过滤",
+      "filteredEmpty": "没有被过滤的事件",
+      "time": "时间（UTC）",
+      "source": "来源",
+      "subject": "事件",
+      "reason": "原因",
+      "periodFomc": "会议月份（YYYY-MM）",
+      "periodCpi": "数据月份（YYYY-MM）",
+      "releaseUtc": "发布时间（UTC）",
+      "releaseHint": "按官网日历填；截止时间自动设为发布前 1 小时",
+      "prevFomc": "当前利率上限（%，可不填）",
+      "prevCpi": "上个月公布的同比（%）",
+      "prevCpiFmt": "一位小数，例如 3.0",
+      "sourceUrl": "官网日历链接"
+    },
+    "tpl": {
+      "title": "模板",
+      "sub": "经济日历市场草稿按这里的题目、规则和选项生成（选项可判定、覆盖全部情况）。改模板只影响以后生成的草稿。",
+      "cards": "分享卡片沿用 S14 的图片模板（程序画图，不用 AI），这里不改。",
+      "vars": "可用变量：{{vars}}",
+      "question": "题目",
+      "rules": "规则",
+      "option": "选项 {{n}}",
+      "win": "判定条件",
+      "primary": "主数据源",
+      "backup": "备用数据源"
+    },
+    "pageKind": {
+      "FOCUS": "焦点战",
+      "BTC_STATS": "BTC 统计",
+      "ARTICLE": "文章"
+    },
+    "pageStatus": {
+      "VISIBLE": "显示",
+      "HIDDEN": "隐藏"
+    },
+    "pages": {
+      "title": "页面",
+      "sub": "网站上的 SEO 页面（每场焦点战一页、一个 BTC 统计页、文章）。今天新增 {{n}} / {{max}}",
+      "subLoading": "网站上的 SEO 页面",
+      "refreshBtc": "刷新 BTC 统计",
+      "refreshed": "BTC 统计已刷新",
+      "empty": "还没有页面",
+      "kind": "类型",
+      "titleCol": "标题",
+      "path": "地址",
+      "text": "说明文字",
+      "dataOnly": "只有数据",
+      "dataAt": "数据时间（UTC）",
+      "created": "创建日期",
+      "status": "状态",
+      "draftIntro": "起草说明",
+      "introStarted": "已开始起草，去草稿箱审核",
+      "hide": "隐藏",
+      "show": "显示"
+    },
+    "tools": {
+      "title": "工具",
+      "sub": "数据卡和大 V 对照图：程序按模板画图，印数据来源和时间。只能下载、复制，不会自动发。",
+      "dataCard": "数据卡",
+      "cardKind": "内容",
+      "kindMarket": "市场奖池",
+      "kindBtc": "BTC 每小时涨跌统计",
+      "lang": "语言",
+      "make": "生成",
+      "compare": "大 V 对照图",
+      "viewpoint": "观点摘要",
+      "viewpointPh": "例如：某某说 BTC 本周会突破 10 万",
+      "viewpointRule": "4 到 200 字",
+      "polymarket": "Polymarket 同类题（可选）",
+      "polymarketOn": "公开接口已开启；引用时会写明\"仅供参考，不是本站数据\"",
+      "polymarketOff": "Polymarket 公开接口默认关闭（条款待核实），开启要改部署配置",
+      "result": "结果",
+      "imageAlt": "生成的图片",
+      "download": "下载图片",
+      "copyText": "复制文字",
+      "reply": "回复草稿（{{lang}}）"
+    },
+    "action": {
+      "GENERATE": "生成",
+      "PUBLISH": "发布",
+      "REJECT": "驳回",
+      "COPY": "复制",
+      "EDIT": "编辑",
+      "RETRY": "重新生成",
+      "EXPIRE": "过期",
+      "FILTER": "过滤",
+      "ECON": "经济日历",
+      "ECON_DRAFT": "经济日历草稿",
+      "PAGE": "页面",
+      "TOOL": "工具",
+      "TEMPLATE": "模板",
+      "BLOCKED": "拦截",
+      "ALERT": "告警",
+      "SETTING": "设置",
+      "WORD": "词表",
+      "STOP": "紧急停止",
+      "RESUME": "恢复发布",
+      "DIGEST": "每日草稿包",
+      "JOB": "定时任务"
+    },
+    "outcome": {
+      "OK": "成功",
+      "FAILED": "失败",
+      "BLOCKED": "拦截",
+      "SKIPPED": "跳过",
+      "PENDING": "进行中"
+    },
+    "logs": {
+      "title": "日志",
+      "sub": "每次生成、发布、驳回、复制、过滤、拦截和设置都记在这里。",
+      "export": "导出 CSV",
+      "time": "时间（UTC）",
+      "action": "动作",
+      "kind": "种类",
+      "ref": "对象",
+      "outcome": "结果",
+      "detail": "说明",
+      "ai": "AI 调用",
+      "who": "操作人",
+      "system": "程序",
+      "empty": "没有日志"
+    },
+    "setting": {
+      "ai_dailyLimit": "每天 Gemini 调用上限",
+      "ai_contentSharePct": "文章起草最多占（%）",
+      "ai_costAlertUsd": "每月费用提醒（美元）",
+      "ai_drafts": "AI 起草",
+      "pack_enabled": "每日草稿包",
+      "pages_dailyNew": "每天新增页面上限",
+      "articles_weekly": "每周文章上限",
+      "econ_leadDays": "经济日历提前几天生成"
+    },
+    "settingHint": {
+      "ai_dailyLimit": "和体育比分解析共用（免费档 300）",
+      "ai_contentSharePct": "剩下的留给比分解析",
+      "ai_costAlertUsd": "按付费档估算，超过发邮件提醒",
+      "ai_drafts": "关掉后只给数据和空白模板",
+      "pack_enabled": "每天 00:00 UTC 生成，发邮件提醒你审核",
+      "pages_dailyNew": "EQ-7：5",
+      "articles_weekly": "EQ-7：2",
+      "econ_leadDays": "默认 7 天"
+    },
+    "settings": {
+      "title": "用量和设置",
+      "sub": "Gemini 用量、上限、紧急停止和词表。key 只在部署配置里填，这里只显示是否已配置。",
+      "usage": "用量",
+      "gemini": "Gemini",
+      "configured": "已配置",
+      "unconfigured": "未配置",
+      "state": "状态",
+      "pausedUntil": "到 {{at}}",
+      "today": "今天",
+      "split": "文章起草 {{content}} / {{cap}}，比分解析 {{score}}",
+      "failures": "今天失败次数",
+      "month": "本月",
+      "monthCost": "{{calls}} 次，估算 {{cost}} 美元（提醒线 {{alert}}）",
+      "costOver": "超过提醒线",
+      "pages": "页面和文章",
+      "pagesUsed": "今天新页面 {{n}} / {{max}}",
+      "articlesUsed": "本周文章 {{n}} / {{max}}",
+      "queue": "排队中",
+      "keyHint": "key 在部署配置 FC_GEMINI_API_KEY 里填（由你操作），不经过 AI，也不进代码仓库。",
+      "stop": "紧急停止",
+      "stopHint": "停掉草稿箱的所有发布和复制（草稿照常生成），用于发现内容有问题时。Telegram 开奖卡的自动发布在\"Telegram 机器人\"页单独停。",
+      "stopNow": "紧急停止发布",
+      "stopDesc": "停止后草稿箱不能发布、帖子不能复制，直到恢复。",
+      "resume": "恢复发布",
+      "resumeDesc": "恢复后可以照常发布和复制。",
+      "settings": "设置",
+      "saveTitle": "修改内容设置",
+      "noAutoPublish": "没有\"自动发布\"开关：所有 AI 内容都要你审核后发布（EQ-1）。",
+      "channels": "发布渠道",
+      "channelsTodo": "Telegram 频道只自动发开奖卡（SQ-22），频道开关、模板审定、紧急停止在\"Telegram 机器人\"页；X 和草稿箱里的 Telegram 帖子仍是审核后复制、手动发。",
+      "channelManual": "手动（审核后复制）",
+      "tg": {
+        "CHANNEL_ZH": "Telegram 中文频道",
+        "CHANNEL_EN": "Telegram 英文频道",
+        "on": "已打开",
+        "off": "已关",
+        "unconfigured": "Telegram 机器人还没有配置 token",
+        "stopped": "Telegram 自动发布已紧急停止",
+        "manage": "去\"Telegram 机器人\"页设置 →"
+      }
+    },
+    "words": {
+      "title": "词表",
+      "kind": {
+        "BANNED": "禁用词",
+        "TENDENCY": "倾向词",
+        "SENSITIVE": "敏感词"
+      },
+      "hint": {
+        "BANNED": "保存和发布时检查，有就不能发布。",
+        "TENDENCY": "暗示结果的说法（EQ-8），有就不能发布。",
+        "SENSITIVE": "事件候选里命中就过滤并记原因。"
+      },
+      "placeholder": "输入一个词",
+      "addBtn": "添加",
+      "add": "添加词：{{word}}",
+      "delete": "删除词：{{word}}"
+    }
+  },
+  "wl": {
+    "title": "等候页订阅",
+    "sub": "上线前在数据页（/data）留邮箱、并点了确认链接的人；正式上线时只发一封\"正式上线了\"（SQ-22）。",
+    "note": "邮箱已打码。订阅的人不一定是客户；不会给他们发开赛提醒或其他营销邮件。每封邮件都带免登录的退订链接。",
+    "counts": "各状态数量",
+    "all": "全部",
+    "status": {
+      "pending": "待确认",
+      "confirmed": "已确认",
+      "notified": "已通知",
+      "unsubscribed": "已退订"
+    },
+    "lang": {
+      "en": "英文",
+      "zh-CN": "简体",
+      "zh-TW": "繁体"
+    },
+    "col": {
+      "createdAt": "留邮箱时间",
+      "email": "邮箱",
+      "lang": "语言",
+      "status": "状态",
+      "source": "来源",
+      "confirmedAt": "确认时间",
+      "notifiedAt": "通知时间"
+    },
+    "empty": "还没有人留邮箱",
+    "emptyFiltered": "这个状态下没有订阅",
+    "launchBtn": "发送上线通知",
+    "launchTitle": "发送上线通知（只能发一次）",
+    "launchDesc": "给 {{n}} 个已确认的订阅各发一封\"正式上线了\"（按订阅时的语言）。发出后等候页关闭，数据页开始显示今天的场次。",
+    "launchOnce": "全站只能发一次，发出后不能撤回、不能再发。",
+    "launchConfirm": "确认发送",
+    "launched": "已开始发送上线通知",
+    "launch": {
+      "sending": "上线通知发送中（{{sent}} / {{n}}）",
+      "done": "上线通知已发（{{sent}} 封）"
+    },
+    "launchInfo": "上线通知已于 {{at}} 发出：已确认 {{n}} 个，已写成邮件 {{sent}} 封。原因：{{reason}}"
+  },
+  "tg": {
+    "title": "Telegram 机器人",
+    "sub": "官方频道只自动发开奖卡（SQ-22，和账户无关）；机器人在 Telegram 里只提供数据和链接，不能下注。",
+    "bot": "机器人",
+    "token": "Token（FC_TELEGRAM_BOT_TOKEN）",
+    "configured": "已配置",
+    "notConfigured": "未配置",
+    "username": "用户名",
+    "health": "连接",
+    "healthy": "正常",
+    "unhealthy": "异常",
+    "unconfigured": "没有配置 FC_TELEGRAM_BOT_TOKEN，机器人没有启动",
+    "unconfiguredHint": "由 Amos 在 BotFather 建好机器人后，把 token 填进服务器 .env 的 FC_TELEGRAM_BOT_TOKEN 并重启（token 不要发给任何人，这里也不能填）。不影响网站其他功能。",
+    "stopBtn": "紧急停止",
+    "resumeBtn": "恢复自动发布",
+    "stopTitle": "紧急停止所有自动发布",
+    "stopDesc": "按下后所有频道和群都不再自动发帖（之后结束的市场记\"已停止\"），写审计并邮件通知有 content:publish 的管理员。",
+    "resumeTitle": "恢复自动发布",
+    "resumeDesc": "恢复后，之后结束的市场照常发；停止期间的不补发。",
+    "stoppedInfo": "自动发布已紧急停止（{{at}}）：{{reason}}",
+    "channels": "官方频道",
+    "channel": "渠道",
+    "target": {
+      "CHANNEL_ZH": "中文频道",
+      "CHANNEL_EN": "英文频道"
+    },
+    "groupTarget": "群 {{id}}",
+    "chatId": "频道编号",
+    "chatIdHint": "公开频道填 @用户名；私有频道填 -100 开头的数字编号。机器人要先被设成这个频道的管理员。",
+    "notSet": "未填",
+    "enabled": "开关",
+    "on": "开",
+    "off": "关",
+    "failStreak": "连续失败",
+    "edit": "修改",
+    "editTarget": "修改{{name}}",
+    "targetDesc": "改频道编号或开关（高危：会对外发帖）。打开后只发打开以后结束的市场。",
+    "templates": "自动发布的模板",
+    "templatesHint": "频道和群只发开奖卡，卡片就是分享卡片里的开奖卡（文字在 content/cards.json）。默认草稿；预览确认后审定才会发。模板文字改过要重新审定。",
+    "tplKind": "卡片",
+    "tplLang": "语言",
+    "tplStatus": "状态",
+    "approvedAt": "审定时间",
+    "kind": {
+      "RESULT": "开奖卡"
+    },
+    "lang": {
+      "zh-CN": "中文",
+      "en": "英文"
+    },
+    "tpl": {
+      "draft": "草稿",
+      "approved": "已审定",
+      "disabled": "已停用"
+    },
+    "tplChanged": "文字改过，要重新审定",
+    "previewBtn": "预览",
+    "disableBtn": "停用",
+    "previewTitle": "预览：开奖卡（{{lang}}）",
+    "previewAlt": "开奖卡预览图",
+    "previewFrom": "用最近结束的市场 {{no}} 生成；发出去时用那个市场自己的数字。",
+    "approveBtn": "我确认按这个模板自动发布",
+    "approveTitle": "审定开奖卡模板（{{lang}}）",
+    "approveDesc": "审定后，带\"今日场次\"标记的市场结束时，系统按这个模板自动发到打开的频道和群（MQ-2）。",
+    "disableTitle": "停用开奖卡模板（{{lang}}）",
+    "disableDesc": "停用后这种语言的开奖卡不再自动发，重新审定才恢复。",
+    "groups": "机器人所在的群",
+    "groupsHint": "群管理员在群里发 /broadcast_on 开启开奖播报，/broadcast_off 关闭；这里只能关闭。",
+    "noGroups": "机器人还没有被拉进任何群",
+    "groupTitle": "群名",
+    "groupStatus": "状态",
+    "group": {
+      "active": "在群里",
+      "left": "已移出"
+    },
+    "broadcast": "播报",
+    "broadcastOn": "开（{{lang}}）",
+    "startParam": "加群参数",
+    "groupOffBtn": "关闭播报",
+    "groupOffTitle": "关闭\"{{name}}\"的播报",
+    "groupOffDesc": "这个群不再收到开奖卡；群管理员可以在群里重新开启。",
+    "posts": "发布日志",
+    "all": "全部",
+    "noPosts": "还没有发布记录",
+    "postTime": "时间",
+    "market": "市场",
+    "postStatus": "结果",
+    "postUrl": "帖子链接",
+    "note": "说明",
+    "post": {
+      "pending": "待发",
+      "sent": "已发",
+      "failed": "失败",
+      "skipped": "没发",
+      "stopped": "已停止"
+    }
   }
 }

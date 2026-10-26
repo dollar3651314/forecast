@@ -75,5 +75,14 @@ class E2eMailbox implements MailTransport {
     List<String> subjects(@RequestParam String email) {
       return box.mails(email).stream().map(Mail::subject).toList();
     }
+
+    /** 最近一封标题包含 subject 的邮件（标题和正文；forecast S11：开赛提醒邮件里的链接和退订链接）；没有时 404 */
+    @GetMapping("/api/e2e/mail/last")
+    ResponseEntity<Map<String, String>> last(@RequestParam String email, @RequestParam(defaultValue = "") String subject) {
+      for (Mail m : box.mails(email)) {
+        if (m.subject().contains(subject)) return ResponseEntity.ok(Map.of("subject", m.subject(), "body", m.body(), "at", m.at().toString()));
+      }
+      return ResponseEntity.notFound().build();
+    }
   }
 }

@@ -1,0 +1,197 @@
+{
+  "_说明": [
+    "分享卡片的文字（forecast S14，MF-5；需求说明书 v1.3.2 第 5.2 节\"分享卡片和挑战卡\"、第 6.3 节、AC-86、AC-87）。图片（market/card/CardPainter）和分享时附带的文字（CardModel.text）都用这一份。",
+    "卡片上只放系统里的真实数字和真实规则；不写诱导收益的说法（市场策略 F-12：稳赚、必中、保本、翻倍、胜者瓜分、最后入场、别错过……），CardTextsTest 检查；",
+    "封盘倒计时卡按市场策略第 6.3 节的草稿（F-16 待 Amos 确认）。三种语言的键必须一致；繁体待懂繁体的人校对（PQ-5）；文字是研发初稿，待 PM 定稿。",
+    "{变量} 只能用 CardTextsTest.VARS 里的；数字一律由程序从系统数据填进去，模板里不写数字。"
+  ],
+  "en": {
+    "category": { "FOOTBALL": "Football", "NBA": "NBA", "CRYPTO_15M": "Crypto 15 min", "CRYPTO_1H": "Crypto 1 hour", "MACRO": "Current events" },
+    "status": {
+      "listed": "Open", "upcoming": "Not open yet", "paused": "Paused", "closed": "Betting closed", "pending_resolution": "Awaiting result",
+      "publicizing": "Result under review", "disputed": "Disputed", "settled": "Settled", "cancelled": "Cancelled", "voided": "Voided"
+    },
+    "row": "{bettors} bettors · {amount} USDT · est. odds ×{mult}",
+    "rowFinal": "{bettors} bettors · {amount} USDT · final odds ×{mult}",
+    "rowNoOdds": "{bettors} bettors · {amount} USDT",
+    "more": "{n} more options",
+    "pool": "Pool {pool} USDT · {bettors} bettors · fee {fee}% of winners' profit",
+    "closes": "Betting closes {utc}",
+    "opens": "Betting opens {utc}",
+    "local": "",
+    "oddsNote": "Probabilities and estimated odds move with the pool and are after fees; final odds are set at close",
+    "finalNote": "Pool frozen at close; final odds are based on the closing pool",
+    "oneSide": "If only one side has bets at close, everyone is fully refunded",
+    "stamp": "Data as of {time}",
+    "endedStamp": "Ended {time}",
+    "challenge": {
+      "headline": "I picked \"{mine}\". Who picks \"{other}\"?",
+      "headlineMulti": "I picked \"{mine}\". Who picks another option?",
+      "other": "\"{other}\" current est. odds ×{mult} (after {fee}% fee); final odds are set at close",
+      "otherZero": "The other side has 0 bettors so far; if it is still one-sided at close, everyone is fully refunded"
+    },
+    "countdown": {
+      "headline": "{minutes} min to close",
+      "zero": "\"{other}\" has 0 bettors so far; if it is still one-sided at close, everyone is fully refunded"
+    },
+    "result": {
+      "headline": "Result: {result}",
+      "voided": "Voided",
+      "cancelled": "Cancelled",
+      "totals": "Pool {pool} USDT · paid out {payout} USDT · fee {fee} USDT · rounding {dust} USDT",
+      "bettors": "{bettors} bettors",
+      "crypto": "Open {start} · close {end} ({source})",
+      "sports": "Score {home} {homeScore}:{awayScore} {away} ({source})",
+      "platform": "Resolved by the platform · resolver no. {by}",
+      "reason": "Reason: {reason}",
+      "refund": "Fully refunded {refund} USDT, no fee",
+      "refundNote": "Voided and cancelled markets are fully refunded with no fee"
+    },
+    "win": {
+      "headline": "I called it: \"{option}\"",
+      "payout": "My payout {payout} USDT (after fee)"
+    },
+    "weekly": {
+      "chip": "Weekly report",
+      "complete": "Full week",
+      "inProgress": "So far this week",
+      "title": "Week {week} ({from} – {to} UTC)",
+      "markets": "Markets ended",
+      "settled": "Settled",
+      "voided": "Voided / cancelled",
+      "pool": "Pool (USDT)",
+      "payout": "Paid out (USDT)",
+      "fee": "Fees (USDT)",
+      "refund": "Refunded (USDT)",
+      "dust": "Rounding (USDT)",
+      "reasons": "Voided / cancelled: {reasons}"
+    },
+    "reasons": { "NOT_ENOUGH_OPTIONS": "only one option had bets at close", "NO_WINNER": "nobody picked the result", "MANUAL": "voided by the platform under the rules", "POSTPONED_48H": "match postponed for more than 48 hours", "ABANDONED_48H": "abandoned with no result within 48 hours", "NO_POOL": "pool was empty after refunds" }
+  },
+  "zh-CN": {
+    "category": { "FOOTBALL": "足球", "NBA": "NBA", "CRYPTO_15M": "加密 15 分钟", "CRYPTO_1H": "加密 1 小时", "MACRO": "时事" },
+    "status": {
+      "listed": "可下注", "upcoming": "未开放", "paused": "已暂停", "closed": "已截止下注", "pending_resolution": "等待结果",
+      "publicizing": "结果公示中", "disputed": "争议中", "settled": "已结算", "cancelled": "已取消", "voided": "已作废"
+    },
+    "row": "{bettors} 人 · {amount} USDT · 预计赔率 ×{mult}",
+    "rowFinal": "{bettors} 人 · {amount} USDT · 最终赔率 ×{mult}",
+    "rowNoOdds": "{bettors} 人 · {amount} USDT",
+    "more": "另有 {n} 个选项",
+    "pool": "奖池 {pool} USDT · {bettors} 人下注 · 对赢家盈利抽成 {fee}%",
+    "closes": "截止下注 {utc}{local}",
+    "opens": "开放下注 {utc}{local}",
+    "local": "（北京时间 {time}）",
+    "oddsNote": "概率和预计赔率随奖池变化，已扣抽成，最终以截止时为准",
+    "finalNote": "截止时奖池已定格，最终赔率按截止时的奖池算",
+    "oneSide": "截止时只有一边有人押，全额退款",
+    "stamp": "数据时间 {time}",
+    "endedStamp": "结束时间 {time}",
+    "challenge": {
+      "headline": "我押了「{mine}」，谁敢押「{other}」？",
+      "headlineMulti": "我押了「{mine}」，谁敢押别的选项？",
+      "other": "「{other}」方当前预计赔率 ×{mult}（已扣 {fee}% 抽成），最终以截止时的奖池为准",
+      "otherZero": "对面目前 0 人；截止时仍只有一边有人押，全额退款"
+    },
+    "countdown": {
+      "headline": "距截止 {minutes} 分钟",
+      "zero": "「{other}」目前 0 人；截止时仍只有一边有人押，全额退款"
+    },
+    "result": {
+      "headline": "结果：{result}",
+      "voided": "已作废",
+      "cancelled": "已取消",
+      "totals": "奖池 {pool} USDT · 派彩合计 {payout} USDT · 抽成 {fee} USDT · 尾差 {dust} USDT",
+      "bettors": "下注人数 {bettors}",
+      "crypto": "开始价 {start} · 结束价 {end}（{source}）",
+      "sports": "比分 {home} {homeScore}:{awayScore} {away}（{source}）",
+      "platform": "平台裁决 · 裁决人编号 {by}",
+      "reason": "原因：{reason}",
+      "refund": "已全额退款 {refund} USDT，不收抽成",
+      "refundNote": "作废、取消的市场全额退款，不收抽成"
+    },
+    "win": {
+      "headline": "我押中了「{option}」",
+      "payout": "我的派彩 {payout} USDT（已扣抽成）"
+    },
+    "weekly": {
+      "chip": "周报",
+      "complete": "整周",
+      "inProgress": "本周截至现在",
+      "title": "{week} 周报（{from} – {to} UTC）",
+      "markets": "结束场数",
+      "settled": "有效场数",
+      "voided": "作废或取消",
+      "pool": "奖池合计（USDT）",
+      "payout": "派彩合计（USDT）",
+      "fee": "抽成合计（USDT）",
+      "refund": "退款合计（USDT）",
+      "dust": "尾差合计（USDT）",
+      "reasons": "作废或取消的原因：{reasons}"
+    },
+    "reasons": { "NOT_ENOUGH_OPTIONS": "截止时只有一个选项有人押", "NO_WINNER": "没有人押中结果", "MANUAL": "平台按规则作废", "POSTPONED_48H": "比赛延期超过 48 小时", "ABANDONED_48H": "比赛中断后 48 小时内没有结果", "NO_POOL": "退回后奖池为 0" }
+  },
+  "zh-TW": {
+    "category": { "FOOTBALL": "足球", "NBA": "NBA", "CRYPTO_15M": "加密 15 分鐘", "CRYPTO_1H": "加密 1 小時", "MACRO": "時事" },
+    "status": {
+      "listed": "可下注", "upcoming": "未開放", "paused": "已暫停", "closed": "已截止下注", "pending_resolution": "等待結果",
+      "publicizing": "結果公示中", "disputed": "爭議中", "settled": "已結算", "cancelled": "已取消", "voided": "已作廢"
+    },
+    "row": "{bettors} 人 · {amount} USDT · 預計賠率 ×{mult}",
+    "rowFinal": "{bettors} 人 · {amount} USDT · 最終賠率 ×{mult}",
+    "rowNoOdds": "{bettors} 人 · {amount} USDT",
+    "more": "另有 {n} 個選項",
+    "pool": "獎池 {pool} USDT · {bettors} 人下注 · 對贏家盈利抽成 {fee}%",
+    "closes": "截止下注 {utc}{local}",
+    "opens": "開放下注 {utc}{local}",
+    "local": "（UTC+8 {time}）",
+    "oddsNote": "機率和預計賠率隨獎池變化，已扣抽成，最終以截止時為準",
+    "finalNote": "截止時獎池已定格，最終賠率按截止時的獎池計算",
+    "oneSide": "截止時只有一邊有人押，全額退款",
+    "stamp": "資料時間 {time}",
+    "endedStamp": "結束時間 {time}",
+    "challenge": {
+      "headline": "我押了「{mine}」，誰敢押「{other}」？",
+      "headlineMulti": "我押了「{mine}」，誰敢押別的選項？",
+      "other": "「{other}」方目前預計賠率 ×{mult}（已扣 {fee}% 抽成），最終以截止時的獎池為準",
+      "otherZero": "對面目前 0 人；截止時仍只有一邊有人押，全額退款"
+    },
+    "countdown": {
+      "headline": "距截止 {minutes} 分鐘",
+      "zero": "「{other}」目前 0 人；截止時仍只有一邊有人押，全額退款"
+    },
+    "result": {
+      "headline": "結果：{result}",
+      "voided": "已作廢",
+      "cancelled": "已取消",
+      "totals": "獎池 {pool} USDT · 派彩合計 {payout} USDT · 抽成 {fee} USDT · 尾差 {dust} USDT",
+      "bettors": "下注人數 {bettors}",
+      "crypto": "開始價 {start} · 結束價 {end}（{source}）",
+      "sports": "比分 {home} {homeScore}:{awayScore} {away}（{source}）",
+      "platform": "平台裁決 · 裁決人編號 {by}",
+      "reason": "原因：{reason}",
+      "refund": "已全額退款 {refund} USDT，不收抽成",
+      "refundNote": "作廢、取消的市場全額退款，不收抽成"
+    },
+    "win": {
+      "headline": "我押中了「{option}」",
+      "payout": "我的派彩 {payout} USDT（已扣抽成）"
+    },
+    "weekly": {
+      "chip": "週報",
+      "complete": "整週",
+      "inProgress": "本週截至目前",
+      "title": "{week} 週報（{from} – {to} UTC）",
+      "markets": "結束場數",
+      "settled": "有效場數",
+      "voided": "作廢或取消",
+      "pool": "獎池合計（USDT）",
+      "payout": "派彩合計（USDT）",
+      "fee": "抽成合計（USDT）",
+      "refund": "退款合計（USDT）",
+      "dust": "尾差合計（USDT）",
+      "reasons": "作廢或取消的原因：{reasons}"
+    },
+    "reasons": { "NOT_ENOUGH_OPTIONS": "截止時只有一個選項有人押", "NO_WINNER": "沒有人押中結果", "MANUAL": "平台按規則作廢", "POSTPONED_48H": "比賽延期超過 48 小時", "ABANDONED_48H": "比賽中斷後 48 小時內沒有結果", "NO_POOL": "退回後獎池為 0" }
+  }
+}

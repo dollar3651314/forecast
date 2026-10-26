@@ -37,6 +37,8 @@ export interface MarketSummary {
   origin: 'manual' | 'autogen' | 'sports';
   pool: string;
   bettors: number;
+  /** 列入今日场次（S13，MF-3） */
+  todaySlate: boolean;
 }
 
 export interface MarketQuery extends PageQuery {
@@ -44,6 +46,8 @@ export interface MarketQuery extends PageQuery {
   status?: string;
   category?: MarketCategory;
   submitted?: boolean;
+  /** 只看列入今日场次的（S13） */
+  todaySlate?: boolean;
   keyword?: string;
 }
 
@@ -74,6 +78,8 @@ export interface DraftInput {
   disputeWindowMinutes: number | null;
   coverPath: string | null;
   options: OptionInput[];
+  /** 列入今日场次（S13，MF-3；编辑草稿时勾选） */
+  todaySlate?: boolean;
 }
 
 export interface MarketOption {
@@ -139,6 +145,23 @@ export interface MarketDetail {
   statusLog: StatusLog[];
   feeChanges: FeeChange[];
   clarifications: Clarification[];
+  /** 列入今日场次（S13） */
+  todaySlate: boolean;
+  /** manual 手动 / autogen 加密自动生成 / sports 从赛程生成（S13 起详情也有） */
+  origin: 'manual' | 'autogen' | 'sports';
+}
+
+/** 同时开放的市场数和上限（S13，MF-3，GET /api/admin/markets/open-limit；limit 0 = 不限） */
+export interface OpenLimit {
+  open: number;
+  limit: number;
+}
+
+/** 上架（S13 起可以同时勾选"列入今日场次"、超过同时开放上限时"仍要上架"） */
+export interface PublishInput {
+  checked: boolean;
+  todaySlate?: boolean;
+  overLimit?: boolean;
 }
 
 export interface FeeChangeResult {
@@ -615,5 +638,477 @@ export interface MarketDashboard {
   today: DashPeriod;
   week: DashPeriod;
   pending: DashPending;
+  /** S13（SQ-21）：同时开放的市场数和上限（0 = 不限）、今天（UTC）列入今日场次的市场数 */
+  slate: { open: number; limit: number; today: number };
   updatedAt: string;
+}
+
+// ---------- S13：来源统计（MF-1、MF-10；后端 growth.api.GrowthAdminApi） ----------
+export interface GrowthCohort {
+  week: string;
+  src: string;
+  cmp: string;
+  ref: string;
+  /** S15：分享人的客户编号（ref 是分享码时换算出来的；旧链接 src=share 的纯数字 ref 原样；渠道编号为空） */
+  refCustomer?: string | null;
+  visits: number;
+  registrations: number;
+  firstDeposits: number;
+  activated: number;
+  week2Active: number;
+  week2Eligible: number;
+}
+export interface GrowthMarketWeek {
+  week: string;
+  ended: number;
+  settled: number;
+  voided: number;
+  cancelled: number;
+  validRate: string | null;
+  medianBettors: string | null;
+}
+export interface GrowthMarketRow {
+  marketNo: string;
+  category: MarketCategory;
+  titleZhCN: string;
+  titleEn: string;
+  status: 'settled' | 'voided' | 'cancelled';
+  endedAt: string;
+  bettors: number;
+  pool: string;
+  reason: string | null;
+}
+export interface GrowthReport {
+  from: string;
+  to: string;
+  basis: 'first' | 'reg';
+  cohorts: GrowthCohort[];
+  totals: Omit<GrowthCohort, 'week' | 'src' | 'cmp' | 'ref' | 'refCustomer'>;
+  marketWeeks: GrowthMarketWeek[];
+  reasons: Array<{ status: 'voided' | 'cancelled'; reason: string | null; count: number }>;
+  markets: GrowthMarketRow[];
+  truncated: boolean;
+}
+export interface GrowthQuery {
+  from?: string;
+  to?: string;
+  basis?: 'first' | 'reg';
+}
+export type GrowthExportKind = 'sources' | 'markets' | 'customers';
+
+// ---------------------------------------------------------------- 风控告警、员工账户（forecast S10，后端 admin/ops/RiskOps、CustomerOps）
+
+/** 告警类型：尾盘大额、关联账户对押、新账户押中冷门、充了不玩就提（需求第 8.1 节） */
+export type RiskAlertKind = 'late_large_bet' | 'linked_opposite' | 'new_account_longshot' | 'deposit_no_bet';
+export const RISK_ALERT_KINDS: RiskAlertKind[] = ['late_large_bet', 'linked_opposite', 'new_account_longshot', 'deposit_no_bet'];
+/** 处理状态：新、已查看、已处理、误报 */
+export type RiskAlertStatus = 'new' | 'seen' | 'handled' | 'false_positive';
+
+export interface RiskAlert {
+  id: string;
+  kind: RiskAlertKind;
+  userId: string;
+  customer: string | null;
+  marketNo: string | null;
+  market: string | null;
+  amount: string | null;
+  /** 判定时的数字（键随类型：poolAfter / pct / limitPct / secondsBeforeClose；linkedUsers / options；odds / accountDays；deposit / stake / multiple / withdrawalNo） */
+  detail: Record<string, string>;
+  status: RiskAlertStatus;
+  note: string | null;
+  handledBy: string | null;
+  handledAt: string | null;
+  createdAt: string;
+}
+
+export interface RiskAlertQuery {
+  kind?: RiskAlertKind;
+  status?: RiskAlertStatus;
+  keyword?: string;
+  page: number;
+  pageSize: number;
+}
+
+export interface RiskAlertCounts {
+  /** 待处理（新 + 已查看）合计 */
+  open: number;
+  openByKind: Record<RiskAlertKind, number>;
+  byStatus: Record<RiskAlertStatus, number>;
+}
+
+/** 关联账户的一行（客户详情） */
+export interface CustomerLink {
+  userId: string;
+  customer: string | null;
+  reason: 'device' | 'ip' | 'deposit_from' | 'withdraw_to';
+  evidence: string;
+  firstSeenAt: string;
+}
+
+/** 员工登记的结果：退回的下注（E15，只有登记时有） */
+export interface StaffRefund {
+  markets: number;
+  bets: number;
+  amount: string;
+}
+
+// ---------------------------------------------------------------- 内容中心（forecast S15，事件和文章自动化程序；后端 content.api.ContentAdminApi）
+
+export type ContentKind = 'PREVIEW' | 'BRIEF' | 'SEO_INTRO' | 'ARTICLE' | 'POST_X' | 'POST_TG' | 'REPLY';
+export const CONTENT_KINDS: ContentKind[] = ['PREVIEW', 'BRIEF', 'SEO_INTRO', 'ARTICLE', 'POST_X', 'POST_TG', 'REPLY'];
+/** 能手动生成的（回复草稿在"工具"里生成） */
+export const GENERATE_KINDS: ContentKind[] = ['PREVIEW', 'BRIEF', 'SEO_INTRO', 'ARTICLE', 'POST_X', 'POST_TG'];
+export type DraftStatus = 'GENERATING' | 'PENDING' | 'PUBLISHED' | 'REJECTED' | 'EXPIRED' | 'FAILED';
+export const DRAFT_STATUSES: DraftStatus[] = ['PENDING', 'GENERATING', 'PUBLISHED', 'FAILED', 'REJECTED', 'EXPIRED'];
+
+export interface ContentRef {
+  key: string;
+  label: string;
+  labelEn: string;
+  value: string;
+  source: string;
+  at: string;
+}
+export interface NumberHit {
+  field: 'title' | 'body';
+  text: string;
+  start: number;
+  end: number;
+}
+export interface DraftChecks {
+  numbers: NumberHit[];
+  banned: string[];
+  tendency: string[];
+  polymarketNoteMissing: boolean;
+  maxLength: number;
+  actualLength: number;
+  missing: string[];
+  summary: string;
+}
+export interface ContentDraft {
+  draftNo: string;
+  groupNo: string;
+  kind: ContentKind;
+  lang: 'zh' | 'en';
+  title: string;
+  body: string;
+  refs: ContentRef[];
+  checks: DraftChecks | null;
+  checkOk: boolean;
+  status: DraftStatus;
+  failReason: string | null;
+  rejectReason: string | null;
+  marketNo: string | null;
+  pageSlug: string | null;
+  topic: string | null;
+  expiresAt: string | null;
+  expired: boolean;
+  aiCalls: number;
+  createdAt: string;
+  createdBy: number | null;
+  publishedAt: string | null;
+  publishedBy: number | null;
+  version: number;
+  canPublish: boolean;
+  copyOnly: boolean;
+  canCopy: boolean;
+  link: string | null;
+  siteUrl: string | null;
+}
+export interface DraftQuery {
+  status?: DraftStatus;
+  kind?: ContentKind;
+  lang?: 'zh' | 'en';
+  page: number;
+  pageSize: number;
+}
+export interface GenerateInput {
+  kind: ContentKind;
+  marketNo?: string;
+  pageSlug?: string;
+  topic?: string;
+}
+export interface ContentStatus {
+  contentEnabled: boolean;
+  geminiConfigured: boolean;
+  geminiState: 'ok' | 'unconfigured' | 'paused' | 'quota' | 'disabled';
+  model: string;
+  usedToday: number;
+  limit: number;
+  contentCap: number;
+  contentUsedToday: number;
+  scoreUsedToday: number;
+  failuresToday: number;
+  monthCalls: number;
+  monthCostUsd: string;
+  costAlertUsd: string;
+  costAlert: boolean;
+  stopped: boolean;
+  pagesToday: number;
+  pagesDaily: number;
+  articlesThisWeek: number;
+  articlesWeekly: number;
+  polymarketEnabled: boolean;
+  queue: number;
+  pausedUntil: string | null;
+  settings: Record<string, string>;
+}
+export type ContentWordKind = 'BANNED' | 'TENDENCY' | 'SENSITIVE';
+export interface ContentWord {
+  id: string;
+  kind: ContentWordKind;
+  word: string;
+  builtIn: boolean;
+}
+export type EconKind = 'FOMC' | 'CPI';
+export type EconStatus = 'SCHEDULED' | 'DRAFTING' | 'DRAFTED' | 'FILTERED' | 'FAILED' | 'CANCELLED' | 'EXPIRED';
+export interface EconEvent {
+  id: string;
+  kind: EconKind;
+  period: string;
+  releaseAt: string;
+  prevValue: string | null;
+  sourceUrl: string | null;
+  status: EconStatus;
+  marketNo: string | null;
+  marketStatus: string | null;
+  note: string | null;
+  draftDueAt: string;
+  closeAt: string;
+  version: number;
+}
+export interface EconInput {
+  kind: EconKind;
+  period: string;
+  releaseAt: string;
+  prevValue?: string;
+  sourceUrl?: string;
+  version?: number;
+}
+export interface FocusSuggestion {
+  fixtureNo: string;
+  sport: string;
+  competition: string;
+  competitionName: string;
+  home: string;
+  away: string;
+  kickoffAt: string;
+  mappingConfirmed: boolean;
+  markets: number;
+  suggestedPlay: string;
+  reasons: string[];
+}
+export interface CandidateFixture {
+  fixtureNo: string;
+  sport: string;
+  competitionName: string;
+  home: string;
+  away: string;
+  kickoffAt: string;
+  mappingConfirmed: boolean;
+  markets: number;
+  filtered: boolean;
+  filteredBy: string | null;
+}
+export interface FilteredItem {
+  source: 'SPORTS' | 'ECON';
+  ref: string;
+  title: string;
+  reason: 'CATEGORY' | 'KEYWORD';
+  matched: string;
+  createdAt: string;
+}
+export interface ContentCandidates {
+  focus: FocusSuggestion[];
+  fixtures: CandidateFixture[];
+  econ: EconEvent[];
+  filtered: FilteredItem[];
+  sportsError: string | null;
+}
+export interface EconTemplateOption {
+  label: I18nText;
+  winCondition: I18nText;
+}
+export interface EconTemplate {
+  code: EconKind;
+  title: I18nText;
+  rules: I18nText;
+  options: EconTemplateOption[];
+  sourcePrimary: string;
+  sourceBackup: string;
+  version: number;
+  updatedBy: number | null;
+  updatedAt: string | null;
+  variables: string[];
+}
+export interface EconTemplateInput {
+  title: I18nText;
+  rules: I18nText;
+  options: EconTemplateOption[];
+  sourcePrimary: string;
+  sourceBackup: string;
+  version: number;
+}
+export interface ContentPageRow {
+  slug: string;
+  kind: 'FOCUS' | 'BTC_STATS' | 'ARTICLE';
+  marketNo: string | null;
+  titleZhCN: string;
+  titleEn: string;
+  introLangs: Array<'zh' | 'en'>;
+  bodyLangs: Array<'zh' | 'en'>;
+  dataAt: string | null;
+  createdDay: string;
+  status: 'VISIBLE' | 'HIDDEN';
+  path: string;
+}
+export interface ContentPages {
+  items: ContentPageRow[];
+  createdToday: number;
+  dailyLimit: number;
+}
+export interface ToolResult {
+  /** PNG 的 data URL（只能下载） */
+  image: string;
+  text: string;
+  refs: ContentRef[];
+  replies: ContentDraft[];
+  notes: string[];
+}
+export interface ContentLogRow {
+  id: string;
+  action: string;
+  kind: string | null;
+  ref: string | null;
+  lang: string | null;
+  outcome: 'OK' | 'FAILED' | 'BLOCKED' | 'SKIPPED' | 'PENDING';
+  detail: string;
+  aiCalls: number;
+  adminId: number | null;
+  createdAt: string;
+}
+export interface ContentLogQuery {
+  from?: string;
+  to?: string;
+  action?: string;
+  page: number;
+  pageSize: number;
+}
+// ---------- S16：等候页订阅（MF-8；后端 growth.api.WaitlistAdminApi）、Telegram 机器人（MF-7；growth.api.TelegramAdminApi） ----------
+export type WaitlistStatus = 'pending' | 'confirmed' | 'notified' | 'unsubscribed';
+export interface WaitlistItem {
+  id: number;
+  /** 打码后的邮箱（a***@example.com） */
+  email: string;
+  lang: 'en' | 'zh-CN' | 'zh-TW';
+  status: WaitlistStatus;
+  src: string | null;
+  cmp: string | null;
+  ref: string | null;
+  start: string | null;
+  createdAt: string;
+  confirmedAt: string | null;
+  notifiedAt: string | null;
+  unsubscribedAt: string | null;
+}
+export interface WaitlistCounts {
+  pending: number;
+  confirmed: number;
+  notified: number;
+  unsubscribed: number;
+}
+/** 上线通知（全站只发一次）：none 还没发 / sending 发送中 / done 发完了 */
+export interface WaitlistLaunch {
+  status: 'none' | 'sending' | 'done';
+  at: string | null;
+  adminId: number | null;
+  reason: string | null;
+  recipients: number;
+  sent: number;
+  finishedAt: string | null;
+}
+export interface WaitlistPage {
+  items: WaitlistItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  counts: WaitlistCounts;
+  launch: WaitlistLaunch;
+}
+export interface WaitlistQuery {
+  status?: WaitlistStatus;
+  page: number;
+  pageSize: number;
+}
+
+export interface TelegramStatus {
+  /** 配置了 FC_TELEGRAM_BOT_TOKEN（没配置时机器人不启动） */
+  configured: boolean;
+  botUsername: string | null;
+  healthy: boolean;
+  lastError: string | null;
+  lastOkAt: string | null;
+  emergencyStop: boolean;
+  stopReason: string | null;
+  stopAt: string | null;
+  stopBy: number | null;
+}
+export type TelegramTargetKey = 'CHANNEL_ZH' | 'CHANNEL_EN';
+export interface TelegramTarget {
+  key: TelegramTargetKey;
+  lang: 'zh-CN' | 'en';
+  chatId: string | null;
+  enabled: boolean;
+  enabledAt: string | null;
+  failStreak: number;
+  disabledReason: string | null;
+  updatedAt: string | null;
+}
+export interface TelegramGroup {
+  chatId: string;
+  title: string;
+  type: string;
+  status: 'active' | 'left';
+  broadcast: boolean;
+  lang: 'zh-CN' | 'en';
+  startParam: string | null;
+  addedAt: string;
+  broadcastAt: string | null;
+}
+export interface TelegramTemplate {
+  kind: 'RESULT';
+  lang: 'zh-CN' | 'en';
+  status: 'draft' | 'approved' | 'disabled';
+  /** 已审定，但审定以后模板文字改过（按草稿处理，要重新审定） */
+  changed: boolean;
+  approvedAt: string | null;
+  approvedBy: number | null;
+}
+export interface TelegramOverview {
+  status: TelegramStatus;
+  targets: TelegramTarget[];
+  groups: TelegramGroup[];
+  templates: TelegramTemplate[];
+}
+export type TelegramPostStatus = 'pending' | 'sent' | 'failed' | 'skipped' | 'stopped';
+export interface TelegramPost {
+  id: number;
+  marketNo: string;
+  kind: string;
+  target: string;
+  lang: string;
+  status: TelegramPostStatus;
+  attempts: number;
+  postUrl: string | null;
+  note: string | null;
+  createdAt: string;
+  sentAt: string | null;
+}
+export interface TelegramPreview {
+  kind: 'RESULT';
+  lang: 'zh-CN' | 'en';
+  marketNo: string;
+  text: string;
+  /** 这一版模板文字的指纹，审定时原样带回 */
+  fingerprint: string;
 }

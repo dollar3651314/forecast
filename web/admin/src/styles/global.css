@@ -494,3 +494,15 @@ body { overflow-x: hidden; }
 .sweep-field { display: inline-flex; flex-direction: column; gap: 2px; }
 .sweep-default { font-size: 12px; }
 .sweep-notlive { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+
+/* forecast S16：Telegram 模板预览的文字（和卡片同一份，一行一条） */
+.tg-preview-text {
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.6;
+  background: var(--s2);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 0;
+}

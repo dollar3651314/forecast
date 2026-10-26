@@ -65,6 +65,8 @@ export const customers: CustomerSummary[] = CHINESE_NAMES.map((name, i) => {
     balance: i === 0 ? '6820.40' : i === 12 ? '1250000.75' : i === 35 ? '0.00' : rng.amount(0, 48000),
     registeredAt: minutesAgo(60 * 24 * (i === 0 ? 30 : rng.int(1, 300)) + rng.int(0, 600)),
     lastLoginAt: i % 9 === 8 ? null : minutesAgo(rng.int(5, 60 * 24 * 7)),
+    // forecast S10：员工账户（第 4 个客户是登记过的员工）
+    staff: i === 3,
   };
 });
 
@@ -406,6 +408,8 @@ const tplSeeds: TplSeed[] = [
   { code: 'settle_won', req: '#11', zh: '结算：我赢了', en: 'Settled: you won', tZh: '「{market}」已结算：你押中了', tEn: '"{marketEn}" settled: your option won', tTw: '「{market}」已結算：你押中了', bZh: '「{market}」结果是「{option}」。你的派彩 {payout} USDT 已到可用余额。', bEn: '"{marketEn}" resolved to "{optionEn}". Your payout of {payout} USDT is in your available balance.', bTw: '「{market}」結果是「{option}」。你的派彩 {payout} USDT 已到可用餘額。', vars: ['market', 'marketEn', 'option', 'optionEn', 'payout'], channels: ['inbox', 'push'] },
   { code: 'market_clarified', req: '#18', zh: '市场发布补充说明', en: 'Market clarification', tZh: '「{market}」发布了补充说明', tEn: 'Clarification for "{marketEn}"', tTw: '「{market}」發布了補充說明', bZh: '你下注的市场「{market}」发布了补充说明：\n{text}', bEn: 'A clarification was published for "{marketEn}":\n{textEn}', bTw: '你下注的市場「{market}」發布了補充說明：\n{text}', vars: ['market', 'marketEn', 'text', 'textEn'], channels: ['inbox'] },
   { code: 'resolve_proposed', audience: 'staff', perms: ['resolve:confirm'], zh: '裁决提议待确认', en: 'Proposed result awaiting confirmation', tZh: '市场 {marketNo} 有提议待确认', tEn: 'Market {marketNo}: proposed result awaiting confirmation', bZh: '市场 {marketNo}（{market}）有新的裁决提议：{option}。', bEn: 'A result has been proposed for market {marketNo} ({marketEn}): {optionEn}.', vars: ['marketNo', 'market', 'marketEn', 'option', 'optionEn'], channels: ['email'] },
+  // forecast S10（迁移 V19）：风控告警，发给有 risk_alert:view 的管理员
+  { code: 'risk_alert', audience: 'staff', perms: ['risk_alert:view'], zh: '风控告警', en: 'Risk alert', tZh: '风控告警：{kind}（客户 {userId}）', tEn: 'Risk alert: {kindEn} (customer {userId})', bZh: '风控规则发现一条新的告警：\n类型：{kind}\n客户：{userId}\n市场：{market}\n金额：{amount} USDT\n说明：{summary}\n请到后台"风控告警"查看，核对后标记已处理或误报。', bEn: 'A risk rule raised a new alert:\nType: {kindEn}\nCustomer: {userId}\nMarket: {market}\nAmount: {amount} USDT\nDetails: {summaryEn}\nPlease review it in the admin console (Risk alerts) and mark it handled or a false positive.', vars: ['kind', 'kindEn', 'userId', 'market', 'amount', 'summary', 'summaryEn'], channels: ['email'] },
   { code: 'reversal_shortfall', audience: 'staff', zh: '冲正挂账（发给运营、财务）', en: 'Reversal shortfall (to staff)', tZh: '冲正余额不足，已挂账', tEn: 'Reversal shortfall recorded', bZh: '客户 {customerId} 的入金 {txHash} 被链上回滚，余额不足，已生成挂账。', bEn: 'Deposit {txHash} of customer {customerId} was reversed; shortfall recorded.', vars: ['customerId', 'txHash'], channels: ['email'] },
 ];
 
@@ -594,6 +598,17 @@ export const params: ParamItem[] = [
     { key: `sports.eventMinutes.${c}`, value: c === 'NBA' ? '180' : '120', unit: 'minutes' as const, group: 'sports', section: 'betting' as const, updatedAt: null },
   ]),
   { key: 'kyc.depositThreshold', value: '1000', unit: 'usdt', group: 'kyc', section: 'betting', updatedAt: null },
+  // S10（迁移 V19）：风控告警的阈值
+  { key: 'risk.lateBet.minutes', value: '5', unit: 'minutes', group: 'risk', section: 'betting', updatedAt: null },
+  { key: 'risk.lateBet.poolPct', value: '30', unit: 'percent', group: 'risk', section: 'betting', updatedAt: null },
+  // forecast S16（SQ-24）：尾盘大额的单笔最低金额，默认 100 USDT
+  { key: 'risk.lateBet.minAmount', value: '100', unit: 'usdt', group: 'risk', section: 'betting', updatedAt: null },
+  { key: 'risk.longshot.accountDays', value: '7', unit: 'count', group: 'risk', section: 'betting', updatedAt: null },
+  { key: 'risk.longshot.minAmount', value: '1000', unit: 'usdt', group: 'risk', section: 'betting', updatedAt: null },
+  { key: 'risk.longshot.minOdds', value: '5', unit: 'multiple', group: 'risk', section: 'betting', updatedAt: null },
+  { key: 'risk.link.maxUsersPerKey', value: '10', unit: 'count', group: 'risk', section: 'betting', updatedAt: null },
+  // S13（迁移 V21）：同时开放的市场上限（超过时上架要勾"仍要上架"，0 = 不限）
+  { key: 'market.maxOpen', value: '2', unit: 'count', group: 'slate', section: 'betting', updatedAt: null },
 ];
 
 /** 热钱包余额（原型数据；地址是公开的测试地址，不是密钥）。下限在 systemConfigs 里 */

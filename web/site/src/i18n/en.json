@@ -30,8 +30,8 @@
   "hero": {
     "titleA": "Back the outcome",
     "titleB": "you believe in",
-    "sub": "Football, NBA, crypto up/down and macro events. Pari-mutuel: winners share the losing pool, there is no house, and we only take 5% of profit.",
-    "subMobile": "Pari-mutuel: winners share the losing pool; we only take 5% of profit.",
+    "sub": "Football, NBA, crypto up/down and macro events. Pari-mutuel: winners share the losing pool, the platform is not the house and only takes a fee on profit (5% by default).",
+    "subMobile": "Pari-mutuel: winners share the losing pool; the platform only takes a fee on profit (5% by default).",
     "p1": "USDT only",
     "p2": "Results and evidence are public",
     "p3": "Phone and desktop"
@@ -55,7 +55,7 @@
     "nba": "NBA",
     "nbaD": "Winner and total points; settles automatically when two score sources agree.",
     "crypto": "Crypto up/down",
-    "cryptoD": "BTC and ETH markets every 15 minutes and every hour, resolved from Binance candles.",
+    "cryptoD": "One-hour up/down markets on BTC and other coins, opened on a fixed schedule (for example one session a day at 13:00 UTC) and resolved automatically from Binance and OKX candles; they settle only when both sources agree.",
     "macro": "Macro events",
     "macroD": "Rate decisions, inflation data and more, resolved from official releases with a 24-hour dispute window."
   },
@@ -69,7 +69,7 @@
     "s3d": "After the result, losing stakes are shared among winners by stake; payouts go to your balance, ready to withdraw."
   },
   "fee": {
-    "title": "Simple fees: 5% of profit only",
+    "title": "Clear fees: only a fee on profit (5% by default)",
     "sub": "No fee on stakes or losses; cancelled or voided markets are refunded in full",
     "r1": "Bet on Man City",
     "r2": "Share of losing pool",
@@ -115,7 +115,7 @@
   },
   "legal": {
     "review": "Legal review required",
-    "reviewNote": "This page is a draft template. It must be reviewed by legal counsel before it is used as a formal document.",
+    "reviewNote": "This page was drafted from the agreed rules and must be reviewed by legal counsel before it is used as a formal document.",
     "updated": "Last updated",
     "contents": "Contents"
   },

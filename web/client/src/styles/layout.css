@@ -4,6 +4,8 @@
 .env-banner { position: fixed; top: 0; left: 0; right: 0; z-index: 60; height: var(--banner-h); display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.02em; color: #fff; background: repeating-linear-gradient(-45deg, #6d28d9 0 12px, #7c3aed 12px 24px); border-bottom: 1px solid #4c1d95; padding: 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 .env-banner svg { flex: none; }
 .app, .auth { padding-top: var(--banner-h); }
+/* S11：顶部预留的横幅高度在没有横幅时也要不透明，否则页面滚动时内容会从顶栏上方露出来 */
+.app::before, .auth::before { content: ''; position: fixed; top: 0; left: 0; right: 0; z-index: 55; height: var(--banner-h); background: var(--bg); pointer-events: none; }
 
 /* ---------- 手机：底部导航 ---------- */
 .topnav { display: none; }
@@ -41,7 +43,8 @@
   .topnav-menu a { padding: 7px 14px; border-radius: var(--r-sm); color: var(--muted); font-size: 14px; text-decoration: none; }
   .topnav-menu a:hover { background: var(--s3); }
   .topnav-menu a.on { color: var(--cyan-deep); background: var(--cyan-soft); font-weight: 700; }
-  .top-acc { margin-left: auto; display: flex; gap: 18px; align-items: center; }
+  .top-acc { margin-left: auto; display: flex; gap: 18px; align-items: center; text-decoration: none; border-radius: var(--r-md); padding: 2px 6px; }
+  .top-acc:hover { background: var(--hover); }
   .top-acc div { font-size: 11px; color: var(--subtle); white-space: nowrap; }
   .top-acc .num { display: block; font-size: 13.5px; color: var(--text); font-weight: 600; }
   .top-acc .num.tone-safe { color: var(--g); } .top-acc .num.tone-warn { color: var(--amber); } .top-acc .num.tone-danger { color: var(--danger-text); }

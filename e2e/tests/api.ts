@@ -45,7 +45,7 @@ export async function clientSession(anon: APIRequestContext, prefix = 'mk'): Pro
   await json(await anon.post('/api/auth/email-code', { data: { email, purpose: 'REGISTER' } }), '发验证码');
   const code = await e2e.mailCode(anon, email);
   const r = await anon.post('/api/auth/register', {
-    data: { email, code, password: CLIENT_PASSWORD, firstName: 'Market', lastName: 'Tester', birthDate: '1990-01-27', nationality: 'SG' },
+    data: { email, code, password: CLIENT_PASSWORD, firstName: 'Market', lastName: 'Tester', birthDate: '1990-01-27', nationality: 'SG', adultConfirmed: true },
   });
   await json(r, '注册');
   const cookie = cookieOf(r, 'fc_session');
@@ -93,7 +93,7 @@ export async function listMarket(anon: APIRequestContext, admin: APIRequestConte
     }),
     '建草稿',
   );
-  await json(await admin.post(`/api/admin/markets/${draft.publicNo}/publish`, { data: { checked: true } }), '上架');
+  await json(await admin.post(`/api/admin/markets/${draft.publicNo}/publish`, { data: { checked: true, overLimit: true } }), '上架');
   return { no: draft.publicNo, yes: draft.options[0].optionNo, nope: draft.options[1].optionNo };
 }
 

@@ -1,0 +1,379 @@
+{
+  "_说明": [
+    "不登录也能看的页面文字（forecast S13，MF-4、MF-6；需求说明书 v1.3.2 第 5.2 节 P1、P2、P11、P12、P14，NF-14）。",
+    "两处共用这一份：① 服务器给搜索引擎输出的页面标题、描述和正文（market/pub/SeoPages，Nginx 用 SSI 嵌进客户端的 index.html）；",
+    "② 客户端说明页 /how-to-play 的正文（GET /api/public/pages/how-to-play，页面按返回的段落显示，客户端不再另写一份）。",
+    "三种语言的键必须一致（PublicContentTest 检查），繁体待懂繁体的人校对（PQ-5）。{brand} 是品牌名（forecast.public.brand-name），",
+    "{minWithdraw} 等是参数设置里的当前值（PublicContent.facts），不写死数字（C6）。",
+    "文案是研发初稿，待 PM 定稿；说明页里的事实性描述交 Amos 确认（需求第 15 节，S13 开发记录 F-31）。不能出现诱导收益的说法（F-12、F-15，PublicContentTest 检查）。"
+  ],
+  "en": {
+    "site": {
+      "title": "{brand} — prediction markets on football, NBA, crypto and macro",
+      "description": "Bet USDT on the outcome of real events. Each option has its own pool; the odds are what real-money bettors think. The platform never takes the other side and only charges a fee on winners' profit."
+    },
+    "markets": {
+      "title": "Markets | {brand}",
+      "description": "Open markets on football, NBA, crypto up/down and macro events, with live pools and probabilities.",
+      "h1": "Markets",
+      "today": "Today's matches",
+      "noToday": "No match today.",
+      "next": "Next match: {time}",
+      "more": "All markets"
+    },
+    "market": {
+      "titleSuffix": "| {brand}",
+      "closes": "Betting closes",
+      "opens": "Betting opens",
+      "event": "Event time",
+      "pool": "Pool",
+      "bettors": "Bettors",
+      "probability": "Probability",
+      "result": "Result",
+      "feeRate": "Fee on winners' profit",
+      "rules": "Rules",
+      "payout": "Total payout",
+      "fee": "Fee",
+      "dust": "Rounding remainder",
+      "refund": "Refunded in full",
+      "resolvedBy": "Resolved by",
+      "evidence": "Evidence",
+      "source": "Source",
+      "cancelReason": "Reason",
+      "notFound": "This market does not exist.",
+      "view": "Open the market"
+    },
+    "results": {
+      "title": "Results and weekly reports | {brand}",
+      "description": "Every settled, voided and cancelled market with its result, evidence, pool, total payout and fee.",
+      "h1": "Results",
+      "weekly": "Weekly reports",
+      "empty": "No market has ended yet."
+    },
+    "weekly": {
+      "title": "Weekly report {week} | {brand}",
+      "description": "Week {week}: {markets} markets ended, {settled} settled, {voided} voided or cancelled; pool {pool} USDT, payout {payout} USDT, fee {fee} USDT.",
+      "h1": "Weekly report {week}",
+      "listTitle": "Weekly reports | {brand}",
+      "listDescription": "Each week: markets ended, settled, voided and why, total pool, payout and fee.",
+      "markets": "Markets ended",
+      "settled": "Settled",
+      "voided": "Voided or cancelled",
+      "pool": "Total pool",
+      "payout": "Total payout",
+      "fee": "Total fee",
+      "refund": "Refunded",
+      "inProgress": "This week so far"
+    },
+    "status": {
+      "listed": "Open",
+      "paused": "Paused",
+      "closed": "Betting closed",
+      "pending_resolution": "Awaiting result",
+      "publicizing": "Result under review",
+      "disputed": "Disputed",
+      "settled": "Settled",
+      "cancelled": "Cancelled",
+      "voided": "Voided",
+      "upcoming": "Not open yet"
+    },
+    "reasons": {
+      "NOT_ENOUGH_OPTIONS": "Only one side had bets at close",
+      "NO_WINNER": "Nobody bet on the result",
+      "POSTPONED_48H": "Match postponed for more than 48 hours",
+      "ABANDONED_48H": "Abandoned with no result within 48 hours",
+      "NO_POOL": "Pool was empty after refunds"
+    },
+    "howto": {
+      "title": "How to play, deposit and withdraw | {brand}",
+      "description": "How the pools work, which networks you can deposit USDT on, and the withdrawal rules: minimum {minWithdraw} USDT, ID and face verification, address whitelist and cooling period.",
+      "h1": "How to play, deposit and withdraw",
+      "intro": "{brand} lets you bet USDT on the outcome of real events: football, NBA, crypto up/down and macro news. The probabilities you see are what real-money bettors think. The platform never takes the other side; it only takes a fee from winners' profit.",
+      "sections": [
+        {
+          "id": "play",
+          "heading": "How to play",
+          "items": [
+            "Each market has two or more options, and each option has its own pool. The USDT you bet goes into the pool of the option you pick.",
+            "When the result is in, the pools of the losing options are shared among the winners in proportion to their bets. The platform only takes a fee on winners' profit ({fee} by default; each market shows its own rate). Losing bets pay no fee.",
+            "The odds move as the pools change and are fixed when betting closes. What you see before you bet is an estimate; the final odds are the ones at close. Bets cannot be cancelled.",
+            "If only one option has bets when betting closes, or nobody bet on the result, the market is voided and every bet is refunded in full.",
+            "Cancelled and voided markets are refunded in full, with no fee.",
+            "How results are decided: crypto markets use public Binance and OKX prices automatically; sports use the scores from two data sources; other markets are resolved by the platform, the result is shown publicly first, and anyone who bet can raise a dispute."
+          ]
+        },
+        {
+          "id": "deposit",
+          "heading": "How to deposit",
+          "items": [
+            "Only USDT. Three networks: TRC20 (TRON), ERC20 (Ethereum) and BSC (BEP20). The networks shown under Assets → Deposit are the ones open right now.",
+            "Every account has its own deposit address. Send USDT from an exchange or wallet; it is credited automatically after the block confirmations.",
+            "Send USDT only, on the same network as the address. Coins sent on the wrong network or in the wrong token may not be recoverable.",
+            "Once your total deposits exceed {kycThreshold} USDT, you need to verify your identity before placing more bets."
+          ]
+        },
+        {
+          "id": "withdraw",
+          "heading": "How to withdraw",
+          "items": [
+            "The minimum withdrawal is {minWithdraw} USDT.",
+            "Before your first withdrawal you need to verify your identity (ID document plus a face check).",
+            "Withdrawal addresses go on a whitelist first; a new address can be used {whitelistHours} hours after you add it.",
+            "Every withdrawal has a {coolingHours}-hour cooling period; withdrawals of {largeThreshold} USDT or more wait another {largeDelayHours} hours.",
+            "Withdrawals that include winnings are checked by a person before they are sent (usually within one business day).",
+            "The network fee for each chain is shown on the withdrawal page."
+          ]
+        }
+      ]
+    },
+    "insights": {
+      "nav": "Insights"
+    }
+  },
+  "zh-CN": {
+    "site": {
+      "title": "{brand}：足球、NBA、加密、时事的预测市场",
+      "description": "用 USDT 押一件事的结果。每个选项有自己的奖池，概率是散户用真钱投票的结果；平台不当庄，只从赢家的盈利里抽成。"
+    },
+    "markets": {
+      "title": "市场 | {brand}",
+      "description": "足球、NBA、加密涨跌、经济时事的市场，奖池和概率实时更新。",
+      "h1": "市场",
+      "today": "今日场次",
+      "noToday": "今天没有场次。",
+      "next": "下一场：{time}",
+      "more": "全部市场"
+    },
+    "market": {
+      "titleSuffix": "| {brand}",
+      "closes": "截止下注",
+      "opens": "开放下注",
+      "event": "事件时间",
+      "pool": "奖池",
+      "bettors": "下注人数",
+      "probability": "概率",
+      "result": "结果",
+      "feeRate": "对赢家盈利的抽成",
+      "rules": "规则",
+      "payout": "派彩合计",
+      "fee": "抽成",
+      "dust": "尾差",
+      "refund": "已全额退款",
+      "resolvedBy": "裁决人编号",
+      "evidence": "依据",
+      "source": "来源",
+      "cancelReason": "原因",
+      "notFound": "这个市场不存在。",
+      "view": "打开市场"
+    },
+    "results": {
+      "title": "开奖记录和周报 | {brand}",
+      "description": "每个已结算、已作废、已取消的市场：结果、依据、奖池、派彩合计和抽成。",
+      "h1": "开奖记录",
+      "weekly": "周报",
+      "empty": "还没有已结束的市场。"
+    },
+    "weekly": {
+      "title": "周报 {week} | {brand}",
+      "description": "{week}：结束 {markets} 场，已结算 {settled} 场，作废或取消 {voided} 场；奖池 {pool} USDT，派彩 {payout} USDT，抽成 {fee} USDT。",
+      "h1": "周报 {week}",
+      "listTitle": "周报 | {brand}",
+      "listDescription": "每周结束的场数、有效场数、作废场数和原因、奖池合计、派彩合计、抽成合计。",
+      "markets": "结束场数",
+      "settled": "有效场数（已结算）",
+      "voided": "作废或取消",
+      "pool": "奖池合计",
+      "payout": "派彩合计",
+      "fee": "抽成合计",
+      "refund": "退款合计",
+      "inProgress": "本周截至现在"
+    },
+    "status": {
+      "listed": "可下注",
+      "paused": "已暂停",
+      "closed": "截止下注",
+      "pending_resolution": "等待结果",
+      "publicizing": "结果公示中",
+      "disputed": "争议中",
+      "settled": "已结算",
+      "cancelled": "已取消",
+      "voided": "已作废",
+      "upcoming": "未开放"
+    },
+    "reasons": {
+      "NOT_ENOUGH_OPTIONS": "截止时只有一个选项有人押",
+      "NO_WINNER": "没有人押中结果",
+      "POSTPONED_48H": "比赛延期超过 48 小时",
+      "ABANDONED_48H": "比赛中断后 48 小时内没有结果",
+      "NO_POOL": "退回后奖池为 0"
+    },
+    "howto": {
+      "title": "怎么玩、怎么充、怎么提 | {brand}",
+      "description": "彩池怎么算、USDT 支持哪几条链、提现规则：单笔最少 {minWithdraw} USDT、证件 + 人脸认证、地址白名单和冷静期。",
+      "h1": "怎么玩、怎么充、怎么提",
+      "intro": "{brand} 是一个用 USDT 押事件结果的网站：足球、NBA、加密货币涨跌、经济时事。你看到的概率是散户用真钱投票的概率。平台不当庄，只从赢家的盈利里抽成。",
+      "sections": [
+        {
+          "id": "play",
+          "heading": "怎么玩",
+          "items": [
+            "每个市场有两个或更多选项，每个选项有自己的奖池。你押哪个选项，钱就进哪个选项的奖池。",
+            "开奖后，没押中的选项的奖池按押注比例分给押中的人；平台只对赢家的盈利部分抽成（默认 {fee}，每个市场的费率写在市场详情里），没押中不收费。",
+            "赔率随奖池变化，截止下注时确定；下注时看到的是预计赔率，最终以截止时为准。下注后不能撤销。",
+            "截止时只有一个选项有人押，或者没有人押中结果，这个市场作废，所有下注全额退回。",
+            "市场被取消或作废时全额退款，不收任何费用。",
+            "结果怎么判：加密市场按币安、OKX 的公开行情自动判定；体育按两个数据来源的比分；其他市场由平台裁决，结果先公示，下注的人可以提出争议。"
+          ]
+        },
+        {
+          "id": "deposit",
+          "heading": "怎么充",
+          "items": [
+            "只收 USDT，支持三条链：TRC20（波场）、ERC20（以太坊）、BSC（BEP20）；以“资产 → 充值”里显示可用的网络为准。",
+            "每个账户有自己的充值地址。从交易所或钱包转入 USDT，区块确认后自动到账。",
+            "只转 USDT，网络要和地址一致；转错网络或币种可能找不回。",
+            "累计充值超过 {kycThreshold} USDT 后，要先完成身份认证才能继续下注。"
+          ]
+        },
+        {
+          "id": "withdraw",
+          "heading": "怎么提",
+          "items": [
+            "单笔最少提现 {minWithdraw} USDT。",
+            "第一次提现前要完成身份认证（证件 + 人脸）。",
+            "提现地址要先加进白名单，新地址 {whitelistHours} 小时后才能用。",
+            "每笔提现有 {coolingHours} 小时冷静期；单笔 {largeThreshold} USDT 及以上的大额提现再延迟 {largeDelayHours} 小时。",
+            "有盈利的提现由人工复核后放行（一般 1 个工作日内）。",
+            "各条链的提现手续费在提现页显示。"
+          ]
+        }
+      ]
+    },
+    "insights": {
+      "nav": "数据和文章"
+    }
+  },
+  "zh-TW": {
+    "site": {
+      "title": "{brand}：足球、NBA、加密、時事的預測市場",
+      "description": "用 USDT 押一件事的結果。每個選項有自己的獎池，機率是散戶用真錢投票的結果；平台不當莊，只從贏家的盈利裡抽成。"
+    },
+    "markets": {
+      "title": "市場 | {brand}",
+      "description": "足球、NBA、加密漲跌、經濟時事的市場，獎池和機率即時更新。",
+      "h1": "市場",
+      "today": "今日場次",
+      "noToday": "今天沒有場次。",
+      "next": "下一場：{time}",
+      "more": "全部市場"
+    },
+    "market": {
+      "titleSuffix": "| {brand}",
+      "closes": "截止下注",
+      "opens": "開放下注",
+      "event": "事件時間",
+      "pool": "獎池",
+      "bettors": "下注人數",
+      "probability": "機率",
+      "result": "結果",
+      "feeRate": "對贏家盈利的抽成",
+      "rules": "規則",
+      "payout": "派彩合計",
+      "fee": "抽成",
+      "dust": "尾差",
+      "refund": "已全額退款",
+      "resolvedBy": "裁決人編號",
+      "evidence": "依據",
+      "source": "來源",
+      "cancelReason": "原因",
+      "notFound": "這個市場不存在。",
+      "view": "打開市場"
+    },
+    "results": {
+      "title": "開獎紀錄和週報 | {brand}",
+      "description": "每個已結算、已作廢、已取消的市場：結果、依據、獎池、派彩合計和抽成。",
+      "h1": "開獎紀錄",
+      "weekly": "週報",
+      "empty": "還沒有已結束的市場。"
+    },
+    "weekly": {
+      "title": "週報 {week} | {brand}",
+      "description": "{week}：結束 {markets} 場，已結算 {settled} 場，作廢或取消 {voided} 場；獎池 {pool} USDT，派彩 {payout} USDT，抽成 {fee} USDT。",
+      "h1": "週報 {week}",
+      "listTitle": "週報 | {brand}",
+      "listDescription": "每週結束的場數、有效場數、作廢場數和原因、獎池合計、派彩合計、抽成合計。",
+      "markets": "結束場數",
+      "settled": "有效場數（已結算）",
+      "voided": "作廢或取消",
+      "pool": "獎池合計",
+      "payout": "派彩合計",
+      "fee": "抽成合計",
+      "refund": "退款合計",
+      "inProgress": "本週截至現在"
+    },
+    "status": {
+      "listed": "可下注",
+      "paused": "已暫停",
+      "closed": "截止下注",
+      "pending_resolution": "等待結果",
+      "publicizing": "結果公示中",
+      "disputed": "爭議中",
+      "settled": "已結算",
+      "cancelled": "已取消",
+      "voided": "已作廢",
+      "upcoming": "未開放"
+    },
+    "reasons": {
+      "NOT_ENOUGH_OPTIONS": "截止時只有一個選項有人押",
+      "NO_WINNER": "沒有人押中結果",
+      "POSTPONED_48H": "比賽延期超過 48 小時",
+      "ABANDONED_48H": "比賽中斷後 48 小時內沒有結果",
+      "NO_POOL": "退回後獎池為 0"
+    },
+    "howto": {
+      "title": "怎麼玩、怎麼充、怎麼提 | {brand}",
+      "description": "彩池怎麼算、USDT 支援哪幾條鏈、提現規則：單筆最少 {minWithdraw} USDT、證件 + 人臉認證、地址白名單和冷靜期。",
+      "h1": "怎麼玩、怎麼充、怎麼提",
+      "intro": "{brand} 是一個用 USDT 押事件結果的網站：足球、NBA、加密貨幣漲跌、經濟時事。你看到的機率是散戶用真錢投票的機率。平台不當莊，只從贏家的盈利裡抽成。",
+      "sections": [
+        {
+          "id": "play",
+          "heading": "怎麼玩",
+          "items": [
+            "每個市場有兩個或更多選項，每個選項有自己的獎池。你押哪個選項，錢就進哪個選項的獎池。",
+            "開獎後，沒押中的選項的獎池按押注比例分給押中的人；平台只對贏家的盈利部分抽成（預設 {fee}，每個市場的費率寫在市場詳情裡），沒押中不收費。",
+            "賠率隨獎池變化，截止下注時確定；下注時看到的是預計賠率，最終以截止時為準。下注後不能撤銷。",
+            "截止時只有一個選項有人押，或者沒有人押中結果，這個市場作廢，所有下注全額退回。",
+            "市場被取消或作廢時全額退款，不收任何費用。",
+            "結果怎麼判：加密市場按幣安、OKX 的公開行情自動判定；體育按兩個資料來源的比分；其他市場由平台裁決，結果先公示，下注的人可以提出爭議。"
+          ]
+        },
+        {
+          "id": "deposit",
+          "heading": "怎麼充",
+          "items": [
+            "只收 USDT，支援三條鏈：TRC20（波場）、ERC20（以太坊）、BSC（BEP20）；以「資產 → 充值」裡顯示可用的網路為準。",
+            "每個帳戶有自己的充值地址。從交易所或錢包轉入 USDT，區塊確認後自動到帳。",
+            "只轉 USDT，網路要和地址一致；轉錯網路或幣種可能找不回。",
+            "累計充值超過 {kycThreshold} USDT 後，要先完成身分認證才能繼續下注。"
+          ]
+        },
+        {
+          "id": "withdraw",
+          "heading": "怎麼提",
+          "items": [
+            "單筆最少提現 {minWithdraw} USDT。",
+            "第一次提現前要完成身分認證（證件 + 人臉）。",
+            "提現地址要先加進白名單，新地址 {whitelistHours} 小時後才能用。",
+            "每筆提現有 {coolingHours} 小時冷靜期；單筆 {largeThreshold} USDT 及以上的大額提現再延遲 {largeDelayHours} 小時。",
+            "有盈利的提現由人工複核後放行（一般 1 個工作日內）。",
+            "各條鏈的提現手續費在提現頁顯示。"
+          ]
+        }
+      ]
+    },
+    "insights": {
+      "nav": "數據和文章"
+    }
+  }
+}

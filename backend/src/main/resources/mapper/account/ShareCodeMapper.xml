@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 客户的分享码（forecast S15）。只有 account 模块使用；第一次分享时插入，之后不改。 -->
+<mapper namespace="com.forecast.app.account.sharecode.ShareCodeMapper">
+
+  <select id="codeOf" resultType="string">
+    SELECT code FROM account_share_code WHERE user_id = #{userId}
+  </select>
+
+  <insert id="insertIgnore">
+    INSERT IGNORE INTO account_share_code (user_id, code, created_at) VALUES (#{userId}, #{code}, #{now})
+  </insert>
+
+  <select id="owners" resultType="com.forecast.app.account.sharecode.ShareCodeMapper$Row">
+    SELECT user_id, code FROM account_share_code WHERE code IN
+    <foreach collection="codes" item="c" open="(" separator="," close=")">#{c}</foreach>
+  </select>
+</mapper>

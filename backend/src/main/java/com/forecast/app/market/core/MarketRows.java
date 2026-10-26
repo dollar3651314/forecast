@@ -46,6 +46,10 @@ final class MarketRows {
     String coverPath;
     /** 由哪个自动生成模板生成（S6），手工建的为空 */
     Long autogenId;
+    /** 列入今日场次（S13，MF-3）：加密场次表生成的自动带；人工上架的由上架的人勾选 */
+    boolean todaySlate;
+    /** 进入已结算 / 已取消 / 已作废的时间（S13，MF-6 开奖记录和周报） */
+    LocalDateTime endedAt;
     Long createdBy;
     Long listedBy;
     LocalDateTime deletedAt;

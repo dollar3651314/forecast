@@ -20,7 +20,7 @@
   </select>
 
   <insert id="insertUser" useGeneratedKeys="true" keyProperty="id">
-    INSERT INTO account_user (email, password_hash) VALUES (#{email}, #{passwordHash})
+    INSERT INTO account_user (email, password_hash, terms_accepted_at) VALUES (#{email}, #{passwordHash}, #{termsAcceptedAt})
   </insert>
 
   <insert id="insertProfile">
@@ -43,6 +43,8 @@
   </select>
 
   <select id="registeredAt" resultType="java.time.LocalDateTime">SELECT created_at FROM account_user WHERE id = #{id}</select>
+
+  <select id="hasLoggedIn" resultType="java.lang.Boolean">SELECT last_login_at IS NOT NULL FROM account_user WHERE id = #{id}</select>
 
   <update id="touchLogin">UPDATE account_user SET last_login_at = UTC_TIMESTAMP(3) WHERE id = #{id}</update>
 

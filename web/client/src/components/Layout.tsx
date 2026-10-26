@@ -4,12 +4,14 @@
  * - 电脑（≥1024）：顶部导航（市场、我的下注、资产），右上角余额、充值、通知、我的（头像）。
  * 两种宽度下各页面的顶栏、底部导航位置一致，切换页面不跳动（C90）：页面只在内容区里改宽度。
  * 新客户（身份认证未提交）第一次进来自动弹出新手引导（C83）。
+ * S13（MF-4）：没登录也用这个框架（市场、详情、开奖记录、周报、说明页不登录也能看）：余额、充值、通知、头像的位置换成"登录""注册"，
+ * 导航和底部入口不变（点"我的下注""资产""我的"先去登录）；没登录时不取账户、未读数，不接推送，不弹新手引导。
  */
 import type { ReactNode } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { IS_MOCK } from '../api/mode';
-import { useAccount } from '../app/contexts';
+import { useAccount, useAuth } from '../app/contexts';
 import { useUnread } from '../hooks/useUnread';
 import { formatAmount } from '../lib/format';
 import { Onboarding } from './Onboarding';
@@ -39,26 +41,44 @@ export function ProtoBanner() {
   );
 }
 
+/** 电脑顶栏：可用、下注中都显示（PQ-3），点进资产 */
 function TopAccount() {
   const { t } = useTranslation();
   const { metrics, error } = useAccount();
   const dash = error ? '—' : undefined;
   return (
-    <div className="top-acc">
-      <div>
-        {t('account.balance')}
-        <span className="num">{dash ?? formatAmount(metrics?.balance)}</span>
-      </div>
+    <NavLink to="/assets" className="top-acc" aria-label={t('nav.assets')}>
       <div>
         {t('account.available')}
         <span className="num">{dash ?? formatAmount(metrics?.available)}</span>
       </div>
+      <div>
+        {t('assets.betLocked')}
+        <span className="num">{dash ?? formatAmount(metrics?.betLocked)}</span>
+      </div>
+    </NavLink>
+  );
+}
+
+/** 没登录：登录、注册（登录后回到现在这一页） */
+function GuestButtons({ compact }: { compact?: boolean }) {
+  const { t } = useTranslation();
+  const location = useLocation();
+  const from = location.pathname + location.search;
+  return (
+    <div className={`guest-btns${compact ? ' compact' : ''}`}>
+      <Link to="/login" state={{ from }} className="btn btn-ghost btn-sm" data-testid="guest-login">
+        {t('guest.login')}
+      </Link>
+      <Link to="/register" state={{ from }} className="btn btn-primary btn-sm" data-testid="guest-register">
+        {t('guest.register')}
+      </Link>
     </div>
   );
 }
 
-/** 手机顶栏：品牌、可用余额（点进资产）、通知 */
-function MobileBar({ unread }: { unread: number }) {
+/** 手机顶栏：品牌、可用余额（点进资产）、通知；没登录时是登录、注册 */
+function MobileBar({ unread, guest }: { unread: number; guest: boolean }) {
   const { t } = useTranslation();
   const { metrics, error } = useAccount();
   return (
@@ -66,27 +86,50 @@ function MobileBar({ unread }: { unread: number }) {
       <NavLink to="/markets" className="brand" aria-label={BRAND_NAME}>
         <Brand />
       </NavLink>
-      <NavLink to="/assets" className="mbar-bal" aria-label={t('account.available')}>
-        <small>{t('account.available')}</small>
-        <span className="num">{error ? '—' : formatAmount(metrics?.available)}</span>
-      </NavLink>
-      <NavLink to="/me/notifications" className="icon-btn" aria-label={t('me.notifications')}>
-        <Icon name="bell" />
-        {unread > 0 && <span className="badge">{unread > 99 ? '99+' : unread}</span>}
-      </NavLink>
+      {guest ? (
+        <GuestButtons compact />
+      ) : (
+        <>
+          <NavLink to="/assets" className="mbar-bal" aria-label={t('account.available')}>
+            <small>{t('account.available')}</small>
+            <span className="num">{error ? '—' : formatAmount(metrics?.available)}</span>
+          </NavLink>
+          <NavLink to="/me/notifications" className="icon-btn" aria-label={t('me.notifications')}>
+            <Icon name="bell" />
+            {unread > 0 && <span className="badge">{unread > 99 ? '99+' : unread}</span>}
+          </NavLink>
+        </>
+      )}
     </header>
   );
 }
 
-export function Layout() {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
+/** 登录后才有的部分：未读数（顶栏铃铛、底部"我的"的红点）、推送、新手引导 */
+function MemberOnly({ children }: { children: (unread: number) => ReactNode }) {
   const unread = useUnread();
   return (
-    <div className="app">
+    <>
+      {children(unread)}
+      <PushListener />
+      <Onboarding />
+    </>
+  );
+}
+
+export function Layout() {
+  const { session } = useAuth();
+  if (!session) return <Frame unread={0} guest />;
+  return <MemberOnly>{(unread) => <Frame unread={unread} guest={false} />}</MemberOnly>;
+}
+
+function Frame({ unread, guest }: { unread: number; guest: boolean }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  return (
+    <div className={`app${guest ? ' is-guest' : ''}`}>
       <ProtoBanner />
       <EnvBanner />
-      <MobileBar unread={unread} />
+      <MobileBar unread={unread} guest={guest} />
       <header className="topnav">
         <NavLink to="/markets" className="brand" aria-label={BRAND_NAME}>
           <Brand />
@@ -100,17 +143,23 @@ export function Layout() {
         </nav>
         {/* 不放跑马灯（需求 C84：不闪动） */}
         <div className="topnav-spacer" />
-        <TopAccount />
-        <button type="button" className="btn btn-primary btn-sm" onClick={() => navigate('/assets')}>
-          {t('assets.deposit')}
-        </button>
-        <NavLink to="/me/notifications" className="icon-btn" aria-label={t('me.notifications')}>
-          <Icon name="bell" />
-          {unread > 0 && <span className="badge">{unread > 99 ? '99+' : unread}</span>}
-        </NavLink>
-        <NavLink to="/me" className="avatar" aria-label={t('nav.me')} title={t('nav.me')}>
-          <Icon name="user" size={16} />
-        </NavLink>
+        {guest ? (
+          <GuestButtons />
+        ) : (
+          <>
+            <TopAccount />
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => navigate('/assets')}>
+              {t('assets.deposit')}
+            </button>
+            <NavLink to="/me/notifications" className="icon-btn" aria-label={t('me.notifications')}>
+              <Icon name="bell" />
+              {unread > 0 && <span className="badge">{unread > 99 ? '99+' : unread}</span>}
+            </NavLink>
+            <NavLink to="/me" className="avatar" aria-label={t('nav.me')} title={t('nav.me')}>
+              <Icon name="user" size={16} />
+            </NavLink>
+          </>
+        )}
       </header>
       <main className="main" id="main">
         <Outlet />
@@ -127,8 +176,6 @@ export function Layout() {
         ))}
       </nav>
       <ProtoPanel />
-      <PushListener />
-      <Onboarding />
     </div>
   );
 }

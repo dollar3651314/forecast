@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 风控要用的钱包数据（forecast S10）：按 id 往后扫（写入时间够不够久由 riskalert 判断，充值表用数据库时间在这里算好 ripe）。只有 wallet 模块使用。 -->
+<mapper namespace="com.forecast.app.wallet.admin.WalletSignalsMapper">
+
+  <select id="depositsAfter" resultType="com.forecast.app.wallet.admin.WalletSignalsMapper$Row">
+    SELECT id, public_no, user_id, chain, from_address AS address, amount, created_at AS at,
+      created_at &lt;= NOW(3) - INTERVAL (#{lagMillis} * 1000) MICROSECOND AS ripe
+    FROM wallet_deposit WHERE id &gt; #{afterId} ORDER BY id LIMIT #{limit}
+  </select>
+
+  <select id="whitelistAfter" resultType="com.forecast.app.wallet.admin.WalletSignalsMapper$Row">
+    SELECT id, 0 AS public_no, user_id, network AS chain, address_key AS address, NULL AS amount, created_at AS at FROM wallet_whitelist
+    WHERE id &gt; #{afterId} ORDER BY id LIMIT #{limit}
+  </select>
+
+  <select id="withdrawalsAfter" resultType="com.forecast.app.wallet.admin.WalletSignalsMapper$Row">
+    SELECT id, public_no, user_id, network AS chain, address, amount, created_at AS at FROM wallet_withdrawal
+    WHERE id &gt; #{afterId} ORDER BY id LIMIT #{limit}
+  </select>
+
+  <!-- forecast S13（MF-1、MF-10）：首充 = 第一笔已入账的充值 -->
+  <select id="firstCredited" resultType="com.forecast.app.wallet.admin.WalletSignalsMapper$FirstCredit">
+    SELECT user_id, MIN(credited_at) AS at FROM wallet_deposit
+    WHERE credited_at IS NOT NULL AND user_id IN <foreach collection="userIds" item="u" open="(" separator="," close=")">#{u}</foreach>
+    GROUP BY user_id
+  </select>
+</mapper>

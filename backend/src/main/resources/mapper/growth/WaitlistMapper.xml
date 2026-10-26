@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 上线前等候页（forecast S16，MF-8）。只有 growth 模块使用。状态都用带旧状态的条件更新。 -->
+<mapper namespace="com.forecast.app.growth.waitlist.WaitlistMapper">
+
+  <sql id="cols">
+    id, email, lang, status, confirm_token, confirm_sent_at, confirm_sends, unsub_token, src, cmp, ref, start_param, created_at, confirmed_at, notified_at,
+    unsubscribed_at
+  </sql>
+
+  <insert id="insertIgnore">
+    INSERT IGNORE INTO growth_waitlist (email, lang, status, confirm_token, confirm_sent_at, confirm_sends, unsub_token, src, cmp, ref, start_param, ip_hash,
+      created_at, updated_at)
+    VALUES (#{email}, #{lang}, 'PENDING', #{confirmToken}, #{now}, 1, #{unsubToken}, #{src}, #{cmp}, #{ref}, #{start}, #{ipHash}, #{now}, #{now})
+  </insert>
+
+  <select id="byEmail" resultType="com.forecast.app.growth.waitlist.WaitlistMapper$Row">
+    SELECT <include refid="cols"/> FROM growth_waitlist WHERE email = #{email}
+  </select>
+
+  <select id="byConfirmToken" resultType="com.forecast.app.growth.waitlist.WaitlistMapper$Row">
+    SELECT <include refid="cols"/> FROM growth_waitlist WHERE confirm_token = #{token}
+  </select>
+
+  <select id="byUnsubToken" resultType="com.forecast.app.growth.waitlist.WaitlistMapper$Row">
+    SELECT <include refid="cols"/> FROM growth_waitlist WHERE unsub_token = #{token}
+  </select>
+
+  <select id="byId" resultType="com.forecast.app.growth.waitlist.WaitlistMapper$Row">
+    SELECT <include refid="cols"/> FROM growth_waitlist WHERE id = #{id}
+  </select>
+
+  <update id="resend">
+    UPDATE growth_waitlist SET confirm_sent_at = #{now}, confirm_sends = confirm_sends + 1, lang = #{lang}, updated_at = #{now}
+    WHERE id = #{id} AND status = 'PENDING' AND confirm_sends = #{sends}
+  </update>
+
+  <update id="resubscribe">
+    UPDATE growth_waitlist SET status = 'PENDING', confirm_token = #{confirmToken}, confirm_sent_at = #{now}, confirm_sends = 1, lang = #{lang},
+      src = #{src}, cmp = #{cmp}, ref = #{ref}, start_param = #{start}, confirmed_at = NULL, unsubscribed_at = NULL, updated_at = #{now}
+    WHERE id = #{id} AND status = 'UNSUBSCRIBED'
+  </update>
+
+  <update id="confirm">
+    UPDATE growth_waitlist SET status = 'CONFIRMED', confirmed_at = #{now}, updated_at = #{now} WHERE id = #{id} AND status = 'PENDING'
+  </update>
+
+  <update id="unsubscribe">
+    UPDATE growth_waitlist SET status = 'UNSUBSCRIBED', unsubscribed_at = #{now}, updated_at = #{now}
+    WHERE id = #{id} AND status IN ('PENDING', 'CONFIRMED', 'NOTIFIED')
+  </update>
+
+  <update id="markNotified">
+    UPDATE growth_waitlist SET status = 'NOTIFIED', notified_at = #{now}, updated_at = #{now} WHERE id = #{id} AND status = 'CONFIRMED'
+  </update>
+
+  <select id="confirmedIds" resultType="java.lang.Long">
+    SELECT id FROM growth_waitlist WHERE status = 'CONFIRMED' AND id &gt; #{afterId} ORDER BY id LIMIT #{limit}
+  </select>
+
+  <select id="countByStatus" resultType="long">
+    SELECT COUNT(*) FROM growth_waitlist WHERE status = #{status}
+  </select>
+
+  <select id="list" resultType="com.forecast.app.growth.waitlist.WaitlistMapper$Row">
+    SELECT <include refid="cols"/> FROM growth_waitlist
+    <where><if test="status != null">status = #{status}</if></where>
+    ORDER BY id DESC LIMIT #{offset}, #{limit}
+  </select>
+
+  <select id="count" resultType="long">
+    SELECT COUNT(*) FROM growth_waitlist <where><if test="status != null">status = #{status}</if></where>
+  </select>
+
+  <select id="launch" resultType="com.forecast.app.growth.waitlist.WaitlistMapper$Launch">
+    SELECT status, admin_id, reason, recipients, sent, created_at, finished_at FROM growth_launch WHERE id = 1
+  </select>
+
+  <insert id="insertLaunch">
+    INSERT IGNORE INTO growth_launch (id, status, admin_id, reason, recipients, sent, created_at) VALUES (1, 'SENDING', #{adminId}, #{reason}, #{recipients}, 0, #{now})
+  </insert>
+
+  <update id="addSent">
+    UPDATE growth_launch SET sent = sent + #{n} WHERE id = 1
+  </update>
+
+  <delete id="deleteLaunchForE2e">
+    DELETE FROM growth_launch WHERE id = 1
+  </delete>
+
+  <update id="finishLaunch">
+    UPDATE growth_launch SET status = 'DONE', finished_at = #{now} WHERE id = 1 AND status = 'SENDING'
+  </update>
+</mapper>

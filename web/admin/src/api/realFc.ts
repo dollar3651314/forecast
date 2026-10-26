@@ -27,6 +27,23 @@ import type {
   MarketDetail,
   MarketQuery,
   MarketSummary,
+  OpenLimit,
+  PublishInput,
+  GrowthQuery,
+  GrowthReport,
+  GrowthExportKind,
+  TelegramGroup,
+  TelegramOverview,
+  TelegramPost,
+  TelegramPostStatus,
+  TelegramPreview,
+  TelegramStatus,
+  TelegramTarget,
+  TelegramTargetKey,
+  TelegramTemplate,
+  WaitlistLaunch,
+  WaitlistPage,
+  WaitlistQuery,
   PlayInput,
   PoolIssue,
   ProposalInput,
@@ -38,6 +55,12 @@ import type {
   SettleRunDetail,
   SportsTemplate,
   SyncResult,
+  CustomerLink,
+  RiskAlert,
+  RiskAlertCounts,
+  RiskAlertQuery,
+  RiskAlertStatus,
+  StaffRefund,
 } from './fcTypes';
 
 const enc = encodeURIComponent;
@@ -47,7 +70,7 @@ export const getMarketDashboard = (): Promise<MarketDashboard> => request('/dash
 
 // ---- 市场管理 ----
 export const listMarkets = (q: MarketQuery): Promise<Page<MarketSummary>> =>
-  request('/markets', { query: { status: q.status, category: q.category, submitted: q.submitted, keyword: q.keyword, page: q.page, pageSize: q.pageSize } });
+  request('/markets', { query: { status: q.status, category: q.category, submitted: q.submitted, todaySlate: q.todaySlate, keyword: q.keyword, page: q.page, pageSize: q.pageSize } });
 export const getMarketCounts = (): Promise<MarketCounts> => request('/markets/counts');
 export const getMarket = (no: string): Promise<MarketDetail> => request(`/markets/${enc(no)}`);
 export const createMarket = (d: DraftInput): Promise<MarketDetail> => request('/markets', { method: 'POST', body: d });
@@ -57,7 +80,12 @@ export const deleteMarket = async (no: string): Promise<void> => {
 };
 export const submitMarket = (no: string): Promise<MarketDetail> => request(`/markets/${enc(no)}/submit`, { method: 'POST' });
 export const returnMarket = (no: string, reason: string): Promise<MarketDetail> => request(`/markets/${enc(no)}/return`, { method: 'POST', body: { reason } });
-export const publishMarket = (no: string, checked: boolean): Promise<MarketDetail> => request(`/markets/${enc(no)}/publish`, { method: 'POST', body: { checked } });
+/** 上架（S13：todaySlate 列入今日场次；overLimit 超过同时开放上限时"仍要上架"，不勾时后端 400 overLimit:required） */
+export const publishMarket = (no: string, input: PublishInput): Promise<MarketDetail> => request(`/markets/${enc(no)}/publish`, { method: 'POST', body: input });
+/** 改"列入今日场次"（S13；草稿、已上架、已暂停） */
+export const setTodaySlate = (no: string, todaySlate: boolean): Promise<MarketDetail> => request(`/markets/${enc(no)}/today-slate`, { method: 'POST', body: { todaySlate } });
+/** 同时开放的市场数和上限（S13，上架前提示"当前已开放 X 个，上限 Y 个"） */
+export const getOpenLimit = (): Promise<OpenLimit> => request('/markets/open-limit');
 export const pauseMarket = (no: string, reason: string): Promise<MarketDetail> => request(`/markets/${enc(no)}/pause`, { method: 'POST', body: { reason } });
 export const resumeMarket = (no: string, reason: string): Promise<MarketDetail> => request(`/markets/${enc(no)}/resume`, { method: 'POST', body: { reason } });
 export const cancelMarket = (no: string, reason: string): Promise<MarketDetail> => request(`/markets/${enc(no)}/cancel`, { method: 'POST', body: { reason } });
@@ -72,6 +100,44 @@ export const getMarketBets = (no: string, q: { sort?: 'time' | 'amount'; status?
   request(`/markets/${enc(no)}/bets`, { query: q });
 export const getSettlement = (no: string): Promise<SettleOutcome> => request(`/markets/${enc(no)}/settlement`);
 export const getEvidence = (no: string): Promise<Evidence> => request(`/markets/${enc(no)}/resolution`);
+
+// ---- S13 来源统计（growth:view） ----
+export const getGrowthReport = (q: GrowthQuery): Promise<GrowthReport> => request('/growth/report', { query: { from: q.from, to: q.to, basis: q.basis } });
+/**
+ * CSV 导出（服务器生成，UTF-8 带 BOM；只有客户编号，没有邮箱和 KYC 信息，AC-94；后端写审计 growth.export）。
+ * 用 fetch 取文件再下载：出错时（没权限、日期不对）能按普通错误提示，不会把浏览器带到一个 JSON 页面。
+ */
+export async function exportGrowth(kind: GrowthExportKind, q: GrowthQuery, lang: string): Promise<void> {
+  const p = new URLSearchParams({ kind, lang });
+  if (q.from) p.set('from', q.from);
+  if (q.to) p.set('to', q.to);
+  if (q.basis) p.set('basis', q.basis);
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/growth/export?${p.toString()}`, { credentials: 'same-origin', headers: { Accept: 'text/csv, application/json' } });
+  } catch {
+    throw new ApiError('errors.network');
+  }
+  if (!res.ok) {
+    let body = null;
+    try {
+      body = await res.json();
+    } catch {
+      body = null;
+    }
+    throw toApiError(res.status, body);
+  }
+  const blob = await res.blob();
+  const name = /filename="?([^";]+)"?/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? `growth-${kind}.csv`;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 // ---- 加密自动生成 ----
 export const listAutogens = (): Promise<Autogen[]> => request('/market-autogens');
@@ -158,3 +224,38 @@ export const compensate = (no: string, correctOptionNo: string, reason: string):
 export const listCompensations = (page: number, pageSize: number): Promise<Page<Compensation>> => request('/settle/compensations', { query: { page, pageSize } });
 export const getCompensation = (no: string): Promise<Compensation> => request(`/settle/compensations/${enc(no)}`);
 export const getReport = (from: string, to: string): Promise<Report> => request('/reports/settle', { query: { from, to } });
+
+// ---- 风控告警、员工账户、关联账户（forecast S10，后端 admin/ops/RiskAdminController、OpsController） ----
+export const listRiskAlerts = (q: RiskAlertQuery): Promise<Page<RiskAlert>> =>
+  request('/risk-alerts', { query: { kind: q.kind, status: q.status, keyword: q.keyword, page: q.page, pageSize: q.pageSize } });
+export const getRiskAlertCounts = (): Promise<RiskAlertCounts> => request('/risk-alerts/counts');
+/** 改处理状态；已处理、误报要写处理说明（后端校验） */
+export const setRiskAlertStatus = (id: string, status: RiskAlertStatus, note: string | null): Promise<RiskAlert> =>
+  request(`/risk-alerts/${enc(id)}/status`, { method: 'POST', body: { status, note } });
+export const getCustomerLinks = (id: number): Promise<CustomerLink[]> => request(`/customers/${id}/links`);
+/** 登记 / 取消登记员工账户（customer:edit，高危，原因必填）；登记时退回已有下注（E15），返回退回的结果 */
+export const setCustomerStaff = async (id: number, staff: boolean, reason: string): Promise<StaffRefund> =>
+  (await request<{ refunded: StaffRefund }>(`/customers/${id}/staff`, { method: 'POST', body: { staff, reason } })).refunded;
+
+// ---- S16 等候页订阅（growth:view；发送上线通知 content:publish ★） ----
+export const listWaitlist = (q: WaitlistQuery): Promise<WaitlistPage> =>
+  request('/waitlist', { query: { status: q.status, page: q.page, pageSize: q.pageSize } });
+/** 发送上线通知（只能一次；第二次 409 LAUNCH_ALREADY_SENT） */
+export const launchWaitlist = (reason: string): Promise<WaitlistLaunch> => request('/waitlist/launch', { method: 'POST', body: { checked: true, reason } });
+
+// ---- S16 Telegram 机器人（content:view；改动 content:publish ★） ----
+export const getTelegram = (): Promise<TelegramOverview> => request('/telegram');
+export const listTelegramPosts = (status: TelegramPostStatus | undefined, page: number, pageSize: number): Promise<Page<TelegramPost>> =>
+  request('/telegram/posts', { query: { status, page, pageSize } });
+export const updateTelegramTarget = (key: TelegramTargetKey, chatId: string | null, enabled: boolean, reason: string): Promise<TelegramTarget> =>
+  request(`/telegram/targets/${enc(key)}`, { method: 'PUT', body: { chatId, enabled, reason } });
+export const stopTelegramGroup = (chatId: string, reason: string): Promise<TelegramGroup> =>
+  request(`/telegram/groups/${enc(chatId)}/broadcast-off`, { method: 'POST', body: { reason } });
+export const getTelegramPreview = (kind: 'RESULT', lang: string): Promise<TelegramPreview> => request(`/telegram/templates/${enc(kind)}/${enc(lang)}/preview`);
+/** 预览图的地址（img 直接用，带后台的登录 Cookie） */
+export const telegramPreviewUrl = (kind: 'RESULT', lang: string): string => `${API_BASE}/telegram/templates/${enc(kind)}/${enc(lang)}/preview.png`;
+export const approveTelegramTemplate = (kind: 'RESULT', lang: string, fingerprint: string, reason: string): Promise<TelegramTemplate> =>
+  request(`/telegram/templates/${enc(kind)}/${enc(lang)}/approve`, { method: 'POST', body: { fingerprint, checked: true, reason } });
+export const disableTelegramTemplate = (kind: 'RESULT', lang: string, reason: string): Promise<TelegramTemplate> =>
+  request(`/telegram/templates/${enc(kind)}/${enc(lang)}/disable`, { method: 'POST', body: { reason } });
+export const setTelegramStop = (stop: boolean, reason: string): Promise<TelegramStatus> => request('/telegram/stop', { method: 'POST', body: { stop, reason } });

@@ -67,3 +67,25 @@ export function AsyncView<T>(props: {
   if (props.isEmpty?.(state.data)) return <>{props.empty}</>;
   return <>{props.children(state.data)}</>;
 }
+
+/**
+ * 列表底部（C52：能看到全部记录）：还有没显示的显示"加载更多（已显示 n / 共 m）"，取下一页失败时就地显示原因和重试；全部显示完写"共 m 条"。
+ * 和 hooks/usePaged.ts 一起用。
+ */
+export function LoadMore({ shown, total, hasMore, loading, error, onMore }: { shown: number; total: number; hasMore: boolean; loading: boolean; error?: unknown; onMore: () => void }) {
+  const { t } = useTranslation();
+  if (!hasMore) return <p className="list-end">{t('common.noMore', { total })}</p>;
+  return (
+    <div className="load-more">
+      {error ? (
+        <p className="load-more-err" role="alert">
+          <Icon name="warn" size={14} />
+          {t('common.loadMoreFailed', { reason: t(errorKey(error)) })}
+        </p>
+      ) : null}
+      <button type="button" className="btn btn-ghost btn-block" onClick={onMore} disabled={loading} data-testid="load-more">
+        {loading ? t('common.loading') : error ? t('common.retry') : t('common.loadMore', { shown, total })}
+      </button>
+    </div>
+  );
+}

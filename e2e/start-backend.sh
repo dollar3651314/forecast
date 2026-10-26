@@ -13,6 +13,8 @@ export FC_E2E_ENABLED=true
 # 本机和 CI 都是 http，登录 Cookie 不能只走 HTTPS
 export FC_COOKIE_SECURE=false
 export FC_STORAGE_DIR="${FC_STORAGE_DIR:-$PWD/e2e/logs/storage}"
+# 邮件里的链接（#23 开赛提醒，forecast S11）指向端到端测试站点
+export FC_CLIENT_URL="${FC_CLIENT_URL:-http://127.0.0.1:${E2E_PORT:-4173}}"
 nohup java -jar "$jar" > e2e/logs/backend.log 2>&1 &
 echo $! > e2e/logs/backend.pid
 for i in $(seq 1 90); do

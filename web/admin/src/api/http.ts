@@ -54,6 +54,10 @@ export const ERROR_KEYS: Record<string, string> = {
   REJECT_REASON_REQUIRED: 'errors.reasonRequired',
   REJECT_REASON_TOO_LONG: 'errors.reasonTooLong',
   BUILT_IN_CANNOT_DISABLE: 'errors.builtInCannotDisable',
+  // forecast S16：等候页上线通知只能发一次；Telegram 模板预览以后文字改过、没有可预览的市场
+  LAUNCH_ALREADY_SENT: 'errors.fc.LAUNCH_ALREADY_SENT',
+  TELEGRAM_TEMPLATE_CHANGED: 'errors.fc.TELEGRAM_TEMPLATE_CHANGED',
+  TELEGRAM_NO_PREVIEW: 'errors.fc.TELEGRAM_NO_PREVIEW',
   // 通用
   NOT_FOUND: 'errors.notFound',
   VALIDATION_FAILED: 'errors.validationFailed',
@@ -95,7 +99,9 @@ export function toApiError(status: number, body: ErrorBody | null): ApiError {
     return new ApiError('errors.passwordWeak', undefined, { status, code, fields });
   }
   const key = (code && ERROR_KEYS[code]) || (status >= 500 ? 'errors.serverError' : 'errors.unknown');
-  return new ApiError(key, undefined, { status, code, fields: fields.length ? fields : undefined });
+  // forecast S15：没登记的业务错误码带上后端的说明（内容中心的"哪个词不能用""为什么不能发布"），界面按 errors.fc.<code> 显示（utils/errors.ts）
+  const params = code && !ERROR_KEYS[code] && body?.message ? { detail: body.message } : undefined;
+  return new ApiError(key, params, { status, code, fields: fields.length ? fields : undefined });
 }
 
 type Query = Record<string, string | number | boolean | null | undefined>;

@@ -4,26 +4,41 @@
  * - 电脑：左边详情（选项表），右边固定的下注栏（BetPanel），确认按钮贴在右栏底部（C79）。
  * 标签页：规则（全文 + 补充说明 + 费率修改记录）、裁决与公示（结果、依据、裁决人编号、争议截止、提交争议）、彩池怎么算（通俗说明 + 本市场的数字）。
  * 地址栏 ?opt= 表示从列表点进来时选中的选项（手机直接打开抽屉）。赔率更新只换数字（C84）。
+ * S11：奖池实时推送（WS /api/ws/markets，AC-17），推来的奖池不含本人的持仓，本人的"赢了约回"按新奖池在前端重算（lib/pool，和后端同一套规则）；
+ * 状态变了（截止、公示、结算）重新取详情。结算信息 settle（后端 S11）、"结算中"、还没开放的市场可以订阅开赛提醒（#23，SQ-20）。
+ * S13（MF-4，AC-84）：不登录也能看（没有"我的下注"、本人的结果）；点"押注"先去登录 / 注册，登录后回到这个市场并选中原来的选项
+ * （地址带 ?opt=，手机直接打开下注抽屉）；电脑右栏是"登录后押注"。
+ * S14（MF-5，AC-86、AC-87）：标题旁"分享"（市场卡；已结束的市场是开奖卡）；下注成功后弹出挑战卡（"我押了 X，谁敢押 Y？"，可以关掉，W5）。
  */
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { getMarket } from '../../api/markets';
-import type { BetResult, MarketDetail as Detail, OptionPool } from '../../api/types';
+import { errorKey } from '../../api/errors';
+import { getMarket, subscribePools, subscribeReminder, unsubscribeReminder } from '../../api/markets';
+import { createShare, getShare } from '../../api/share';
+import type { BetResult, MarketDetail as Detail, OptionPool, ReminderState } from '../../api/types';
+import { useAuth, useToast } from '../../app/contexts';
+import { GuestGate } from '../../components/GuestGate';
+import { useTitle } from '../../hooks/useTitle';
 import { ErrorState, Loading } from '../../components/AsyncView';
 import { Icon } from '../../components/Icon';
 import { BetPanel, BetSheet } from '../../components/market/BetForm';
 import { DisputeDialog } from '../../components/market/DisputeDialog';
+import { ShareButton } from '../../components/share/ShareButton';
+import { ShareDialog } from '../../components/share/ShareDialog';
 import { CategoryIcon, ProbFill, StatusTag, TimePair } from '../../components/market/parts';
 import { useAsync } from '../../hooks/useAsync';
 import { useLang, useRemainText } from '../../hooks/useLang';
 import { useIsDesktop } from '../../hooks/useMediaQuery';
 import { formatAmount } from '../../lib/format';
-import { canDispute, disputeDeadline, multText, outcomeOptionNo, pickText, resolverText, useClock, utcText } from '../../lib/market';
+import { canDispute, disputeDeadline, mergePool, multText, outcomeOptionNo, pickText, resolverText, useClock, utcText } from '../../lib/market';
 import { expectedReturn, rateFromPercent } from '../../lib/pool';
 
 type Tab = 'rules' | 'resolution' | 'how';
 const isUpDown = (m: Detail) => m.category === 'CRYPTO_15M' || m.category === 'CRYPTO_1H';
+/** 现在能下注：已上架、已到开放时间（S11：还没开放的不显示押注按钮，显示开放时间和开赛提醒） */
+const bettable = (m: Detail) => m.status === 'listed' && Date.parse(m.openAt) <= Date.now();
+const upcomingOf = (m: Detail) => (m.status === 'listed' || m.status === 'paused') && Date.parse(m.openAt) > Date.now();
 
 function Stat({ k, v, sub }: { k: string; v: ReactNode; sub?: ReactNode }) {
   return (
@@ -35,23 +50,96 @@ function Stat({ k, v, sub }: { k: string; v: ReactNode; sub?: ReactNode }) {
   );
 }
 
-function Header({ m, now }: { m: Detail; now: number }) {
+/**
+ * 开赛提醒（#23，SQ-20）：还没开放下注的市场，订阅后在开放时发一封邮件到账户邮箱；"通知偏好"里能看到和退订。
+ * 只有登录过的账户能订（S16 起注册后的自动登录也算，SQ-27），不能订时说明原因。
+ */
+function ReminderBar({ m, onChange }: { m: Detail; onChange: (r: ReminderState) => void }) {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const { session } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const r = m.reminder;
+  // S13：没登录时还没开放的市场提示"登录后可以订阅开放提醒"
+  if (!session && upcomingOf(m)) {
+    return (
+      <div className="md-remind r-none" role="status">
+        <Icon name="bell" size={16} />
+        <span>{t('remind.guest')}</span>
+        <Link to="/login" state={{ from: `/markets/${m.publicNo}` }} className="btn btn-outline btn-sm">
+          {t('guest.login')}
+        </Link>
+      </div>
+    );
+  }
+  if (!r) return null;
+  const run = async (fn: (no: string) => Promise<ReminderState>, ok: string) => {
+    setBusy(true);
+    try {
+      onChange(await fn(m.publicNo));
+      toast.show({ tone: 'success', title: t(ok) });
+    } catch (e) {
+      toast.show({ tone: 'error', title: t(errorKey(e)) });
+    } finally {
+      setBusy(false);
+    }
+  };
+  let body: ReactNode;
+  if (r.status === 'sent') body = <span>{t('remind.sent')}</span>;
+  else if (r.status === 'active')
+    body = (
+      <>
+        <span>{t('remind.active')}</span>
+        <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => run(unsubscribeReminder, 'remind.unsubscribed')} data-testid="remind-off">
+          {t('remind.unsubscribe')}
+        </button>
+      </>
+    );
+  else if (!r.available) body = <span>{t(r.status === 'missed' ? 'remind.missed' : 'remind.closed')}</span>;
+  else if (!r.eligible) body = <span>{t('remind.needLogin')}</span>;
+  else
+    body = (
+      <>
+        <span>{t('remind.pitch')}</span>
+        <button type="button" className="btn btn-outline btn-sm" disabled={busy} onClick={() => run(subscribeReminder, 'remind.subscribed')} data-testid="remind-on">
+          <Icon name="bell" size={14} />
+          {t('remind.subscribe')}
+        </button>
+      </>
+    );
+  return (
+    <div className={`md-remind r-${r.status}`} role="status">
+      <Icon name="bell" size={16} />
+      {body}
+    </div>
+  );
+}
+
+function Header({ m, now, onReminder }: { m: Detail; now: number; onReminder: (r: ReminderState) => void }) {
   const { t } = useTranslation();
   const lang = useLang();
   const left = useRemainText(m.closeAt, now);
   const open = m.status === 'listed' || m.status === 'paused';
+  const upcoming = open && Date.parse(m.openAt) > now;
   return (
     <header className="md-head">
       <div className="md-meta">
         <CategoryIcon category={m.category} size={15} />
         <span>{pickText(m.league, lang) || t(`mk.cats.${m.category}`)}</span>
-        <StatusTag status={m.status} />
+        {upcomingOf(m) ? <span className="mk-status s-wait">{t('mk.status.upcoming')}</span> : <StatusTag status={m.status} />}
+        <ShareButton className="md-share" title={t('share.title')} cacheKey={`market|${m.publicNo}|${m.status}|${lang}`} load={() => getShare({ kind: 'market', no: m.publicNo }, lang)} />
       </div>
       <h1 className="md-title">{pickText(m.title, lang)}</h1>
+      {upcoming && (
+        <p className="md-time">
+          <span className="muted">{t('md.openAt')}</span> <TimePair iso={m.openAt} />
+        </p>
+      )}
       <p className="md-time">
         <span className="muted">{t('md.closeAt')}</span> <TimePair iso={m.closeAt} />
-        {open && left && <b className="md-left">{left}</b>}
+        {open && !upcoming && left && <b className="md-left">{left}</b>}
       </p>
+      <ReminderBar m={m} onChange={onReminder} />
       <div className="md-stats">
         <Stat k={t('md.totalPool')} v={<span className="num">{formatAmount(m.pool.total)}</span>} sub="USDT" />
         <Stat k={t('md.bettors')} v={<span className="num">{m.pool.bettors}</span>} />
@@ -80,6 +168,17 @@ function ResultBanner({ m, onDispute }: { m: Detail; onDispute: () => void }) {
               {t('md.res.reason')}：{t(`md.res.reasons.${m.voidReason}`, { defaultValue: m.voidReason })}
             </span>
           )}
+        </div>
+      </div>
+    );
+  }
+  if (m.settling) {
+    return (
+      <div className="md-banner b-review" role="status">
+        <Icon name="clock" size={18} />
+        <div>
+          <b>{t('md.res.settling')}</b>
+          <span>{t('md.res.settlingNote')}</span>
         </div>
       </div>
     );
@@ -120,10 +219,10 @@ function ResultBanner({ m, onDispute }: { m: Detail; onDispute: () => void }) {
           {r.resolvedAt && <> · {utcText(r.resolvedAt)}</>}
         </span>
       </div>
-      {m.myPayout && (
+      {m.settle?.mine && m.settle.kind === 'payout' && (
         <div className="md-banner-r">
           <small>{t('md.res.myPayout')}</small>
-          <b className="num up">+{formatAmount(m.myPayout.payout)}</b>
+          <b className={`num${m.settle.mine.payout !== '0.00' ? ' up' : ''}`}>{formatAmount(m.settle.mine.payout)}</b>
         </div>
       )}
     </div>
@@ -134,7 +233,7 @@ function ResultBanner({ m, onDispute }: { m: Detail; onDispute: () => void }) {
 function OptionTable({ m, selected, onSelect }: { m: Detail; selected?: string; onSelect: (no: string) => void }) {
   const { t } = useTranslation();
   const lang = useLang();
-  const open = m.status === 'listed';
+  const open = bettable(m);
   const win = outcomeOptionNo(m);
   return (
     <table className="md-table">
@@ -190,7 +289,7 @@ function OptionTable({ m, selected, onSelect }: { m: Detail; selected?: string; 
 function OptionList({ m, onBet }: { m: Detail; onBet: (no: string) => void }) {
   const { t } = useTranslation();
   const lang = useLang();
-  const open = m.status === 'listed';
+  const open = bettable(m);
   const win = outcomeOptionNo(m);
   return (
     <ul className="md-opts">
@@ -216,7 +315,7 @@ function OptionList({ m, onBet }: { m: Detail; onBet: (no: string) => void }) {
                   {m.pool.frozen ? t('md.multFinalShort', { m: multText(p.mult) }) : t('md.multShort', { m: multText(p.mult) })}
                 </span>
                 <span className="num">
-                  {formatAmount(p.amount, { dp: 0 })} USDT · {t('mk.people', { n: p.bettors })}
+                  {formatAmount(p.amount, { dp: 0 })} USDT · {t('mk.people', { n: p.bettors, count: p.bettors })}
                 </span>
               </div>
             </div>
@@ -244,7 +343,7 @@ function Mine({ m }: { m: Detail }) {
         {mine.map((x) => (
           <li key={x.optionNo}>
             <span className="md-mine-opt">{pickText(m.options.find((o) => o.optionNo === x.optionNo)?.label, lang)}</span>
-            <span className="num muted">{t('md.mineLine', { amount: formatAmount(x.amount), n: x.betCount })}</span>
+            <span className="num muted">{t('md.mineLine', { amount: formatAmount(x.amount), n: x.betCount, count: x.betCount })}</span>
             {(m.status === 'listed' || m.status === 'paused' || m.status === 'closed') && <b className="num md-mine-win">{t('md.ifWin', { v: formatAmount(x.ifWin) })}</b>}
           </li>
         ))}
@@ -330,44 +429,79 @@ function RulesTab({ m }: { m: Detail }) {
   );
 }
 
-/** 结算合计、本人派彩（M1 提议的字段，后端没有时不显示） */
+/** 结算合计（公开：ΣPay + ΣF + D = T）和本人的结果（后端 S11 的 settle）；取消、作废时是全额退款 */
 function SettleBlock({ m }: { m: Detail }) {
   const { t } = useTranslation();
-  const st = m.settleSummary;
+  const st = m.settle;
   if (!st) return null;
+  const mine = st.mine;
   return (
     <>
-      <h3>{t('md.res.settleTitle')}</h3>
+      <h3>{t(st.kind === 'refund' ? 'md.res.refundTitle' : 'md.res.settleTitle')}</h3>
       <dl className="md-dl two">
-        <div>
-          <dt>{t('md.res.settleFee')}</dt>
-          <dd className="num">{st.feeRate}%</dd>
-        </div>
-        <div>
-          <dt>{t('md.res.payoutTotal')}</dt>
-          <dd className="num">{formatAmount(st.payoutTotal)}</dd>
-        </div>
-        <div>
-          <dt>{t('md.res.feeTotal')}</dt>
-          <dd className="num">{formatAmount(st.feeTotal)}</dd>
-        </div>
-        <div>
-          <dt>{t('md.res.dust')}</dt>
-          <dd className="num">{formatAmount(st.dust)}</dd>
-        </div>
-        {m.myPayout && (
+        {st.kind === 'payout' ? (
           <>
             <div>
+              <dt>{t('md.res.poolTotal')}</dt>
+              <dd className="num">{formatAmount(st.poolTotal)}</dd>
+            </div>
+            <div>
+              <dt>{t('md.res.settleFee')}</dt>
+              <dd className="num">{st.feeRate}%</dd>
+            </div>
+            <div>
+              <dt>{t('md.res.payoutTotal')}</dt>
+              <dd className="num">{formatAmount(st.payoutTotal)}</dd>
+            </div>
+            <div>
+              <dt>{t('md.res.feeTotal')}</dt>
+              <dd className="num">{formatAmount(st.feeTotal)}</dd>
+            </div>
+            <div>
+              <dt>{t('md.res.dust')}</dt>
+              <dd className="num">{formatAmount(st.dust)}</dd>
+            </div>
+            <div>
+              <dt>{t('md.res.positions')}</dt>
+              <dd className="num">{t('md.res.positionsV', { w: st.winnerPositions, l: st.loserPositions })}</dd>
+            </div>
+          </>
+        ) : (
+          <div>
+            <dt>{t('md.res.refundTotal')}</dt>
+            <dd className="num">{formatAmount(st.payoutTotal)}</dd>
+          </div>
+        )}
+        {mine && st.kind === 'payout' && (
+          <>
+            <div>
+              <dt>{t('md.res.myStake')}</dt>
+              <dd className="num">{formatAmount(mine.stake)}</dd>
+            </div>
+            <div>
               <dt>{t('md.res.myPayout')}</dt>
-              <dd className="num up strong">{formatAmount(m.myPayout.payout)}</dd>
+              <dd className={`num strong${mine.payout !== '0.00' ? ' up' : ''}`}>{formatAmount(mine.payout)}</dd>
             </div>
             <div>
               <dt>{t('md.res.myFee')}</dt>
-              <dd className="num">{formatAmount(m.myPayout.fee)}</dd>
+              <dd className="num">{formatAmount(mine.fee)}</dd>
             </div>
           </>
         )}
+        {mine && mine.refund !== '0.00' && (
+          <div>
+            <dt>{t('md.res.myRefund')}</dt>
+            <dd className="num strong">{formatAmount(mine.refund)}</dd>
+          </div>
+        )}
+        {mine && mine.compensation !== '0.00' && (
+          <div>
+            <dt>{t('md.res.myCompensation')}</dt>
+            <dd className="num strong up">{formatAmount(mine.compensation)}</dd>
+          </div>
+        )}
       </dl>
+      {st.kind === 'payout' && <p className="muted small">{t('md.res.conservation')}</p>}
     </>
   );
 }
@@ -398,6 +532,7 @@ function ResolutionTab({ m, onDispute }: { m: Detail; onDispute: () => void }) {
             </div>
           </dl>
         )}
+        <SettleBlock m={m} />
       </div>
     );
   }
@@ -529,8 +664,8 @@ function ClosedPanel({ m, onDispute }: { m: Detail; onDispute: () => void }) {
       <div className="bet-panel-scroll">
         <h2 className="bet-h">{t('bet.title')}</h2>
         <div className="closed-state">
-          <StatusTag status={m.status} />
-          <p>{m.status === 'paused' ? t('bet.paused') : t('bet.closed')}</p>
+          {upcomingOf(m) ? <span className="mk-status s-wait">{t('mk.status.upcoming')}</span> : <StatusTag status={m.status} />}
+          <p>{upcomingOf(m) ? t('bet.notOpen', { t: utcText(m.openAt) }) : m.status === 'paused' ? t('bet.paused') : t('bet.closed')}</p>
           {r && outcomeOptionNo(m) && (
             <p className="closed-res">
               {t(m.status === 'settled' ? 'mk.result' : 'dispute.proposed', { opt: pickText(m.options.find((o) => o.optionNo === outcomeOptionNo(m))?.label, lang) })}
@@ -564,6 +699,41 @@ function ClosedPanel({ m, onDispute }: { m: Detail; onDispute: () => void }) {
   );
 }
 
+/** 电脑右栏（没登录，S13）：选中的选项和概率，"登录后押注"（登录后回到这里、选中同一个选项） */
+function GuestPanel({ m, optionNo }: { m: Detail; optionNo?: string }) {
+  const { t } = useTranslation();
+  const lang = useLang();
+  const from = `/markets/${m.publicNo}${optionNo ? `?opt=${optionNo}` : ''}`;
+  const o = m.options.find((x) => x.optionNo === optionNo);
+  const p = m.pool.options.find((x) => x.optionNo === optionNo);
+  return (
+    <aside className="bet-panel guest" aria-label={t('bet.title')}>
+      <div className="bet-panel-scroll">
+        <h2 className="bet-h">{t('bet.title')}</h2>
+        {o && p && (
+          <dl className="bet-kv">
+            <div>
+              <dt>{pickText(o.label, lang)}</dt>
+              <dd className="num">
+                {p.pct} · {multText(p.mult)}
+              </dd>
+            </div>
+          </dl>
+        )}
+        <p className="muted">{t('guest.betHint')}</p>
+      </div>
+      <div className="bet-panel-foot">
+        <Link to="/login" state={{ from }} className="btn btn-lg btn-block btn-primary" data-testid="guest-bet">
+          {t('guest.loginToBet')}
+        </Link>
+        <Link to="/register" state={{ from }} className="btn btn-block btn-ghost">
+          {t('guest.registerToBet')}
+        </Link>
+      </div>
+    </aside>
+  );
+}
+
 function Tabs({ m, optionNo, onDispute }: { m: Detail; optionNo?: string; onDispute: () => void }) {
   const { t } = useTranslation();
   const resolved = !!m.resolution || m.status === 'voided' || m.status === 'cancelled';
@@ -591,17 +761,32 @@ export default function MarketDetail() {
   const { publicNo = '' } = useParams();
   const navigate = useNavigate();
   const desktop = useIsDesktop();
+  const { session } = useAuth();
+  const guest = !session;
   const [params, setParams] = useSearchParams();
-  const s = useAsync(() => getMarket(publicNo), `market|${publicNo}`);
+  const s = useAsync(() => getMarket(publicNo), `market|${publicNo}|${guest ? 'g' : 'u'}`);
   const m = s.data;
+  const lang = useLang();
+  useTitle(m ? pickText(m.title, lang) : undefined);
+  const status = m?.status;
+  const { setData, reload } = s;
+  // 奖池推送（AC-17）：没结束的市场订阅；推来的奖池不含本人的持仓和限额，沿用详情里的，本人的"赢了约回"按新奖池重算；状态变了重新取详情
+  const watching = !!status && !['settled', 'cancelled', 'voided'].includes(status);
+  useEffect(() => {
+    if (!watching) return undefined;
+    return subscribePools([publicNo], (e) => {
+      setData((d) => (d ? { ...d, pool: mergePool(d.pool, e.pool) } : d));
+      if (e.status !== status) reload();
+    });
+  }, [publicNo, watching, status, setData, reload]);
   const optParam = params.get('opt') ?? undefined;
   const [sheet, setSheet] = useState<string | null>(null);
   const [dispute, setDispute] = useState(false);
   const now = useClock(m && m.status === 'listed' ? Date.parse(m.closeAt) : undefined);
 
-  // 手机：从列表点选项进来时直接打开下注抽屉（只打开一次）
+  // 手机：从列表点选项进来时直接打开下注抽屉（只打开一次）；没登录时不打开（点"押注"才去登录）
   useEffect(() => {
-    if (!desktop && m && m.status === 'listed' && optParam && m.options.some((o) => o.optionNo === optParam)) {
+    if (!guest && !desktop && m && m.status === 'listed' && optParam && m.options.some((o) => o.optionNo === optParam)) {
       setSheet(optParam);
       const next = new URLSearchParams(params);
       next.delete('opt');
@@ -619,9 +804,12 @@ export default function MarketDetail() {
     next.set('opt', no);
     setParams(next, { replace: true });
   };
+  // S14：下注成功后弹出挑战卡（可以关掉）
+  const [challenge, setChallenge] = useState<{ optionNo: string; n: number } | null>(null);
   const placed = (r: BetResult) => {
     s.setData((prev) => (prev ? { ...prev, pool: r.pool } : prev));
     s.reload();
+    setChallenge((c) => ({ optionNo: r.optionNo, n: (c?.n ?? 0) + 1 }));
   };
 
   const back = (
@@ -643,6 +831,7 @@ export default function MarketDetail() {
     return (
       <div className="page page-md">
         {back}
+        <GuestGate error={s.error} />
         <section className="card">
           <ErrorState error={s.error} onRetry={s.reload} />
         </section>
@@ -660,10 +849,14 @@ export default function MarketDetail() {
 
   const main = (
     <div className="md-main">
-      <Header m={m} now={now} />
+      <Header m={m} now={now} onReminder={(r) => s.setData((d) => (d ? { ...d, reminder: r } : d))} />
       <ResultBanner m={m} onDispute={() => setDispute(true)} />
       <section className="md-options" aria-label={t('md.options')}>
-        {desktop ? <OptionTable m={m} selected={selected} onSelect={select} /> : <OptionList m={m} onBet={(no) => setSheet(no)} />}
+        {desktop ? (
+          <OptionTable m={m} selected={selected} onSelect={select} />
+        ) : (
+          <OptionList m={m} onBet={(no) => (guest ? navigate('/login', { state: { from: `/markets/${m.publicNo}?opt=${no}` } }) : setSheet(no))} />
+        )}
         <p className="md-note">
           <Icon name="info" size={14} />
           {m.pool.frozen ? t('md.frozenNote') : m.pool.total === '0.00' ? t('mk.noBetsYet') : t('md.oddsNote')}
@@ -680,12 +873,28 @@ export default function MarketDetail() {
       {desktop ? (
         <div className="md-layout">
           {main}
-          {m.status === 'listed' ? <BetPanel market={m} optionNo={selected} onOption={select} onPlaced={placed} /> : <ClosedPanel m={m} onDispute={() => setDispute(true)} />}
+          {bettable(m) ? (
+            guest ? (
+              <GuestPanel m={m} optionNo={selected} />
+            ) : (
+              <BetPanel market={m} optionNo={selected} onOption={select} onPlaced={placed} />
+            )
+          ) : (
+            <ClosedPanel m={m} onDispute={() => setDispute(true)} />
+          )}
         </div>
       ) : (
         main
       )}
-      {!desktop && sheet && <BetSheet market={m} optionNo={sheet} onClose={() => setSheet(null)} onPlaced={placed} />}
+      {!desktop && sheet && !guest && <BetSheet market={m} optionNo={sheet} onClose={() => setSheet(null)} onPlaced={placed} />}
+      {challenge && (
+        <ShareDialog
+          title={t('share.challengeTitle')}
+          cacheKey={`challenge|${m.publicNo}|${challenge.optionNo}|${challenge.n}|${lang}`}
+          load={() => createShare({ kind: 'challenge', marketNo: m.publicNo, optionNo: challenge.optionNo }, lang)}
+          onClose={() => setChallenge(null)}
+        />
+      )}
       {dispute && (
         <DisputeDialog
           market={m}

@@ -8,6 +8,8 @@ import * as auth from './auth';
 import * as account from './account';
 import { handleUserMessage, subscribeEvents } from './events';
 import * as notifications from './notifications';
+import * as pub from './public';
+import * as share from './share';
 import { setLoggedIn } from './session';
 import * as user from './user';
 import * as wallet from './wallet';
@@ -22,6 +24,7 @@ interface Call {
   method: string;
   body?: unknown;
   credentials?: string;
+  headers?: Record<string, string>;
 }
 
 let calls: Call[] = [];
@@ -37,6 +40,7 @@ function stubFetch(...responses: Array<{ status?: number; body?: unknown } | Err
         url,
         method: init.method ?? 'GET',
         credentials: init.credentials,
+        headers: init.headers as Record<string, string>,
         body: typeof init.body === 'string' ? JSON.parse(init.body) : init.body,
       });
       const r = queue.shift() ?? { status: 200 };
@@ -99,6 +103,19 @@ describe('HTTP：同源、Cookie、错误转换', () => {
     expect(calls[0]).toMatchObject({ url: '/api/auth/login', method: 'POST', credentials: 'same-origin', body: { email: 'a@b.com', password: 'password1' } });
   });
 
+  it('登录、注册带设备号（S10 关联账户）：本机第一次生成、以后不变；别的接口不带', async () => {
+    localStorage.removeItem('fc.device');
+    stubFetch({ body: { userId: '7', email: 'a@b.com' } }, { body: { userId: '7', email: 'a@b.com' } }, { status: 204 });
+    await auth.login('a@b.com', 'password1');
+    const id = calls[0].headers?.['X-Device-Id'];
+    expect(id).toMatch(/^[A-Za-z0-9_-]{16,64}$/);
+    expect(localStorage.getItem('fc.device')).toBe(id);
+    await auth.register({ email: 'a@b.com', password: 'password1', code: '123456' } as Parameters<typeof auth.register>[0]);
+    expect(calls[1].headers?.['X-Device-Id']).toBe(id);
+    await auth.sendEmailCode('a@b.com', 'register');
+    expect(calls[2].headers?.['X-Device-Id']).toBeUndefined();
+  });
+
   it('验证码用途换成后端的枚举；返回 204 时按 60 秒倒计时', async () => {
     stubFetch({ status: 204 });
     expect(await auth.sendEmailCode('a@b.com', 'resetPassword')).toEqual({ cooldownSeconds: 60 });
@@ -124,10 +141,18 @@ describe('HTTP：同源、Cookie、错误转换', () => {
 
   it('注册：验证码错误标在验证码输入框上', async () => {
     stubFetch({ status: 400, body: { code: 'CODE_INVALID', message: '验证码错误', fields: [] } });
-    const e = await auth.register({ email: 'a@b.com', code: '000000', password: 'password1', firstName: 'A', middleName: '', lastName: 'B', birthDate: '1990-01-01', nationality: 'CN' }).catch((x: unknown) => x);
+    const e = await auth.register({ email: 'a@b.com', code: '000000', password: 'password1', firstName: 'A', middleName: '', lastName: 'B', birthDate: '1990-01-01', nationality: 'CN', adultConfirmed: true }).catch((x: unknown) => x);
     expect(e).toBeInstanceOf(ApiError);
     expect((e as ApiError).reason).toBe('codeInvalid');
     expect((e as ApiError).fieldErrors).toEqual({ code: ['errors.codeInvalid'] });
+  });
+
+  it('注册（S11）：没勾"已满 18 岁并同意条款"标在勾选框上，未满 18 岁标在出生日期上', async () => {
+    stubFetch({ status: 400, body: { code: 'VALIDATION_FAILED', fields: [{ field: 'adultConfirmed', code: 'ADULT_REQUIRED' }, { field: 'birthDate', code: 'AGE_UNDER_18' }] } });
+    const e = (await auth
+      .register({ email: 'a@b.com', code: '123456', password: 'password1', firstName: 'A', middleName: '', lastName: 'B', birthDate: '2012-01-01', nationality: 'CN', adultConfirmed: false })
+      .catch((x: unknown) => x)) as ApiError;
+    expect(e.fieldErrors).toEqual({ agree: ['validation.mustAgree'], birthDate: ['validation.ageUnder18'] });
   });
 
   it('改密码：字段名对应到页面表单', async () => {
@@ -363,5 +388,86 @@ describe('Web Push 订阅', () => {
     await syncPushSubscription(true);
     expect(st.unsubscribed).toBe(1);
     expect(st.subscribed).toBe(1);
+  });
+});
+
+describe('S15 SEO 页面（MF-11）', () => {
+  it('列表和一页的地址带语言；401 不当成登录失效', async () => {
+    let lost = 0;
+    const off = onUnauthorized(() => lost++);
+    stubFetch({ body: { items: [] } }, { body: { slug: 'btc-hourly' } }, { status: 401, body: { code: 'UNAUTHORIZED', message: 'x', fields: [] } });
+    await pub.listInsights('zh-TW');
+    await pub.getInsight('btc-hourly', 'en');
+    await expect(pub.getInsight('focus-1', 'en')).rejects.toMatchObject({ reason: 'unauthorized' });
+    expect(calls.map((c) => c.url)).toEqual(['/api/public/insights?lang=zh-TW', '/api/public/insights/btc-hourly?lang=en', '/api/public/insights/focus-1?lang=en']);
+    expect(lost).toBe(0);
+    off();
+  });
+});
+
+describe('S13 不登录也能看的接口（MF-1、MF-3、MF-4、MF-6）', () => {
+  it('今日场次、开奖记录、周报、说明页的地址；401 不当成登录失效', async () => {
+    let lost = 0;
+    const off = onUnauthorized(() => lost++);
+    stubFetch({ body: { from: 'a', to: 'b', items: [], next: null } }, { body: { items: [], total: 0, page: 2, pageSize: 20 } }, { body: { items: [], hasMore: false, page: 1 } },
+      { body: { week: {}, markets: [] } }, { body: { sections: [] } }, { status: 401, body: { code: 'UNAUTHORIZED', message: 'x', fields: [] } });
+    await pub.todaySlate('2026-10-13T16:00:00.000Z', '2026-10-14T16:00:00.000Z');
+    await pub.listResults({ category: 'FOOTBALL', status: 'voided' }, 2, 20);
+    await pub.listWeeks(1);
+    await pub.getWeek('2026-W44');
+    await pub.getHowTo('zh-TW');
+    await expect(pub.listResults({}, 1, 20)).rejects.toMatchObject({ reason: 'unauthorized' });
+    expect(calls.map((c) => c.url)).toEqual([
+      '/api/markets/today?from=2026-10-13T16%3A00%3A00.000Z&to=2026-10-14T16%3A00%3A00.000Z',
+      '/api/public/results?category=FOOTBALL&status=voided&page=2&pageSize=20',
+      '/api/public/weekly?page=1',
+      '/api/public/weekly/2026-W44',
+      '/api/public/pages/how-to-play?lang=zh-TW',
+      '/api/public/results?page=1&pageSize=20',
+    ]);
+    expect(lost).toBe(0);
+    off();
+  });
+
+  it('来源访问：POST 带设备号', async () => {
+    stubFetch({ status: 204 });
+    await pub.recordVisit({ src: 'tg', cmp: 'w1' });
+    expect(calls[0]).toMatchObject({ url: '/api/attribution/visit', method: 'POST', body: { src: 'tg', cmp: 'w1' } });
+    expect(calls[0].headers?.['X-Device-Id']).toBeTruthy();
+  });
+
+  it('注册：带上浏览器里记的来源', async () => {
+    stubFetch({ body: { userId: '1', email: 'a@b.c' } });
+    await auth.register({ email: 'a@b.c', code: '123456', password: 'abc12345', firstName: 'A', middleName: '', lastName: 'B', birthDate: '1990-01-01', nationality: 'CN',
+      adultConfirmed: true, attribution: { first: { src: 'x', at: '2026-10-01T00:00:00.000Z' }, last: { src: 'tg', at: '2026-10-03T00:00:00.000Z' } } });
+    expect(calls[0].body).toMatchObject({ attribution: { first: { src: 'x' }, last: { src: 'tg' } } });
+  });
+});
+
+describe('S14 分享卡片（MF-5）', () => {
+  it('市场卡、周报卡：GET /api/public/share（401 不当成登录失效）；挑战卡、押中的开奖卡：POST /api/me/share 带语言；CARD_NOT_AVAILABLE 有翻译', async () => {
+    let lost = 0;
+    const off = onUnauthorized(() => lost++);
+    const card = { kind: 'market', url: 'u', imageUrl: 'i', title: 't', text: 'x' };
+    stubFetch({ body: card }, { body: card }, { body: card }, { body: card }, { status: 401, body: { code: 'UNAUTHORIZED', message: 'x', fields: [] } },
+      { status: 400, body: { code: 'CARD_NOT_AVAILABLE', message: 'x', fields: [] } });
+    await share.getShare({ kind: 'market', no: '107' }, 'zh-CN');
+    await share.getShare({ kind: 'weekly', week: '2026-W43' }, 'en');
+    await share.createShare({ kind: 'challenge', marketNo: '107', optionNo: '108' }, 'zh-TW');
+    await share.createShare({ kind: 'win', marketNo: '107', showAmount: true }, 'zh-CN');
+    await expect(share.getShare({ kind: 'market', no: '107' }, 'en')).rejects.toMatchObject({ reason: 'unauthorized' });
+    await expect(share.createShare({ kind: 'win', marketNo: '107' }, 'en')).rejects.toMatchObject({ reason: 'cardNotAvailable' });
+    expect(calls.map((c) => `${c.method} ${c.url}`)).toEqual([
+      'GET /api/public/share?kind=market&no=107&lang=zh-CN',
+      'GET /api/public/share?kind=weekly&week=2026-W43&lang=en',
+      'POST /api/me/share',
+      'POST /api/me/share',
+      'GET /api/public/share?kind=market&no=107&lang=en',
+      'POST /api/me/share',
+    ]);
+    expect(calls[2].body).toEqual({ kind: 'challenge', marketNo: '107', optionNo: '108', lang: 'zh-TW' });
+    expect(calls[3].body).toEqual({ kind: 'win', marketNo: '107', showAmount: true, lang: 'zh-CN' });
+    expect(lost).toBe(0);
+    off();
   });
 });

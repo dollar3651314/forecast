@@ -17,7 +17,8 @@ import org.springframework.stereotype.Service;
 
 /**
  * 后台仪表盘的彩池部分（forecast S9，需求说明书第 6.2 节"仪表盘"）：今日 / 近 7 天的下注额、下注人数、平台收入（抽成 + 尾差）、补偿支出、
- * 新注册、充值、提现；待处理：待上架、待提议、待确认、自动裁决失败、超时、争议中、结算异常、彩池对账差异、出金待审核。
+ * 新注册、充值、提现；待处理：待上架、待提议、待确认、自动裁决失败、超时、争议中、结算异常、彩池对账差异、出金待审核；
+ * 场次（S13，SQ-21）：同时开放的市场数 / 上限、今日场次数。
  * "今天"按 UTC 日期（需求第 3.7 节）；"近 7 天" = 今天和前 6 天。和复制源的 {@code /api/admin/dashboard} 分开取（C41：一处慢不拖垮整页）。
  * 只读，不加事务（每个模块的查询各自只读）。
  */
@@ -32,7 +33,10 @@ class MarketDashboardOps {
   record Pending(long review, long awaitingProposal, long awaitingConfirm, long autoFailed, long overdue, long publicizing, long disputed,
       long settleAbnormal, long poolReconOpen, long withdrawalsPending) {}
 
-  record View(Period today, Period week, Pending pending, String updatedAt) {}
+  /** S13（SQ-21，需求第 4.2 节）：同时开放的市场数和上限（0 = 不限）、今天（UTC）列入今日场次的市场数 */
+  record Slate(long open, int limit, long today) {}
+
+  record View(Period today, Period week, Pending pending, Slate slate, String updatedAt) {}
 
   private final PoolAdminApi pool;
   private final SettleAdminApi settle;
@@ -55,7 +59,8 @@ class MarketDashboardOps {
 
   View view() {
     LocalDate today = LocalDate.now(clock.withZone(ZoneOffset.UTC));
-    return new View(period(today, today), period(today.minusDays(6), today), pending(), clock.instant().toString());
+    MarketAdminApi.SlateStats s = markets.slateStats();
+    return new View(period(today, today), period(today.minusDays(6), today), pending(), new Slate(s.open(), s.limit(), s.today()), clock.instant().toString());
   }
 
   private Period period(LocalDate from, LocalDate to) {

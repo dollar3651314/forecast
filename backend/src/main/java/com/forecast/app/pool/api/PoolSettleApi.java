@@ -36,6 +36,9 @@ public interface PoolSettleApi {
   /** 这些客户在这个市场的有效下注（E15 员工），按 user_id、id 升序 */
   List<Bet> activeBetsOfUsers(long marketId, Collection<Long> userIds);
 
+  /** 这个客户有有效下注的市场，按市场 id 升序（forecast S10：员工补登时退回已有的下注，E15） */
+  List<Long> marketsWithActiveBets(long userId);
+
   /** 还没到终点状态的市场（已上架到争议中）：每日彩池对账逐个检查"Σ有效下注 = Σ奖池 = Σ持仓 = 账本锁定" */
   List<Long> openMarkets();
 

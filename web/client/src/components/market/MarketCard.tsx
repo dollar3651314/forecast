@@ -35,7 +35,7 @@ export function MarketCard({ m, now }: { m: Card; now: number }) {
           <CategoryIcon category={m.category} size={14} />
           <span>{pickText(m.league, lang) || t(`mk.cats.${m.category}`)}</span>
         </span>
-        {open ? <CloseLabel closeAt={m.closeAt} now={now} status={m.status} /> : <StatusTag status={m.status} />}
+        {open ? <CloseLabel closeAt={m.closeAt} openAt={m.openAt} now={now} status={m.status} /> : <StatusTag status={m.status} />}
       </div>
       <h3 className="mk-title">
         <Link to={href}>{pickText(m.title, lang)}</Link>
@@ -96,7 +96,7 @@ export function MarketCard({ m, now }: { m: Card; now: number }) {
         <span>
           {t('mk.poolLine', { amount: formatAmount(m.pool.total, { dp: 0 }) })}
           <span className="dot">·</span>
-          {t('mk.people', { n: m.pool.bettors })}
+          {t('mk.people', { n: m.pool.bettors, count: m.pool.bettors })}
         </span>
         {m.pool.total === '0.00' && open ? <span className="mk-first">{t('mk.firstBet')}</span> : null}
       </div>

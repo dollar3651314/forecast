@@ -58,7 +58,7 @@ class CrossSiteGuardTest {
     ArgumentCaptor<Map<String, String>> p = ArgumentCaptor.forClass(Map.class);
     verify(mail, atLeastOnce()).send(eq(email), eq("EMAIL_CODE"), p.capture());
     HttpResponse<String> r = send("POST", "/api/auth/register", "{\"email\":\"" + email + "\",\"code\":\"" + p.getValue().get("code")
-        + "\",\"password\":\"password123\",\"firstName\":\"A\",\"lastName\":\"B\",\"birthDate\":\"1990-05-01\",\"nationality\":\"CN\"}", Map.of());
+        + "\",\"password\":\"password123\",\"firstName\":\"A\",\"lastName\":\"B\",\"birthDate\":\"1990-05-01\",\"nationality\":\"CN\",\"adultConfirmed\":true}", Map.of());
     assertThat(r.statusCode()).isEqualTo(200);
     String setCookie = r.headers().firstValue("set-cookie").orElseThrow();
     cookie = setCookie.substring(0, setCookie.indexOf(';'));

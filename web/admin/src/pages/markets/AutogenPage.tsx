@@ -4,11 +4,13 @@
  * 是否启用和检查记录；接下来的几个窗口（已生成的带市场编号）；按下一个窗口渲染出来的题目、规则、来源、选项（第 4.1 节清单检查时看）。
  * 新建、修改（只能在关闭时）要 market:autogen（高危）；启用要 market:publish，并勾选"已按第 4.1 节清单检查"；关闭要 market:autogen（高危）。
  * 下面是规则文本模板（加密涨跌），有启用中的自动生成用它时不能改（先关闭）。
+ * S13（MF-3）：场次表的每个时刻可以只选星期几（按 UTC 日期；"13:00@1,6,7" = 周一、周六、周日的 13:00 UTC），不选 = 每天；
+ * 场次表生成的市场自动列入今日场次。
  */
 import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert, Button, Card, Checkbox, Col, Drawer, Empty, Form, Input, InputNumber, Radio, Row, Select, Skeleton, Space, Table, Tag } from 'antd';
-import { EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { createAutogen, disableAutogen, enableAutogen, listAutogens, listRuleTemplates, updateAutogen, updateRuleTemplate } from '../../api';
 import type { Autogen, AutogenInput, RuleTemplate } from '../../api/fcTypes';
@@ -20,7 +22,7 @@ import { PermButton } from '../../components/PermButton';
 import { Pill } from '../../components/Pill';
 import { useApi } from '../../hooks/useApi';
 import { useHighRisk } from '../../hooks/useConfirmDialogs';
-import { beijing, textOf, utc } from '../../utils/market';
+import { beijing, beijingNextDay, formatSlot, parseSlot, textOf, utc } from '../../utils/market';
 
 const toInput = (a?: Autogen): AutogenInput => ({
   symbol: a?.symbol ?? 'BTCUSDT',
@@ -53,8 +55,8 @@ function AutogenForm({ init, onChange }: { init: AutogenInput; onChange: (v: Aut
         <Radio value="rolling">{t('ag.rolling')}</Radio>
       </Radio.Group>
       {v.mode === 'schedule' ? (
-        <Form.Item label={t('ag.slots')} extra={t('ag.slotsHint', { bj: v.slots.map((s) => `${s} UTC = ${beijing(s)} ${t('ag.bj')}`).join('；') })} style={{ marginTop: 8 }}>
-          <Select mode="tags" value={v.slots} onChange={(x: string[]) => set({ slots: x })} tokenSeparators={[',', ' ']} placeholder="13:00" />
+        <Form.Item label={t('ag.slots')} extra={t('ag.slotsHint2')} style={{ marginTop: 8 }}>
+          <SlotEditor slots={v.slots} onChange={(x) => set({ slots: x })} />
         </Form.Item>
       ) : (
         <Form.Item label={t('ag.rollingCount')} style={{ marginTop: 8 }}>
@@ -69,6 +71,40 @@ function AutogenForm({ init, onChange }: { init: AutogenInput; onChange: (v: Aut
           <Input value={v.userCap ?? ''} suffix="USDT" placeholder={t('mke.userCapDefault')} onChange={(e) => set({ userCap: e.target.value.trim() || null })} />
         </Form.Item>
       </Space>
+    </div>
+  );
+}
+
+const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7];
+
+/** 一个场次的显示：13:00 UTC · 北京 21:00 · 周一、周六（星期按 UTC） */
+function slotText(s: string, t: (k: string, o?: Record<string, unknown>) => string): string {
+  const p = parseSlot(s);
+  const days = p.days.length ? p.days.map((d) => t(`ag.wd.${d}`)).join(t('ag.wdSep')) : t('ag.everyDay');
+  return `${p.time} UTC · ${t('ag.bj')} ${beijing(p.time)}${beijingNextDay(p.time) ? t('ag.nextDay') : ''} · ${days}`;
+}
+
+/** 场次表编辑：每行一个 UTC 时刻 + 星期（不选 = 每天） */
+function SlotEditor({ slots, onChange }: { slots: string[]; onChange: (v: string[]) => void }) {
+  const { t } = useTranslation();
+  const rows = slots.map(parseSlot);
+  const put = (i: number, p: Partial<ReturnType<typeof parseSlot>>) => onChange(rows.map((r, j) => formatSlot(j === i ? { ...r, ...p } : r)));
+  return (
+    <div className="ag-slots" data-testid="slot-editor">
+      {rows.map((r, i) => (
+        <div key={i} className="ag-slot">
+          <Input value={r.time} style={{ width: 110 }} suffix="UTC" placeholder="13:00" aria-label={t('ag.slotTime')} onChange={(e) => put(i, { time: e.target.value })} />
+          <span className="muted">
+            {t('ag.bj')} {beijing(r.time)}
+            {beijingNextDay(r.time) ? t('ag.nextDay') : ''}
+          </span>
+          <Checkbox.Group value={r.days} onChange={(d) => put(i, { days: d as number[] })} options={WEEKDAYS.map((d) => ({ value: d, label: t(`ag.wdShort.${d}`) }))} />
+          <Button type="text" icon={<DeleteOutlined />} aria-label={t('common.delete')} onClick={() => onChange(slots.filter((_, j) => j !== i))} />
+        </div>
+      ))}
+      <Button size="small" icon={<PlusOutlined />} onClick={() => onChange([...slots, '13:00'])}>
+        {t('ag.addSlot')}
+      </Button>
     </div>
   );
 }
@@ -139,9 +175,7 @@ function AutogenCard({ a, onDone }: { a: Autogen; onDone: () => void }) {
                 <dt>{t('ag.slots')}</dt>
                 <dd>
                   {a.slots.map((s) => (
-                    <Tag key={s}>
-                      {s} UTC · {t('ag.bj')} {beijing(s)}
-                    </Tag>
+                    <Tag key={s}>{slotText(s, t)}</Tag>
                   ))}
                 </dd>
               </div>

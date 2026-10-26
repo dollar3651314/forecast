@@ -223,7 +223,7 @@ class AutoApproveFlowTest {
     assertThat(notices(w.id)).as("和人工通过发的是同一条").containsExactly("APPROVED", "BROADCASTING");
     AutoApproveAdminApi.Detail d = admin.detail(w.id).orElseThrow();
     assertThat(d.configVersion()).isEqualTo(version);
-    assertThat(d.rules()).hasSize(13);
+    assertThat(d.rules()).hasSize(15);
     assertThat(d.rules().stream().filter(x -> x.code().equals("R8")).findFirst().orElseThrow().status()).isEqualTo("disabled");
     assertThat(rule(w.id, "R4").values()).containsEntry("count", "1");
     assertThat(rule(w.id, "R12").values()).containsEntry("balance", "10000000");
@@ -385,8 +385,8 @@ class AutoApproveFlowTest {
   }
 
   @Test
-  void R13_S1过渡期累计净盈利恒为0_等于门槛算通过_调门槛_关掉不参与() {
-    // 复制源里 R13 按差价合约的已实现盈亏、手续费、隔夜费算；forecast S1 恒为 0，S10 改成 Σ(派彩 − 本金) + 补偿，届时补回"盈利转人工"的用例
+  void R13_没下过注的客户累计净盈利为0_等于门槛算通过_调门槛_关掉不参与() {
+    // forecast S10：累计净盈利 = 派彩 + 补偿 − 已结算本金 − 抽成；"盈利转人工"和各组成的真实数据见 wallet/withdraw/AutoApproveS10Test
     save(true, Map.of("R8.enabled", "false"));
     long[] c = customer("1000");
     WithdrawalRow w1 = submit(c, "100");
@@ -394,7 +394,7 @@ class AutoApproveFlowTest {
     withdraws.advance();
     assertThat(checks(w1.id)).containsExactly("PRECHECK AUTO_APPROVED", "FINAL AUTO_APPROVED");
     assertThat(rule(w1.id, "R13").status()).isEqualTo("passed");
-    assertThat(rule(w1.id, "R13").values()).containsEntry("net", "0").containsEntry("realized", "0").containsEntry("limit", "0");
+    assertThat(rule(w1.id, "R13").values()).containsEntry("net", "0").containsEntry("payout", "0").containsEntry("limit", "0");
     String cfg = jdbc.queryForObject("SELECT config_json FROM wallet_withdraw_rule_check WHERE id = ?", String.class, row(w1.id).get("last_check_id"));
     assertThat(cfg.replace(" ", "")).as("快照里有 R13 的门槛").contains("\"maxNetProfit\":\"0\"");
 

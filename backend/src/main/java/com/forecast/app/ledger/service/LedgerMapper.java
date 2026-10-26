@@ -89,6 +89,25 @@ interface LedgerMapper {
   /** since 为空表示全部时间 */
   DepositRow depositsSince(@Param("userId") long userId, @Param("since") LocalDateTime since);
 
+  /** 已结算的盈亏的组成（forecast S10）；marketId 不为空时只算这个市场 */
+  class RealizedRow {
+    Long marketId;
+    BigDecimal payout;
+    BigDecimal compensation;
+    BigDecimal stake;
+    BigDecimal fee;
+    LocalDateTime firstPayoutAt;
+  }
+
+  /** 一个客户的派彩、补偿、已结算的本金、抽成合计；since 为空表示全部时间 */
+  RealizedRow realized(@Param("userId") long userId, @Param("since") LocalDateTime since);
+
+  /** 从 since 起有派彩的市场 */
+  List<Long> paidMarketsSince(@Param("userId") long userId, @Param("since") LocalDateTime since);
+
+  /** 这些市场里，这个客户的派彩、补偿、已结算的本金、抽成合计（全部时间），每个市场一行 */
+  List<RealizedRow> realizedByMarket(@Param("userId") long userId, @Param("marketIds") java.util.Collection<Long> marketIds);
+
   // ---------- 可用余额的流水（客户端、后台） ----------
 
   class EntryRow {

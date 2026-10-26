@@ -4,13 +4,14 @@
  * 暂停 / 恢复、提前截止（market:pause）；取消（market:cancel，截止前）；补充说明（market:clarify，三语）；改费率（fee:edit，结算开始前）；
  * 作废（resolve:void，待裁决 / 公示中 / 争议中）；补偿（settle:compensate，已结算：选正确结果 → 预览每个客户应补多少 → 确认）。
  * 草稿跳到编辑页。
+ * S13（MF-3）：标"今日场次"；已上架、已暂停的市场可以"加入今日场次 / 移出今日场次"（market:publish，写审计）。
  */
 import { useCallback, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { Alert, Card, Col, Descriptions, Form, Input, Radio, Row, Segmented, Skeleton, Space, Table, Tag } from 'antd';
-import { AuditOutlined, ClockCircleOutlined, MessageOutlined, PauseCircleOutlined, PercentageOutlined, PlayCircleOutlined, StopOutlined } from '@ant-design/icons';
+import { Alert, App, Card, Col, Descriptions, Form, Input, Radio, Row, Segmented, Skeleton, Space, Table, Tag } from 'antd';
+import { AuditOutlined, CalendarOutlined, ClockCircleOutlined, MessageOutlined, PauseCircleOutlined, PercentageOutlined, PlayCircleOutlined, StopOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { advanceClose, cancelMarket, changeFee, clarifyMarket, compensate, getMarket, getMarketBets, getSettlement, pauseMarket, previewCompensation, resumeMarket, voidMarket } from '../../api';
+import { advanceClose, cancelMarket, changeFee, clarifyMarket, compensate, getMarket, getMarketBets, getSettlement, pauseMarket, previewCompensation, resumeMarket, setTodaySlate, voidMarket } from '../../api';
 import type { CompPlan, I18nText, MarketDetail, MarketStatus } from '../../api/fcTypes';
 import { DataTable } from '../../components/DataTable';
 import { ErrorState } from '../../components/ErrorState';
@@ -150,6 +151,8 @@ export function MarketDetailPage() {
   const { data: m, error, reload } = useApi(fetcher);
   const hr = useHighRisk();
   const lang = i18n.language;
+  const { message } = App.useApp();
+  const [slateBusy, setSlateBusy] = useState(false);
 
   if (error) return <ErrorState error={error} onRetry={reload} />;
   if (!m) return <Card loading />;
@@ -218,6 +221,19 @@ export function MarketDetailPage() {
       onDone: reload,
     });
 
+  const toggleSlate = async () => {
+    setSlateBusy(true);
+    try {
+      await setTodaySlate(no, !m.todaySlate);
+      void message.success(m.todaySlate ? t('mkd.slateOff') : t('mkd.slateOn'));
+      reload();
+    } catch (e) {
+      void message.error(errorText(t, e));
+    } finally {
+      setSlateBusy(false);
+    }
+  };
+
   const isOpen = OPEN.includes(m.status);
   return (
     <>
@@ -229,6 +245,7 @@ export function MarketDetailPage() {
             <Tag>{t(`mk.cats.${m.category}`)}</Tag>
             <Pill tone={statusTone(m.status)}>{t(`mk.status.${m.status}`)}</Pill>
             {m.resolutionMode ? <Tag>{t(`mk.mode.${m.resolutionMode.toLowerCase()}`)}</Tag> : null}
+            {m.todaySlate ? <Tag color="gold">{t('mk.slateTag')}</Tag> : null}
           </Space>
         }
         extra={
@@ -241,6 +258,11 @@ export function MarketDetailPage() {
             {isOpen ? (
               <PermButton perm="market:pause" icon={<ClockCircleOutlined />} onClick={close}>
                 {t('mkd.advance')}
+              </PermButton>
+            ) : null}
+            {isOpen ? (
+              <PermButton perm="market:publish" icon={<CalendarOutlined />} loading={slateBusy} onClick={() => void toggleSlate()}>
+                {m.todaySlate ? t('mkd.slateRemove') : t('mkd.slateAdd')}
               </PermButton>
             ) : null}
             {isOpen ? (

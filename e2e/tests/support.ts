@@ -81,6 +81,11 @@ export const e2e = {
   async mailSubjects(api: APIRequestContext, email: string): Promise<string[]> {
     return ok(await api.get(`/api/e2e/mail/subjects?email=${encodeURIComponent(email)}`), '取邮件标题');
   },
+  /** 最近一封标题包含 subject 的邮件（S11：开赛提醒邮件的正文和链接）；没有时 null */
+  async mailLast(api: APIRequestContext, email: string, subject: string): Promise<{ subject: string; body: string } | null> {
+    const r = await api.get(`/api/e2e/mail/last?email=${encodeURIComponent(email)}&subject=${encodeURIComponent(subject)}`);
+    return r.ok() ? ((await r.json()) as { subject: string; body: string }) : null;
+  },
   /** 在链替身的下一个区块里向充值地址转 USDT（此时待确认）；scheme 是收款地址的方案（ERC20、BSC 为 FORWARDER 合约地址，TRC20 为 XPUB） */
   async deposit(api: APIRequestContext, chain: string, address: string, amount: string): Promise<{ txHash: string; status: string; scheme: string }> {
     return ok(await api.post('/api/e2e/wallet/deposit', { data: { chain, address, amount } }), '注入充值');

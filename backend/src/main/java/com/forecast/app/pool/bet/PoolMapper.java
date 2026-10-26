@@ -67,6 +67,9 @@ interface PoolMapper {
   /** 每个市场有持仓的客户数（不重复） */
   List<PoolRows.MarketCount> bettorCounts(@Param("marketIds") Collection<Long> marketIds);
 
+  /** S13：每个市场收到过的全部下注（含已退回的）：金额合计、下注人数 */
+  List<PoolRows.MarketPlaced> placed(@Param("marketIds") Collection<Long> marketIds);
+
   /** 一个客户在一批市场的持仓 */
   List<PoolRows.Position> positionsOf(@Param("userId") long userId, @Param("marketIds") Collection<Long> marketIds);
 
@@ -90,6 +93,23 @@ interface PoolMapper {
 
   /** 提现自动审批 R8：从 since 起的有效下注本金（退回的、取消 / 作废市场里的不算） */
   BigDecimal effectiveStakeSince(@Param("userId") long userId, @Param("since") LocalDateTime since);
+
+  // ---------- forecast S10：风控、员工账户 ----------
+
+  List<PoolRows.Bet> betsAfter(@Param("afterId") long afterId, @Param("limit") int limit);
+
+  class UserOption {
+    long userId;
+    long optionId;
+  }
+
+  List<UserOption> optionsOf(@Param("marketId") long marketId, @Param("userIds") java.util.Collection<Long> userIds);
+
+  List<Long> commonMarkets(@Param("a") long userA, @Param("b") long userB, @Param("since") LocalDateTime since);
+
+  List<PoolRows.Bet> activeBetsOn(@Param("marketId") long marketId, @Param("optionId") long optionId, @Param("minAmount") BigDecimal minAmount);
+
+  List<Long> marketsWithActiveBets(@Param("userId") long userId);
 
   /** 这个客户在这个市场的有效持仓个数（S7：能不能提交争议） */
   int hasPosition(@Param("userId") long userId, @Param("marketId") long marketId);
@@ -123,4 +143,13 @@ interface PoolMapper {
 
   /** 按剩下的持仓重算这些选项的人数（定格的人数一起） */
   int recountBettors(@Param("marketId") long marketId, @Param("optionIds") Collection<Long> optionIds);
+
+  /** S13：一个客户在一天里的下注（来源统计） */
+  class UserDay {
+    long userId;
+    java.time.LocalDate day;
+    LocalDateTime firstAt;
+  }
+
+  List<UserDay> userDays(@Param("userIds") java.util.Collection<Long> userIds);
 }

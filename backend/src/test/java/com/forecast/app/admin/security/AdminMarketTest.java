@@ -86,7 +86,7 @@ class AdminMarketTest extends AdminTestSupport {
   /** 建草稿并上架 */
   String listed(Admin a) throws Exception {
     String no = create(a, draft());
-    MockHttpServletResponse r = call(post("/api/admin/markets/" + no + "/publish"), a.cookie(), "{\"checked\":true}");
+    MockHttpServletResponse r = call(post("/api/admin/markets/" + no + "/publish"), a.cookie(), "{\"checked\":true,\"overLimit\":true}");
     assertThat(r.getStatus()).as(r.getContentAsString()).isEqualTo(200);
     return no;
   }
@@ -159,15 +159,15 @@ class AdminMarketTest extends AdminTestSupport {
     assertThat(body(call(get("/api/admin/markets?submitted=true&keyword=" + no), s.cookie(), null)).get("total").asLong()).isEqualTo(1);
     assertThat(fields(call(post("/api/admin/markets/" + no + "/return"), s.cookie(), "{}"))).containsExactly("reason:required");
     assertThat(body(call(post("/api/admin/markets/" + no + "/return"), s.cookie(), "{\"reason\":\"来源写得不清楚\"}")).get("submitted").asBoolean()).isFalse();
-    assertThat(fields(call(post("/api/admin/markets/" + no + "/publish"), s.cookie(), "{}"))).containsExactly("checked:required");
+    assertThat(fields(call(post("/api/admin/markets/" + no + "/publish"), s.cookie(), "{\"overLimit\":true}"))).containsExactly("checked:required");
     Admin s2 = later(s, Duration.ofDays(1));
-    assertThat(fields(call(post("/api/admin/markets/" + no + "/publish"), s2.cookie(), "{\"checked\":true}"))).containsExactly("closeAt:passed");
+    assertThat(fields(call(post("/api/admin/markets/" + no + "/publish"), s2.cookie(), "{\"checked\":true,\"overLimit\":true}"))).containsExactly("closeAt:passed");
     ((MutableClock) clock).reset();
-    JsonNode pub = body(call(post("/api/admin/markets/" + no + "/publish"), s.cookie(), "{\"checked\":true}"));
+    JsonNode pub = body(call(post("/api/admin/markets/" + no + "/publish"), s.cookie(), "{\"checked\":true,\"overLimit\":true}"));
     assertThat(pub.get("status").asString()).isEqualTo("listed");
     assertThat(pub.get("listedBy").asLong()).isEqualTo(s.id());
     assertThat(pub.get("statusLog").get(0).get("from").asString() + ">" + pub.get("statusLog").get(0).get("to").asString()).isEqualTo("draft>listed");
-    assertThat(call(post("/api/admin/markets/" + no + "/publish"), s.cookie(), "{\"checked\":true}").getContentAsString()).as("已上架不能再上架")
+    assertThat(call(post("/api/admin/markets/" + no + "/publish"), s.cookie(), "{\"checked\":true,\"overLimit\":true}").getContentAsString()).as("已上架不能再上架")
         .contains("ILLEGAL_TRANSITION");
   }
 
@@ -226,11 +226,11 @@ class AdminMarketTest extends AdminTestSupport {
     Admin editor = withRoles(role(Permission.MARKET_EDIT, Permission.MARKET_VIEW));
     String mine = create(editor, draft());
     assertThat(call(post("/api/admin/markets/" + mine + "/submit"), editor.cookie(), null).getStatus()).isEqualTo(200);
-    assertThat(call(post("/api/admin/markets/" + mine + "/publish"), editor.cookie(), "{\"checked\":true}").getStatus()).isEqualTo(403);
+    assertThat(call(post("/api/admin/markets/" + mine + "/publish"), editor.cookie(), "{\"checked\":true,\"overLimit\":true}").getStatus()).isEqualTo(403);
     assertThat(call(put("/api/admin/markets/" + mine + "/fee"), editor.cookie(), "{\"feeRate\":\"8\",\"reason\":\"x\"}").getStatus()).isEqualTo(403);
     assertThat(call(post("/api/admin/markets/" + mine + "/pause"), editor.cookie(), "{\"reason\":\"x\"}").getStatus()).isEqualTo(403);
-    assertThat(call(post("/api/admin/markets/" + mine + "/publish"), s.cookie(), "{\"checked\":true}").getStatus()).isEqualTo(200);
-    assertThat(call(post("/api/admin/markets/" + no + "/publish"), s.cookie(), "{\"checked\":true}").getStatus()).as("自己建的自己上架").isEqualTo(200);
+    assertThat(call(post("/api/admin/markets/" + mine + "/publish"), s.cookie(), "{\"checked\":true,\"overLimit\":true}").getStatus()).isEqualTo(200);
+    assertThat(call(post("/api/admin/markets/" + no + "/publish"), s.cookie(), "{\"checked\":true,\"overLimit\":true}").getStatus()).as("自己建的自己上架").isEqualTo(200);
     Admin viewer = withRoles(role(Permission.MARKET_VIEW));
     assertThat(call(post("/api/admin/markets"), viewer.cookie(), toJson(draft())).getStatus()).isEqualTo(403);
     assertThat(call(get("/api/admin/markets/" + no), viewer.cookie(), null).getStatus()).isEqualTo(200);

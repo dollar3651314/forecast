@@ -23,7 +23,8 @@ public interface MarketAutogenAdminApi {
    * @param symbol BTCUSDT / ETHUSDT
    * @param period 15M / 1H
    * @param mode schedule / rolling
-   * @param slots schedule：每天的窗口开始时间（UTC，"HH:mm"），15M 要是 15 分钟的整数倍、1H 要是整点；不能重复
+   * @param slots schedule：窗口开始时间（UTC，"HH:mm"），15M 要是 15 分钟的整数倍、1H 要是整点；同一时刻只能一项。
+   *     S13 起可以限定星期几："HH:mm@1,6,7"（ISO 星期：1 周一 … 7 周日，按 UTC 日期；不带 @ 或七天全选 = 每天）
    * @param rollingCount rolling：未来至少几个窗口（1～96；为空时 15M 用 4、1H 用 3，需求第 4.2 节）
    * @param generateAheadMinutes schedule：开放下注前多少分钟生成（0～10080；为空用 1440，F-I2-1：AC-80 接下来 24 小时的场次都已生成）
    * @param templateNo 规则文本模板编号；为空用第一个加密涨跌模板

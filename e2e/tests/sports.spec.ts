@@ -66,7 +66,7 @@ async function listFromFixture(
   expect(g.created[0].status, '自动生成的不会自动上架').toBe('draft');
   const marketNo = g.created[0].marketNo;
   await json(await admin.post(`/api/admin/markets/${marketNo}/submit`), '提交上架');
-  await json(await admin.post(`/api/admin/markets/${marketNo}/publish`, { data: { checked: true } }), '上架');
+  await json(await admin.post(`/api/admin/markets/${marketNo}/publish`, { data: { checked: true, overLimit: true } }), '上架');
   return { marketNo, primaryRef };
 }
 

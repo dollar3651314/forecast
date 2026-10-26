@@ -72,13 +72,38 @@ public final class PoolViews {
    * @param marketStatus 市场现在的状态（小写，和市场接口一致）
    * @param multAtBet 下注后那一刻这个选项的预计赔率（下注时的奖池快照，只做展示）
    * @param feeRateAtBet 下注时的费率（百分比）
+   * @param category 市场品类（S11，大写，和市场接口一致）
+   * @param finalMult 截止后的最终赔率（定格的奖池、当前费率，S11）；还没截止为 null
+   * @param result 已结算的结果（S11）；其他分组为 null
    */
   public record MyBet(String betNo, String marketNo, Text market, String marketStatus, String optionNo, int seq, Text option, String amount,
-      String receivedAt, String tab, String status, String refundReason, String multAtBet, String feeRateAtBet) {}
+      String receivedAt, String tab, String status, String refundReason, String multAtBet, String feeRateAtBet, String category, String finalMult,
+      Result result) {}
+
+  /**
+   * 已结算下注的结果（forecast S11，需求 P4"派彩 / 抽成"）。结算按持仓算（同一客户同一选项的几笔下注合在一起，只舍入一次，需求第 3.5 节），
+   * 所以派彩、抽成是<b>这个选项的持仓合计</b>，几笔下注显示同一组数字，客户端写明"本选项 n 笔合计"。
+   *
+   * @param won 押中了
+   * @param positionAmount 这个选项的持仓本金合计
+   * @param positionBets 持仓合计了几笔有效下注
+   * @param payout 实际到账的派彩（已扣抽成；没押中为 0.00）
+   * @param fee 抽成（没押中为 0.00）
+   */
+  public record Result(boolean won, String positionAmount, int positionBets, String payout, String fee) {}
 
   /** 一个分组的笔数和金额 */
   public record TabSum(long count, String amount) {}
 
-  /** 我的下注：一页 + 四个分组的汇总（键 active / pending / settled / refunded，没有的为 0） */
-  public record MyBets(List<MyBet> items, long total, int page, int pageSize, Map<String, TabSum> summary) {}
+  /**
+   * 顶部汇总（forecast S11，需求 P4"总下注 · 总派彩 · 净盈亏"）。
+   *
+   * @param staked 总下注：有效下注的本金合计（进行中、待结果、已结算；已退回的不算）
+   * @param payout 总派彩：已结算市场的派彩（已扣抽成）+ 补偿
+   * @param net 净盈亏 = 总派彩 − 已结算的下注本金（还没结算的下注不算，和提现自动审批的"已结算盈亏"口径一致）
+   */
+  public record Totals(String staked, String payout, String net) {}
+
+  /** 我的下注：一页 + 四个分组的汇总（键 active / pending / settled / refunded，没有的为 0）+ 顶部汇总（S11） */
+  public record MyBets(List<MyBet> items, long total, int page, int pageSize, Map<String, TabSum> summary, Totals totals) {}
 }

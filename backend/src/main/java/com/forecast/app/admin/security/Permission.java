@@ -93,7 +93,21 @@ public enum Permission {
   BETTING_PARAMS_EDIT("betting_params:edit", "params", true),
   /** 风控告警（S10） */
   RISK_ALERT_VIEW("risk_alert:view", "risk", false),
-  RISK_ALERT_HANDLE("risk_alert:handle", "risk", false);
+  RISK_ALERT_HANDLE("risk_alert:handle", "risk", false),
+  /** 来源统计、增长数据 CSV 导出（S13，MF-1、MF-10；需求第 6.2 节） */
+  GROWTH_VIEW("growth:view", "growth", false),
+  /**
+   * 内容中心（需求第 2.2、6.2 节、自动化需求第 7 节；S15 建，S16 同名同义，整合 4 去重成一份）：查看草稿箱、事件候选、页面、日志、用量；
+   * 查看 Telegram 机器人的状态、渠道、模板、发布日志（S16）
+   */
+  CONTENT_VIEW("content:view", "content", false),
+  /** 修改草稿和模板、手动触发生成、录入经济日历（市场草稿仍要 market:publish 才能上架） */
+  CONTENT_EDIT("content:edit", "content", false),
+  /**
+   * 对外发布（高危；C73：对外发布由 Amos 决定，默认只有超管有）：发布草稿箱里的内容、改内容中心的设置和词表、内容中心的紧急停止（S15）；
+   * Telegram 卡片模板审定 / 停用、渠道开关、Telegram 紧急停止、等候页"发送上线通知"（S16）
+   */
+  CONTENT_PUBLISH("content:publish", "content", true);
 
   public final String code;
   public final String module;

@@ -7,6 +7,11 @@ import { ApiError } from '../api/types';
  */
 export function errorText(t: TFunction, err: unknown): string {
   if (!(err instanceof ApiError)) return t('errors.unknown');
+  // forecast S15：业务错误码（市场、裁决、内容中心）按 errors.fc.<code> 显示，翻译里可以用后端的说明 {{detail}}
+  if (err.reasonKey === 'errors.unknown' && err.code) {
+    const fc = t(`errors.fc.${err.code}`, { ...(err.params ?? {}), defaultValue: '' });
+    if (fc) return fc;
+  }
   const base = t(err.reasonKey, err.params ?? {});
   if (!err.fields?.length || err.reasonKey !== 'errors.validationFailed') return base;
   const details = err.fields.map((f) =>

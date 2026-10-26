@@ -110,7 +110,8 @@
     "text_zhTW": "Traditional clarification",
     "options_label": "Option text",
     "options_winCondition": "Option win condition",
-    "plays_line": "Line"
+    "plays_line": "Line",
+    "chatId": "Channel id"
   },
   "apiFieldCode": {
     "ageUnder18": "is under 18",
@@ -183,7 +184,9 @@
     "customer": {
       "edit": "Edit customer profile",
       "freeze": "Froze customer",
-      "unfreeze": "Unfroze customer"
+      "unfreeze": "Unfroze customer",
+      "staff": "Register staff account",
+      "unstaff": "Unregister staff account"
     },
     "holiday": {
       "create": "Added holiday",
@@ -226,6 +229,12 @@
       "settings_update": "Update sweep parameters",
       "target_request": "Request cold wallet change",
       "target_cancel": "Cancel cold wallet change"
+    },
+    "risk_alert": {
+      "status": "Handle risk alert"
+    },
+    "growth": {
+      "export": "Export acquisition stats"
     }
   },
   "auth": {
@@ -405,7 +414,29 @@
     "time": "Time",
     "title": "Customers",
     "unfreeze": "Unfreeze customer",
-    "unfreezeImpact": "The customer can sign in and withdraw again."
+    "unfreezeImpact": "The customer can sign in and withdraw again.",
+    "staffTag": "Staff",
+    "staffOn": "Register as staff",
+    "staffOff": "Unregister staff",
+    "staffOnImpact": "Once registered, this account cannot bet. Its existing bets in markets not yet being settled are refunded in full right away (E15); settled markets are not changed.",
+    "staffOffImpact": "After unregistering the account can bet again; refunded bets are not restored.",
+    "confirmStaffOn": "Register",
+    "confirmStaffOff": "Unregister",
+    "staffRefunded": "Refunded {{bets}} bets in {{markets}} markets, {{amount}} USDT in total",
+    "staffNoRefund": "No bets needed refunding",
+    "staffBanner": "This is a registered staff account: it cannot bet",
+    "linksTitle": "Linked accounts",
+    "noLinks": "No linked accounts found",
+    "linkedCustomer": "Customer",
+    "linkReason": "Reason",
+    "linkEvidence": "Shared value",
+    "linkSince": "First seen",
+    "linkReasons": {
+      "device": "Same device",
+      "ip": "Same IP (sign-up / login)",
+      "deposit_from": "Same deposit source address",
+      "withdraw_to": "Same withdrawal address"
+    }
   },
   "dashboard": {
     "failedTasks": "Failed tasks",
@@ -542,7 +573,25 @@
       "TEMPLATE_CHANGED": "Someone just changed this template. Please refresh.",
       "FIXTURE_STARTED": "The match has started; the mapping cannot change.",
       "NOT_MAPPED": "No mapping confirmed yet.",
-      "OPTION_NOT_FOUND": "Option not found. Please refresh."
+      "OPTION_NOT_FOUND": "Option not found. Please refresh.",
+      "CONTENT_DISABLED": "The content program is off (FC_CONTENT_ENABLED). Everything else works as usual.",
+      "AI_UNAVAILABLE": "AI drafting is unavailable: {{detail}}. Write it by hand or try again later.",
+      "DATA_UNAVAILABLE": "Data is unavailable ({{detail}}).",
+      "DRAFT_STATE_CHANGED": "Someone just handled this draft. Refresh and check again.",
+      "DRAFT_CHECK_FAILED": "Checks failed ({{detail}}). Fix and save before publishing.",
+      "DRAFT_EXPIRED": "The draft has expired (market closed or data too old) and cannot be published.",
+      "DRAFT_COPY_ONLY": "This kind of draft is copied and posted by hand, not published on the site.",
+      "PUBLISH_STOPPED": "Publishing is on emergency stop. Resume before publishing or copying.",
+      "PAGE_LIMIT": "Today's new-page limit is reached ({{detail}}).",
+      "ARTICLE_LIMIT": "This week's article limit is reached ({{detail}}).",
+      "MARKET_STARTED": "The market has started or closed; this kind of draft can no longer be generated.",
+      "ECON_STATE_CHANGED": "This calendar entry was just handled. Refresh and check again.",
+      "CONTENT_TEMPLATE_CHANGED": "Someone just changed the template. Refresh before editing.",
+      "WORD_BUILT_IN": "Built-in words cannot be deleted.",
+      "CONTENT_BANNED_WORDS": "Words that are not allowed were found ({{detail}}). Nothing was saved.",
+      "LAUNCH_ALREADY_SENT": "The launch email has already been sent (only once for the whole site).",
+      "TELEGRAM_TEMPLATE_CHANGED": "The template text changed after the preview. Open the preview again before approving.",
+      "TELEGRAM_NO_PREVIEW": "No market has ended yet, so there is nothing to preview."
     }
   },
   "funds": {
@@ -652,7 +701,19 @@
     "settleRuns": "Settlement runs",
     "compensations": "Compensation",
     "reports": "Reports",
-    "poolRecon": "Pool reconciliation"
+    "poolRecon": "Pool reconciliation",
+    "riskAlerts": "Risk alerts",
+    "growth": "Acquisition",
+    "content": "Content",
+    "contentDrafts": "Drafts",
+    "contentEvents": "Event candidates",
+    "contentPages": "Pages",
+    "contentTemplates": "Templates",
+    "contentTools": "Tools",
+    "contentLogs": "Logs",
+    "contentSettings": "Usage & settings",
+    "waitlist": "Waitlist",
+    "telegram": "Telegram bot"
   },
   "menus": {
     "group": "Group",
@@ -722,7 +783,11 @@
     "fee_edit": "Edit fees",
     "betting_params_edit": "Edit betting parameters",
     "risk_alert_view": "View risk alerts",
-    "risk_alert_handle": "Handle risk alerts"
+    "risk_alert_handle": "Handle risk alerts",
+    "growth_view": "View acquisition stats (incl. export)",
+    "content_view": "View the content center (including the Telegram bot and posting log)",
+    "content_edit": "Generate and edit content drafts",
+    "content_publish": "Publish externally: publish content, change content settings, Telegram channels and template approval, emergency stop, launch email (high risk)"
   },
   "permModule": {
     "customer": "Customers",
@@ -735,7 +800,9 @@
     "market": "Markets",
     "resolve": "Resolution & disputes",
     "settle": "Settlement & reconciliation",
-    "params": "Parameters & fees"
+    "params": "Parameters & fees",
+    "growth": "Growth",
+    "content": "Content & publishing"
   },
   "permissions": {
     "code": "Code",
@@ -1131,24 +1198,24 @@
     },
     "R8": {
       "name": "Betting after deposit",
-      "desc": "Bet amount since the earliest deposit credited in the last 30 days ≥ those deposits × N (S1 has no betting yet, so the amount is 0 and customers with deposits go to manual review)",
+      "desc": "Effective bets placed after the earliest deposit of the last 30 days ≥ deposits × N (refunded bets — cancelled, voided, late, staff — do not count)",
       "param": {
         "multiple": "Multiple"
       },
-      "pass": "Bets {{volume}} / deposits {{deposit}} = {{ratio}}× ≥ {{limit}}×",
-      "fail": "Bets {{volume}} / deposits {{deposit}} = {{ratio}}× < {{limit}}×",
+      "pass": "Effective bets {{volume}} / deposits {{deposit}} = {{ratio}}x ≥ {{limit}}x",
+      "fail": "Effective bets {{volume}} / deposits {{deposit}} = {{ratio}}x < {{limit}}x",
       "noDeposit": "No deposits in the last 30 days; not checked"
     },
     "R9": {
       "name": "Withdrawals within deposits + P&L",
-      "desc": "Total withdrawals (this and in-progress included) ≤ total deposits + realized P&L; otherwise manual (S1 has no betting yet, realized P&L is 0)",
+      "desc": "Total withdrawals (incl. this one and in-progress ones) ≤ total deposits + settled P&L (payouts + compensation − settled stakes − fees); otherwise manual",
       "fixed": "No value: manual when exceeded",
       "pass": "Withdrawn {{withdrawn}} ≤ deposits {{deposit}} + P&L {{pnl}} = {{cap}}",
       "fail": "Withdrawn {{withdrawn}} > deposits {{deposit}} + P&L {{pnl}} = {{cap}}"
     },
     "R10": {
       "name": "7-day profit",
-      "desc": "Realized profit in the last 7 days (rolling) is within the amount cap, or within N% of principal (either one passes)",
+      "desc": "Settled profit in the last 7 days (rolling) ≤ the amount cap, or ≤ N% of principal (either passes)",
       "param": {
         "maxProfit7d": "Amount cap",
         "maxProfitPct": "Or % of principal"
@@ -1179,12 +1246,31 @@
     },
     "R13": {
       "name": "Profitable customer",
-      "desc": "Cumulative net profit since account opening (realized P&L − fees) must not exceed the threshold; equal passes (S1 has no betting yet, counted as 0)",
+      "desc": "Net profit since sign-up (payouts + compensation − settled stakes − fees; refunded and unsettled bets excluded) ≤ threshold; above it goes manual, equal passes",
       "param": {
         "maxNetProfit": "Threshold"
       },
-      "pass": "Net profit {{net}} = realized {{realized}} − fees {{fee}} − swaps {{swap}}, threshold {{limit}} (not exceeded)",
-      "fail": "Net profit {{net}} = realized {{realized}} − fees {{fee}} − swaps {{swap}}, threshold {{limit}} (exceeded, manual review)"
+      "pass": "Net profit {{net}} = payouts {{payout}} + compensation {{compensation}} − stakes {{stake}} − fees {{fee}}, threshold {{limit}} (not above)",
+      "fail": "Net profit {{net}} = payouts {{payout}} + compensation {{compensation}} − stakes {{stake}} − fees {{fee}}, threshold {{limit}} (above: manual)"
+    },
+    "R14": {
+      "name": "Linked accounts on opposite options",
+      "desc": "In markets that paid this customer in the last N days where a linked account (same device, IP, deposit source or withdrawal address) bet on another option, the profit from them ≤ threshold; above it goes manual",
+      "param": {
+        "days": "Last",
+        "minProfit": "Profit threshold"
+      },
+      "pass": "{{markets}} market(s) with linked opposite bets in {{days}} days, profit {{profit}} ≤ {{limit}}",
+      "fail": "{{markets}} market(s) with linked opposite bets in {{days}} days ({{linked}} linked account(s)), profit {{profit}} > {{limit}}"
+    },
+    "R15": {
+      "name": "Suspicious wins",
+      "desc": "No unhandled (new / seen) \"new account won a long shot\" or \"large late bet\" risk alerts in the last N days; otherwise manual",
+      "param": {
+        "days": "Last"
+      },
+      "pass": "No unhandled suspicious alerts in {{days}} days",
+      "fail": "{{count}} unhandled suspicious alert(s) in {{days}} days (handle them under Risk alerts)"
     }
   },
   "autoReview": {
@@ -1640,7 +1726,9 @@
     "reviewSub": "Drafts submitted by operations: check against section 4.1 and list them, or return them with a reason",
     "reviewHint": "One person with market:publish is enough (RQ-17); they may also list their own drafts",
     "reviewEmpty": "No drafts awaiting listing",
-    "emptyFiltered": "No markets match the filters; clear them to see more"
+    "emptyFiltered": "No markets match the filters; clear them to see more",
+    "slateOnly": "Today's slate only",
+    "slateTag": "Today"
   },
   "mke": {
     "titleEdit": "Edit market draft",
@@ -1706,7 +1794,15 @@
     "return": "Return draft",
     "deleteTitle": "Delete draft",
     "deleteNote": "Note (cannot be undone; only drafts can be deleted)",
-    "delete": "Delete draft"
+    "delete": "Delete draft",
+    "slate": "Include in today's slate",
+    "slateHint": "The client's \"Today\" strip only shows ticked markets that start today (schedule-generated markets are ticked automatically)",
+    "openNowLabel": "Open at once",
+    "openNow": "{{open}} open now, limit {{limit}}",
+    "openNoLimit": "{{open}} open now, no limit",
+    "overWarn": "Listing one more exceeds the open-market limit ({{limit}}). Keep few markets open so bets concentrate (section 4.2); tick \"List anyway\" if you really need it",
+    "overOk": "List anyway (over the limit)",
+    "overFirst": "Over the open-market limit: tick \"List anyway\" first"
   },
   "rs": {
     "title": "Resolution desk",
@@ -1840,7 +1936,7 @@
   },
   "pm": {
     "title": "Parameters",
-    "sub": "Default fees, bet limits, dispute windows, KYC threshold, minimum withdrawal",
+    "sub": "Category fees, bet limits, dispute windows, KYC threshold, minimum withdrawal, risk alert thresholds",
     "hint": "Changes are high-risk: a reason is required and before → after is audited. Default fees only apply to markets created afterwards.",
     "group": {
       "fee": "Default fee by category",
@@ -1850,7 +1946,9 @@
       "crypto": "Crypto market timing",
       "dispute": "Dispute window (platform resolution)",
       "resolve": "Resolution deadlines (platform)",
-      "sports": "Sports fixtures"
+      "sports": "Sports fixtures",
+      "risk": "Risk alerts",
+      "slate": "Slate"
     },
     "key": {
       "market_fee_FOOTBALL": "Football",
@@ -1885,7 +1983,15 @@
       "sports_closeLeadMinutes_FOOTBALL": "Football: close before kick-off",
       "sports_closeLeadMinutes_NBA": "NBA: close before kick-off",
       "sports_eventMinutes_FOOTBALL": "Football: event length",
-      "sports_eventMinutes_NBA": "NBA: event length"
+      "sports_eventMinutes_NBA": "NBA: event length",
+      "risk_lateBet_minutes": "Large late bet: within minutes before close",
+      "risk_lateBet_poolPct": "Large late bet: share of the pool after the bet",
+      "risk_lateBet_minAmount": "Large late bet: minimum single bet (0 = no minimum)",
+      "risk_longshot_accountDays": "Long shot: account age counted as new",
+      "risk_longshot_minAmount": "Long shot: single bet at least",
+      "risk_longshot_minOdds": "Long shot: odds at least",
+      "risk_link_maxUsersPerKey": "Linked accounts: max customers per device / IP / address",
+      "market_maxOpen": "Max markets open at once"
     },
     "hours": "{{n}} h",
     "minutes": "{{n}} min",
@@ -1903,7 +2009,18 @@
     "feeNote": "Charged on winners’ profit only; per-market fees are edited in Markets.",
     "noPerm": "No permission ({{perm}})",
     "resolveNote": "Overdue items are flagged on the resolution desk and emailed to the responsible roles",
-    "sportsNote": "Used when generating drafts from fixtures: close N minutes before kick-off; event end = kick-off + N minutes"
+    "sportsNote": "Used when generating drafts from fixtures: close N minutes before kick-off; event end = kick-off + N minutes",
+    "countUnit": {
+      "risk_longshot_accountDays": "{{n}} days",
+      "risk_link_maxUsersPerKey": "{{n}}",
+      "market_maxOpen": "{{n}}"
+    },
+    "multiple": "{{n}}x",
+    "pctUnit": "%",
+    "usdtUnit": "USDT",
+    "multUnit": "x",
+    "riskNote": "Odds are after the fee (as customers see them); a value shared by more customers than the limit (public networks, exchange addresses) no longer links them.",
+    "slateNote": "When listing would exceed this number, the admin must also tick \"List anyway\" (not a hard block; audited). 0 = no limit. Suggested 1–3 (section 4.2)"
   },
   "dash": {
     "sub": "Today / last 7 days in UTC; open an item to handle it",
@@ -1933,7 +2050,11 @@
       "poolReconOpen": "Pool reconciliation issues",
       "withdrawalsPending": "Withdrawals to review",
       "kyc": "KYC to review"
-    }
+    },
+    "slate": "Slate",
+    "openNow": "Open now / limit",
+    "noLimit": "no limit",
+    "todaySlate": "Today's slate (starting today, UTC)"
   },
   "mkd": {
     "pool": "Pool and bets",
@@ -2004,7 +2125,11 @@
     "feeChanges": "Fee changes ({{n}})",
     "statusLog": "Status history",
     "none": "None",
-    "notified": "Notified"
+    "notified": "Notified",
+    "slateAdd": "Add to today's slate",
+    "slateRemove": "Remove from today's slate",
+    "slateOn": "Added to today's slate",
+    "slateOff": "Removed from today's slate"
   },
   "ag": {
     "title": "Crypto auto-generation",
@@ -2055,7 +2180,31 @@
     "tplSaveNote": "Auto-generations using it must be checked again before enabling",
     "tplInUse": "An enabled auto-generation uses this template; disable it first",
     "vars": "Available variables",
-    "tplName": "Name"
+    "tplName": "Name",
+    "slotsHint2": "One UTC time per row (hourly: on the hour; 15-min: multiples of 15). Weekdays follow the UTC date; none ticked = every day. Schedule-generated markets join today's slate automatically",
+    "slotTime": "Time (UTC)",
+    "addSlot": "Add a time",
+    "everyDay": "every day",
+    "nextDay": " (+1 day)",
+    "wdSep": ", ",
+    "wd": {
+      "1": "Mon",
+      "2": "Tue",
+      "3": "Wed",
+      "4": "Thu",
+      "5": "Fri",
+      "6": "Sat",
+      "7": "Sun"
+    },
+    "wdShort": {
+      "1": "Mo",
+      "2": "Tu",
+      "3": "We",
+      "4": "Th",
+      "5": "Fr",
+      "6": "Sa",
+      "7": "Su"
+    }
   },
   "sp": {
     "title": "Sports fixtures",
@@ -2291,5 +2440,616 @@
     "date": "Date",
     "byMarket": "By market (completed payout runs)",
     "noRuns": "No completed runs yet"
+  },
+  "ra": {
+    "title": "Risk alerts",
+    "sub": "Large late bets, linked accounts on opposite options, new accounts winning long shots, withdrawals without betting; new alerts are emailed — mark the outcome after review",
+    "kindAll": "All types",
+    "kindAllN": "All types · {{n}}",
+    "kind": {
+      "late_large_bet": "Large late bet",
+      "linked_opposite": "Linked accounts, opposite options",
+      "new_account_longshot": "New account won a long shot",
+      "deposit_no_bet": "Withdrawal without betting"
+    },
+    "status": {
+      "new": "New",
+      "seen": "Seen",
+      "handled": "Handled",
+      "false_positive": "False positive"
+    },
+    "statusAll": "All statuses",
+    "keyword": "Customer",
+    "keywordPh": "Customer ID, email or name",
+    "emptyNew": "No new alerts",
+    "empty": "No alerts",
+    "emptyFiltered": "No alerts match the filters",
+    "time": "Raised (UTC)",
+    "kindCol": "Type",
+    "customer": "Customer",
+    "market": "Market",
+    "amount": "Amount",
+    "detailCol": "Why",
+    "statusCol": "Status",
+    "to": {
+      "seen": "Mark seen",
+      "handled": "Handled",
+      "false_positive": "False positive"
+    },
+    "noteLabel": "Note (required, recorded in the audit log)",
+    "notePh": {
+      "handled": "e.g. Contacted the customer and restricted withdrawals",
+      "false_positive": "e.g. Two accounts of the same household, verified"
+    },
+    "detail": {
+      "late_large_bet": "Bet {{sec}} s before close, {{pct}}% of the pool after the bet (pool {{pool}}; threshold: within {{limitMinutes}} min, ≥ {{limitPct}}%, single bet ≥ {{limitAmount}})",
+      "linked_opposite": "Linked account(s) {{users}} bet on a different option in the same market",
+      "new_account_longshot": "Won {{odds}}x on day {{days}} after sign-up (threshold: within {{limitDays}} days)",
+      "deposit_no_bet": "Deposited {{deposit}} in 30 days, effective bets only {{stake}} (required {{multiple}}x), then requested withdrawal {{no}}"
+    }
+  },
+  "gr": {
+    "title": "Acquisition",
+    "sub": "Sign-ups, first deposits, first bets and week-2 betting by source and sign-up week",
+    "range": "{{from}} ~ {{to}} (UTC, whole weeks)",
+    "recent8": "Last 8 weeks",
+    "basis": {
+      "first": "By first source",
+      "reg": "By sign-up source"
+    },
+    "exportCsv": "Export CSV",
+    "export": {
+      "sources": "By source (week × source)",
+      "markets": "By market (ended markets)",
+      "customers": "By customer (customer numbers only)"
+    },
+    "exported": "Exported",
+    "note": "Weeks are ISO weeks in UTC (from Monday). First source = recorded the first time the site was opened with source parameters; sign-up source = the one present at sign-up. No source = \"Direct\". Week-2 betting = bet on days 8–14 after sign-up; customers whose week 2 has not ended are not in the denominator. Exports contain no email, address or ID data",
+    "truncated": "Too many sign-ups in this range; only the first part was counted. Narrow the date range",
+    "totals": "Totals",
+    "visits": "Visits",
+    "registrations": "Sign-ups",
+    "firstDeposits": "First deposits",
+    "activated": "Activated (first bet)",
+    "week2": "Week-2 betting",
+    "ofEligible": "/ {{n}} · {{pct}}",
+    "bySource": "By sign-up week and source",
+    "direct": "Direct",
+    "refBy": "ref {{ref}}",
+    "notYet": "not yet",
+    "emptyCohorts": "No sign-ups in this range",
+    "marketWeeks": "Markets by week",
+    "marketWeeksHint": "Valid rate = settled / ended",
+    "reasons": "Void and cancel reasons",
+    "noReasons": "No voided or cancelled markets in this range",
+    "noReason": "No reason given",
+    "endedMarkets": "Ended markets ({{n}})",
+    "emptyMarkets": "No markets ended in this range",
+    "col": {
+      "week": "Week",
+      "source": "Source (src / cmp / ref)",
+      "ended": "Ended",
+      "validRate": "Valid rate",
+      "median": "Median bettors per market",
+      "endedAt": "Ended at (UTC)",
+      "reason": "Reason"
+    },
+    "refCustomer": "Shared by {{no}}"
+  },
+  "ct": {
+    "kind": {
+      "PREVIEW": "Match preview",
+      "BRIEF": "Post-match brief",
+      "SEO_INTRO": "SEO page intro",
+      "ARTICLE": "Article",
+      "POST_X": "X post",
+      "POST_TG": "Telegram post",
+      "REPLY": "Reply",
+      "BTC_STATS": "BTC stats",
+      "FOCUS": "Focus match",
+      "FOMC": "FOMC",
+      "CPI": "US CPI",
+      "SPORTS": "Sports fixtures",
+      "DATA_CARD": "Data card",
+      "COMPARE": "Comparison"
+    },
+    "status": {
+      "GENERATING": "Generating",
+      "PENDING": "Pending review",
+      "PUBLISHED": "Published",
+      "REJECTED": "Rejected",
+      "EXPIRED": "Expired",
+      "FAILED": "Failed"
+    },
+    "lang": {
+      "zh": "Chinese",
+      "en": "English"
+    },
+    "drafts": {
+      "title": "Drafts",
+      "sub": "Everything the program writes lands here first. It only appears on the site after you review and publish it; posts and replies are copied and posted by hand.",
+      "generate": "Generate draft",
+      "kind": "Kind",
+      "lang": "Language",
+      "titleCol": "Title",
+      "status": "Status",
+      "checks": "Checks",
+      "target": "Subject",
+      "created": "Generated (UTC)",
+      "expires": "Expires (UTC)",
+      "empty": "No drafts",
+      "generating": "Generating…"
+    },
+    "checks": {
+      "ok": "Passed",
+      "bad": "{{n}} issue(s)",
+      "allOk": "Checks passed: every number is in the cited data; no banned words or leading language.",
+      "numbers": "Numbers not in the cited data (marked red): {{list}}",
+      "banned": "Banned words: {{list}}",
+      "tendency": "Leading language: {{list}}",
+      "polymarket": "Cites Polymarket without saying \"for reference only, not this site's data\"",
+      "length": "Too long: {{n}} characters, limit {{max}}",
+      "missing": "Missing: {{list}}"
+    },
+    "drawer": {
+      "title": "Draft (Chinese / English)",
+      "title2": "Title",
+      "body": "Body",
+      "length": "{{n}} / {{max}} characters",
+      "preview": "Preview",
+      "expires": "Expires {{at}}",
+      "failed": "Failure reason: {{reason}}",
+      "rejected": "Rejection reason: {{reason}}",
+      "saved": "Saved and re-checked",
+      "saveFirst": "Save your changes first",
+      "cannotPublish": "Checks failed, expired or wrong status; cannot publish",
+      "publish": "Publish",
+      "publishTitle": "Publish to the site",
+      "publishDesc": "It appears on the site right away (SEO pages are added to the sitemap).",
+      "approve": "Approve",
+      "approveTitle": "Approve (copy and post by hand)",
+      "approveDesc": "You copy this and post it on X / Telegram yourself; the program never posts automatically.",
+      "defaultReason": "Numbers and wording checked",
+      "copy": "Copy",
+      "copied": "Copied and logged",
+      "reject": "Reject",
+      "rejectLabel": "Reason",
+      "rejectPh": "e.g. wrong number, unsuitable wording",
+      "retry": "Regenerate",
+      "retried": "Queued for regeneration",
+      "site": "View on site"
+    },
+    "refs": {
+      "title": "Cited data ({{n}})",
+      "label": "Item",
+      "value": "Value",
+      "source": "Source",
+      "at": "Time (UTC)"
+    },
+    "gen": {
+      "title": "Generate draft",
+      "ok": "Generate",
+      "note": "The program fetches data and asks Gemini for a Chinese and an English draft. Without Gemini you get the data and a blank template to write by hand.",
+      "market": "Market number",
+      "marketHint": {
+        "PREVIEW": "A sports market before kick-off (or any listed market)",
+        "BRIEF": "A settled market",
+        "POST_X": "A listed market; the post carries a share link",
+        "POST_TG": "A listed market; the post carries a share link"
+      },
+      "page": "Page",
+      "pageHint": "btc-hourly or focus-xxx (see Pages)",
+      "topic": "Topic",
+      "topicHint": "e.g. BTC hourly up/down stats; only what the cited data supports",
+      "langs": "Languages",
+      "langsValue": "One Chinese and one English (Traditional is converted from Simplified)"
+    },
+    "banner": {
+      "stopped": "Publishing is on emergency stop: drafts are still generated but cannot be published or copied.",
+      "unconfigured": "Gemini is not configured: AI drafting is unavailable; view data and write by hand.",
+      "paused": "Gemini is rate-limited; this feature is paused.",
+      "quota": "Today's Gemini quota is used up; it resets at 00:00 UTC.",
+      "disabled": "AI drafting is turned off in settings.",
+      "still": "Market drafts, data cards and page data keep updating."
+    },
+    "geminiState": {
+      "ok": "OK",
+      "unconfigured": "Not configured",
+      "paused": "Paused (rate-limited)",
+      "quota": "Quota used up today",
+      "disabled": "Off"
+    },
+    "econKind": {
+      "FOMC": "FOMC rate decision",
+      "CPI": "US CPI"
+    },
+    "econStatus": {
+      "SCHEDULED": "Scheduled",
+      "DRAFTING": "Generating",
+      "DRAFTED": "Draft created",
+      "FILTERED": "Filtered",
+      "FAILED": "Failed",
+      "CANCELLED": "Cancelled",
+      "EXPIRED": "Expired"
+    },
+    "source": {
+      "SPORTS": "Sports fixtures",
+      "ECON": "Economic calendar"
+    },
+    "filterReason": {
+      "CATEGORY": "Category not allowed",
+      "KEYWORD": "Sensitive word"
+    },
+    "events": {
+      "title": "Event candidates",
+      "sub": "Economic calendar (FOMC, US CPI) market drafts are generated from templates; sports fixtures get focus-match suggestions. Everything is a draft until someone with listing permission checks and lists it.",
+      "addEcon": "Add calendar entry",
+      "econ": "Economic calendar",
+      "econHint": "Market drafts are generated 7 days before release",
+      "econEmpty": "No entries yet",
+      "kind": "Type",
+      "period": "Period",
+      "releaseAt": "Release (UTC)",
+      "prev": "Previous",
+      "dueAt": "Draft due (UTC)",
+      "status": "Status",
+      "market": "Market draft",
+      "draftNow": "Generate now",
+      "drafted": "Market draft created; check it under Pending listing",
+      "cancel": "Cancel",
+      "focus": "Focus-match suggestions",
+      "toSports": "Generate in Sports fixtures",
+      "focusEmpty": "No suitable matches in the next few days",
+      "football": "Football",
+      "play": "Suggested play: {{play}}",
+      "fixtures": "Fixtures",
+      "kickoff": "Kick-off (UTC)",
+      "match": "Match",
+      "league": "League",
+      "mapping": "Mapping",
+      "mapped": "Confirmed",
+      "unmapped": "Unconfirmed",
+      "markets": "Markets",
+      "filtered": "Filtered",
+      "filteredBy": "Sensitive word: {{by}}",
+      "filteredLog": "Filtered",
+      "filteredEmpty": "Nothing filtered",
+      "time": "Time (UTC)",
+      "source": "Source",
+      "subject": "Event",
+      "reason": "Reason",
+      "periodFomc": "Meeting month (YYYY-MM)",
+      "periodCpi": "Data month (YYYY-MM)",
+      "releaseUtc": "Release time (UTC)",
+      "releaseHint": "From the official calendar; betting closes 1 hour before release",
+      "prevFomc": "Current upper bound (%, optional)",
+      "prevCpi": "Last published YoY (%)",
+      "prevCpiFmt": "One decimal, e.g. 3.0",
+      "sourceUrl": "Official calendar link"
+    },
+    "tpl": {
+      "title": "Templates",
+      "sub": "Economic-calendar market drafts use the question, rules and options here (decidable, covering every outcome). Changes only affect drafts generated later.",
+      "cards": "Share cards keep the S14 image template (drawn by the program, no AI) and are not edited here.",
+      "vars": "Variables: {{vars}}",
+      "question": "Question",
+      "rules": "Rules",
+      "option": "Option {{n}}",
+      "win": "Winning condition",
+      "primary": "Primary source",
+      "backup": "Backup source"
+    },
+    "pageKind": {
+      "FOCUS": "Focus match",
+      "BTC_STATS": "BTC stats",
+      "ARTICLE": "Article"
+    },
+    "pageStatus": {
+      "VISIBLE": "Visible",
+      "HIDDEN": "Hidden"
+    },
+    "pages": {
+      "title": "Pages",
+      "sub": "SEO pages on the site (one per focus match, one BTC stats page, articles). New today: {{n}} / {{max}}",
+      "subLoading": "SEO pages on the site",
+      "refreshBtc": "Refresh BTC stats",
+      "refreshed": "BTC stats refreshed",
+      "empty": "No pages yet",
+      "kind": "Type",
+      "titleCol": "Title",
+      "path": "Path",
+      "text": "Text",
+      "dataOnly": "Data only",
+      "dataAt": "Data time (UTC)",
+      "created": "Created",
+      "status": "Status",
+      "draftIntro": "Draft intro",
+      "introStarted": "Drafting started; review it in Drafts",
+      "hide": "Hide",
+      "show": "Show"
+    },
+    "tools": {
+      "title": "Tools",
+      "sub": "Data cards and influencer comparison images, drawn from templates with source and time printed. Download or copy only; nothing is posted automatically.",
+      "dataCard": "Data card",
+      "cardKind": "Content",
+      "kindMarket": "Market pool",
+      "kindBtc": "BTC hourly up/down stats",
+      "lang": "Language",
+      "make": "Generate",
+      "compare": "Influencer comparison",
+      "viewpoint": "Viewpoint summary",
+      "viewpointPh": "e.g. Someone says BTC breaks 100k this week",
+      "viewpointRule": "4 to 200 characters",
+      "polymarket": "Similar Polymarket question (optional)",
+      "polymarketOn": "Public API is on; citations say \"for reference only, not this site's data\"",
+      "polymarketOff": "The Polymarket public API is off by default (terms to be verified); turning it on needs a deployment change",
+      "result": "Result",
+      "imageAlt": "Generated image",
+      "download": "Download image",
+      "copyText": "Copy text",
+      "reply": "Reply draft ({{lang}})"
+    },
+    "action": {
+      "GENERATE": "Generate",
+      "PUBLISH": "Publish",
+      "REJECT": "Reject",
+      "COPY": "Copy",
+      "EDIT": "Edit",
+      "RETRY": "Regenerate",
+      "EXPIRE": "Expire",
+      "FILTER": "Filter",
+      "ECON": "Economic calendar",
+      "ECON_DRAFT": "Calendar draft",
+      "PAGE": "Page",
+      "TOOL": "Tool",
+      "TEMPLATE": "Template",
+      "BLOCKED": "Blocked",
+      "ALERT": "Alert",
+      "SETTING": "Setting",
+      "WORD": "Word list",
+      "STOP": "Emergency stop",
+      "RESUME": "Resume publishing",
+      "DIGEST": "Daily pack",
+      "JOB": "Scheduled job"
+    },
+    "outcome": {
+      "OK": "OK",
+      "FAILED": "Failed",
+      "BLOCKED": "Blocked",
+      "SKIPPED": "Skipped",
+      "PENDING": "In progress"
+    },
+    "logs": {
+      "title": "Logs",
+      "sub": "Every generate, publish, reject, copy, filter, block and setting change is recorded here.",
+      "export": "Export CSV",
+      "time": "Time (UTC)",
+      "action": "Action",
+      "kind": "Kind",
+      "ref": "Subject",
+      "outcome": "Outcome",
+      "detail": "Detail",
+      "ai": "AI calls",
+      "who": "By",
+      "system": "Program",
+      "empty": "No logs"
+    },
+    "setting": {
+      "ai_dailyLimit": "Daily Gemini call limit",
+      "ai_contentSharePct": "Max share for drafting (%)",
+      "ai_costAlertUsd": "Monthly cost alert (USD)",
+      "ai_drafts": "AI drafting",
+      "pack_enabled": "Daily draft pack",
+      "pages_dailyNew": "New pages per day",
+      "articles_weekly": "Articles per week",
+      "econ_leadDays": "Calendar lead days"
+    },
+    "settingHint": {
+      "ai_dailyLimit": "Shared with sports score parsing (free tier 300)",
+      "ai_contentSharePct": "The rest is kept for score parsing",
+      "ai_costAlertUsd": "Estimated at paid-tier prices; an email is sent when exceeded",
+      "ai_drafts": "When off, only data and a blank template",
+      "pack_enabled": "Generated at 00:00 UTC with an email reminder to review",
+      "pages_dailyNew": "EQ-7: 5",
+      "articles_weekly": "EQ-7: 2",
+      "econ_leadDays": "Default 7 days"
+    },
+    "settings": {
+      "title": "Usage & settings",
+      "sub": "Gemini usage, limits, emergency stop and word lists. The key is set only in the deployment config; here you only see whether it is configured.",
+      "usage": "Usage",
+      "gemini": "Gemini",
+      "configured": "Configured",
+      "unconfigured": "Not configured",
+      "state": "State",
+      "pausedUntil": "until {{at}}",
+      "today": "Today",
+      "split": "Drafting {{content}} / {{cap}}, score parsing {{score}}",
+      "failures": "Failures today",
+      "month": "This month",
+      "monthCost": "{{calls}} calls, est. {{cost}} USD (alert at {{alert}})",
+      "costOver": "Over alert",
+      "pages": "Pages & articles",
+      "pagesUsed": "New pages today {{n}} / {{max}}",
+      "articlesUsed": "Articles this week {{n}} / {{max}}",
+      "queue": "Queued",
+      "keyHint": "The key goes in the deployment config FC_GEMINI_API_KEY (your operation). It never passes through AI or the repository.",
+      "stop": "Emergency stop",
+      "stopHint": "Stops all publishing and copying from Drafts (drafts are still generated). Use it when content looks wrong. Automatic Telegram result-card posting has its own stop on the Telegram bot page.",
+      "stopNow": "Stop publishing",
+      "stopDesc": "Drafts cannot be published and posts cannot be copied until resumed.",
+      "resume": "Resume publishing",
+      "resumeDesc": "Publishing and copying work again.",
+      "settings": "Settings",
+      "saveTitle": "Change content settings",
+      "noAutoPublish": "There is no auto-publish switch: every AI draft is reviewed and published by you (EQ-1).",
+      "channels": "Publishing channels",
+      "channelsTodo": "Telegram channels only auto-post result cards (SQ-22); channel switches, template approval and the emergency stop are on the Telegram bot page. X posts and Telegram posts in Drafts are still approved, copied and posted by hand.",
+      "channelManual": "Manual (copy after approval)",
+      "tg": {
+        "CHANNEL_ZH": "Telegram Chinese channel",
+        "CHANNEL_EN": "Telegram English channel",
+        "on": "On",
+        "off": "Off",
+        "unconfigured": "Telegram bot token not configured",
+        "stopped": "Telegram auto-posting is stopped",
+        "manage": "Manage on the Telegram bot page →"
+      }
+    },
+    "words": {
+      "title": "Word lists",
+      "kind": {
+        "BANNED": "Banned",
+        "TENDENCY": "Leading",
+        "SENSITIVE": "Sensitive"
+      },
+      "hint": {
+        "BANNED": "Checked on save and publish; a hit blocks publishing.",
+        "TENDENCY": "Wording that hints at an outcome (EQ-8); a hit blocks publishing.",
+        "SENSITIVE": "Event candidates that match are filtered with the reason logged."
+      },
+      "placeholder": "Enter a word",
+      "addBtn": "Add",
+      "add": "Add word: {{word}}",
+      "delete": "Delete word: {{word}}"
+    }
+  },
+  "wl": {
+    "title": "Waitlist",
+    "sub": "People who left an email on the data page (/data) before launch and clicked the confirmation link. They get a single \"we have launched\" email (SQ-22).",
+    "note": "Emails are masked. Subscribers are not necessarily customers; they never get match reminders or other marketing emails. Every email has a no-login unsubscribe link.",
+    "counts": "Counts by status",
+    "all": "All",
+    "status": {
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "notified": "Notified",
+      "unsubscribed": "Unsubscribed"
+    },
+    "lang": {
+      "en": "English",
+      "zh-CN": "Simplified",
+      "zh-TW": "Traditional"
+    },
+    "col": {
+      "createdAt": "Joined",
+      "email": "Email",
+      "lang": "Language",
+      "status": "Status",
+      "source": "Source",
+      "confirmedAt": "Confirmed",
+      "notifiedAt": "Notified"
+    },
+    "empty": "No one has joined yet",
+    "emptyFiltered": "No subscriptions in this status",
+    "launchBtn": "Send launch email",
+    "launchTitle": "Send the launch email (once only)",
+    "launchDesc": "Each of the {{n}} confirmed subscribers gets one \"we have launched\" email in the language they used. The waitlist closes and the data page starts showing today's markets.",
+    "launchOnce": "This can only be sent once for the whole site and cannot be undone.",
+    "launchConfirm": "Send",
+    "launched": "Launch email started",
+    "launch": {
+      "sending": "Sending launch email ({{sent}} / {{n}})",
+      "done": "Launch email sent ({{sent}})"
+    },
+    "launchInfo": "Launch email sent at {{at}}: {{n}} confirmed, {{sent}} emails queued. Reason: {{reason}}"
+  },
+  "tg": {
+    "title": "Telegram bot",
+    "sub": "Official channels only get result cards automatically (SQ-22, not tied to accounts). The bot only shares data and links; there is no betting in Telegram.",
+    "bot": "Bot",
+    "token": "Token (FC_TELEGRAM_BOT_TOKEN)",
+    "configured": "Configured",
+    "notConfigured": "Not configured",
+    "username": "Username",
+    "health": "Connection",
+    "healthy": "OK",
+    "unhealthy": "Problem",
+    "unconfigured": "FC_TELEGRAM_BOT_TOKEN is not configured; the bot is not running",
+    "unconfiguredHint": "Amos creates the bot with BotFather, puts the token into FC_TELEGRAM_BOT_TOKEN in the server .env and restarts (never share the token; it cannot be entered here). The rest of the site is not affected.",
+    "stopBtn": "Emergency stop",
+    "resumeBtn": "Resume posting",
+    "stopTitle": "Stop all automatic posting",
+    "stopDesc": "No channel or group gets automatic posts until resumed (markets ending meanwhile are logged as stopped). Audited, and admins with content:publish get an email.",
+    "resumeTitle": "Resume automatic posting",
+    "resumeDesc": "Markets ending from now on are posted again; nothing from the stopped period is back-filled.",
+    "stoppedInfo": "Automatic posting is stopped ({{at}}): {{reason}}",
+    "channels": "Official channels",
+    "channel": "Channel",
+    "target": {
+      "CHANNEL_ZH": "Chinese channel",
+      "CHANNEL_EN": "English channel"
+    },
+    "groupTarget": "Group {{id}}",
+    "chatId": "Channel id",
+    "chatIdHint": "Public channel: @username; private channel: the numeric id starting with -100. Make the bot an admin of the channel first.",
+    "notSet": "Not set",
+    "enabled": "Switch",
+    "on": "On",
+    "off": "Off",
+    "failStreak": "Failures in a row",
+    "edit": "Edit",
+    "editTarget": "Edit {{name}}",
+    "targetDesc": "Change the channel id or switch (high risk: posts publicly). Only markets ending after switching on are posted.",
+    "templates": "Templates for automatic posts",
+    "templatesHint": "Channels and groups only get the result card, the same card as in sharing (text in content/cards.json). Drafts are not posted; approve after previewing. Any text change needs re-approval.",
+    "tplKind": "Card",
+    "tplLang": "Language",
+    "tplStatus": "Status",
+    "approvedAt": "Approved",
+    "kind": {
+      "RESULT": "Result card"
+    },
+    "lang": {
+      "zh-CN": "Chinese",
+      "en": "English"
+    },
+    "tpl": {
+      "draft": "Draft",
+      "approved": "Approved",
+      "disabled": "Disabled"
+    },
+    "tplChanged": "Text changed, re-approve",
+    "previewBtn": "Preview",
+    "disableBtn": "Disable",
+    "previewTitle": "Preview: result card ({{lang}})",
+    "previewAlt": "Result card preview",
+    "previewFrom": "Generated from the latest ended market {{no}}; each post uses its own market's numbers.",
+    "approveBtn": "I approve automatic posting with this template",
+    "approveTitle": "Approve the result card template ({{lang}})",
+    "approveDesc": "Once approved, when a market marked \"today's slate\" ends, it is posted automatically to the channels and groups that are switched on (MQ-2).",
+    "disableTitle": "Disable the result card template ({{lang}})",
+    "disableDesc": "Result cards in this language stop being posted until approved again.",
+    "groups": "Groups the bot is in",
+    "groupsHint": "Group admins send /broadcast_on in the group to get result cards and /broadcast_off to stop; here you can only switch it off.",
+    "noGroups": "The bot has not been added to any group yet",
+    "groupTitle": "Group",
+    "groupStatus": "Status",
+    "group": {
+      "active": "In group",
+      "left": "Removed"
+    },
+    "broadcast": "Broadcast",
+    "broadcastOn": "On ({{lang}})",
+    "startParam": "Join parameter",
+    "groupOffBtn": "Stop broadcast",
+    "groupOffTitle": "Stop broadcast in \"{{name}}\"",
+    "groupOffDesc": "This group no longer gets result cards; its admins can turn it on again in the group.",
+    "posts": "Posting log",
+    "all": "All",
+    "noPosts": "Nothing posted yet",
+    "postTime": "Time",
+    "market": "Market",
+    "postStatus": "Result",
+    "postUrl": "Post link",
+    "note": "Note",
+    "post": {
+      "pending": "Pending",
+      "sent": "Sent",
+      "failed": "Failed",
+      "skipped": "Not posted",
+      "stopped": "Stopped"
+    }
   }
 }

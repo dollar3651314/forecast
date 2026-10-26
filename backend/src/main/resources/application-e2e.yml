@@ -33,6 +33,9 @@ forecast:
         usdt-contract: "0x55d398326f99059fF775485246999027B3197955"
       TRC20:
         usdt-contract: TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t
+  # 风控扫描（S10）：端到端用 /api/e2e/riskalert/scan 立即扫；写入的行马上就能处理
+  riskalert:
+    scan-lag: 0s
   # 证件照片放在临时目录
   storage:
     local-dir: ${FC_STORAGE_DIR:${java.io.tmpdir}/forecast-e2e-storage}
@@ -64,3 +67,30 @@ forecast:
   sports:
     sync-enabled: false
     resolver-enabled: false
+  # 事件和文章自动化程序（forecast S15）：Gemini 的地址指向后端自己的替身 /api/e2e/gemini/**（content/web/E2eContent），端到端走真实的客户端、
+  # 起草、检查和发布流程，不连真实的 Gemini；key 是测试值（ci_only_ 开头），"没有 key"由用例经 /api/e2e/gemini/mode 切换。
+  # 定时任务不跑（每日草稿包会和用例抢数据），用例用 /api/e2e/content/tick、/pack 触发；读取超时调短（替身的慢回复用例）
+  content:
+    jobs-enabled: false
+    gemini:
+      api-key: ci_only_e2e_gemini
+      base-url: http://127.0.0.1:${server.port:8080}/api/e2e/gemini
+      read-timeout: 5s
+      backoff: 200ms
+      max-backoff: 400ms
+  # 推广功能（forecast S16）：数据页的币安行情指向后端自己的替身 /api/e2e/board/**（growth/board/E2eBoard），用例设 K 线后调 /api/e2e/board/refresh，
+  # 不定时刷新；Telegram 的 Bot API 指向后端自己的替身 /api/e2e/telegram/**（growth/telegram/E2eTelegram），token 是端到端的假值（ci_only_ 开头），
+  # 不连真实的 Telegram；取消息、发帖由用例调 /api/e2e/telegram/tick 触发（不跑后台线程），健康检查照常有 telegram.bot；
+  # "没有 token"用 /api/e2e/telegram/configured 模拟。频率限制调成 0（用例里连着发）
+  growth:
+    board:
+      refresh-enabled: false
+      binance-url: http://127.0.0.1:${server.port:8080}/api/e2e/board/binance
+      breaker-open: 1s
+  telegram:
+    token: ci_only_e2e_telegram
+    api-url: http://127.0.0.1:${server.port:8080}/api/e2e/telegram
+    jobs-enabled: false
+    retries: 1
+    chat-interval: 0s
+    send-interval: 0s

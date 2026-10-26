@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 带来源参数的访问（forecast S13，MF-1）。只有 growth 模块使用。 -->
+<mapper namespace="com.forecast.app.growth.visit.VisitMapper">
+
+  <insert id="insertIgnore">
+    INSERT IGNORE INTO growth_visit (visit_day, visitor, src, cmp, ref, start_param, created_at)
+    VALUES (#{day}, #{visitor}, #{src}, #{cmp}, #{ref}, #{start}, #{now})
+  </insert>
+
+  <!-- 日期范围 [from, to]（含两头） -->
+  <select id="counts" resultType="com.forecast.app.growth.visit.VisitMapper$DayCount">
+    SELECT visit_day AS day, src, cmp, ref, COUNT(*) AS n FROM growth_visit
+    WHERE visit_day &gt;= #{from} AND visit_day &lt;= #{to}
+    GROUP BY visit_day, src, cmp, ref
+  </select>
+</mapper>
