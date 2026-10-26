@@ -3,7 +3,7 @@
  * 1. 手机 390×844：注册（勾选"已年满 18 周岁并同意条款"）→ 充值到账 → 市场列表点选项 → 下注抽屉押注（确认按钮在首屏内，C79）→
  *    另一个客户押对面，详情页的奖池 2 秒内自动更新（WS 推送，AC-17）→ 截止、平台裁决、公示期满结算 → 我的下注看到"押中"和派彩、
  *    详情看到结果和结算合计、通知中心点结算通知回到这个市场。
- * 2. 电脑 1366×768：开赛提醒（#23，SQ-20）：注册后自动登录的不能订（提示要用邮箱和密码登录过）→ 退出再登录 → 在还没开放的市场订阅 →
+ * 2. 电脑 1366×768：开赛提醒（#23，SQ-20）：注册后的自动登录也算登录过（S16，SQ-27），注册完直接在还没开放的市场订阅 →
  *    "通知偏好"里看到、退订另一个 → 到开放时间（可调时钟）发出一封邮件（链接完整），退订的不发 → 邮件里的退订链接不用登录也能打开。
  * 两种形态都跑（tests/targets.ts）。拨过的时钟在结束时复原。
  */
@@ -164,7 +164,7 @@ test('手机 390：注册 → 充值 → 抽屉下注 → 奖池实时更新 →
   }
 });
 
-test('开赛提醒（#23）：只给用邮箱和密码登录过的客户；订阅、退订、到开放时间发一封邮件、邮件里的退订链接', async ({ browser }) => {
+test('开赛提醒（#23）：只给登录过的客户（注册后的自动登录也算，SQ-27）；订阅、退订、到开放时间发一封邮件、邮件里的退订链接', async ({ browser }) => {
   const anon = await request.newContext({ baseURL: STUB_URL });
   const ctx = await browser.newContext({ baseURL: CLIENT_URL, ignoreHTTPSErrors: DEPLOYED, viewport: { width: 1366, height: 768 }, locale: 'zh-CN', serviceWorkers: 'block' });
   const page = await ctx.newPage();
@@ -202,19 +202,10 @@ test('开赛提醒（#23）：只给用邮箱和密码登录过的客户；订�
     const a = await step('后台上架两个还没开放的市场（10 分钟、20 分钟后开放）', () => upcoming(`提醒 A ${uniqueId()}`, 10));
     const b = await upcoming(`提醒 B ${uniqueId()}`, 20);
     const email = await step('客户注册（注册时的自动登录）', () => registerInPage(page, anon, 'remind'), 120_000);
-    await step('注册后还没用邮箱和密码登录过：不能订阅，写明原因（SQ-20）', async () => {
+    await step('注册后的自动登录也算登录过（SQ-27，Amos 2026-10-26）：不用退出再登录，直接能订阅，也没有"要登录过"的提示', async () => {
       await page.goto(`/markets/${a}`);
-      await expect(page.getByText('开赛提醒只对用邮箱和密码登录过的账户开放')).toBeVisible();
-      await expect(page.getByTestId('remind-on')).toHaveCount(0);
-    });
-    await step('退出，再用邮箱和密码登录', async () => {
-      await page.goto('/me');
-      await page.getByRole('button', { name: '退出登录' }).click();
-      await page.getByRole('dialog').getByRole('button', { name: '退出登录' }).click();
-      await page.getByLabel('邮箱', { exact: true }).fill(email);
-      await page.getByLabel('密码', { exact: true }).fill(CLIENT_PASSWORD);
-      await page.getByRole('button', { name: '登录', exact: true }).click();
-      await expect(page).toHaveURL(/\/markets$/);
+      await expect(page.getByTestId('remind-on')).toBeVisible();
+      await expect(page.getByText('开赛提醒只对登录过的账户开放')).toHaveCount(0);
     });
     await step('两个市场都点"开放时提醒我"', async () => {
       for (const no of [a, b]) {

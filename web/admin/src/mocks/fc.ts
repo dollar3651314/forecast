@@ -55,6 +55,19 @@ import type {
   RiskAlertQuery,
   RiskAlertStatus,
   StaffRefund,
+  TelegramGroup,
+  TelegramOverview,
+  TelegramPost,
+  TelegramPostStatus,
+  TelegramPreview,
+  TelegramStatus,
+  TelegramTarget,
+  TelegramTargetKey,
+  TelegramTemplate,
+  WaitlistItem,
+  WaitlistLaunch,
+  WaitlistPage,
+  WaitlistQuery,
 } from '../api/fcTypes';
 import { MARKET_STATUSES } from '../api/fcTypes';
 import { fromScaled, toScaled } from '../utils/money';
@@ -1362,12 +1375,13 @@ export function resetFcMocks(): void {
   runs = seedRuns();
   seedComp();
   riskAlerts = seedRisk();
+  seedS16();
 }
 
 // ---------------------------------------------------------------- 风控告警、员工账户（forecast S10，和后端 RiskOps 字段一致）
 
 const RISK_DETAIL: Record<RiskAlertKind, (i: number) => Record<string, string>> = {
-  late_large_bet: (i) => ({ betNo: `20${4810 + i}`, optionId: '3', poolAfter: '6420.00', pct: `${32 + (i % 9)}.5`, limitPct: '30', secondsBeforeClose: `${60 + i * 7}`, limitMinutes: '5' }),
+  late_large_bet: (i) => ({ betNo: `20${4810 + i}`, optionId: '3', poolAfter: '6420.00', pct: `${32 + (i % 9)}.5`, limitPct: '30', secondsBeforeClose: `${60 + i * 7}`, limitMinutes: '5', limitAmount: '100.00' }),
   linked_opposite: (i) => ({ linkedUsers: String(100489 + (i % 3) * 7), options: '1', linkedOptions: `${100489 + (i % 3) * 7}:2` }),
   new_account_longshot: () => ({ betNo: '204899', odds: '6.82', limitOdds: '5', limitAmount: '1000.00', accountDays: '2', limitDays: '7' }),
   deposit_no_bet: (i) => ({ withdrawalNo: `30${7700 + i}`, deposit: '2000.00', stake: `${120 + i}.00`, multiple: '1' }),
@@ -1554,4 +1568,188 @@ export async function exportGrowth(kind: GrowthExportKind, q: GrowthQuery, lang:
   } else {
     downloadCsv(`growth-customers.csv`, [en ? ['customer_no', 'registered_at', 'first_src'] : ['客户编号', '注册时间', '首次来源'], ['100200', '2026-10-20T08:00:00Z', 'tg_ch']]);
   }
+}
+
+// ---------------------------------------------------------------- 等候页订阅、Telegram 机器人（forecast S16，和后端 WaitlistAdminApi、TelegramAdminApi 字段一致）
+
+let waitlist: WaitlistItem[] = [];
+let launch: WaitlistLaunch = { status: 'none', at: null, adminId: null, reason: null, recipients: 0, sent: 0, finishedAt: null };
+let tg: TelegramOverview;
+let tgPosts: TelegramPost[] = [];
+
+function seedS16(): void {
+  const langs: WaitlistItem['lang'][] = ['zh-CN', 'en', 'zh-TW'];
+  const statuses: WaitlistItem['status'][] = ['confirmed', 'confirmed', 'pending', 'confirmed', 'unsubscribed', 'pending'];
+  const srcs: Array<[string | null, string | null, string | null]> = [
+    ['x', 'data-reply', null],
+    [null, null, null],
+    ['telegram', 'channel', 'zh'],
+    ['share', 'card-market', '100231'],
+  ];
+  waitlist = Array.from({ length: 26 }, (_, i) => {
+    const st = statuses[i % statuses.length];
+    const created = BASE - (26 - i) * 5 * HOUR;
+    const [src, cmp, ref] = srcs[i % srcs.length];
+    return {
+      id: 1000 + i,
+      email: `${'abcdefghijklmnopqrstuvwxyz'[i]}***@${i % 3 === 0 ? 'gmail.com' : 'example.com'}`,
+      lang: langs[i % 3],
+      status: st,
+      src,
+      cmp,
+      ref,
+      start: null,
+      createdAt: iso(created),
+      confirmedAt: st === 'pending' ? null : iso(created + 20 * MIN),
+      notifiedAt: null,
+      unsubscribedAt: st === 'unsubscribed' ? iso(created + 2 * DAY) : null,
+    };
+  });
+  launch = { status: 'none', at: null, adminId: null, reason: null, recipients: 0, sent: 0, finishedAt: null };
+  tg = {
+    status: {
+      configured: true,
+      botUsername: 'quickcome_bot',
+      healthy: true,
+      lastError: null,
+      lastOkAt: iso(BASE - 2 * MIN),
+      emergencyStop: false,
+      stopReason: null,
+      stopAt: null,
+      stopBy: null,
+    },
+    targets: [
+      { key: 'CHANNEL_ZH', lang: 'zh-CN', chatId: '@quickcome_cn', enabled: true, enabledAt: iso(BASE - 3 * DAY), failStreak: 0, disabledReason: null, updatedAt: iso(BASE - 3 * DAY) },
+      { key: 'CHANNEL_EN', lang: 'en', chatId: null, enabled: false, enabledAt: null, failStreak: 0, disabledReason: null, updatedAt: iso(BASE - 3 * DAY) },
+    ],
+    groups: [
+      { chatId: '-1001234567890', title: '币圈数据交流群', type: 'supergroup', status: 'active', broadcast: true, lang: 'zh-CN', startParam: 's-tg__c-g1', addedAt: iso(BASE - 2 * DAY), broadcastAt: iso(BASE - 2 * DAY) },
+      { chatId: '-1009876543210', title: 'Football odds talk', type: 'supergroup', status: 'active', broadcast: false, lang: 'en', startParam: null, addedAt: iso(BASE - DAY), broadcastAt: null },
+      { chatId: '-1005555555555', title: '已退出的群', type: 'group', status: 'left', broadcast: false, lang: 'zh-CN', startParam: null, addedAt: iso(BASE - 5 * DAY), broadcastAt: null },
+    ],
+    templates: [
+      { kind: 'RESULT', lang: 'zh-CN', status: 'approved', changed: false, approvedAt: iso(BASE - 3 * DAY), approvedBy: 1 },
+      { kind: 'RESULT', lang: 'en', status: 'draft', changed: false, approvedAt: null, approvedBy: null },
+    ],
+  };
+  const st: TelegramPostStatus[] = ['sent', 'sent', 'skipped', 'sent', 'failed', 'stopped'];
+  tgPosts = Array.from({ length: 24 }, (_, i) => {
+    const s = st[i % st.length];
+    const target = i % 3 === 2 ? 'G:-1001234567890' : i % 3 === 1 ? 'CHANNEL_EN' : 'CHANNEL_ZH';
+    return {
+      id: 500 + i,
+      marketNo: String(108000000000000000 + i * 977),
+      kind: 'result',
+      target,
+      lang: target === 'CHANNEL_EN' ? 'en' : 'zh-CN',
+      status: s,
+      attempts: s === 'failed' ? 3 : s === 'sent' ? 1 : 0,
+      postUrl: s === 'sent' && target === 'CHANNEL_ZH' ? `https://t.me/quickcome_cn/${40 + i}` : null,
+      note: s === 'skipped' ? '模板是草稿（还没审定），没有发' : s === 'failed' ? '重试 3 次都失败：sendPhoto：HTTP 500 Internal Server Error' : s === 'stopped' ? '紧急停止中，没有发' : null,
+      createdAt: iso(BASE - i * 3 * HOUR),
+      sentAt: s === 'sent' ? iso(BASE - i * 3 * HOUR + MIN) : null,
+    };
+  });
+}
+seedS16();
+
+function requireReason(reason: string): void {
+  if (!reason?.trim()) throw new ApiError('errors.validationFailed', undefined, { status: 400, code: 'VALIDATION_FAILED', fields: [{ field: 'reason', code: 'required' }] });
+}
+
+export function listWaitlist(q: WaitlistQuery): Promise<WaitlistPage> {
+  const counts = () => ({
+    pending: waitlist.filter((w) => w.status === 'pending').length,
+    confirmed: waitlist.filter((w) => w.status === 'confirmed').length,
+    notified: waitlist.filter((w) => w.status === 'notified').length,
+    unsubscribed: waitlist.filter((w) => w.status === 'unsubscribed').length,
+  });
+  return respond(
+    () => ({ ...paginate(waitlist.filter((w) => !q.status || w.status === q.status).slice().reverse(), q.page, q.pageSize), counts: counts(), launch }),
+    { empty: () => ({ ...emptyPage<WaitlistItem>(q.page, q.pageSize), counts: { pending: 0, confirmed: 0, notified: 0, unsubscribed: 0 }, launch }) },
+  );
+}
+
+export function launchWaitlist(reason: string): Promise<WaitlistLaunch> {
+  return mutate(() => {
+    requireReason(reason);
+    if (launch.status !== 'none') throw new ApiError('errors.fc.LAUNCH_ALREADY_SENT', undefined, { status: 409, code: 'LAUNCH_ALREADY_SENT' });
+    const confirmed = waitlist.filter((w) => w.status === 'confirmed');
+    const now = iso(BASE + HOUR);
+    confirmed.forEach((w) => Object.assign(w, { status: 'notified', notifiedAt: now }));
+    launch = { status: 'done', at: now, adminId: 1, reason: reason.trim(), recipients: confirmed.length, sent: confirmed.length, finishedAt: now };
+    return launch;
+  });
+}
+
+export function getTelegram(): Promise<TelegramOverview> {
+  return respond(() => tg, { empty: () => ({ ...tg, groups: [] }) });
+}
+
+export function listTelegramPosts(status: TelegramPostStatus | undefined, page: number, pageSize: number): Promise<Page<TelegramPost>> {
+  return respond(() => paginate(tgPosts.filter((p) => !status || p.status === status), page, pageSize), { empty: () => emptyPage<TelegramPost>(page, pageSize) });
+}
+
+export function updateTelegramTarget(key: TelegramTargetKey, chatId: string | null, enabled: boolean, reason: string): Promise<TelegramTarget> {
+  return mutate(() => {
+    requireReason(reason);
+    const id = chatId?.trim() || null;
+    if ((id && !/^(@[A-Za-z][A-Za-z0-9_]{4,31}|-?\d{5,20})$/.test(id)) || (enabled && !id)) {
+      throw new ApiError('errors.validationFailed', undefined, { status: 400, code: 'VALIDATION_FAILED', fields: [{ field: 'chatId', code: id ? 'invalid' : 'required' }] });
+    }
+    const t = tg.targets.find((x) => x.key === key);
+    if (!t) throw new ApiError('errors.notFound', undefined, { status: 404, code: 'NOT_FOUND' });
+    const now = iso(BASE + HOUR);
+    Object.assign(t, { chatId: id, enabledAt: enabled && !t.enabled ? now : t.enabledAt, enabled, updatedAt: now, failStreak: enabled ? 0 : t.failStreak, disabledReason: enabled ? null : t.disabledReason });
+    return t;
+  });
+}
+
+export function stopTelegramGroup(chatId: string, reason: string): Promise<TelegramGroup> {
+  return mutate(() => {
+    requireReason(reason);
+    const g = tg.groups.find((x) => x.chatId === chatId);
+    if (!g) throw new ApiError('errors.notFound', undefined, { status: 404, code: 'NOT_FOUND' });
+    g.broadcast = false;
+    return g;
+  });
+}
+
+const PREVIEW_TEXT: Record<string, string> = {
+  'zh-CN': '结果：涨\nBTC 涨还是跌：10-25 13:00–14:00 UTC\n✓ 涨 62.5% · 5 人 · 125.00 USDT · 最终赔率 ×1.57\n· 跌 37.5% · 3 人 · 75.00 USDT\n奖池 200.00 USDT · 派彩合计 197.50 USDT · 抽成 2.50 USDT · 尾差 0.00 USDT\n下注人数 8',
+  en: 'Result: Up\nBTC Up or Down: 10-25 13:00–14:00 UTC\n✓ Up 62.5% · 5 bettors · 125.00 USDT · final odds ×1.57\n· Down 37.5% · 3 bettors · 75.00 USDT\nPool 200.00 USDT · Payouts 197.50 USDT · Fee 2.50 USDT · Dust 0.00 USDT\nBettors 8',
+};
+
+export function getTelegramPreview(kind: 'RESULT', lang: string): Promise<TelegramPreview> {
+  return respond(() => ({ kind, lang: lang as TelegramPreview['lang'], marketNo: '108000000000000000', text: PREVIEW_TEXT[lang] ?? PREVIEW_TEXT.en, fingerprint: `fp-${lang}` }));
+}
+
+/** 原型里没有服务器画的图，用站点图标占位 */
+export const telegramPreviewUrl = (): string => `${import.meta.env.BASE_URL}favicon.svg`;
+
+export function approveTelegramTemplate(kind: 'RESULT', lang: string, fingerprint: string, reason: string): Promise<TelegramTemplate> {
+  return mutate(() => {
+    requireReason(reason);
+    if (fingerprint !== `fp-${lang}`) throw new ApiError('errors.fc.TELEGRAM_TEMPLATE_CHANGED', undefined, { status: 409, code: 'TELEGRAM_TEMPLATE_CHANGED' });
+    const t = tg.templates.find((x) => x.kind === kind && x.lang === lang)!;
+    Object.assign(t, { status: 'approved', changed: false, approvedAt: iso(BASE + HOUR), approvedBy: 1 });
+    return t;
+  });
+}
+
+export function disableTelegramTemplate(kind: 'RESULT', lang: string, reason: string): Promise<TelegramTemplate> {
+  return mutate(() => {
+    requireReason(reason);
+    const t = tg.templates.find((x) => x.kind === kind && x.lang === lang)!;
+    t.status = 'disabled';
+    return t;
+  });
+}
+
+export function setTelegramStop(stop: boolean, reason: string): Promise<TelegramStatus> {
+  return mutate(() => {
+    requireReason(reason);
+    Object.assign(tg.status, { emergencyStop: stop, stopReason: reason.trim(), stopAt: iso(BASE + HOUR), stopBy: 1 });
+    return tg.status;
+  });
 }

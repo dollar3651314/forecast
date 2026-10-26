@@ -32,8 +32,9 @@ public interface AccountApi {
   boolean isStaff(long userId);
 
   /**
-   * 注册后用邮箱和密码成功登录过至少一次（{@code account_user.last_login_at} 不为空；注册时的自动登录不算）。forecast S11：#23 开赛提醒只开放给这样的客户
-   * （SQ-20，Amos 2026-10-25"开放给登录成功过的客户"）。用户不存在时抛 {@code BizException("USER_NOT_FOUND")}。
+   * 成功登录过至少一次（{@code account_user.last_login_at} 不为空）。forecast S11：#23 开赛提醒只开放给这样的客户（SQ-20，Amos 2026-10-25"开放给登录成功过的客户"）。
+   * <b>S16 起注册成功后的自动登录也算</b>（SQ-27，Amos 2026-10-26：注册时已经验证过邮箱，自动登录就是一次成功登录），所以通过注册接口来的客户都满足。
+   * 用户不存在时抛 {@code BizException("USER_NOT_FOUND")}。
    */
   boolean hasLoggedIn(long userId);
 

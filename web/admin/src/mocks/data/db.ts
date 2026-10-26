@@ -601,6 +601,8 @@ export const params: ParamItem[] = [
   // S10（迁移 V19）：风控告警的阈值
   { key: 'risk.lateBet.minutes', value: '5', unit: 'minutes', group: 'risk', section: 'betting', updatedAt: null },
   { key: 'risk.lateBet.poolPct', value: '30', unit: 'percent', group: 'risk', section: 'betting', updatedAt: null },
+  // forecast S16（SQ-24）：尾盘大额的单笔最低金额，默认 100 USDT
+  { key: 'risk.lateBet.minAmount', value: '100', unit: 'usdt', group: 'risk', section: 'betting', updatedAt: null },
   { key: 'risk.longshot.accountDays', value: '7', unit: 'count', group: 'risk', section: 'betting', updatedAt: null },
   { key: 'risk.longshot.minAmount', value: '1000', unit: 'usdt', group: 'risk', section: 'betting', updatedAt: null },
   { key: 'risk.longshot.minOdds', value: '5', unit: 'multiple', group: 'risk', section: 'betting', updatedAt: null },

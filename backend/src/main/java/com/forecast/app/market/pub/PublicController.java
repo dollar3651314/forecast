@@ -104,7 +104,7 @@ class PublicController {
       // S14：分享卡片的图片要让 X（Twitterbot 遵守 robots.txt）、Telegram 等取得到，比 Disallow: /api/ 更具体，放在前面
       sb.append("Allow: /api/public/cards/\n");
       for (String p : List.of("/assets$", "/assets/ledger", "/assets/withdraw", "/assets/whitelist", "/bets", "/me", "/login", "/register",
-          "/forgot-password", "/unsubscribe", "/api/", "/admin/")) {
+          "/forgot-password", "/unsubscribe", "/data/confirm", "/data/unsubscribe", "/api/", "/admin/")) { // S16：等候页的确认、退订链接不收录
         sb.append("Disallow: ").append(p).append('\n');
       }
       sb.append("Allow: /\n\nSitemap: ").append(base(req)).append("/sitemap.xml\n");
@@ -122,7 +122,7 @@ class PublicController {
       for (String p : List.of("/markets", "/results", "/results/weekly", "/how-to-play")) url(sb, b, p, null);
       for (MarketPublicService.Week w : pub.weeks(1).items()) if (w.complete()) url(sb, b, "/results/weekly/" + w.week(), null);
       for (MarketPublicService.SitemapEntry e : pub.sitemap(SITEMAP_MARKETS)) url(sb, b, "/markets/" + e.publicNo(), e.lastModified());
-      // S15：自动化程序的 SEO 页面（/insights/**，MF-11）
+      // 别的模块提供的公开页面：S15 自动化程序的 SEO 页面（/insights/**，MF-11）、S16 的数据页 /data（MF-17）
       for (com.forecast.app.market.api.PublicPageProvider.Entry e : seo.providedSitemap()) url(sb, b, e.path(), e.lastModified());
     }
     sb.append("</urlset>\n");

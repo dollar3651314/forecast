@@ -110,7 +110,8 @@
     "text_zhTW": "Traditional clarification",
     "options_label": "Option text",
     "options_winCondition": "Option win condition",
-    "plays_line": "Line"
+    "plays_line": "Line",
+    "chatId": "Channel id"
   },
   "apiFieldCode": {
     "ageUnder18": "is under 18",
@@ -587,7 +588,10 @@
       "ECON_STATE_CHANGED": "This calendar entry was just handled. Refresh and check again.",
       "CONTENT_TEMPLATE_CHANGED": "Someone just changed the template. Refresh before editing.",
       "WORD_BUILT_IN": "Built-in words cannot be deleted.",
-      "CONTENT_BANNED_WORDS": "Words that are not allowed were found ({{detail}}). Nothing was saved."
+      "CONTENT_BANNED_WORDS": "Words that are not allowed were found ({{detail}}). Nothing was saved.",
+      "LAUNCH_ALREADY_SENT": "The launch email has already been sent (only once for the whole site).",
+      "TELEGRAM_TEMPLATE_CHANGED": "The template text changed after the preview. Open the preview again before approving.",
+      "TELEGRAM_NO_PREVIEW": "No market has ended yet, so there is nothing to preview."
     }
   },
   "funds": {
@@ -707,7 +711,9 @@
     "contentTemplates": "Templates",
     "contentTools": "Tools",
     "contentLogs": "Logs",
-    "contentSettings": "Usage & settings"
+    "contentSettings": "Usage & settings",
+    "waitlist": "Waitlist",
+    "telegram": "Telegram bot"
   },
   "menus": {
     "group": "Group",
@@ -779,9 +785,9 @@
     "risk_alert_view": "View risk alerts",
     "risk_alert_handle": "Handle risk alerts",
     "growth_view": "View acquisition stats (incl. export)",
-    "content_view": "View content center",
+    "content_view": "View the content center (including the Telegram bot and posting log)",
     "content_edit": "Generate and edit content drafts",
-    "content_publish": "Publish content, change content settings (high risk)"
+    "content_publish": "Publish externally: publish content, change content settings, Telegram channels and template approval, emergency stop, launch email (high risk)"
   },
   "permModule": {
     "customer": "Customers",
@@ -796,7 +802,7 @@
     "settle": "Settlement & reconciliation",
     "params": "Parameters & fees",
     "growth": "Growth",
-    "content": "Content"
+    "content": "Content & publishing"
   },
   "permissions": {
     "code": "Code",
@@ -1980,6 +1986,7 @@
       "sports_eventMinutes_NBA": "NBA: event length",
       "risk_lateBet_minutes": "Large late bet: within minutes before close",
       "risk_lateBet_poolPct": "Large late bet: share of the pool after the bet",
+      "risk_lateBet_minAmount": "Large late bet: minimum single bet (0 = no minimum)",
       "risk_longshot_accountDays": "Long shot: account age counted as new",
       "risk_longshot_minAmount": "Long shot: single bet at least",
       "risk_longshot_minOdds": "Long shot: odds at least",
@@ -2475,7 +2482,7 @@
       "false_positive": "e.g. Two accounts of the same household, verified"
     },
     "detail": {
-      "late_large_bet": "Bet {{sec}} s before close, {{pct}}% of the pool after the bet (pool {{pool}}; threshold: within {{limitMinutes}} min, ≥ {{limitPct}}%)",
+      "late_large_bet": "Bet {{sec}} s before close, {{pct}}% of the pool after the bet (pool {{pool}}; threshold: within {{limitMinutes}} min, ≥ {{limitPct}}%, single bet ≥ {{limitAmount}})",
       "linked_opposite": "Linked account(s) {{users}} bet on a different option in the same market",
       "new_account_longshot": "Won {{odds}}x on day {{days}} after sign-up (threshold: within {{limitDays}} days)",
       "deposit_no_bet": "Deposited {{deposit}} in 30 days, effective bets only {{stake}} (required {{multiple}}x), then requested withdrawal {{no}}"
@@ -2869,7 +2876,7 @@
       "queue": "Queued",
       "keyHint": "The key goes in the deployment config FC_GEMINI_API_KEY (your operation). It never passes through AI or the repository.",
       "stop": "Emergency stop",
-      "stopHint": "Stops all publishing and copying (drafts are still generated). Use it when content looks wrong.",
+      "stopHint": "Stops all publishing and copying from Drafts (drafts are still generated). Use it when content looks wrong. Automatic Telegram result-card posting has its own stop on the Telegram bot page.",
       "stopNow": "Stop publishing",
       "stopDesc": "Drafts cannot be published and posts cannot be copied until resumed.",
       "resume": "Resume publishing",
@@ -2877,9 +2884,18 @@
       "settings": "Settings",
       "saveTitle": "Change content settings",
       "noAutoPublish": "There is no auto-publish switch: every AI draft is reviewed and published by you (EQ-1).",
-      "channels": "Channels",
-      "channelsTodo": "Auto-posting to X / Telegram waits for MF-7 (accounts and SQ-22). For now, copy and post by hand.",
-      "channelManual": "Manual"
+      "channels": "Publishing channels",
+      "channelsTodo": "Telegram channels only auto-post result cards (SQ-22); channel switches, template approval and the emergency stop are on the Telegram bot page. X posts and Telegram posts in Drafts are still approved, copied and posted by hand.",
+      "channelManual": "Manual (copy after approval)",
+      "tg": {
+        "CHANNEL_ZH": "Telegram Chinese channel",
+        "CHANNEL_EN": "Telegram English channel",
+        "on": "On",
+        "off": "Off",
+        "unconfigured": "Telegram bot token not configured",
+        "stopped": "Telegram auto-posting is stopped",
+        "manage": "Manage on the Telegram bot page →"
+      }
     },
     "words": {
       "title": "Word lists",
@@ -2897,6 +2913,143 @@
       "addBtn": "Add",
       "add": "Add word: {{word}}",
       "delete": "Delete word: {{word}}"
+    }
+  },
+  "wl": {
+    "title": "Waitlist",
+    "sub": "People who left an email on the data page (/data) before launch and clicked the confirmation link. They get a single \"we have launched\" email (SQ-22).",
+    "note": "Emails are masked. Subscribers are not necessarily customers; they never get match reminders or other marketing emails. Every email has a no-login unsubscribe link.",
+    "counts": "Counts by status",
+    "all": "All",
+    "status": {
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "notified": "Notified",
+      "unsubscribed": "Unsubscribed"
+    },
+    "lang": {
+      "en": "English",
+      "zh-CN": "Simplified",
+      "zh-TW": "Traditional"
+    },
+    "col": {
+      "createdAt": "Joined",
+      "email": "Email",
+      "lang": "Language",
+      "status": "Status",
+      "source": "Source",
+      "confirmedAt": "Confirmed",
+      "notifiedAt": "Notified"
+    },
+    "empty": "No one has joined yet",
+    "emptyFiltered": "No subscriptions in this status",
+    "launchBtn": "Send launch email",
+    "launchTitle": "Send the launch email (once only)",
+    "launchDesc": "Each of the {{n}} confirmed subscribers gets one \"we have launched\" email in the language they used. The waitlist closes and the data page starts showing today's markets.",
+    "launchOnce": "This can only be sent once for the whole site and cannot be undone.",
+    "launchConfirm": "Send",
+    "launched": "Launch email started",
+    "launch": {
+      "sending": "Sending launch email ({{sent}} / {{n}})",
+      "done": "Launch email sent ({{sent}})"
+    },
+    "launchInfo": "Launch email sent at {{at}}: {{n}} confirmed, {{sent}} emails queued. Reason: {{reason}}"
+  },
+  "tg": {
+    "title": "Telegram bot",
+    "sub": "Official channels only get result cards automatically (SQ-22, not tied to accounts). The bot only shares data and links; there is no betting in Telegram.",
+    "bot": "Bot",
+    "token": "Token (FC_TELEGRAM_BOT_TOKEN)",
+    "configured": "Configured",
+    "notConfigured": "Not configured",
+    "username": "Username",
+    "health": "Connection",
+    "healthy": "OK",
+    "unhealthy": "Problem",
+    "unconfigured": "FC_TELEGRAM_BOT_TOKEN is not configured; the bot is not running",
+    "unconfiguredHint": "Amos creates the bot with BotFather, puts the token into FC_TELEGRAM_BOT_TOKEN in the server .env and restarts (never share the token; it cannot be entered here). The rest of the site is not affected.",
+    "stopBtn": "Emergency stop",
+    "resumeBtn": "Resume posting",
+    "stopTitle": "Stop all automatic posting",
+    "stopDesc": "No channel or group gets automatic posts until resumed (markets ending meanwhile are logged as stopped). Audited, and admins with content:publish get an email.",
+    "resumeTitle": "Resume automatic posting",
+    "resumeDesc": "Markets ending from now on are posted again; nothing from the stopped period is back-filled.",
+    "stoppedInfo": "Automatic posting is stopped ({{at}}): {{reason}}",
+    "channels": "Official channels",
+    "channel": "Channel",
+    "target": {
+      "CHANNEL_ZH": "Chinese channel",
+      "CHANNEL_EN": "English channel"
+    },
+    "groupTarget": "Group {{id}}",
+    "chatId": "Channel id",
+    "chatIdHint": "Public channel: @username; private channel: the numeric id starting with -100. Make the bot an admin of the channel first.",
+    "notSet": "Not set",
+    "enabled": "Switch",
+    "on": "On",
+    "off": "Off",
+    "failStreak": "Failures in a row",
+    "edit": "Edit",
+    "editTarget": "Edit {{name}}",
+    "targetDesc": "Change the channel id or switch (high risk: posts publicly). Only markets ending after switching on are posted.",
+    "templates": "Templates for automatic posts",
+    "templatesHint": "Channels and groups only get the result card, the same card as in sharing (text in content/cards.json). Drafts are not posted; approve after previewing. Any text change needs re-approval.",
+    "tplKind": "Card",
+    "tplLang": "Language",
+    "tplStatus": "Status",
+    "approvedAt": "Approved",
+    "kind": {
+      "RESULT": "Result card"
+    },
+    "lang": {
+      "zh-CN": "Chinese",
+      "en": "English"
+    },
+    "tpl": {
+      "draft": "Draft",
+      "approved": "Approved",
+      "disabled": "Disabled"
+    },
+    "tplChanged": "Text changed, re-approve",
+    "previewBtn": "Preview",
+    "disableBtn": "Disable",
+    "previewTitle": "Preview: result card ({{lang}})",
+    "previewAlt": "Result card preview",
+    "previewFrom": "Generated from the latest ended market {{no}}; each post uses its own market's numbers.",
+    "approveBtn": "I approve automatic posting with this template",
+    "approveTitle": "Approve the result card template ({{lang}})",
+    "approveDesc": "Once approved, when a market marked \"today's slate\" ends, it is posted automatically to the channels and groups that are switched on (MQ-2).",
+    "disableTitle": "Disable the result card template ({{lang}})",
+    "disableDesc": "Result cards in this language stop being posted until approved again.",
+    "groups": "Groups the bot is in",
+    "groupsHint": "Group admins send /broadcast_on in the group to get result cards and /broadcast_off to stop; here you can only switch it off.",
+    "noGroups": "The bot has not been added to any group yet",
+    "groupTitle": "Group",
+    "groupStatus": "Status",
+    "group": {
+      "active": "In group",
+      "left": "Removed"
+    },
+    "broadcast": "Broadcast",
+    "broadcastOn": "On ({{lang}})",
+    "startParam": "Join parameter",
+    "groupOffBtn": "Stop broadcast",
+    "groupOffTitle": "Stop broadcast in \"{{name}}\"",
+    "groupOffDesc": "This group no longer gets result cards; its admins can turn it on again in the group.",
+    "posts": "Posting log",
+    "all": "All",
+    "noPosts": "Nothing posted yet",
+    "postTime": "Time",
+    "market": "Market",
+    "postStatus": "Result",
+    "postUrl": "Post link",
+    "note": "Note",
+    "post": {
+      "pending": "Pending",
+      "sent": "Sent",
+      "failed": "Failed",
+      "skipped": "Not posted",
+      "stopped": "Stopped"
     }
   }
 }

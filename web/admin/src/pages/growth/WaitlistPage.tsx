@@ -1,0 +1,132 @@
+/**
+ * 等候页订阅（forecast S16，MF-8；需求第 6.2 节"来源统计 … 等候页订阅列表（订阅方式、订阅时间、是否已通知）"；后端 GET /api/admin/waitlist，growth:view）。
+ * 上面是各状态的数量和"发送上线通知"（content:publish ★，SQ-22：等候页只发这一封"正式上线了"，不发开赛提醒；<b>全站只能发一次</b>，
+ * 发过以后按钮变成发送结果）；下面是订阅列表（邮箱打码，不显示完整邮箱）。主操作在页头（C79）。
+ */
+import { useCallback, useState } from 'react';
+import { Alert, Segmented } from 'antd';
+import { SendOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
+import { launchWaitlist, listWaitlist } from '../../api';
+import type { WaitlistItem, WaitlistStatus } from '../../api/fcTypes';
+import { DataTable } from '../../components/DataTable';
+import { Num } from '../../components/Num';
+import { PageHeader } from '../../components/PageHeader';
+import { PermButton } from '../../components/PermButton';
+import { Pill, type PillTone } from '../../components/Pill';
+import { useApi } from '../../hooks/useApi';
+import { useHighRisk } from '../../hooks/useConfirmDialogs';
+import { utc } from '../../utils/market';
+
+const TONE: Record<WaitlistStatus, PillTone> = { pending: 'warn', confirmed: 'info', notified: 'ok', unsubscribed: 'muted' };
+const STATUSES: WaitlistStatus[] = ['confirmed', 'pending', 'notified', 'unsubscribed'];
+
+function Kpi({ k, v, tone = '' }: { k: string; v: string | number; tone?: string }) {
+  return (
+    <div className={`card kpi ${tone}`}>
+      <div className="k">{k}</div>
+      <div className="v">
+        <b>{v}</b>
+      </div>
+    </div>
+  );
+}
+
+export function WaitlistPage() {
+  const { t } = useTranslation();
+  const [status, setStatus] = useState<WaitlistStatus | 'all'>('all');
+  const [page, setPage] = useState(1);
+  const [size, setSize] = useState(20);
+  const { data, loading, error, reload } = useApi(
+    useCallback(() => listWaitlist({ status: status === 'all' ? undefined : status, page, pageSize: size }), [status, page, size]),
+  );
+  const hr = useHighRisk();
+  const c = data?.counts;
+  const launch = data?.launch;
+  const launched = !!launch && launch.status !== 'none';
+
+  const askLaunch = () =>
+    hr.ask({
+      title: t('wl.launchTitle'),
+      description: (
+        <>
+          <p>{t('wl.launchDesc', { n: c?.confirmed ?? 0 })}</p>
+          <p className="muted">{t('wl.launchOnce')}</p>
+        </>
+      ),
+      confirmText: t('wl.launchConfirm'),
+      successText: t('wl.launched'),
+      onConfirm: (v) => launchWaitlist(v.reason),
+      onDone: reload,
+    });
+
+  return (
+    <>
+      <PageHeader
+        title={t('wl.title')}
+        sub={t('wl.sub')}
+        extra={
+          launched ? (
+            <Pill tone={launch!.status === 'done' ? 'ok' : 'warn'}>{t(`wl.launch.${launch!.status}`, { sent: launch!.sent, n: launch!.recipients })}</Pill>
+          ) : (
+            <PermButton perm="content:publish" type="primary" danger icon={<SendOutlined />} disabled={!data} onClick={askLaunch} data-testid="wl-launch">
+              {t('wl.launchBtn')}
+            </PermButton>
+          )
+        }
+      />
+      <Alert type="info" showIcon className="gr-note" message={t('wl.note')} />
+      {launched ? (
+        <Alert
+          type="success"
+          showIcon
+          className="gr-note"
+          data-testid="wl-launched"
+          message={t('wl.launchInfo', { at: utc(launch!.at ?? ''), n: launch!.recipients, sent: launch!.sent, reason: launch!.reason ?? '' })}
+        />
+      ) : null}
+      <section className="kpis gr-kpis" aria-label={t('wl.counts')}>
+        <Kpi k={t('wl.status.confirmed')} v={c ? c.confirmed : '—'} tone="green" />
+        <Kpi k={t('wl.status.pending')} v={c ? c.pending : '—'} />
+        <Kpi k={t('wl.status.notified')} v={c ? c.notified : '—'} />
+        <Kpi k={t('wl.status.unsubscribed')} v={c ? c.unsubscribed : '—'} tone="orange" />
+      </section>
+      <div className="fc-bar">
+        <Segmented
+          value={status}
+          onChange={(v) => {
+            setStatus(v as WaitlistStatus | 'all');
+            setPage(1);
+          }}
+          options={[{ value: 'all', label: t('wl.all') }, ...STATUSES.map((s) => ({ value: s, label: t(`wl.status.${s}`) }))]}
+        />
+      </div>
+      <DataTable<WaitlistItem>
+        rowKey="id"
+        loading={loading}
+        error={error}
+        onRetry={reload}
+        dataSource={data?.items}
+        total={data?.total}
+        page={page}
+        pageSize={size}
+        onPageChange={(p, s) => (setPage(p), setSize(s))}
+        emptyText={status === 'all' ? t('wl.empty') : t('wl.emptyFiltered')}
+        columns={[
+          { title: t('wl.col.createdAt'), dataIndex: 'createdAt', render: (v: string) => <Num>{utc(v)}</Num> },
+          { title: t('wl.col.email'), dataIndex: 'email', render: (v: string) => <Num>{v}</Num> },
+          { title: t('wl.col.lang'), dataIndex: 'lang', render: (v: string) => t(`wl.lang.${v}`) },
+          { title: t('wl.col.status'), dataIndex: 'status', render: (v: WaitlistStatus) => <Pill tone={TONE[v]}>{t(`wl.status.${v}`)}</Pill> },
+          {
+            title: t('wl.col.source'),
+            key: 'src',
+            render: (_, r) => (r.src || r.cmp || r.ref ? [r.src, r.cmp, r.ref].filter(Boolean).join(' · ') : <span className="muted">{t('gr.direct')}</span>),
+          },
+          { title: t('wl.col.confirmedAt'), dataIndex: 'confirmedAt', render: (v: string | null) => (v ? <Num>{utc(v)}</Num> : <span className="muted">—</span>) },
+          { title: t('wl.col.notifiedAt'), dataIndex: 'notifiedAt', render: (v: string | null) => (v ? <Num>{utc(v)}</Num> : <span className="muted">—</span>) },
+        ]}
+      />
+      {hr.element}
+    </>
+  );
+}

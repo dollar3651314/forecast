@@ -1,7 +1,7 @@
 /**
  * 内容中心的真实接口（forecast S15；后端 admin/ops/ContentAdminController，路径、字段以后端为准）。
  * 发布、设置、词表、紧急停止、页面显示 / 隐藏是高危（content:publish）：reason、checked 原样传给后端，后端检查并写审计。
- * 没有任何"发到 X / Telegram"的接口：帖子审核后由人复制手动发（自动发布等 SQ-22 和账号）。
+ * 没有任何"发到 X / Telegram"的接口：帖子审核后由人复制手动发（SQ-22：只有开奖卡自动发到 Telegram 频道，在 S16 的 Telegram 机器人页，realFc.ts）。
  */
 import { ApiError, type Page } from './types';
 import { API_BASE, request, toApiError } from './http';

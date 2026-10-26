@@ -207,7 +207,11 @@ class AuthFlowTest {
     MockHttpServletResponse ok = call(post("/api/auth/register"), ip(), null, base + ",\"birthDate\":\"" + exactly + "\",\"adultConfirmed\":true}");
     assertThat(ok.getStatus()).as(ok.getContentAsString()).isEqualTo(200);
     assertThat(jdbc.queryForObject("SELECT terms_accepted_at IS NOT NULL FROM account_user WHERE email = ?", Boolean.class, email)).isTrue();
-    assertThat(jdbc.queryForObject("SELECT last_login_at IS NULL FROM account_user WHERE email = ?", Boolean.class, email)).as("注册时的自动登录不记登录时间（SQ-20 的判断）").isTrue();
+    // S16（SQ-27，Amos 2026-10-26）：注册成功后的自动登录也算一次成功登录，记下登录时间；开赛提醒（#23）的订阅资格马上就有，不用退出再登录
+    assertThat(jdbc.queryForObject("SELECT last_login_at IS NOT NULL FROM account_user WHERE email = ?", Boolean.class, email)).as("注册时的自动登录记登录时间").isTrue();
+    MockHttpServletResponse reminders = call(get("/api/me/reminders"), ip(), ok.getCookie("fc_session"), null);
+    assertThat(reminders.getStatus()).isEqualTo(200);
+    assertThat(reminders.getContentAsString()).as("注册后的会话直接就能订阅开赛提醒").contains("\"eligible\":true");
   }
 
   @Test

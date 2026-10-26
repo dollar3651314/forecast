@@ -222,6 +222,30 @@ export const exportContentLogs: typeof rc.exportContentLogs = IS_MOCK ? mc.expor
 // forecast S13：来源统计
 export const getGrowthReport: typeof rf.getGrowthReport = IS_MOCK ? fm.getGrowthReport : rf.getGrowthReport;
 export const exportGrowth: typeof rf.exportGrowth = IS_MOCK ? fm.exportGrowth : rf.exportGrowth;
+
+// ---- S16 等候页订阅（MF-8）、Telegram 机器人（MF-7） ----
+/** GET /api/admin/waitlist（growth:view） */
+export const listWaitlist: typeof rf.listWaitlist = IS_MOCK ? fm.listWaitlist : rf.listWaitlist;
+/** POST /api/admin/waitlist/launch（content:publish ★，只能一次） */
+export const launchWaitlist: typeof rf.launchWaitlist = IS_MOCK ? fm.launchWaitlist : rf.launchWaitlist;
+/** GET /api/admin/telegram（content:view） */
+export const getTelegram: typeof rf.getTelegram = IS_MOCK ? fm.getTelegram : rf.getTelegram;
+/** GET /api/admin/telegram/posts */
+export const listTelegramPosts: typeof rf.listTelegramPosts = IS_MOCK ? fm.listTelegramPosts : rf.listTelegramPosts;
+/** PUT /api/admin/telegram/targets/{key}（content:publish ★） */
+export const updateTelegramTarget: typeof rf.updateTelegramTarget = IS_MOCK ? fm.updateTelegramTarget : rf.updateTelegramTarget;
+/** POST /api/admin/telegram/groups/{chatId}/broadcast-off（content:publish ★） */
+export const stopTelegramGroup: typeof rf.stopTelegramGroup = IS_MOCK ? fm.stopTelegramGroup : rf.stopTelegramGroup;
+/** GET /api/admin/telegram/templates/{kind}/{lang}/preview */
+export const getTelegramPreview: typeof rf.getTelegramPreview = IS_MOCK ? fm.getTelegramPreview : rf.getTelegramPreview;
+/** 预览图 GET /api/admin/telegram/templates/{kind}/{lang}/preview.png */
+export const telegramPreviewUrl: typeof rf.telegramPreviewUrl = IS_MOCK ? fm.telegramPreviewUrl : rf.telegramPreviewUrl;
+/** POST /api/admin/telegram/templates/{kind}/{lang}/approve（content:publish ★） */
+export const approveTelegramTemplate: typeof rf.approveTelegramTemplate = IS_MOCK ? fm.approveTelegramTemplate : rf.approveTelegramTemplate;
+/** POST /api/admin/telegram/templates/{kind}/{lang}/disable（content:publish ★） */
+export const disableTelegramTemplate: typeof rf.disableTelegramTemplate = IS_MOCK ? fm.disableTelegramTemplate : rf.disableTelegramTemplate;
+/** POST /api/admin/telegram/stop（content:publish ★） */
+export const setTelegramStop: typeof rf.setTelegramStop = IS_MOCK ? fm.setTelegramStop : rf.setTelegramStop;
 export const pauseMarket: typeof rf.pauseMarket = IS_MOCK ? fm.pauseMarket : rf.pauseMarket;
 export const resumeMarket: typeof rf.resumeMarket = IS_MOCK ? fm.resumeMarket : rf.resumeMarket;
 export const cancelMarket: typeof rf.cancelMarket = IS_MOCK ? fm.cancelMarket : rf.cancelMarket;

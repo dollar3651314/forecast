@@ -7,7 +7,7 @@ import java.util.Map;
  * 后台"内容中心"（forecast S15；需求说明书第 6.2 节、自动化需求第 7 节）。权限点和审计在 admin 模块（{@code admin/ops/ContentOps}）：
  * 看 content:view；改草稿、手动生成、录入经济日历、改模板 content:edit；发布、改设置和词表、紧急停止 content:publish（高危）。
  * <p>编号一律字符串，时间 ISO-8601 UTC。<b>AI 写的所有东西都要审核后才发布</b>（EQ-1：第一期没有自动发布）；X / Telegram 帖子只出草稿，
- * 审核通过后复制、由 Amos 手动发（自动发要等 SQ-22 和账号）；回复草稿只能复制，没有发布。
+ * 审核通过后复制、由 Amos 手动发（SQ-22 Amos 答复：公开频道只自动推开奖卡，由 S16 的 growth/telegram 做，不经过这里）；回复草稿只能复制，没有发布。
  */
 public interface ContentAdminApi {
 

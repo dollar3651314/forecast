@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 官方 Telegram 机器人（forecast S16，MF-7）。只有 growth 模块使用。 -->
+<mapper namespace="com.forecast.app.growth.telegram.TelegramMapper">
+
+  <select id="state" resultType="com.forecast.app.growth.telegram.TelegramMapper$State">
+    SELECT update_offset, emergency_stop, stop_reason, stop_by, stop_at FROM growth_tg_state WHERE id = 1
+  </select>
+
+  <update id="saveOffset">
+    UPDATE growth_tg_state SET update_offset = #{offset}, updated_at = #{now} WHERE id = 1 AND update_offset &lt; #{offset}
+  </update>
+
+  <update id="setStop">
+    UPDATE growth_tg_state SET emergency_stop = #{stop}, stop_reason = #{reason}, stop_by = #{by}, stop_at = #{now}, updated_at = #{now}
+    WHERE id = 1 AND emergency_stop &lt;&gt; #{stop}
+  </update>
+
+  <sql id="targetCols">target_key, lang, chat_id, enabled, enabled_at, fail_streak, disabled_reason, last_alert_at, updated_by, updated_at</sql>
+
+  <select id="targets" resultType="com.forecast.app.growth.telegram.TelegramMapper$Target">
+    SELECT <include refid="targetCols"/> FROM growth_tg_target ORDER BY target_key DESC
+  </select>
+
+  <select id="target" resultType="com.forecast.app.growth.telegram.TelegramMapper$Target">
+    SELECT <include refid="targetCols"/> FROM growth_tg_target WHERE target_key = #{key}
+  </select>
+
+  <update id="updateTarget">
+    UPDATE growth_tg_target SET chat_id = #{chatId}, updated_by = #{by}, updated_at = #{now},
+      enabled_at = CASE WHEN #{enabled} AND enabled = 0 THEN #{now} ELSE enabled_at END,
+      enabled = #{enabled},
+      fail_streak = CASE WHEN #{enabled} THEN 0 ELSE fail_streak END,
+      disabled_reason = CASE WHEN #{enabled} THEN NULL ELSE disabled_reason END
+    WHERE target_key = #{key}
+  </update>
+
+  <update id="targetFailed">
+    <!-- MySQL 按从左到右的顺序赋值、后面的用前面改过的值：先算开关和原因，最后才加次数 -->
+    UPDATE growth_tg_target SET
+      enabled = CASE WHEN fail_streak + 1 &gt;= #{limit} THEN 0 ELSE enabled END,
+      disabled_reason = CASE WHEN fail_streak + 1 &gt;= #{limit} THEN #{reason} ELSE disabled_reason END,
+      fail_streak = fail_streak + 1,
+      updated_at = #{now}
+    WHERE target_key = #{key}
+  </update>
+
+  <update id="targetOk">
+    UPDATE growth_tg_target SET fail_streak = 0 WHERE target_key = #{key} AND fail_streak &lt;&gt; 0
+  </update>
+
+  <update id="targetAlert">
+    UPDATE growth_tg_target SET last_alert_at = #{now} WHERE target_key = #{key} AND (last_alert_at IS NULL OR last_alert_at &lt; #{before})
+  </update>
+
+  <sql id="chatCols">chat_id, chat_type, title, status, broadcast, broadcast_at, lang, start_param, fail_streak, added_at, updated_at</sql>
+
+  <insert id="upsertChat">
+    INSERT INTO growth_tg_chat (chat_id, chat_type, title, status, broadcast, lang, start_param, fail_streak, added_at, updated_at)
+    VALUES (#{chatId}, #{type}, #{title}, 'ACTIVE', 0, 'zh-CN', #{start}, 0, #{now}, #{now})
+    ON DUPLICATE KEY UPDATE title = VALUES(title), chat_type = VALUES(chat_type), status = 'ACTIVE',
+      start_param = COALESCE(start_param, VALUES(start_param)), updated_at = VALUES(updated_at)
+  </insert>
+
+  <update id="chatLeft">
+    UPDATE growth_tg_chat SET status = 'LEFT', broadcast = 0, updated_at = #{now} WHERE chat_id = #{chatId} AND status = 'ACTIVE'
+  </update>
+
+  <update id="setBroadcast">
+    UPDATE growth_tg_chat SET broadcast_at = CASE WHEN #{on} AND broadcast = 0 THEN #{now} ELSE broadcast_at END,
+      broadcast = #{on}, lang = COALESCE(#{lang}, lang), fail_streak = 0, updated_at = #{now} WHERE chat_id = #{chatId}
+  </update>
+
+  <select id="chat" resultType="com.forecast.app.growth.telegram.TelegramMapper$Chat">
+    SELECT <include refid="chatCols"/> FROM growth_tg_chat WHERE chat_id = #{chatId}
+  </select>
+
+  <select id="chats" resultType="com.forecast.app.growth.telegram.TelegramMapper$Chat">
+    SELECT <include refid="chatCols"/> FROM growth_tg_chat ORDER BY status, broadcast DESC, updated_at DESC LIMIT #{limit}
+  </select>
+
+  <select id="broadcastChats" resultType="com.forecast.app.growth.telegram.TelegramMapper$Chat">
+    SELECT <include refid="chatCols"/> FROM growth_tg_chat WHERE status = 'ACTIVE' AND broadcast = 1 ORDER BY chat_id
+  </select>
+
+  <update id="chatFailed">
+    UPDATE growth_tg_chat SET broadcast = CASE WHEN fail_streak + 1 &gt;= #{limit} THEN 0 ELSE broadcast END, fail_streak = fail_streak + 1, updated_at = #{now}
+    WHERE chat_id = #{chatId}
+  </update>
+
+  <update id="chatOk">
+    UPDATE growth_tg_chat SET fail_streak = 0 WHERE chat_id = #{chatId} AND fail_streak &lt;&gt; 0
+  </update>
+
+  <select id="templates" resultType="com.forecast.app.growth.telegram.TelegramMapper$Template">
+    SELECT kind, lang, status, fingerprint, approved_by, approved_at, updated_at FROM growth_tg_template ORDER BY kind, lang DESC
+  </select>
+
+  <select id="template" resultType="com.forecast.app.growth.telegram.TelegramMapper$Template">
+    SELECT kind, lang, status, fingerprint, approved_by, approved_at, updated_at FROM growth_tg_template WHERE kind = #{kind} AND lang = #{lang}
+  </select>
+
+  <update id="setTemplate">
+    UPDATE growth_tg_template SET status = #{status}, fingerprint = #{fingerprint},
+      approved_by = CASE WHEN #{status} = 'APPROVED' THEN #{by} ELSE approved_by END,
+      approved_at = CASE WHEN #{status} = 'APPROVED' THEN #{now} ELSE approved_at END,
+      updated_at = #{now}
+    WHERE kind = #{kind} AND lang = #{lang}
+  </update>
+
+  <sql id="postCols">id, market_no, kind, target, chat_id, lang, status, attempts, next_attempt_at, message_id, post_url, note, created_at, sent_at</sql>
+
+  <insert id="insertPost">
+    INSERT IGNORE INTO growth_tg_post (market_no, kind, target, chat_id, lang, status, attempts, next_attempt_at, note, created_at, updated_at)
+    VALUES (#{marketNo}, #{kind}, #{target}, #{chatId}, #{lang}, #{status}, 0, #{now}, #{note}, #{now}, #{now})
+  </insert>
+
+  <select id="duePosts" resultType="com.forecast.app.growth.telegram.TelegramMapper$Post">
+    SELECT <include refid="postCols"/> FROM growth_tg_post WHERE status = 'PENDING' AND next_attempt_at &lt;= #{now} ORDER BY id LIMIT #{limit}
+  </select>
+
+  <select id="post" resultType="com.forecast.app.growth.telegram.TelegramMapper$Post">
+    SELECT <include refid="postCols"/> FROM growth_tg_post WHERE id = #{id}
+  </select>
+
+  <update id="claim">
+    UPDATE growth_tg_post SET attempts = attempts + 1, next_attempt_at = #{until}, updated_at = #{now}
+    WHERE id = #{id} AND status = 'PENDING' AND attempts = #{attempts} AND next_attempt_at &lt;= #{now}
+  </update>
+
+  <update id="markSent">
+    UPDATE growth_tg_post SET status = 'SENT', message_id = #{messageId}, post_url = #{url}, note = NULL, sent_at = #{now}, updated_at = #{now}
+    WHERE id = #{id} AND status = 'PENDING' AND attempts = #{attempts}
+  </update>
+
+  <update id="release">
+    UPDATE growth_tg_post SET attempts = attempts - 1, next_attempt_at = #{next}, updated_at = #{now}
+    WHERE id = #{id} AND status = 'PENDING' AND attempts = #{attempts}
+  </update>
+
+  <update id="finish">
+    UPDATE growth_tg_post SET status = #{status}, note = #{note}, next_attempt_at = COALESCE(#{next}, next_attempt_at), updated_at = #{now}
+    WHERE id = #{id} AND status = 'PENDING' AND attempts = #{attempts}
+  </update>
+
+  <update id="closePending">
+    UPDATE growth_tg_post SET status = #{status}, note = #{note}, updated_at = #{now} WHERE id = #{id} AND status = 'PENDING'
+  </update>
+
+  <select id="posts" resultType="com.forecast.app.growth.telegram.TelegramMapper$Post">
+    SELECT <include refid="postCols"/> FROM growth_tg_post <where><if test="status != null">status = #{status}</if></where>
+    ORDER BY id DESC LIMIT #{offset}, #{limit}
+  </select>
+
+  <select id="countPosts" resultType="long">
+    SELECT COUNT(*) FROM growth_tg_post <where><if test="status != null">status = #{status}</if></where>
+  </select>
+</mapper>

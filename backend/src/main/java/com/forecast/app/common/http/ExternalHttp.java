@@ -95,13 +95,23 @@ public final class ExternalHttp {
   }
 
   /**
-   * POST 一个 JSON 请求体（forecast S15：Gemini 的 generateContent）。超时、响应体上限和 GET 一样；不重试。
+   * POST 一个 JSON 请求体（forecast S15：Gemini 的 generateContent）。超时、响应体上限和 GET 一样；不重试。整合 4：改成调用 {@link #post}（S16）。
    *
    * @param headers 额外的请求头（例如 key），不会出现在任何日志和异常信息里
    */
   public Response postJson(URI uri, Duration connectTimeout, Duration readTimeout, int maxBytes, Map<String, String> headers, byte[] body) throws Failure {
-    HttpRequest.Builder b = HttpRequest.newBuilder(uri).timeout(readTimeout).header("Accept", "application/json").header("Content-Type", "application/json")
-        .POST(HttpRequest.BodyPublishers.ofByteArray(body));
+    return post(uri, connectTimeout, readTimeout, maxBytes, headers, "application/json", body);
+  }
+
+  /**
+   * POST 一个请求体（forecast S16：Telegram Bot API 的 sendMessage（JSON）、sendPhoto（multipart））。超时、响应体上限、不跟随跳转、不重试，和 {@link #get} 一样。
+   *
+   * @param contentType 请求体的类型（{@code application/json}、{@code multipart/form-data; boundary=…}）
+   */
+  public Response post(URI uri, Duration connectTimeout, Duration readTimeout, int maxBytes, Map<String, String> headers, String contentType, byte[] body)
+      throws Failure {
+    HttpRequest.Builder b = HttpRequest.newBuilder(uri).timeout(readTimeout).header("Accept", "application/json").header("Content-Type", contentType)
+        .POST(HttpRequest.BodyPublishers.ofByteArray(body == null ? new byte[0] : body));
     if (headers != null) headers.forEach(b::header);
     return send(b, connectTimeout, readTimeout, maxBytes);
   }

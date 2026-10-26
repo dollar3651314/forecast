@@ -55,7 +55,7 @@ public final class StubHttp implements AutoCloseable {
   /** 每个请求的请求头（名字小写，取第一个值；forecast S8：核对 key 有没有带） */
   private final List<java.util.Map<String, String>> headers = new CopyOnWriteArrayList<>();
   private volatile Function<URI, Reply> handler = u -> Reply.status(404, "{}");
-  /** 每个请求的请求体（forecast S15：Gemini 的 POST） */
+  /** 每个请求的请求体（forecast S15：Gemini 的 POST；S16：Telegram 的 JSON / multipart。整合 4 合成一份，按 UTF-8 解成文字） */
   private final List<String> bodies = new CopyOnWriteArrayList<>();
   /** 按地址和请求体回复（设了就用它，S15） */
   private volatile java.util.function.BiFunction<URI, String, Reply> bodyHandler;
@@ -98,6 +98,11 @@ public final class StubHttp implements AutoCloseable {
   /** 收到的请求头（和 {@link #requests()} 一一对应） */
   public List<java.util.Map<String, String>> headers() {
     return List.copyOf(headers);
+  }
+
+  /** 第 i 个请求体按 UTF-8 解成的文字（forecast S16） */
+  public String bodyText(int i) {
+    return bodies.get(i);
   }
 
   public int hits() {

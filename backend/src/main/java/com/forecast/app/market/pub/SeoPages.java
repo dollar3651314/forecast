@@ -35,7 +35,8 @@ import tools.jackson.databind.ObjectMapper;
  *       （有脚本的浏览器一开始就隐藏它，见 {@code web/client/index.html}），所以登录后的体验不变。</li>
  * </ul>
  * 公开的页面：{@code /}、{@code /markets}、{@code /markets/{编号}}、{@code /results}、{@code /results/weekly}、{@code /results/weekly/{周}}、
- * {@code /how-to-play}；S15 起还有别的模块提供的页面（{@link PublicPageProvider}：自动化程序的 {@code /insights/**}，MF-11）。三种语言用 {@code ?lang=en|zh-CN|zh-TW} 区分地址，不带 lang 的是 x-default（英文）。别的路径（登录后才能看的页面）只给品牌标题和 noindex。
+ * {@code /how-to-play}；S15 起还有别的模块提供的页面（{@link PublicPageProvider}：自动化程序的 {@code /insights/**}，MF-11；S16 growth 的数据页 {@code /data}，MF-17）。
+ * 三种语言用 {@code ?lang=en|zh-CN|zh-TW} 区分地址，不带 lang 的是 x-default（英文）。别的路径（登录后才能看的页面）只给品牌标题和 noindex。
  * <p>只用公开数据：没有任何客户的个人数据（详情按"没登录"取，列表的奖池本来就不带个人数据）。所有文字都经过 HTML 转义。
  */
 @Component
@@ -69,7 +70,7 @@ public class SeoPages {
     this.publicBrowse = publicBrowse;
   }
 
-  /** 管这个路径的别的模块（S15） */
+  /** 管这个路径的别的模块（S15 的 /insights/**；S16 的 /data） */
   private Optional<PublicPageProvider> provider(String path) {
     return providers.orderedStream().filter(pp -> pp.handles(path)).findFirst();
   }
@@ -118,7 +119,7 @@ public class SeoPages {
     }
   }
 
-  /** 别的模块提供的页面在站点地图里的条目（S15） */
+  /** 别的模块提供的页面在站点地图里的条目（S15 的 /insights/**；S16 的 /data） */
   List<PublicPageProvider.Entry> providedSitemap() {
     List<PublicPageProvider.Entry> out = new java.util.ArrayList<>();
     providers.orderedStream().forEach(pp -> {

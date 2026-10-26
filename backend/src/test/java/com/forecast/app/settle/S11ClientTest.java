@@ -22,7 +22,7 @@ import tools.jackson.databind.JsonNode;
  * <ul>
  *   <li>市场列表：搜索（题目三种语言、市场编号；%、_ 不当通配符）、按奖池排序、分页、已结算带结果；</li>
  *   <li>市场详情的 {@code settle}（结算合计和本人的派彩、抽成、退款）；我的下注的最终赔率、按持仓的派彩和抽成、顶部汇总；</li>
- *   <li>#23 开赛提醒：只给用邮箱和密码登录过的客户（SQ-20）、只能订还没开放的市场、到开放时间发一次邮件（遵守邮件开关）、
+ *   <li>#23 开赛提醒：只给登录过的客户（SQ-20；S16 起注册后的自动登录也算，SQ-27，见 AuthFlowTest；这里的测试客户是直接写库建的，没有登录过）、只能订还没开放的市场、到开放时间发一次邮件（遵守邮件开关）、
  *       市场先结束的不发、邮件里的退订链接不用登录。</li>
  * </ul>
  */
@@ -222,7 +222,7 @@ class S11ClientTest extends SettleTestSupport {
   void 开赛提醒_只给登录过的客户_只能订还没开放的市场_可以退订再订() throws Exception {
     User u = user("0");
     Market m = upcoming();
-    // 注册后没用邮箱和密码登录过（SQ-20）：详情里能看到"可以订阅、但你还不能订"，订阅被拒（403）
+    // 没有登录过的账户（SQ-20；测试客户是直接写库建的，没经过注册接口的自动登录，SQ-27）：详情里能看到"可以订阅、但你还不能订"，订阅被拒（403）
     JsonNode r0 = getJson("/api/markets/" + m.no(), u.cookie()).get("reminder");
     assertThat(r0.toString()).isEqualTo("{\"available\":true,\"eligible\":false,\"status\":\"none\"}");
     MockHttpServletResponse denied = subscribe(u, m);

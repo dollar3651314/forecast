@@ -52,7 +52,7 @@ function Stat({ k, v, sub }: { k: string; v: ReactNode; sub?: ReactNode }) {
 
 /**
  * 开赛提醒（#23，SQ-20）：还没开放下注的市场，订阅后在开放时发一封邮件到账户邮箱；"通知偏好"里能看到和退订。
- * 只有用邮箱和密码登录过的账户能订（注册时的自动登录不算），不能订时说明原因。
+ * 只有登录过的账户能订（S16 起注册后的自动登录也算，SQ-27），不能订时说明原因。
  */
 function ReminderBar({ m, onChange }: { m: Detail; onChange: (r: ReminderState) => void }) {
   const { t } = useTranslation();

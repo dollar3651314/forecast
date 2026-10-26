@@ -27,7 +27,7 @@ export function riskSummary(t: (k: string, o?: Record<string, unknown>) => strin
   const d = a.detail;
   switch (a.kind) {
     case 'late_large_bet':
-      return t('ra.detail.late_large_bet', { pct: d.pct, pool: formatAmount(d.poolAfter ?? '0'), sec: d.secondsBeforeClose, limitPct: d.limitPct, limitMinutes: d.limitMinutes });
+      return t('ra.detail.late_large_bet', { pct: d.pct, pool: formatAmount(d.poolAfter ?? '0'), sec: d.secondsBeforeClose, limitPct: d.limitPct, limitMinutes: d.limitMinutes, limitAmount: formatAmount(d.limitAmount ?? '0') });
     case 'linked_opposite':
       return t('ra.detail.linked_opposite', { users: (d.linkedUsers ?? '').split(',').join('、') });
     case 'new_account_longshot':

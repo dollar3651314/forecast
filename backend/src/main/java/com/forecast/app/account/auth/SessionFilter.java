@@ -34,7 +34,10 @@ class SessionFilter extends OncePerRequestFilter {
       // forecast S13（MF-1）：带来源参数的访问（只记来源，不涉及账户；同源、按 IP 限流）
       "/api/attribution/visit",
       // forecast S13（MF-4、NF-14）：给 Nginx SSI / 搜索引擎的页面头部、正文、页面是否存在，robots.txt、站点地图——总是公开（关掉公开浏览时 robots 禁止收录）
-      "/api/public/seo/head", "/api/public/seo/body", "/api/public/seo/exists", "/api/public/robots.txt", "/api/public/sitemap.xml");
+      "/api/public/seo/head", "/api/public/seo/body", "/api/public/seo/exists", "/api/public/robots.txt", "/api/public/sitemap.xml",
+      // forecast S16（MF-8、MF-17）：数据页兼等候页——上线前就要能打开（和"不登录也能看"的开关无关；场次那一块在开关关掉时不给数据）；
+      // 等候页留邮箱、确认、退订（凭随机串，和账户无关，按 IP 限流）
+      "/api/public/board", "/api/public/waitlist", "/api/public/waitlist/confirm", "/api/public/waitlist/unsubscribe");
 
   /**
    * forecast S13（MF-4，需求第 5.1 节虚线框、AC-84）：不登录也能看的接口（只有 GET）。开关 {@code forecast.public-browse.enabled}（默认开，

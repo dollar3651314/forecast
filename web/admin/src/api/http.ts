@@ -54,6 +54,10 @@ export const ERROR_KEYS: Record<string, string> = {
   REJECT_REASON_REQUIRED: 'errors.reasonRequired',
   REJECT_REASON_TOO_LONG: 'errors.reasonTooLong',
   BUILT_IN_CANNOT_DISABLE: 'errors.builtInCannotDisable',
+  // forecast S16：等候页上线通知只能发一次；Telegram 模板预览以后文字改过、没有可预览的市场
+  LAUNCH_ALREADY_SENT: 'errors.fc.LAUNCH_ALREADY_SENT',
+  TELEGRAM_TEMPLATE_CHANGED: 'errors.fc.TELEGRAM_TEMPLATE_CHANGED',
+  TELEGRAM_NO_PREVIEW: 'errors.fc.TELEGRAM_NO_PREVIEW',
   // 通用
   NOT_FOUND: 'errors.notFound',
   VALIDATION_FAILED: 'errors.validationFailed',

@@ -39,6 +39,8 @@ import { CompensationsPage } from '../pages/settle/CompensationsPage';
 import { PoolReconPage } from '../pages/funds/PoolReconPage';
 import { ReportsPage } from '../pages/reports/ReportsPage';
 import { GrowthPage } from '../pages/growth/GrowthPage';
+import { WaitlistPage } from '../pages/growth/WaitlistPage';
+import { TelegramPage } from '../pages/telegram/TelegramPage';
 import { ParamsPage } from '../pages/params/ParamsPage';
 import { RiskAlertsPage } from '../pages/risk/RiskAlertsPage';
 import { ContentDraftsPage } from '../pages/content/ContentDraftsPage';
@@ -70,6 +72,7 @@ export const APP_ROUTES: RouteDef[] = [
   { path: '/settle/compensations', menuKey: 'compensations', element: <CompensationsPage /> },
   { path: '/reports', menuKey: 'reports', element: <ReportsPage /> },
   { path: '/growth', menuKey: 'growth', element: <GrowthPage /> },
+  { path: '/waitlist', menuKey: 'waitlist', element: <WaitlistPage /> },
   // forecast S15：内容中心
   { path: '/content/drafts', menuKey: 'content-drafts', element: <ContentDraftsPage /> },
   { path: '/content/events', menuKey: 'content-events', element: <ContentEventsPage /> },
@@ -78,6 +81,7 @@ export const APP_ROUTES: RouteDef[] = [
   { path: '/content/tools', menuKey: 'content-tools', element: <ContentToolsPage /> },
   { path: '/content/logs', menuKey: 'content-logs', element: <ContentLogsPage /> },
   { path: '/content/settings', menuKey: 'content-settings', element: <ContentSettingsPage /> },
+  { path: '/content/telegram', menuKey: 'telegram', element: <TelegramPage /> },
   { path: '/params', menuKey: 'params', element: <ParamsPage /> },
   { path: '/customers', menuKey: 'customers', element: <CustomerListPage /> },
   { path: '/customers/:id', menuKey: 'customers', element: <CustomerDetailPage /> },

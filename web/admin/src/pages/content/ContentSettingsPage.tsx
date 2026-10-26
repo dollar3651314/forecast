@@ -3,14 +3,16 @@
  * - 用量：Gemini 是否配置（只显示"已配置 / 未配置"，不显示 key）、今天用了多少（文章起草 / 比分解析分开）、本月估算费用。
  * - 设置：每天上限、文章起草占比、费用提醒线、AI 起草开关、每日草稿包、每天新页面上限、每周文章上限、经济日历提前天数。
  *   改设置是高危（content:publish），写审计。没有"自动发布"开关（EQ-1）。
- * - 紧急停止：一键停掉所有发布（草稿照常生成）。
+ * - 紧急停止：一键停掉草稿箱的发布和复制（草稿照常生成）。Telegram 开奖卡的自动发布有自己的紧急停止（"Telegram 机器人"页）。
  * - 词表：禁用词（保存时检查）、倾向词（EQ-8）、敏感词（事件过滤）；内置词不能删。
- * - 渠道开关：占位，等 MF-7（自动发 X / Telegram 要 Amos 先定账号和 SQ-22）。
+ * - 发布渠道（整合 4，S16 开发记录第 7 节做法 ①）：Telegram 频道的开关、模板审定、紧急停止在内容中心的"Telegram 机器人"页（S16，经
+ *   growth.api.TelegramAdminApi），这里只读显示状态并给入口；X 没有自动发布，只能复制后手动发。
  */
 import { useCallback, useEffect, useState } from 'react';
 import { App, Alert, Card, Col, Descriptions, Form, Input, InputNumber, Progress, Row, Segmented, Space, Switch, Tag } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { addContentWord, deleteContentWord, getContentStatus, listContentWords, setContentStopped, updateContentSettings } from '../../api';
+import { Link } from 'react-router-dom';
+import { addContentWord, deleteContentWord, getContentStatus, getTelegram, listContentWords, setContentStopped, updateContentSettings } from '../../api';
 import type { ContentWordKind } from '../../api/fcTypes';
 import { ErrorState } from '../../components/ErrorState';
 import { PageHeader } from '../../components/PageHeader';
@@ -138,18 +140,7 @@ export function ContentSettingsPage() {
               {data?.stopped ? t('ct.settings.resume') : t('ct.settings.stopNow')}
             </PermButton>
           </Card>
-          <Card size="small" title={t('ct.settings.channels')} className="ct-card">
-            <Alert type="info" showIcon message={t('ct.settings.channelsTodo')} />
-            <Space direction="vertical" className="ct-channels">
-              {['X', 'Telegram'].map((c) => (
-                <Space key={c}>
-                  <Switch disabled checked={false} />
-                  <span>{c}</span>
-                  <span className="muted">{t('ct.settings.channelManual')}</span>
-                </Space>
-              ))}
-            </Space>
-          </Card>
+          <ChannelsCard />
         </Col>
         <Col xs={24} lg={12}>
           <Card size="small" title={t('ct.settings.settings')} className="ct-card">
@@ -180,6 +171,38 @@ export function ContentSettingsPage() {
       </Row>
       {hr.element}
     </>
+  );
+}
+
+/** 发布渠道：X 只能手动；Telegram 频道的状态来自 S16 的机器人（只读，改动去"Telegram 机器人"页） */
+function ChannelsCard() {
+  const { t } = useTranslation();
+  const { data, error, reload } = useApi(useCallback(() => getTelegram(), []));
+  return (
+    <Card size="small" title={t('ct.settings.channels')} className="ct-card" data-testid="content-channels">
+      <Alert type="info" showIcon message={t('ct.settings.channelsTodo')} />
+      <Space direction="vertical" className="ct-channels">
+        <Space wrap>
+          <Switch disabled checked={false} />
+          <span>X</span>
+          <span className="muted">{t('ct.settings.channelManual')}</span>
+        </Space>
+        {error ? <ErrorState error={error} onRetry={reload} compact /> : null}
+        {(data?.targets ?? []).map((g) => (
+          <Space wrap key={g.key}>
+            <Switch disabled checked={g.enabled && !data?.status.emergencyStop} />
+            <span>{t(`ct.settings.tg.${g.key}`)}</span>
+            {g.enabled ? <Tag color="green">{t('ct.settings.tg.on')}</Tag> : <Tag>{t('ct.settings.tg.off')}</Tag>}
+            {g.chatId ? <span className="muted">{g.chatId}</span> : null}
+          </Space>
+        ))}
+        {data && !data.status.configured ? <Tag color="orange">{t('ct.settings.tg.unconfigured')}</Tag> : null}
+        {data?.status.emergencyStop ? <Tag color="red">{t('ct.settings.tg.stopped')}</Tag> : null}
+        <Link to="/content/telegram" data-testid="content-channels-telegram">
+          {t('ct.settings.tg.manage')}
+        </Link>
+      </Space>
+    </Card>
   );
 }
 

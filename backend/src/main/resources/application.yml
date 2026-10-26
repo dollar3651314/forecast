@@ -200,11 +200,47 @@ forecast:
     brand-name: Quick Come
   # 分享卡片（S14，MF-5，market/card）：服务器用 Java2D 画 1200 × 630 的 PNG。字体在这些目录里找（DejaVu Sans + 文泉驿正黑，镜像 deploy/app.Dockerfile 安装）；
   # 找不到中文字体时健康检查 alerts 报 cards.font（不影响 status）。同时最多画 max-concurrent 张，按内容缓存最近 cache-size 张（每张约 30～80 KB）
+  # 推广功能（forecast S16，growth 模块）。数据页兼等候页 /data（MF-8、MF-17）：BTC 行情每分钟从币安公开行情取一次放在内存里（只展示、不结算，不存档）；
+  # 超时、重试、熔断按 C81；连续 3 次取不到时健康检查 alerts 的 board.binance 为 DOWN（不影响 status）。等候页：同一 IP 每小时最多提交 10 次，
+  # 同一邮箱确认邮件至少隔 10 分钟、最多 5 封，确认链接 7 天有效；上线通知只发一次（后台按钮，content:publish ★），由任务每 15 秒发一批
+  growth:
+    board:
+      refresh-enabled: true
+      refresh-interval: 60s
+      binance-url: https://data-api.binance.vision
+      symbol: BTCUSDT
+      hours: 24
+    waitlist:
+      ip-per-hour: 10
+      resend-after: 10m
+      max-confirm-sends: 5
+      confirm-valid: 7d
+      launch-enabled: true
   cards:
     font-dirs: /usr/share/fonts,/usr/local/share/fonts
     font-alert: true
     max-concurrent: 2
     cache-size: 64
+  # 官方 Telegram 机器人（forecast S16，MF-7，growth/telegram）。token 只由 Amos 在 BotFather 建好后填进服务器 .env 的 FC_TELEGRAM_BOT_TOKEN
+  # （不经过 AI、不进仓库、不进日志，约定 2）；没填时机器人不启动，健康检查 alerts 的 telegram.bot 提示"未配置"（不影响 status，约定 11）。
+  # 频道编号、开关、模板审定、紧急停止在后台"Telegram 机器人"页（content:publish）。取消息用 getUpdates 长轮询（不用 webhook），发帖每 10 秒一轮；
+  # 超时、重试、429 retry_after、熔断按 C81；同一个频道 / 群两次发帖至少隔 3 秒，所有发帖至少隔 1 秒；结束 24 小时以上的市场不补发
+  telegram:
+    token: ${FC_TELEGRAM_BOT_TOKEN:}
+    api-url: https://api.telegram.org
+    jobs-enabled: true
+    alert-enabled: true
+    poll-timeout: 25s
+    publish-interval: 10s
+    connect-timeout: 3s
+    read-timeout: 15s
+    retries: 2
+    max-inline-wait: 5s
+    breaker-threshold: 5
+    breaker-open: 60s
+    chat-interval: 3s
+    send-interval: 1s
+    result-max-age: 24h
   # 结算（forecast S5，settle/run/SettleProperties）。batch-size：派彩时每批的持仓数（退款时每批的下注数）；
   # 500（默认）= 先算好、落结算单，再每批一个事务分批派彩、可以续跑（架构方案第 4.3 节方案 B，AQ-3 Amos 2026-10-25 定）；
   # 0 = 计算和派彩在同一个事务里一次完成（保留为可配置项）。派彩任务每 2 秒推进分批派彩的单（提交后也立即跑一轮）；彩池对账每天 UTC 00:30。

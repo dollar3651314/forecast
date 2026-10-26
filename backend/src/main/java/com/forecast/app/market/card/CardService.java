@@ -135,6 +135,11 @@ public class CardService {
     }
   }
 
+  /** 一种卡片一种语言的模板文字的指纹（forecast S16，自动发布的模板审定；见 {@link CardTexts#fingerprint}） */
+  public String templateFingerprint(String kind, String lang) {
+    return texts.fingerprint(kind, lang);
+  }
+
   // =====================================================================
   // 各种卡片的内容
   // =====================================================================

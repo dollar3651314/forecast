@@ -92,8 +92,10 @@ services:
       FC_CONTENT_ENABLED: ${FC_CONTENT_ENABLED:-true}
       FC_GEMINI_API_KEY: ${FC_GEMINI_API_KEY:-}
       FC_GEMINI_MODEL: ${FC_GEMINI_MODEL:-gemini-2.5-flash-lite}
-      # Polymarket 公开接口（大 V 对照图引用同类题）：条款待核实，默认关闭
+      # Polymarket 公开接口（大 V 对照图引用同类题；数据页 /data 的 Polymarket 一块也跟这个开关）：条款待核实（SQ-39），默认关闭
       FC_SOURCE_POLYMARKET_ENABLED: ${FC_SOURCE_POLYMARKET_ENABLED:-false}
+      # 官方 Telegram 机器人的 token（forecast S16，MF-7）：Amos 在 BotFather 建好后填进 .env；空着时机器人不启动（alerts 提示，不影响 status）
+      FC_TELEGRAM_BOT_TOKEN: ${FC_TELEGRAM_BOT_TOKEN:-}
       # 区块链（D4 第二步才填，全部用测试网）；没配置的链不扫块
       FC_WALLET_TRON_XPUB: ${FC_WALLET_TRON_XPUB:-}
       FC_WALLET_ETH_RPC_URL: ${FC_WALLET_ETH_RPC_URL:-}

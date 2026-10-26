@@ -46,6 +46,10 @@ test('风控告警：关联账户对押、尾盘大额 → 后台处理；员工
       await fund(anon, a.api, '100');
       await fund(anon, b.api, '100');
     });
+    // SQ-24（S16）：尾盘大额只看单笔 ≥ risk.lateBet.minAmount（默认 100）；这里两人只充了 100，临时调成 50，用例结束改回 100
+    await step('参数设置：尾盘大额的单笔最低金额调成 50', async () => {
+      await json(await admin.put('/api/admin/params/betting/risk.lateBet.minAmount', { data: { value: '50', reason: '端到端：风控用例' } }), '改参数');
+    });
     const m = await step('上架一个 2 分钟后截止的市场', () => listMarket(anon, admin, `端到端风控 ${Date.now()}`));
     await step('截止前 2 分钟：A 押"是" 60、B 押"否" 40；扫描风控', async () => {
       await bet(a.api, m.no, m.yes, '60');
@@ -95,6 +99,8 @@ test('风控告警：关联账户对押、尾盘大额 → 后台处理；员工
       expect((await r.json()).code).toBe('BET_STAFF_ACCOUNT');
     });
   } finally {
+    const admin = await adminSession(anon).catch(() => null);
+    if (admin) await admin.put('/api/admin/params/betting/risk.lateBet.minAmount', { data: { value: '100', reason: '端到端：改回默认' } }).catch(() => undefined);
     await ctx.close();
   }
 });

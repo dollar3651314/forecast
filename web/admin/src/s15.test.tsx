@@ -116,7 +116,9 @@ describe('用量和设置（AC-115、AC-117）', () => {
     expect(within(usage).getByText(/37 \/ 300/)).toBeInTheDocument();
     expect(screen.getByText(/没有"自动发布"开关/)).toBeInTheDocument();
     expect(screen.queryByText(/ci_only|AIza/)).toBeNull();
-    // 渠道开关是占位（MF-7），不能打开
+    // 发布渠道（整合 4）：X 只能手动；Telegram 频道的状态从 S16 的机器人读，只读显示，改动去"Telegram 机器人"页
+    expect(await screen.findByText('Telegram 中文频道')).toBeInTheDocument();
+    expect(screen.getByTestId('content-channels-telegram').getAttribute('href')).toMatch(/\/content\/telegram$/);
     screen.getAllByRole('switch').filter((s) => s.closest('.ct-channels')).forEach((s) => expect(s).toBeDisabled());
     fireEvent.click(screen.getByTestId('content-stop'));
     await confirmHighRisk();

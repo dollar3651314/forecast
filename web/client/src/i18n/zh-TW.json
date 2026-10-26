@@ -442,9 +442,11 @@
     "disputeNotBettor": "只有在這個市場有下注的客戶可以提交爭議",
     "disputeExists": "你已經對這個市場提交過爭議",
     "reminderNotAvailable": "這個市場已經開放下注或已經結束，不能再訂閱開賽提醒。",
-    "reminderLoginRequired": "開賽提醒只對用郵箱和密碼登入過的帳戶開放：登出後重新登入一次即可訂閱。",
+    "reminderLoginRequired": "開賽提醒只對登入過的帳戶開放：登出後重新登入一次即可訂閱。",
     "reminderTooMany": "訂閱中的開賽提醒太多了（最多 100 個），請先在「通知偏好」裡退訂一些。",
-    "cardNotAvailable": "這張卡片現在不能生成：挑戰卡只能為自己押過、還在下注期的選項生成，開獎卡只能為押中的已結算市場生成。"
+    "cardNotAvailable": "這張卡片現在不能生成：挑戰卡只能為自己押過、還在下注期的選項生成，開獎卡只能為押中的已結算市場生成。",
+    "waitlistClosed": "已經正式上線，等候頁不再收郵箱，直接註冊即可。",
+    "waitlistLinkExpired": "確認連結已過期（7 天），請回資料頁重新留一次郵箱。"
   },
   "validation": {
     "fixAll": "請修改以上標紅的內容後再提交",
@@ -889,7 +891,7 @@
     "sent": "開賽提醒已發到你的郵箱。",
     "closed": "已經開放下注，不再需要提醒。",
     "missed": "這個市場在開放前已經結束，提醒沒有發出。",
-    "needLogin": "開賽提醒只對用郵箱和密碼登入過的帳戶開放：登出後重新登入一次即可訂閱。",
+    "needLogin": "開賽提醒只對登入過的帳戶開放：登出後重新登入一次即可訂閱。",
     "manage": "管理開賽提醒",
     "unsubTitle": "退訂開賽提醒",
     "unsubDone": "已退訂「{{title}}」的開賽提醒，不會再給你發這一場的郵件。",
@@ -923,7 +925,8 @@
     "weekly": "週報",
     "howTo": "怎麼玩、怎麼充、怎麼提",
     "toMarkets": "去看市場",
-    "insights": "數據和文章"
+    "insights": "數據和文章",
+    "data": "資料"
   },
   "res": {
     "title": "開獎紀錄",
@@ -1016,5 +1019,45 @@
       "rule": "口徑和本站 BTC 市場一樣：一小時的收盤價 ≥ 開盤價算漲（相等也算漲），否則算跌。",
       "source": "數據來源：{{source}}；{{from}} 到 {{to}}，共 {{bars}} 根 1 小時 K 線；取數時間 {{at}}。"
     }
+  },
+  "data": {
+    "title": "資料",
+    "intro": "這裡是真實資料：BTC 每小時的漲跌（幣安公開行情）和我們自己的真錢獎池。玩法：用 USDT 押注一件事的結果，贏家按押注比例分輸方的獎池，平台只從贏家的盈利裡抽成（預設 5%），不當對手方。",
+    "btcTitle": "BTC 現價和每小時漲跌",
+    "btcPrice": "BTC 現價",
+    "btcHours": "過去 {{hours}} 小時",
+    "upN": "漲 {{n}} 小時（{{pct}}%）",
+    "downN": "跌 {{n}} 小時（{{pct}}%）",
+    "barLabel": "漲 {{up}}%，跌 {{down}}%",
+    "btcRule": "一小時的收盤價大於或等於開盤價算漲，和我們 BTC 場次的判定規則一樣。",
+    "btcSource": "資料來自幣安公開行情，更新時間 {{time}}",
+    "btcNone": "BTC 行情暫時取不到，稍後再來看。",
+    "slateTitle": "我們今天的場次",
+    "slateNone": "今天沒有場次。",
+    "slateNext": "下一場：{{time}}",
+    "slateLogin": "登入後可以看到今天的場次。",
+    "bettors": "{{n}} 人",
+    "pool": "獎池 {{pool}} USDT · {{n}} 人下注",
+    "upcoming": "還沒開放下注",
+    "launchTitle": "即將上線",
+    "launchText": "正式上線後，這裡顯示每天的場次和兩邊的人數、機率。留下郵箱，上線時我們只發一封郵件通知你，不發其他郵件，隨時可以退訂。",
+    "wlEmail": "郵箱",
+    "wlHint": "提交後會收到一封確認郵件，點裡面的連結確認才算訂閱。",
+    "wlSubmit": "上線時通知我",
+    "wlDoneTitle": "請查收郵件",
+    "wlDone": "如果 {{email}} 還沒訂閱過，我們剛發了一封確認郵件；點裡面的連結確認後，上線時會通知你。",
+    "telegram": "官方 Telegram：",
+    "tgChannelZh": "中文頻道",
+    "tgChannelEn": "英文頻道",
+    "tgBot": "機器人",
+    "confirmTitle": "確認訂閱上線通知",
+    "confirmText": "點下面的按鈕確認：正式上線時我們給這個郵箱發一封通知，只發這一封。",
+    "confirmBtn": "確認訂閱",
+    "confirmed": "已確認。正式上線時我們會發一封郵件通知你；不想收了，點郵件裡的退訂連結即可。",
+    "confirmUnsubscribed": "這個郵箱已經退訂了。想再訂閱，回資料頁重新留一次郵箱。",
+    "linkInvalid": "連結無效，請確認是從郵件裡完整打開的。",
+    "backToData": "回到資料頁",
+    "unsubTitle": "退訂上線通知",
+    "unsubDone": "已退訂，之後不會再因為等候頁給這個郵箱發郵件。"
   }
 }

@@ -76,7 +76,7 @@ public class GlobalExceptionHandler {
       Map.entry("COMPENSATION_EXISTS", HttpStatus.CONFLICT),
       Map.entry("COMPENSATION_NOTHING", HttpStatus.CONFLICT),
       Map.entry("COMPENSATION_SAME_RESULT", HttpStatus.CONFLICT),
-      // S11 #23 开赛提醒：市场已经开放 / 已结束，不能再订阅；订阅中的太多；还没有用邮箱和密码登录过（SQ-20，403）
+      // S11 #23 开赛提醒：市场已经开放 / 已结束，不能再订阅；订阅中的太多；还没有登录过（SQ-20，403；S16 起注册后的自动登录也算，SQ-27）
       Map.entry("REMINDER_NOT_AVAILABLE", HttpStatus.CONFLICT),
       Map.entry("REMINDER_TOO_MANY", HttpStatus.CONFLICT),
       Map.entry("REMINDER_LOGIN_REQUIRED", HttpStatus.FORBIDDEN),
@@ -95,6 +95,13 @@ public class GlobalExceptionHandler {
       Map.entry("ECON_STATE_CHANGED", HttpStatus.CONFLICT),
       Map.entry("CONTENT_TEMPLATE_CHANGED", HttpStatus.CONFLICT),
       Map.entry("WORD_BUILT_IN", HttpStatus.CONFLICT),
+      // S16 等候页（MF-8）：已经正式上线（不再收邮箱）、确认链接过期；上线通知已经发过（只能发一次）
+      Map.entry("WAITLIST_CLOSED", HttpStatus.CONFLICT),
+      Map.entry("WAITLIST_LINK_EXPIRED", HttpStatus.GONE),
+      Map.entry("LAUNCH_ALREADY_SENT", HttpStatus.CONFLICT),
+      // S16 Telegram 机器人（MF-7）：模板没有可预览的市场、频道编号不合法、审定时模板文字和预览的不是同一版
+      Map.entry("TELEGRAM_NO_PREVIEW", HttpStatus.NOT_FOUND),
+      Map.entry("TELEGRAM_TEMPLATE_CHANGED", HttpStatus.CONFLICT),
       Map.entry("NOT_FOUND", HttpStatus.NOT_FOUND));
 
   @ExceptionHandler(BizException.class)

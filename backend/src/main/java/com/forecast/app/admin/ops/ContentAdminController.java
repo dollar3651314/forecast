@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 后台"内容中心"接口（forecast S15；需求第 6.2 节、自动化需求第 7 节）。字段见 {@link ContentAdminApi}；审计和高危确认在 {@link ContentOps}。
  * 看：content:view；改草稿、生成、经济日历、模板、工具：content:edit；发布、设置、词表、紧急停止、页面显示：content:publish（高危）。
- * <b>没有任何把内容发到外部渠道的接口</b>：X / Telegram 帖子审核后由人复制手动发，回复草稿只能复制（AC-110；自动发布等 SQ-22 和账号，MF-7）。
+ * <b>没有任何把内容发到外部渠道的接口</b>：X / Telegram 帖子审核后由人复制手动发，回复草稿只能复制（AC-110；SQ-22 Amos 答复后只有开奖卡自动发到 Telegram 频道，在 S16 的 TelegramAdminController / growth.telegram，MF-7）。
  */
 @RestController
 class ContentAdminController {

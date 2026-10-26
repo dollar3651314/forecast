@@ -32,7 +32,7 @@ interface AuthMapper {
 
   int touchLogin(@Param("id") long id);
 
-  /** 用邮箱和密码成功登录过（last_login_at 不为空；注册时自动登录不算，forecast S11 #23 订阅的条件 SQ-20）；用户不存在时为 null */
+  /** 成功登录过（last_login_at 不为空；forecast S11 #23 订阅的条件 SQ-20；S16 起注册时的自动登录也记，SQ-27）；用户不存在时为 null */
   Boolean hasLoggedIn(@Param("id") long id);
 
   // ---------- 账号安全事件（v2 提现自动审批 R6） ----------

@@ -67,7 +67,8 @@ export const PERMISSIONS = [
   { code: 'risk_alert:handle', module: 'risk', highRisk: false },
   // forecast S13：来源统计（MF-1、MF-10；导出写审计）
   { code: 'growth:view', module: 'growth', highRisk: false },
-  // forecast S15：内容中心（事件和文章自动化程序；发布是高危，C73）
+  // forecast S15：内容中心（事件和文章自动化程序；发布是高危，C73）。S16 也加了 content:view、content:publish（Telegram 机器人页、"发送上线通知"），
+  // 同名同义，整合 4 去重成一份
   { code: 'content:view', module: 'content', highRisk: false },
   { code: 'content:edit', module: 'content', highRisk: false },
   { code: 'content:publish', module: 'content', highRisk: true },

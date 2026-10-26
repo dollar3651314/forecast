@@ -29,7 +29,10 @@ public final class Menus {
       leaf("reports", "menu.reports", "/reports", Permission.REPORT_VIEW),
       // forecast S13：来源统计（需求第 6.1 节，MF-1、MF-10；迁移 V21 写默认顺序）
       leaf("growth", "menu.growth", "/growth", Permission.GROWTH_VIEW),
-      // forecast S15：内容中心（需求第 6.1 节、自动化需求第 7 节；迁移 V24 写默认顺序）
+      // forecast S16：等候页订阅（需求第 6.2 节"来源统计"里的等候页订阅列表，MF-8；发送上线通知要 content:publish）。迁移 V26 写默认顺序
+      leaf("waitlist", "menu.waitlist", "/waitlist", Permission.GROWTH_VIEW),
+      // forecast S15：内容中心（需求第 6.1 节、自动化需求第 7 节；迁移 V24 写默认顺序）。
+      // 整合 4：S16 的官方 Telegram 机器人（MF-7：渠道开关、群播报、模板审定、紧急停止、发布日志）作为内容中心的"发布渠道"并进来（S16 开发记录第 7 节做法 ①；迁移 V27）
       group("content", "menu.content",
           leaf("content-drafts", "menu.contentDrafts", "/content/drafts", Permission.CONTENT_VIEW),
           leaf("content-events", "menu.contentEvents", "/content/events", Permission.CONTENT_VIEW),
@@ -37,7 +40,8 @@ public final class Menus {
           leaf("content-templates", "menu.contentTemplates", "/content/templates", Permission.CONTENT_VIEW),
           leaf("content-tools", "menu.contentTools", "/content/tools", Permission.CONTENT_EDIT),
           leaf("content-logs", "menu.contentLogs", "/content/logs", Permission.CONTENT_VIEW),
-          leaf("content-settings", "menu.contentSettings", "/content/settings", Permission.CONTENT_VIEW)),
+          leaf("content-settings", "menu.contentSettings", "/content/settings", Permission.CONTENT_VIEW),
+          leaf("telegram", "menu.telegram", "/content/telegram", Permission.CONTENT_VIEW)),
       leaf("params", "menu.params", "/params", Permission.FEE_EDIT),
       leaf("customers", "menu.customers", "/customers", Permission.CUSTOMER_VIEW),
       leaf("kyc", "menu.kyc", "/kyc", Permission.KYC_VIEW),

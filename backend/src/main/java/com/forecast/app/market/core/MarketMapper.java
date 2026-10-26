@@ -142,6 +142,17 @@ interface MarketMapper {
 
   LocalDateTime firstEndedAt();
 
+  // ---------- S16 推广功能（数据页、Telegram 机器人；PublicMarketsService） ----------
+
+  /** 某个币对的自动生成市场里"当前这一场"：已上架 / 已暂停、还没截止；已开放下注的排前面（截止早的优先），否则最早开放的 */
+  MarketRows.Market currentAutogen(@Param("symbol") String symbol, @Param("now") LocalDateTime now);
+
+  /** since 之后结束的、带"列入今日场次"标记的市场，按结束时间先后 */
+  List<MarketRows.Market> endedSlateSince(@Param("since") LocalDateTime since, @Param("limit") int limit);
+
+  /** 最近结束的一个市场的对外编号 */
+  Long latestEndedNo();
+
   /** 站点地图：不是草稿的市场，最近更新的在前 */
   List<MarketRows.Market> sitemap(@Param("limit") int limit);
 }

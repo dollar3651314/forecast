@@ -521,7 +521,7 @@ export interface MarketSettle {
 export interface ReminderState {
   /** 现在能订阅（已上架或已暂停、还没到开放时间） */
   available: boolean;
-  /** 本人能订阅（用邮箱和密码登录过，SQ-20） */
+  /** 本人能订阅（登录过，SQ-20；S16 起注册后的自动登录也算，SQ-27） */
   eligible: boolean;
   status: 'none' | 'active' | 'sent' | 'cancelled' | 'missed';
 }
@@ -767,4 +767,59 @@ export interface InsightView {
   updatedAt: string;
   /** 这种语言还没有、显示的是另一种语言时为那种语言 */
   fallbackLang: Lang | null;
+}
+
+// ---------- S16：数据页兼等候页（MF-8、MF-17；后端 growth/board/BoardService、growth/waitlist） ----------
+/** BTC 现价和过去 N 小时每小时涨跌的比例（币安公开行情）；available = false 时暂时取不到 */
+export interface BoardBtc {
+  available: boolean;
+  symbol: string | null;
+  price: string | null;
+  hours: number;
+  up: number;
+  down: number;
+  /** 1 位小数，不带 % */
+  upPct: string | null;
+  downPct: string | null;
+  from: string | null;
+  to: string | null;
+  updatedAt: string | null;
+}
+export interface BoardOption {
+  optionNo: string;
+  label: I18nText;
+  bettors: number;
+  amount: string;
+  /** 和市场详情同一个概率（"62.5%"、"<1%"、"—"） */
+  pct: string;
+}
+export interface BoardItem {
+  publicNo: string;
+  category: string;
+  title: I18nText;
+  status: MarketStatus;
+  upcoming: boolean;
+  openAt: string | null;
+  closeAt: string | null;
+  eventStartAt: string | null;
+  poolTotal: string;
+  bettors: number;
+  options: BoardOption[];
+}
+export interface Board {
+  updatedAt: string;
+  btc: BoardBtc;
+  /** 已经正式上线（发过上线通知）：等候页关闭，显示今天的场次 */
+  launched: boolean;
+  waitlistOpen: boolean;
+  slate: { available: boolean; items: BoardItem[]; next: BoardItem | null };
+  /** Polymarket：跟 S15 的数据开关（FC_SOURCE_POLYMARKET_ENABLED，默认关；整合 4 接上）；页面上的数据块等使用条款核实（SQ-39）后再做 */
+  polymarket: { enabled: boolean };
+  /** 官方 Telegram 频道、机器人的链接（配置了才有） */
+  telegram: { channelZh: string | null; channelEn: string | null; bot: string | null };
+}
+/** 等候页确认、退订链接的结果（不返回邮箱） */
+export interface WaitlistLinkResult {
+  status: 'confirmed' | 'unsubscribed' | 'pending' | 'notified';
+  lang: Lang;
 }
