@@ -43,7 +43,7 @@ class CustomerAdmin implements CustomerAdminApi {
   }
 
   private static Customer customer(CustomerAdminMapper.CustomerRow r) {
-    return new Customer(r.id, r.email, name(r.firstName, r.middleName, r.lastName), r.nationality, r.status, r.kycStatus, r.createdAt, r.lastLoginAt);
+    return new Customer(r.id, r.email, name(r.firstName, r.middleName, r.lastName), r.nationality, r.status, r.kycStatus, r.createdAt, r.lastLoginAt, r.staff);
   }
 
   private static Long idOf(String keyword) {
@@ -145,6 +145,15 @@ class CustomerAdmin implements CustomerAdminApi {
     String kw = blank(keyword);
     if (kw == null) return List.of();
     return mapper.customers(kw, idOf(kw), null, null, 0, limit).stream().map(r -> r.id).toList();
+  }
+
+  @Override
+  @Transactional
+  public boolean setStaff(long userId, boolean staff) {
+    Boolean before = mapper.lockStaff(userId);
+    if (before == null) throw new BizException("NOT_FOUND", "客户不存在");
+    if (before != staff) mapper.setStaff(userId, staff);
+    return before;
   }
 
   @Override

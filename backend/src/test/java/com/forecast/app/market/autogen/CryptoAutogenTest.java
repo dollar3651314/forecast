@@ -61,6 +61,65 @@ class CryptoAutogenTest extends CryptoTestSupport {
         java.sql.Timestamp.valueOf(java.time.LocalDateTime.ofInstant(Instant.parse(windowStart), java.time.ZoneOffset.UTC)));
   }
 
+  /** 这个模板生成的全部市场：窗口开始时间 → 开放、截止、今日场次标记 */
+  java.util.List<String> generatedRows(long autogenId) {
+    return jdbc.queryForList("SELECT CONCAT(DATE_FORMAT(event_start_at, '%m-%d %H:%i'), ' open ', DATE_FORMAT(open_at, '%m-%d %H:%i:%s'), ' close ', "
+        + "DATE_FORMAT(close_at, '%m-%d %H:%i:%s'), ' slate ', today_slate) FROM market_question WHERE autogen_id = ? ORDER BY event_start_at", String.class, autogenId);
+  }
+
+  /**
+   * AC-80（S13 核对 MF-3 的场次表）：BTC 1 小时、场次表"每天 13:00 UTC"：时钟每 30 分钟走一步、走 3 天，每天只生成一个 13:00～14:00 的市场，
+   * 10:00 开放、12:59:30 截止；任何时刻接下来 24 小时内场次表里的时刻都已生成；按场次表生成的自动列入今日场次。
+   * 加一个 01:00（要先关闭、改完重新检查启用）以后每天 2 个，已生成的不变；场次可以限定星期几（S13 补上）。
+   */
+  @Test
+  void AC80_场次表_走三天每天一场_接下来24小时都已生成_加场次后每天两场_星期几_今日场次标记() {
+    MarketAutogenAdminApi.Autogen a = api.enable(DEFAULT_NO, true, 7);
+    long id = idOf(a.autogenNo());
+    for (int step = 0; step < 3 * 48; step++) {
+      autogen.generateDue();
+      Instant now = Instant.now(clock);
+      // 接下来 24 小时内的 13:00 都已生成
+      for (Instant t = now.truncatedTo(java.time.temporal.ChronoUnit.DAYS).plus(Duration.ofHours(13)); t.isBefore(now.plus(Duration.ofHours(24)));
+          t = t.plus(Duration.ofDays(1))) {
+        if (t.minusSeconds(30).isAfter(now)) {
+          assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM market_question WHERE autogen_id = ? AND event_start_at = ?", Integer.class, id,
+              java.sql.Timestamp.valueOf(java.time.LocalDateTime.ofInstant(t, java.time.ZoneOffset.UTC)))).as(now + " 时 " + t).isEqualTo(1);
+        }
+      }
+      advance(Duration.ofMinutes(30));
+    }
+    java.util.List<String> rows = generatedRows(id);
+    // 10-14 10:00 起走了 3 天（到 10-17 10:00），提前 1440 分钟生成：14、15、16、17 日的 13:00 都有，每天只有一个、只在 13:00
+    assertThat(rows).containsExactly("10-14 13:00 open 10-14 10:00:00 close 10-14 12:59:30 slate 1", "10-15 13:00 open 10-15 10:00:00 close 10-15 12:59:30 slate 1",
+        "10-16 13:00 open 10-16 10:00:00 close 10-16 12:59:30 slate 1", "10-17 13:00 open 10-17 10:00:00 close 10-17 12:59:30 slate 1");
+    // 加一个 01:00 UTC：启用中不能改，先关闭、改完重新检查启用
+    api.disable(DEFAULT_NO, 1);
+    MarketAutogenAdminApi.AutogenInput in = new MarketAutogenAdminApi.AutogenInput("BTCUSDT", "1H", "schedule", java.util.List.of("13:00", "01:00@1,2,3,4,5,6,7"),
+        null, 1440, null, null);
+    MarketAutogenAdminApi.Autogen u = api.update(DEFAULT_NO, in, 1);
+    assertThat(u.slots()).as("七天全选写成每天；按时间排").containsExactly("01:00", "13:00");
+    api.enable(DEFAULT_NO, true, 7);
+    autogen.generateDue();
+    for (int step = 0; step < 48; step++) {
+      advance(Duration.ofMinutes(30));
+      autogen.generateDue();
+    }
+    java.util.List<String> after = generatedRows(id);
+    assertThat(after.subList(0, 4)).as("已生成的不变").isEqualTo(rows);
+    // 10-18 01:00、10-18 13:00、10-19 01:00 新生成（01:00 的场次 22:00 前一天开放）
+    assertThat(after).contains("10-18 01:00 open 10-17 22:00:00 close 10-18 00:59:30 slate 1", "10-18 13:00 open 10-18 10:00:00 close 10-18 12:59:30 slate 1",
+        "10-19 01:00 open 10-18 22:00:00 close 10-19 00:59:30 slate 1");
+    // 星期几：13:00 只在周六（10-24 是周六），01:00 每天
+    api.disable(DEFAULT_NO, 1);
+    api.update(DEFAULT_NO, new MarketAutogenAdminApi.AutogenInput("BTCUSDT", "1H", "schedule", java.util.List.of("13:00@6"), null, 1440, null, null), 1);
+    assertThat(api.detail(DEFAULT_NO).orElseThrow().upcoming()).extracting(MarketAutogenAdminApi.Window::windowStart).allMatch(w -> w.endsWith("T13:00:00Z"))
+        .allMatch(w -> java.time.LocalDate.parse(w.substring(0, 10)).getDayOfWeek() == java.time.DayOfWeek.SATURDAY);
+    assertThatThrownBy(() -> api.update(DEFAULT_NO, new MarketAutogenAdminApi.AutogenInput("BTCUSDT", "1H", "schedule", java.util.List.of("13:00@8", "13:00@6"),
+        null, 1440, null, null), 1)).isInstanceOfSatisfying(ValidationException.class,
+            e -> assertThat(e.fields()).extracting(f -> f.field() + ":" + f.code()).containsExactlyInAnyOrder("slots[0]:invalid"));
+  }
+
   @Test
   void 默认模板_BTC1小时_每天13点UTC一场_关闭_检查时能看到渲染出来的样子() {
     MarketAutogenAdminApi.Autogen a = api.detail(DEFAULT_NO).orElseThrow();

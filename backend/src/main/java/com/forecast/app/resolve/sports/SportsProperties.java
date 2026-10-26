@@ -32,6 +32,11 @@ public class SportsProperties {
   private Duration unfinishedLimit = Duration.ofHours(6);
   /** E14：两个来源的开赛时间相差多少以内算一致 */
   private Duration kickoffTolerance = Duration.ofMinutes(15);
+  /**
+   * 认领期（S14）：取数前认领这一次尝试，认领期内别的触发不再取数。一轮最长：主源、备源先后各一次，每次限频排队最多 30 秒 + 取数约 27 秒，
+   * 合计约 2 分钟，所以 5 分钟（= 每 5 分钟看一次）；进程中途退出时 5 分钟后接着取
+   */
+  private Duration claimTtl = Duration.ofMinutes(5);
   /** 后台交互式调用（立即同步、找候选）限频排队最多等多久 */
   private Duration interactiveQueueWait = Duration.ofSeconds(10);
 
@@ -105,6 +110,14 @@ public class SportsProperties {
 
   public void setUnfinishedLimit(Duration v) {
     unfinishedLimit = v;
+  }
+
+  public Duration getClaimTtl() {
+    return claimTtl;
+  }
+
+  public void setClaimTtl(Duration v) {
+    claimTtl = v;
   }
 
   public Duration getKickoffTolerance() {

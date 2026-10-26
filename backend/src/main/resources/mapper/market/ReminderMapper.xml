@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  #23 开赛提醒的订阅（forecast S11，market 模块的表 market_reminder；market_question 是本模块的表）。
+  - 订阅：先普通读，没有再 INSERT IGNORE（唯一键兜底），退订过的条件更新回 ACTIVE（约定 34：不对不存在的行加锁读）；
+  - 发送：到点的订阅逐条"ACTIVE → SENT"条件更新，更新到 1 行的那个事务才发邮件（租约意外失效、两个实例同时跑也只发一次）。
+-->
+<mapper namespace="com.forecast.app.market.remind.ReminderMapper">
+
+  <select id="market" resultType="com.forecast.app.market.remind.ReminderMapper$MarketRow">
+    SELECT id, public_no, status, open_at, close_at, deleted_at FROM market_question WHERE public_no = #{publicNo}
+  </select>
+
+  <sql id="rowCols">
+    r.id, r.user_id, r.market_id, r.status, r.token, r.created_at, r.sent_at, m.public_no, m.title_en, m.title_zh_cn, m.title_zh_tw,
+    m.status AS market_status, m.open_at, m.close_at
+  </sql>
+
+  <select id="find" resultType="com.forecast.app.market.remind.ReminderMapper$Row">
+    SELECT <include refid="rowCols"/> FROM market_reminder r JOIN market_question m ON m.id = r.market_id
+    WHERE r.user_id = #{userId} AND r.market_id = #{marketId}
+  </select>
+
+  <select id="byId" resultType="com.forecast.app.market.remind.ReminderMapper$Row">
+    SELECT <include refid="rowCols"/> FROM market_reminder r JOIN market_question m ON m.id = r.market_id WHERE r.id = #{id}
+  </select>
+
+  <select id="byToken" resultType="com.forecast.app.market.remind.ReminderMapper$Row">
+    SELECT <include refid="rowCols"/> FROM market_reminder r JOIN market_question m ON m.id = r.market_id WHERE r.token = #{token}
+  </select>
+
+  <insert id="insertIgnore">
+    INSERT IGNORE INTO market_reminder (user_id, market_id, status, token, created_at, updated_at)
+    VALUES (#{userId}, #{marketId}, 'ACTIVE', #{token}, #{now}, #{now})
+  </insert>
+
+  <update id="cas">
+    UPDATE market_reminder SET status = #{to}, updated_at = #{now}
+    <if test="to == 'SENT'">, sent_at = #{now}</if>
+    <if test="cancelVia != null">, cancel_via = #{cancelVia}</if>
+    WHERE id = #{id} AND status = #{from}
+  </update>
+
+  <select id="countActive" resultType="long">
+    SELECT COUNT(*) FROM market_reminder WHERE user_id = #{userId} AND status = 'ACTIVE'
+  </select>
+
+  <select id="listOf" resultType="com.forecast.app.market.remind.ReminderMapper$Row">
+    (SELECT <include refid="rowCols"/> FROM market_reminder r JOIN market_question m ON m.id = r.market_id
+      WHERE r.user_id = #{userId} AND r.status = 'ACTIVE')
+    UNION ALL
+    (SELECT <include refid="rowCols"/> FROM market_reminder r JOIN market_question m ON m.id = r.market_id
+      WHERE r.user_id = #{userId} AND r.status != 'ACTIVE' ORDER BY r.updated_at DESC, r.id DESC LIMIT #{limit})
+    ORDER BY open_at, id
+  </select>
+
+  <select id="due" resultType="long">
+    SELECT r.id FROM market_reminder r JOIN market_question m ON m.id = r.market_id
+    WHERE r.status = 'ACTIVE' AND m.open_at &lt;= #{now}
+    ORDER BY r.id LIMIT #{limit}
+  </select>
+</mapper>

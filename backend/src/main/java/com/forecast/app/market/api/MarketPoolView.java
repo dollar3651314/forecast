@@ -43,6 +43,14 @@ public interface MarketPoolView {
     return Map.of();
   }
 
+  /**
+   * S13：marketId → 收到过的全部下注（含取消、作废、E14 / E15 退回的）的金额合计和下注人数。取消、作废的市场退款后
+   * {@link #totals} 是 0，开奖记录和来源统计用这个。只读
+   */
+  default Map<Long, Totals> placed(List<Long> marketIds) {
+    return Map.of();
+  }
+
   /** 在这个市场有有效下注的客户（费率修改通知 #22、补充说明通知 #18 用） */
   List<Long> bettors(long marketId);
 

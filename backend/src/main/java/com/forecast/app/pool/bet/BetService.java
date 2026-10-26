@@ -196,6 +196,7 @@ public class BetService {
     params.put("optionTw", t.optionLabel().zhTW());
     params.put("amount", money(c.amount()));
     params.put("betNo", biz);
+    params.put("marketNo", String.valueOf(t.marketNo())); // 通知中心点进市场（S11）
     notify.toUser(userId, "BET_PLACED", params);
     PoolRows.Position p = mapper.findPosition(t.marketId(), t.optionId(), userId);
     boolean newBettor = p == null;

@@ -26,6 +26,24 @@ export interface RegisterRequest {
   lastName: string;
   birthDate: string; // YYYY-MM-DD
   nationality: string; // ISO 3166-1 alpha-2
+  /** 勾选"已年满 18 周岁并同意服务条款"（S11，需求 P8；后端没勾拒绝 ADULT_REQUIRED） */
+  adultConfirmed: boolean;
+  /** 浏览器里记的来源（S13，MF-1，lib/attribution.ts）：首次来源、最近一次来源；没有时不传 */
+  attribution?: Attribution;
+}
+
+/** 一次带来源参数的访问（S13，MF-1）：链接上的 src 渠道、cmp 活动、ref 分享人或渠道编号、start（Telegram 机器人深链），at 记下的时间 */
+export interface AttributionTouch {
+  src?: string;
+  cmp?: string;
+  ref?: string;
+  start?: string;
+  at: string;
+}
+
+export interface Attribution {
+  first?: AttributionTouch;
+  last?: AttributionTouch;
 }
 
 export interface Profile {
@@ -213,6 +231,8 @@ export interface NotificationItem {
   body: string;
   read: boolean;
   createdAt: string;
+  /** 点进去的页面（S11，需求 P6）：市场详情 /markets/…、提现 /assets/withdraw、资产 /assets、认证 /me/kyc；没有时为空 */
+  link?: string | null;
 }
 
 /** 服务端推送事件（WebSocket /api/ws/user，只推给本人） */
@@ -227,8 +247,8 @@ export type ServerEvent =
 /**
  * 字段和后端 `market/core/ClientViews.java`、`pool/bet/PoolViews.java` 一致（S3、S4 已定，`PoolClientContractTest` 核对字段名）：
  * 编号是字符串（雪花 ID）；金额是 2 位小数的字符串；费率是百分比字符串（"5" = 5%）；时间是 ISO-8601 UTC。
- * 结果、裁决、争议的字段**以后端为准**（S5 `winningOptionNo` / `settling`、S6 自动裁决的 `resolution`、S7 平台裁决的 `resolution` 和提交争议；
- * 整合 2 时按后端改，项目地图约定 48）。还标着"M1 提议"的字段后端没有（真实接口不返回，页面不显示），S11 接真实接口时再定要不要后端加。
+ * 结果、裁决、争议、结算的字段**以后端为准**（S5 `winningOptionNo` / `settling`、S6 / S7 的 `resolution`、S11 的 `settle`、`reminder`、
+ * 我的下注的 `result` / `totals`；项目地图约定 48）。只剩 `league` 是原型专用（后端没有，真实接口时显示品类）。
  */
 
 /** 三种语言的文字（后端 I18nText）；客户端按界面语言选，取不到用英文 */
@@ -304,10 +324,84 @@ export interface MarketCard {
   feeRate: string;
   options: MarketOptionCard[];
   pool: MarketPool;
-  /** M1 提议：联赛 / 币种等副标题（后端没有；S8 赛程生成时可以从 sourceRef 带出） */
+  /** M1 提议：联赛 / 币种等副标题（后端没有，只在原型里有；真实接口时显示品类） */
   league?: I18nText;
-  /** 已结算市场的结果。详情有（S5，后端 `ClientViews.Detail.winningOptionNo`）；列表后端还没有（M1 提议） */
+  /** 已结算市场的结果（详情 S5、列表 S11，后端 `ClientViews`）；其他状态为空 */
   winningOptionNo?: string | null;
+  /** 列入今日场次（S13，MF-3） */
+  todaySlate?: boolean;
+}
+
+/** 今日场次（S13，GET /api/markets/today）：客户所在时区的"今天"；没有场次时 next 是下一场 */
+export interface TodaySlate {
+  from: string;
+  to: string;
+  items: MarketCard[];
+  next?: MarketCard | null;
+}
+
+/** 开奖记录的一条（S13，GET /api/public/results；后端 MarketPublicService.Result） */
+export interface ResultItem {
+  publicNo: string;
+  category: MarketCategory;
+  title: I18nText;
+  status: 'settled' | 'voided' | 'cancelled';
+  endedAt: string;
+  eventStartAt: string;
+  options: MarketOptionCard[];
+  winningOptionNo?: string | null;
+  cancelReason?: string | null;
+  voidReason?: string | null;
+  bettors: number;
+  settle?: MarketSettle | null;
+  resolution?: MarketResolution | null;
+}
+
+export interface ResultQuery {
+  category?: MarketCategory;
+  status?: 'settled' | 'voided' | 'cancelled';
+  /** 结束时间不早于（ISO） */
+  from?: string;
+}
+
+/** 周报（S13，MF-6；后端 MarketPublicService.Week） */
+export interface WeekReport {
+  week: string;
+  from: string;
+  to: string;
+  complete: boolean;
+  markets: number;
+  settled: number;
+  voided: number;
+  cancelled: number;
+  reasons: Array<{ status: 'voided' | 'cancelled'; reason: string | null; count: number }>;
+  poolTotal: string;
+  payoutTotal: string;
+  feeTotal: string;
+  dust: string;
+  refundTotal: string;
+}
+
+export interface WeekList {
+  items: WeekReport[];
+  hasMore: boolean;
+  page: number;
+}
+
+export interface WeekDetail {
+  week: WeekReport;
+  markets: ResultItem[];
+}
+
+/** 说明页（S13，P14；后端 PublicContent.HowTo，文字由后端按语言给） */
+export interface HowToPage {
+  lang: Lang;
+  title: string;
+  description: string;
+  h1: string;
+  intro: string;
+  sections: Array<{ id: string; heading: string; items: string[] }>;
+  facts: Record<string, string>;
 }
 
 export interface MarketOptionDetail extends MarketOptionCard {
@@ -402,12 +496,57 @@ export interface PlatformResolution {
 
 export type MarketResolution = AutoResolution | PlatformResolution;
 
-/** M1 提议（后端没有）：已结算时这个市场的结算合计；后端的结算单只在后台看得到 */
-export interface SettleSummary {
-  feeRate: string;
+/**
+ * 详情的结算信息（S11，后端 `settle/view/ClientSettleViews.ClientSettle`）：已结算时是结算单的公开数字（ΣPay + ΣF + D = T），
+ * 已取消、已作废时是退款合计；mine 是本人的结果（没下注为空）。
+ */
+export interface MarketSettle {
+  kind: 'payout' | 'refund';
+  /** done / paying（退款单分批进行中） */
+  status: string;
+  /** 结算用的费率（百分比字符串）；退款为空 */
+  feeRate: string | null;
+  poolTotal: string;
+  /** 派彩合计（已扣抽成）；退款时是退款合计 */
   payoutTotal: string;
   feeTotal: string;
   dust: string;
+  winnerPositions: number;
+  loserPositions: number;
+  doneAt: string | null;
+  mine: { stake: string; payout: string; fee: string; refund: string; compensation: string } | null;
+}
+
+/** 本人的 #23 开赛提醒状态（S11，后端 `market/remind/ReminderService.State`） */
+export interface ReminderState {
+  /** 现在能订阅（已上架或已暂停、还没到开放时间） */
+  available: boolean;
+  /** 本人能订阅（用邮箱和密码登录过，SQ-20） */
+  eligible: boolean;
+  status: 'none' | 'active' | 'sent' | 'cancelled' | 'missed';
+}
+
+/** "通知偏好"里的一条开赛提醒订阅（ReminderService.Item） */
+export interface ReminderItem {
+  marketNo: string;
+  title: I18nText;
+  marketStatus: MarketStatus;
+  openAt: string;
+  closeAt: string;
+  status: ReminderState['status'];
+  sentAt: string | null;
+}
+
+export interface ReminderListing {
+  eligible: boolean;
+  items: ReminderItem[];
+}
+
+/** 邮件里的退订链接的结果（ReminderService.Unsubscribed） */
+export interface ReminderUnsubscribed {
+  marketNo: string;
+  title: I18nText;
+  status: ReminderState['status'];
 }
 
 /** 市场详情（ClientViews.Detail） */
@@ -427,17 +566,19 @@ export interface MarketDetail extends Omit<MarketCard, 'options'> {
   clarifications: MarketClarification[];
   feeChanges: MarketFeeChange[];
   resolution?: MarketResolution | null;
-  /** M1 提议（后端没有）：结算合计 */
-  settleSummary?: SettleSummary;
-  /** M1 提议（后端没有）：本人在这个市场的派彩和抽成 */
-  myPayout?: { payout: string; fee: string };
+  /** 结算合计和本人的结果（S11；已结算、已取消、已作废才有） */
+  settle?: MarketSettle | null;
+  /** 本人的开赛提醒（S11；还没开放、或者本人订阅过才有） */
+  reminder?: ReminderState | null;
 }
 
 export interface MarketQuery {
   category?: MarketCategory;
   /** active（默认，可下注和暂停）/ closed（等结果）/ ended（已结束）；不传为全部 */
   status?: 'active' | 'closed' | 'ended' | 'all';
+  /** closeAt 快截止（默认，PQ-2）/ newest 最新 / pool 奖池最大（S11 后端排序） */
   sort?: 'closeAt' | 'newest' | 'pool';
+  /** 题目包含或市场编号等于（S11 后端搜索） */
   keyword?: string;
 }
 
@@ -464,7 +605,19 @@ export interface BetResult {
 
 export type MyBetTab = 'active' | 'pending' | 'settled' | 'refunded';
 
-/** 我的下注的一条（PoolViews.MyBet）；status、refundReason S5 起后端有；category、finalMult、won、payout、fee 是 M1 提议（后端没有） */
+/**
+ * 已结算下注的结果（S11，PoolViews.Result）：结算按持仓算（同一选项的几笔下注合在一起），派彩、抽成是这个选项的持仓合计，
+ * positionBets > 1 时页面写明"本选项 n 笔合计"。
+ */
+export interface MyBetResult {
+  won: boolean;
+  positionAmount: string;
+  positionBets: number;
+  payout: string;
+  fee: string;
+}
+
+/** 我的下注的一条（PoolViews.MyBet）；status、refundReason S5 起；category、finalMult、result S11 起 */
 export interface MyBet {
   betNo: string;
   marketNo: string;
@@ -480,11 +633,11 @@ export interface MyBet {
   refundReason?: 'CANCELLED' | 'VOIDED' | 'LATE_BET' | 'STAFF' | null;
   multAtBet: string;
   feeRateAtBet: string;
-  category?: MarketCategory;
-  finalMult?: string;
-  won?: boolean;
-  payout?: string;
-  fee?: string;
+  category?: MarketCategory | null;
+  /** 截止后的最终赔率（定格的奖池）；还没截止、已退回为空 */
+  finalMult?: string | null;
+  /** 已结算的结果；其他分组为空 */
+  result?: MyBetResult | null;
 }
 
 export interface MyBets {
@@ -493,8 +646,8 @@ export interface MyBets {
   page: number;
   pageSize: number;
   summary: Record<MyBetTab, { count: number; amount: string }>;
-  /** M1 提议：顶部汇总（总下注、总派彩、净盈亏） */
-  totals?: { staked: string; payout: string; net: string };
+  /** 顶部汇总（S11）：总下注（有效下注本金）、总派彩（派彩 + 补偿）、净盈亏（总派彩 − 已结算本金） */
+  totals: { staked: string; payout: string; net: string };
 }
 
 /** 提交争议（S7，`POST /api/markets/{publicNo}/disputes`，`resolve/web/DisputeController`）：claimedOptionNo 是选项编号或 "void"（认为应作废） */
@@ -512,4 +665,106 @@ export interface DisputeReceipt {
   claimVoid: boolean;
   status: string;
   receivedAt: string;
+}
+
+/**
+ * 分享卡片（S14，MF-5；需求第 5.2 节"分享卡片和挑战卡"、AC-86、AC-87；后端 `market/card/CardController`）。
+ * kind：market 市场卡 / result 开奖卡 / challenge 挑战卡 / win 押中的开奖卡 / countdown 封盘倒计时卡 / weekly 周报卡。
+ * url 带 src=share、cmp=card-<种类>、登录了还有分享人 ref（客户编号，只用于来源统计，不发奖励）；imageUrl 是服务器生成的 1200 × 630 图片（Open Graph 用的同一张）；
+ * text 是卡片上的文字（和图片同一份数字），系统分享、复制时附带。
+ */
+export type ShareKind = 'market' | 'result' | 'challenge' | 'win' | 'countdown' | 'weekly';
+
+export interface ShareCard {
+  kind: ShareKind;
+  url: string;
+  imageUrl: string;
+  title: string;
+  text: string;
+}
+
+/** 生成挑战卡 / 押中的开奖卡（要登录）：挑战卡要 optionNo（自己押过的选项）；开奖卡的 showAmount 默认 false（金额默认不显示，AC-86） */
+export interface ShareCreate {
+  kind: 'challenge' | 'win';
+  marketNo: string;
+  optionNo?: string;
+  showAmount?: boolean;
+}
+
+// ---------------------------------------------------------------- S15 SEO 页面（MF-11；后端 content/page/Insights）
+
+/** 页面种类：焦点战（每场一页）、BTC 每小时涨跌统计、文章 */
+export type InsightKind = 'FOCUS' | 'BTC_STATS' | 'ARTICLE';
+
+export interface InsightItem {
+  slug: string;
+  kind: InsightKind;
+  title: string;
+  /** 审核发布过的说明（文章取第一段）；没有时为空 */
+  summary: string | null;
+  marketNo: string | null;
+  updatedAt: string;
+}
+
+export interface InsightList {
+  items: InsightItem[];
+}
+
+/** 焦点战页的市场快照（实时，和市场详情同一来源） */
+export interface InsightMarket {
+  publicNo: string;
+  category: MarketCategory;
+  title: I18nText;
+  status: string;
+  openAt: string;
+  closeAt: string;
+  eventStartAt: string | null;
+  eventEndAt: string | null;
+  todaySlate: boolean;
+  feeRate: string;
+  total: string;
+  bettors: number;
+  options: Array<{ optionNo: string; seq: number; label: I18nText; amount: string; bettors: number; pct: string; mult: string | null }>;
+  winningOptionNo: string | null;
+  sourcePrimary: string | null;
+  at: string;
+}
+
+/** BTC 每小时涨跌统计（收盘价 ≥ 开盘价算涨，和本站加密市场同一口径） */
+export interface BtcStats {
+  symbol: string;
+  source: string;
+  fetchedAt: string;
+  sha256: string;
+  from: string;
+  to: string;
+  bars: number;
+  up24: number;
+  down24: number;
+  up24Pct: string;
+  up7d: number;
+  down7d: number;
+  up7dPct: string;
+  lastClose: string;
+  change24Pct: string;
+  byHour: Array<{ hour: number; up: number; total: number; pct: string }>;
+}
+
+export interface InsightView {
+  slug: string;
+  kind: InsightKind;
+  lang: Lang;
+  title: string;
+  /** 审核发布过的说明；这种语言还没有时为空（页面只显示数据） */
+  intro: string | null;
+  /** 文章正文 */
+  body: string | null;
+  marketNo: string | null;
+  market: InsightMarket | null;
+  btc: BtcStats | null;
+  /** 审核发布过的赛前数据短文 */
+  preview: { title: string; body: string; publishedAt: string } | null;
+  updatedAt: string;
+  /** 这种语言还没有、显示的是另一种语言时为那种语言 */
+  fallbackLang: Lang | null;
 }

@@ -112,6 +112,39 @@
     <if test="since != null">AND l.created_at &gt;= #{since}</if>
   </select>
 
+  <!--
+    已结算的盈亏（forecast S10，提现自动审批 R9、R10、R13、R14；需求第 8.2 节）：派彩 PAYOUT（可用 +，本金 + 盈利）、补偿 COMPENSATION（可用 +）、
+    已结算的本金 BET_SETTLE（赢）+ BET_LOST（输）（下注锁定 −，取负数）、抽成 FEE（可用 −，取负数）。退回的下注（REFUND）和还没结算的下注不算。
+  -->
+  <sql id="realizedCols">
+    COALESCE(SUM(CASE WHEN l.entry_type = 'PAYOUT' THEN l.amount END), 0) AS payout,
+    COALESCE(SUM(CASE WHEN l.entry_type = 'COMPENSATION' THEN l.amount END), 0) AS compensation,
+    COALESCE(-SUM(CASE WHEN l.entry_type IN ('BET_SETTLE', 'BET_LOST') THEN l.amount END), 0) AS stake,
+    COALESCE(-SUM(CASE WHEN l.entry_type = 'FEE' THEN l.amount END), 0) AS fee
+  </sql>
+
+  <select id="realized" resultType="com.forecast.app.ledger.service.LedgerMapper$RealizedRow">
+    SELECT <include refid="realizedCols"/>
+    FROM ledger_entry l JOIN ledger_account a ON a.id = l.account_id
+    WHERE a.user_id = #{userId} AND l.entry_type IN ('PAYOUT', 'COMPENSATION', 'BET_SETTLE', 'BET_LOST', 'FEE')
+    <if test="since != null">AND l.created_at &gt;= #{since}</if>
+  </select>
+
+  <select id="paidMarketsSince" resultType="long">
+    SELECT DISTINCT l.ref_market_id FROM ledger_entry l JOIN ledger_account a ON a.id = l.account_id
+    WHERE a.user_id = #{userId} AND l.entry_type = 'PAYOUT' AND l.ref_market_id IS NOT NULL AND l.created_at &gt;= #{since}
+    ORDER BY l.ref_market_id
+  </select>
+
+  <select id="realizedByMarket" resultType="com.forecast.app.ledger.service.LedgerMapper$RealizedRow">
+    SELECT l.ref_market_id AS market_id, <include refid="realizedCols"/>,
+      MIN(CASE WHEN l.entry_type = 'PAYOUT' THEN l.created_at END) AS first_payout_at
+    FROM ledger_entry l JOIN ledger_account a ON a.id = l.account_id
+    WHERE a.user_id = #{userId} AND l.entry_type IN ('PAYOUT', 'COMPENSATION', 'BET_SETTLE', 'BET_LOST', 'FEE')
+      AND l.ref_market_id IN <foreach collection="marketIds" item="m" open="(" separator="," close=")">#{m}</foreach>
+    GROUP BY l.ref_market_id ORDER BY l.ref_market_id
+  </select>
+
   <sql id="entryCols">l.id, l.entry_type, l.amount, l.value_after, l.biz_type, l.biz_id, l.remark, l.ref_market_id, l.created_at</sql>
 
   <select id="balanceLedger" resultType="com.forecast.app.ledger.service.LedgerMapper$EntryRow">

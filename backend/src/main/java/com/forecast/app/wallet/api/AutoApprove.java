@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * 提现自动审批的规则定义（技术方案/v2-提现自动审批.md 第 2、7 节）：13 条规则（{@link Rule}）的编号、数值参数、单位、默认值、取值范围，配置的读取和保存前的校验。
+ * 提现自动审批的规则定义（复制源的技术方案 v2-提现自动审批 第 2、7 节；forecast S10 按需求说明书第 8.2 节改口径、加 R14、R15）：15 条规则（{@link Rule}）的编号、数值参数、单位、默认值、取值范围，配置的读取和保存前的校验。
  * 和后台前端 {@code web/admin/src/config/autoApprove.ts} 一致。配置存在系统配置表（{@code common_config}，键都以 {@code withdraw.autoApprove.} 开头）。
  * 规则只决定"要不要人工看"，不放宽任何限额。
  */
@@ -54,8 +54,8 @@ public final class AutoApprove {
   }
 
   /**
-   * 13 条规则（从复制源复制，默认值沿用 复制源的规则表）。forecast S1 只删掉了 R12 里差价合约的两项检查；
-   * R8～R10、R13 的口径（交易量、盈亏）在 S1 过渡期恒为 0（见 ledger.api.CustomerFlowApi），S10 按需求说明书第 8.2 节改为下注口径、新增 R14、R15。
+   * 15 条规则。R1～R13 从复制源复制（默认值沿用复制源的规则表）；forecast S1 删掉了 R12 里差价合约的两项检查，S5 给 R12 加了"彩池对账没有未处理的差异"；
+   * S10 按需求说明书第 8.2 节把 R8～R10、R13 改成彩池口径（有效下注本金、已结算的盈亏，见 ledger.api.CustomerFlowApi），新增 R14、R15。
    */
   public enum Rule {
     /** 单笔金额 ≤ 上限 */
@@ -72,7 +72,7 @@ public final class AutoApprove {
     R6(integer("hours", Unit.HOURS, "48", 1, 720)),
     /** 注册满 N 天且 KYC 已通过 */
     R7(integer("days", Unit.DAYS, "7", 0, 365)),
-    /** 充值后的交易量 ≥ 充值额 × N（S1 过渡：交易量恒为 0，S10 改为有效下注本金） */
+    /** 近 30 天充值以后的有效下注本金 ≥ 充值额 × N（取消、作废、E14、E15 退回的下注不算；S10） */
     R8(new Param("multiple", Unit.MULTIPLE, "1", BigDecimal.ZERO, BigDecimal.valueOf(100), 2)),
     /** 累计提现（含本笔）≤ 累计充值 + 已实现盈亏 */
     R9,
@@ -80,13 +80,17 @@ public final class AutoApprove {
     R10(usdt("maxProfit7d", "5000", "1000000"), integer("maxProfitPct", Unit.PERCENT, "50", 1, 1000)),
     /** 当天提现次数（含本笔）≤ N */
     R11(integer("maxCount", Unit.TIMES, "3", 1, 50)),
-    /** 系统状态正常：热钱包余额够（S10 加"彩池对账没有未处理差异"） */
+    /** 系统状态正常：热钱包余额够、彩池对账没有未处理的差异（S5） */
     R12,
     /**
-     * 盈利客户转人工：累计净盈利 ≤ 门槛才通过，等于门槛算通过。门槛默认 0，可以是 0。
-     * S1 过渡：累计净盈利恒为 0；S10 改为 Σ(派彩 − 本金) + 补偿（需求说明书第 8.2 节）
+     * 盈利客户转人工：累计净盈利 ≤ 门槛才通过，等于门槛算通过。门槛默认 0（RQ-11），可以是 0。
+     * 累计净盈利 = 派彩 + 补偿 − 已结算的下注本金 − 抽成（从开户到现在；退回的、没结算的下注不算；S10）
      */
-    R13(new Param("maxNetProfit", Unit.USDT, "0", BigDecimal.ZERO, BigDecimal.valueOf(1_000_000), 2));
+    R13(new Param("maxNetProfit", Unit.USDT, "0", BigDecimal.ZERO, BigDecimal.valueOf(1_000_000), 2)),
+    /** 关联账户对押（S10 新增）：近 N 天本客户有派彩、且有关联账户押了其他选项的市场，这部分盈利 ≤ 门槛才通过（默认 30 天、100 USDT） */
+    R14(new Param("days", Unit.DAYS, "30", BigDecimal.ONE, BigDecimal.valueOf(365), 0), usdt("minProfit", "100", "1000000")),
+    /** 可疑押中（S10 新增）：近 N 天没有还没处理的"新账户押中冷门""尾盘大额"告警才通过（默认 7 天） */
+    R15(new Param("days", Unit.DAYS, "7", BigDecimal.ONE, BigDecimal.valueOf(365), 0));
 
     public final List<Param> params;
 

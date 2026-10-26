@@ -109,7 +109,7 @@ test('下注：上架 → 下注 → 收到奖池推送 → 截止时奖池定�
         }),
         '建草稿',
       );
-      await json(await admin.post(`/api/admin/markets/${draft.publicNo}/publish`, { data: { checked: true } }), '上架');
+      await json(await admin.post(`/api/admin/markets/${draft.publicNo}/publish`, { data: { checked: true, overLimit: true } }), '上架');
       return { no: draft.publicNo, yes: draft.options[0].optionNo, nope: draft.options[1].optionNo };
     });
 

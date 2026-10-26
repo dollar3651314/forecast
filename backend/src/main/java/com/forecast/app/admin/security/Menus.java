@@ -14,7 +14,7 @@ public final class Menus {
 
   public static final List<Item> TREE = List.of(
       leaf("dashboard", "menu.dashboard", "/dashboard", Permission.DASHBOARD_VIEW),
-      // forecast S9：需求第 6.1 节（内容中心、来源统计不在 S9；风控告警 S10）。默认顺序同迁移 V17 的 admin_menu
+      // forecast S9：需求第 6.1 节（风控告警 S10；来源统计 S13；内容中心 S15）。默认顺序同迁移 V17 的 admin_menu
       group("market", "menu.market",
           leaf("markets", "menu.markets", "/markets", Permission.MARKET_VIEW),
           leaf("market-review", "menu.marketReview", "/markets/review", Permission.MARKET_PUBLISH),
@@ -27,6 +27,17 @@ public final class Menus {
           leaf("settle-runs", "menu.settleRuns", "/settle/runs", Permission.POOL_RECON_VIEW),
           leaf("compensations", "menu.compensations", "/settle/compensations", Permission.REPORT_VIEW)),
       leaf("reports", "menu.reports", "/reports", Permission.REPORT_VIEW),
+      // forecast S13：来源统计（需求第 6.1 节，MF-1、MF-10；迁移 V21 写默认顺序）
+      leaf("growth", "menu.growth", "/growth", Permission.GROWTH_VIEW),
+      // forecast S15：内容中心（需求第 6.1 节、自动化需求第 7 节；迁移 V24 写默认顺序）
+      group("content", "menu.content",
+          leaf("content-drafts", "menu.contentDrafts", "/content/drafts", Permission.CONTENT_VIEW),
+          leaf("content-events", "menu.contentEvents", "/content/events", Permission.CONTENT_VIEW),
+          leaf("content-pages", "menu.contentPages", "/content/pages", Permission.CONTENT_VIEW),
+          leaf("content-templates", "menu.contentTemplates", "/content/templates", Permission.CONTENT_VIEW),
+          leaf("content-tools", "menu.contentTools", "/content/tools", Permission.CONTENT_EDIT),
+          leaf("content-logs", "menu.contentLogs", "/content/logs", Permission.CONTENT_VIEW),
+          leaf("content-settings", "menu.contentSettings", "/content/settings", Permission.CONTENT_VIEW)),
       leaf("params", "menu.params", "/params", Permission.FEE_EDIT),
       leaf("customers", "menu.customers", "/customers", Permission.CUSTOMER_VIEW),
       leaf("kyc", "menu.kyc", "/kyc", Permission.KYC_VIEW),
@@ -36,6 +47,8 @@ public final class Menus {
           leaf("reconciliation", "menu.reconciliation", "/funds/reconciliation", Permission.RECON_VIEW),
           leaf("pool-recon", "menu.poolRecon", "/funds/pool-recon", Permission.POOL_RECON_VIEW),
           leaf("tasks", "menu.tasks", "/funds/tasks", Permission.TASK_VIEW)),
+      // forecast S10：风控告警（需求第 6.1 节；迁移 V19 写默认顺序）
+      leaf("risk-alerts", "menu.riskAlerts", "/risk/alerts", Permission.RISK_ALERT_VIEW),
       group("notify", "menu.notify",
           leaf("templates", "menu.templates", "/notify/templates", Permission.NOTIFY_TEMPLATE_VIEW),
           leaf("send", "menu.send", "/notify/send", Permission.NOTIFY_SEND),

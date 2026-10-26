@@ -469,6 +469,58 @@ class SportsResolverTest extends SportsTestSupport {
     verify(staff, never()).notifyStaff(eq("SPORTS_AUTO_FAILED"), argThat(p -> m.no().equals(p.get("marketNo"))));
   }
 
+  /**
+   * S14：两个触发（定时任务、端到端的 /api/e2e/sports/tick 或另一个实例）同时到，数据源回复放慢 400 毫秒让取数一定重叠：
+   * 每一轮只有认领到的一方取数，原始返回不多存（修复前每个来源各多一行）。
+   */
+  @Test
+  void 两个触发同时到_每轮只取一次数_存档不多一组() throws Exception {
+    Fx f = football(in(Duration.ofHours(3)));
+    confirm(f);
+    Market m = listed(f, "FOOTBALL_1X2", null);
+    twoSides(m, 0, 2);
+    closeAndEnd(m);
+    finished(f, 1, 0);
+    STUB.handle(u -> {
+      Reply r = BOOK.handler().apply(u);
+      return new Reply(r.status(), r.body(), 400, false, 0);
+    });
+    try {
+      List<String> first = twice(m);
+      assertThat(first).containsExactlyInAnyOrder("waiting", "busy");
+      assertThat(fetchRows(m, "FOOTBALL_DATA")).as("完赛那一轮主源只取一次").isEqualTo(1);
+      advance(Duration.ofMinutes(30));
+      List<String> second = twice(m);
+      assertThat(second).containsExactlyInAnyOrder("settled", "busy");
+    } finally {
+      STUB.handle(BOOK.handler());
+    }
+    assertThat(fetchRows(m, "FOOTBALL_DATA")).as("主源两轮各一次").isEqualTo(2);
+    assertThat(fetchRows(m, "THESPORTSDB")).as("备源一次").isEqualTo(1);
+    assertThat(recordKinds(m)).containsExactly("AUTO_RESULT");
+    assertThat(status(m)).isEqualTo("SETTLED");
+  }
+
+  /** 两个线程同时跑 resolveDue，返回这个市场的两个结果 */
+  private List<String> twice(Market m) throws Exception {
+    java.util.concurrent.CyclicBarrier go = new java.util.concurrent.CyclicBarrier(2);
+    ExecutorService ex = Executors.newFixedThreadPool(2);
+    try {
+      List<Future<Map<Long, String>>> fs = new ArrayList<>();
+      for (int i = 0; i < 2; i++) {
+        fs.add(ex.submit(() -> {
+          go.await();
+          return sports.resolveDue();
+        }));
+      }
+      List<String> out = new ArrayList<>();
+      for (Future<Map<Long, String>> x : fs) out.add(x.get().getOrDefault(m.id(), "-"));
+      return out;
+    } finally {
+      ex.shutdown();
+    }
+  }
+
   @Test
   void 平台裁决的足球市场不走自动裁决() throws Exception {
     Fx f = football(in(Duration.ofHours(3)));

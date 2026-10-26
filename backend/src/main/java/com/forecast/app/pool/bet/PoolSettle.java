@@ -61,6 +61,11 @@ class PoolSettle implements PoolSettleApi {
   }
 
   @Override
+  public List<Long> marketsWithActiveBets(long userId) {
+    return mapper.marketsWithActiveBets(userId);
+  }
+
+  @Override
   public List<Long> openMarkets() {
     return mapper.openMarkets();
   }

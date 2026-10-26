@@ -4,13 +4,16 @@
  * 费率不在这里：新建时按品类默认值带出，之后在市场详情"改费率"（fee:edit）。
  * 右栏：上架检查清单（后端的 missing + 人工勾选的三项）和操作：保存草稿、提交上架（market:edit）、检查后上架 / 退回（market:publish）、删除草稿。
  * 上架后题目、选项、时间、来源不能改（AC-12），这里只编辑草稿；不是草稿时跳到详情页。
+ * S13（MF-3）：可以勾选"列入今日场次"（客户端 P11 顶部的今日场次）；上架前显示"当前已开放 X 个，上限 Y 个"（参数 market.maxOpen），
+ * 再上架一个就超过上限时要再勾"仍要上架"才能上架（后端同样校验，没勾时 400 overLimit:required，审计记下当时的开放数和上限）。
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { Alert, App, Button, Card, Checkbox, Col, Form, Input, InputNumber, Radio, Row, Select, Space, Tag } from 'antd';
 import { CheckCircleFilled, CloseCircleFilled, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { createMarket, deleteMarket, getMarket, publishMarket, returnMarket, submitMarket, updateMarket } from '../../api';
+import { createMarket, deleteMarket, getMarket, getOpenLimit, publishMarket, returnMarket, submitMarket, updateMarket } from '../../api';
+import { useAuth } from '../../auth/AuthContext';
 import { CATEGORIES, type DraftInput, type I18nText, type MarketDetail } from '../../api/fcTypes';
 import type { FieldError } from '../../api/types';
 import { ErrorState } from '../../components/ErrorState';
@@ -47,6 +50,7 @@ function blank(): DraftInput {
       { label: { ...EMPTY_TEXT }, winCondition: { ...EMPTY_TEXT } },
       { label: { ...EMPTY_TEXT }, winCondition: { ...EMPTY_TEXT } },
     ],
+    todaySlate: false,
   };
 }
 
@@ -67,6 +71,7 @@ function toDraft(d: MarketDetail): DraftInput {
     disputeWindowMinutes: d.disputeWindowMinutes,
     coverPath: d.coverPath,
     options: d.options.map((o) => ({ label: o.label, winCondition: o.winCondition })),
+    todaySlate: d.todaySlate,
   };
 }
 
@@ -110,6 +115,11 @@ export function MarketEditPage() {
   const [checks, setChecks] = useState({ cover: false, edge: false, banned: false });
   const [busy, setBusy] = useState<string | null>(null);
   const note = useNoteDialog();
+  const { can } = useAuth();
+  const canPublish = can('market:publish');
+  // 同时开放的市场数和上限（只有能上架的人取；接口要 market:publish）
+  const limit = useApi(useCallback(() => (canPublish ? getOpenLimit() : Promise.resolve(null)), [canPublish]));
+  const [overOk, setOverOk] = useState(false);
   useEffect(() => {
     if (data) {
       setD(toDraft(data));
@@ -139,6 +149,8 @@ export function MarketEditPage() {
       }
     } catch (e) {
       void message.error(errorText(t, e));
+      // 别人刚上架了一个、超过上限了：刷新开放数，让"仍要上架"出来
+      if (key === 'publish') limit.reload();
     } finally {
       setBusy(null);
     }
@@ -154,6 +166,8 @@ export function MarketEditPage() {
   const ready = keys.every((k) => !bad.has(k));
   const manualOk = checks.cover && checks.edge && checks.banned;
   const submitted = data?.submitted ?? false;
+  const lim = limit.data;
+  const over = !!lim && lim.limit > 0 && lim.open + 1 > lim.limit;
 
   return (
     <>
@@ -186,6 +200,11 @@ export function MarketEditPage() {
               </Row>
               <Form.Item label={t('mke.titleField')} required extra={t('mke.titleHint')}>
                 <I18nInputs value={d.title} onChange={(v) => set({ title: v })} placeholder={t('mke.titleField')} />
+              </Form.Item>
+              <Form.Item extra={t('mke.slateHint')} style={{ marginBottom: 0 }}>
+                <Checkbox checked={!!d.todaySlate} onChange={(e) => set({ todaySlate: e.target.checked })}>
+                  {t('mke.slate')}
+                </Checkbox>
               </Form.Item>
             </Card>
 
@@ -273,6 +292,22 @@ export function MarketEditPage() {
                 <span>{t('mke.time.closeAt')}</span>
                 <b className="num">{utc(d.closeAt, true)}</b>
               </div>
+              {lim ? (
+                <div className="mke-limit" data-testid="open-limit">
+                  <div className="mke-times">
+                    <span>{t('mke.openNowLabel')}</span>
+                    <b className="num">{lim.limit > 0 ? t('mke.openNow', { open: lim.open, limit: lim.limit }) : t('mke.openNoLimit', { open: lim.open })}</b>
+                  </div>
+                  {over ? (
+                    <>
+                      <Alert type="warning" showIcon message={t('mke.overWarn', { limit: lim.limit })} />
+                      <Checkbox checked={overOk} onChange={(e) => setOverOk(e.target.checked)}>
+                        {t('mke.overOk')}
+                      </Checkbox>
+                    </>
+                  ) : null}
+                </div>
+              ) : null}
             </Card>
             <div className="mke-actions">
               <PermButton perm="market:edit" loading={busy === 'save'} onClick={() => void run('save', save, t('mke.saved'))}>
@@ -281,7 +316,7 @@ export function MarketEditPage() {
               <PermButton perm="market:edit" loading={busy === 'submit'} disabled={!ready || submitted} disabledReason={submitted ? t('mke.alreadySubmitted') : t('mke.fillFirst')} onClick={() => void run('submit', () => saveAndThen(submitMarket), t('mke.submitted'))}>
                 {t('mke.submit')}
               </PermButton>
-              <PermButton perm="market:publish" type="primary" loading={busy === 'publish'} disabled={!ready || !manualOk} disabledReason={t('mke.checkFirst')} onClick={() => void run('publish', () => saveAndThen((n) => publishMarket(n, true)), t('mke.published'))}>
+              <PermButton perm="market:publish" type="primary" loading={busy === 'publish'} disabled={!ready || !manualOk || (over && !overOk)} disabledReason={over && !overOk && ready && manualOk ? t('mke.overFirst') : t('mke.checkFirst')} onClick={() => void run('publish', () => saveAndThen((n) => publishMarket(n, { checked: true, todaySlate: !!d.todaySlate, overLimit: over && overOk })), t('mke.published'))}>
                 {t('mke.publish')}
               </PermButton>
             </div>

@@ -20,7 +20,8 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 import org.springframework.web.socket.server.HandshakeInterceptor;
 
 /**
- * 注册 {@code /api/ws/markets}（要登录，和市场列表一样；不登录浏览待 MF 结论）和 Redis 订阅（多实例时收其他实例的奖池变化）。
+ * 注册 {@code /api/ws/markets} 和 Redis 订阅（多实例时收其他实例的奖池变化）。和市场列表一样：S13（MF-4）起
+ * {@code forecast.public-browse.enabled}（默认开）时不登录也能连（推送的奖池本来就不含个人数据，约定 32）；关掉时要登录。
  * 只接受同源握手（Spring 默认）；握手按 IP 限流（{@code IpRateLimitFilter} 对 {@code /api/ws/**} 单独计数）。
  */
 @Configuration
@@ -28,9 +29,11 @@ import org.springframework.web.socket.server.HandshakeInterceptor;
 class PoolPushConfig implements WebSocketConfigurer {
 
   private final PoolPush push;
+  private final boolean publicBrowse;
 
-  PoolPushConfig(PoolPush push) {
+  PoolPushConfig(PoolPush push, @org.springframework.beans.factory.annotation.Value("${forecast.public-browse.enabled:true}") boolean publicBrowse) {
     this.push = push;
+    this.publicBrowse = publicBrowse;
   }
 
   @Override
@@ -41,7 +44,7 @@ class PoolPushConfig implements WebSocketConfigurer {
         if (!(req instanceof ServletServerHttpRequest sr)) return false;
         var uid = CurrentUser.of(sr.getServletRequest());
         uid.ifPresent(id -> attrs.put(PoolPush.USER, id));
-        return uid.isPresent();
+        return uid.isPresent() || publicBrowse;
       }
 
       @Override

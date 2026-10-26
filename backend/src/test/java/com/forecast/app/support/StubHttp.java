@@ -55,6 +55,10 @@ public final class StubHttp implements AutoCloseable {
   /** 每个请求的请求头（名字小写，取第一个值；forecast S8：核对 key 有没有带） */
   private final List<java.util.Map<String, String>> headers = new CopyOnWriteArrayList<>();
   private volatile Function<URI, Reply> handler = u -> Reply.status(404, "{}");
+  /** 每个请求的请求体（forecast S15：Gemini 的 POST） */
+  private final List<String> bodies = new CopyOnWriteArrayList<>();
+  /** 按地址和请求体回复（设了就用它，S15） */
+  private volatile java.util.function.BiFunction<URI, String, Reply> bodyHandler;
 
   public StubHttp() {
     try {
@@ -73,6 +77,17 @@ public final class StubHttp implements AutoCloseable {
 
   public void handle(Function<URI, Reply> h) {
     handler = h;
+    bodyHandler = null;
+  }
+
+  /** 按地址和请求体回复（forecast S15） */
+  public void handleWithBody(java.util.function.BiFunction<URI, String, Reply> h) {
+    bodyHandler = h;
+  }
+
+  /** 收到的请求体（和 {@link #requests()} 一一对应，GET 为空串） */
+  public List<String> bodies() {
+    return List.copyOf(bodies);
   }
 
   /** 收到的请求（含路径和查询串） */
@@ -92,17 +107,21 @@ public final class StubHttp implements AutoCloseable {
   public void clear() {
     requests.clear();
     headers.clear();
+    bodies.clear();
   }
 
   private void serve(HttpExchange ex) throws IOException {
     URI u = ex.getRequestURI();
     java.util.Map<String, String> h = new java.util.HashMap<>();
     ex.getRequestHeaders().forEach((k, v) -> h.put(k.toLowerCase(java.util.Locale.ROOT), v.isEmpty() ? "" : v.get(0)));
+    String body = new String(ex.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
     headers.add(h);
+    bodies.add(body);
     requests.add(u);
     Reply r;
     try {
-      r = handler.apply(u);
+      java.util.function.BiFunction<URI, String, Reply> bh = bodyHandler;
+      r = bh != null ? bh.apply(u, body) : handler.apply(u);
     } catch (RuntimeException e) {
       r = Reply.status(500, "stub error: " + e.getMessage());
     }

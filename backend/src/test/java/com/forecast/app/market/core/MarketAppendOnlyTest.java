@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
  */
 class MarketAppendOnlyTest {
 
-  static final List<String> TABLES = List.of("market_status_log", "market_clarification", "market_fee_change");
+  static final List<String> TABLES = List.of("market_status_log", "market_clarification", "market_fee_change", "market_share");
 
   @Test
   void 只增不改的表没有修改和删除语句() throws Exception {

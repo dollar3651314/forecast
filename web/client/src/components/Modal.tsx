@@ -30,7 +30,9 @@ export function Modal({ open, title, subtitle, onClose, children, footer, varian
     if (!open) return;
     const prev = document.activeElement as HTMLElement | null;
     const box = boxRef.current;
-    const first = box?.querySelector<HTMLElement>('[data-autofocus], input:not([type=hidden]):not([disabled]), select, textarea, button:not(.modal-x)');
+    // 依次找：第一个可输入的控件 → 标了 data-autofocus 的按钮 → 其他按钮（选择器列表按文档顺序匹配，写在一起会先命中排在前面的"跳过"）
+    const q = (sel: string) => box?.querySelector<HTMLElement>(sel) ?? null;
+    const first = q('input:not([type=hidden]):not([disabled]), select, textarea') ?? q('[data-autofocus]') ?? q('button:not(.modal-x)');
     (first ?? box)?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();

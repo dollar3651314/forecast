@@ -164,3 +164,17 @@
 @media (min-width: 992px) {
   .scenario-fab.ant-btn, .scenario-panel.ant-card { right: auto; left: 16px; }
 }
+
+/* forecast S13：今日场次、同时开放上限、场次表星期、来源统计 */
+.mk-slate-tag { margin-inline-start: 6px; }
+.mke-limit { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; border-top: 1px solid var(--hair); margin-top: 10px; }
+.mke-limit .mke-times { margin-top: 0; }
+.mke-limit .ant-checkbox-wrapper { margin-inline-start: 0; }
+.ag-slots { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.ag-slot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.gr-note { margin-bottom: 12px; }
+.gr-card { margin-top: 12px; }
+.gr-grid { margin-top: 12px; }
+.gr-reasons { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.gr-reasons li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+@media (min-width: 1101px) { .kpis.gr-kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); } }

@@ -19,9 +19,35 @@ export function utc(iso: string | null | undefined, withYear = false): string {
 
 /** UTC 的 "HH:mm" 换成北京时间（需求第 6.2 节：场次表页面同时显示北京时间） */
 export function beijing(hhmm: string): string {
-  const [h, m] = hhmm.split(':').map(Number);
+  const [h, m] = hhmm.slice(0, 5).split(':').map(Number);
   if (Number.isNaN(h) || Number.isNaN(m)) return '—';
   return `${pad((h + 8) % 24)}:${pad(m)}`;
+}
+
+/**
+ * 场次表的一项（S13，MF-3）："HH:mm" 每天，"HH:mm@1,6,7" 只在这几天（ISO 星期 1 = 周一 … 7 = 周日，按 UTC 日期）；
+ * 后端 AutogenService.slot / format 同一个格式。days 为空 = 每天。
+ */
+export interface SlotSpec {
+  time: string;
+  days: number[];
+}
+
+export function parseSlot(s: string): SlotSpec {
+  const [time, d] = s.split('@');
+  const days = d ? [...new Set(d.split(',').map(Number).filter((x) => x >= 1 && x <= 7))].sort() : [];
+  return { time: time.trim(), days: days.length === 7 ? [] : days };
+}
+
+export function formatSlot(s: SlotSpec): string {
+  const days = [...new Set(s.days)].sort();
+  return days.length === 0 || days.length === 7 ? s.time.trim() : `${s.time.trim()}@${days.join(',')}`;
+}
+
+/** 北京时间比 UTC 早 8 小时：UTC 16:00 以后的场次在北京是第二天（星期要 +1） */
+export function beijingNextDay(hhmm: string): boolean {
+  const h = Number(hhmm.slice(0, 2));
+  return !Number.isNaN(h) && h >= 16;
 }
 
 /** ISO → 后台日期时间输入框里的 "YYYY-MM-DDTHH:mm"（UTC） */

@@ -110,9 +110,9 @@ class AdminSportsTest extends AdminTestSupport {
     assertThat(audits("sports.drafts.generate")).anySatisfy(a -> assertThat(a).startsWith("SUCCESS " + editor.username()));
     // 草稿：运营能提交上架，不能上架
     assertThat(call(post("/api/admin/markets/" + marketNo + "/submit"), editor.cookie(), null).getStatus()).isEqualTo(200);
-    assertThat(call(post("/api/admin/markets/" + marketNo + "/publish"), editor.cookie(), "{\"checked\":true}").getStatus()).isEqualTo(403);
+    assertThat(call(post("/api/admin/markets/" + marketNo + "/publish"), editor.cookie(), "{\"checked\":true,\"overLimit\":true}").getStatus()).isEqualTo(403);
     Admin publisher = withRoles(role(Permission.MARKET_VIEW, Permission.MARKET_PUBLISH));
-    assertThat(call(post("/api/admin/markets/" + marketNo + "/publish"), publisher.cookie(), "{\"checked\":true}").getStatus()).isEqualTo(200);
+    assertThat(call(post("/api/admin/markets/" + marketNo + "/publish"), publisher.cookie(), "{\"checked\":true,\"overLimit\":true}").getStatus()).isEqualTo(200);
     // 取消对应（开赛以前）
     r = call(delete("/api/admin/sports/fixtures/" + fixtureNo + "/mapping"), editor.cookie(), "{\"reason\":\"对错了\"}");
     assertThat(r.getStatus()).as(r.getContentAsString()).isEqualTo(200);

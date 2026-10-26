@@ -31,6 +31,12 @@ import type {
   MarketQuery,
   MarketStatus,
   MarketSummary,
+  OpenLimit,
+  PublishInput,
+  GrowthQuery,
+  GrowthReport,
+  GrowthExportKind,
+  GrowthCohort,
   PlayInput,
   PoolIssue,
   ProposalInput,
@@ -42,10 +48,19 @@ import type {
   SettleRunDetail,
   SportsTemplate,
   SyncResult,
+  CustomerLink,
+  RiskAlert,
+  RiskAlertCounts,
+  RiskAlertKind,
+  RiskAlertQuery,
+  RiskAlertStatus,
+  StaffRefund,
 } from '../api/fcTypes';
 import { MARKET_STATUSES } from '../api/fcTypes';
 import { fromScaled, toScaled } from '../utils/money';
+import { downloadCsv } from '../utils/csv';
 import { emptyPage, matches, mutate, paginate, respond } from './runtime';
+import { customers as mockCustomers, params as mockParams } from './data/db';
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -87,6 +102,7 @@ function makeMarket(p: {
   mode?: 'AUTO' | 'PLATFORM';
   submitted?: boolean;
   origin?: MarketSummary['origin'];
+  todaySlate?: boolean;
   positions?: Array<[number, number, string]>;
   feeRate?: string;
   missing?: Array<{ field: string; code: string }>;
@@ -131,6 +147,8 @@ function makeMarket(p: {
     statusLog: [],
     feeChanges: [],
     clarifications: [],
+    todaySlate: p.todaySlate ?? false,
+    origin: p.origin ?? 'manual',
   };
   const log = (from: string | null, to: string, actor: string, at: number, reason: string | null = null) => d.statusLog.push({ from, to, actor, reason, time: iso(at) });
   if (p.status !== 'draft') log('draft', 'listed', p.origin === 'autogen' ? 'AUTOGEN' : '1', close - 3 * DAY);
@@ -181,8 +199,8 @@ function seedMarkets(): Mkt[] {
     makeMarket({ category: 'NBA', title: L('勇士 vs 湖人（胜负，含加时）', 'Warriors vs Lakers (winner, incl. OT)', '勇士 vs 湖人（勝負，含加時）'), status: 'draft', submitted: true, closeIn: 4 * DAY, origin: 'sports', options: [[L('勇士', 'Warriors', '勇士'), W('勇士胜')], [L('湖人', 'Lakers', '湖人'), W('湖人胜')]] }),
     makeMarket({ category: 'FOOTBALL', title: L('阿森纳 vs 热刺（90 分钟胜平负）', 'Arsenal vs Tottenham (90-min result)', '阿森納 vs 熱刺（90 分鐘勝平負）'), status: 'draft', submitted: true, closeIn: 6 * DAY, origin: 'sports', options: [[T.home, W('主队胜')], [T.draw, W('打平')], [T.away, W('客队胜')]] }),
     makeMarket({ category: 'MACRO', title: L('美国 11 月非农就业 ≥ 15 万？', 'US November payrolls ≥ 150k?', '美國 11 月非農就業 ≥ 15 萬？'), status: 'draft', closeIn: 9 * DAY, options: [[T.yes, W('≥ 15 万')], [T.no, W('< 15 万')]], missing: [{ field: 'rules.zhTW', code: 'required' }, { field: 'sourceBackup', code: 'required' }] }),
-    makeMarket({ category: 'FOOTBALL', title: L('曼城 vs 利物浦（90 分钟胜平负）', 'Man City vs Liverpool (90-min result)', '曼城 vs 利物浦（90 分鐘勝平負）'), status: 'listed', closeIn: 2 * DAY, origin: 'sports', options: [[T.home, W('主队胜')], [T.draw, W('打平')], [T.away, W('客队胜')]], positions: POS(24, 200) }),
-    makeMarket({ category: 'CRYPTO_1H', title: L('BTC 涨还是跌：2026-10-25 13:00–14:00 UTC', 'BTC Up or Down: 2026-10-25 13:00–14:00 UTC', 'BTC 漲還是跌：2026-10-25 13:00–14:00 UTC'), status: 'listed', closeIn: 5 * HOUR - 30_000, origin: 'autogen', options: [[T.up, W('结束价 ≥ 开始价')], [T.down, W('结束价 < 开始价')]], positions: POS(12, 50) }),
+    makeMarket({ category: 'FOOTBALL', title: L('曼城 vs 利物浦（90 分钟胜平负）', 'Man City vs Liverpool (90-min result)', '曼城 vs 利物浦（90 分鐘勝平負）'), status: 'listed', closeIn: 2 * DAY, origin: 'sports', todaySlate: true, options: [[T.home, W('主队胜')], [T.draw, W('打平')], [T.away, W('客队胜')]], positions: POS(24, 200) }),
+    makeMarket({ category: 'CRYPTO_1H', title: L('BTC 涨还是跌：2026-10-25 13:00–14:00 UTC', 'BTC Up or Down: 2026-10-25 13:00–14:00 UTC', 'BTC 漲還是跌：2026-10-25 13:00–14:00 UTC'), status: 'listed', closeIn: 5 * HOUR - 30_000, origin: 'autogen', todaySlate: true, options: [[T.up, W('结束价 ≥ 开始价')], [T.down, W('结束价 < 开始价')]], positions: POS(12, 50) }),
     makeMarket({ category: 'NBA', title: L('凯尔特人 vs 尼克斯（总分 224.5）', 'Celtics vs Knicks (total 224.5)', '塞爾提克 vs 尼克（總分 224.5）'), status: 'paused', closeIn: DAY, origin: 'sports', options: [[L('大', 'Over', '大'), W('总分 ≥ 225')], [L('小', 'Under', '小'), W('总分 ≤ 224')]], positions: POS(6) }),
     makeMarket({ category: 'MACRO', title: L('美联储 12 月议息会议降息？', 'Fed cuts rates in December?', '聯準會 12 月議息會議降息？'), status: 'listed', closeIn: 30 * DAY, feeRate: '5', options: [[T.yes, W('降息')], [T.no, W('不降息')]], positions: POS(9, 300) }),
     makeMarket({ category: 'NBA', title: L('勇士 vs 掘金（胜负）', 'Warriors vs Nuggets (winner)', '勇士 vs 金塊（勝負）'), status: 'closed', closeIn: -HOUR, origin: 'sports', options: [[L('勇士', 'Warriors', '勇士'), W('勇士胜')], [L('掘金', 'Nuggets', '金塊'), W('掘金胜')]], positions: POS(8) }),
@@ -237,6 +255,7 @@ function summary(m: Mkt): MarketSummary {
     origin: m.origin,
     pool: money(pool.total),
     bettors: pool.bettors,
+    todaySlate: d.todaySlate,
   };
 }
 
@@ -281,7 +300,7 @@ export function listMarkets(q: MarketQuery): Promise<Page<MarketSummary>> {
     () => {
       const st = q.status ? q.status.split(',') : null;
       const rows = markets
-        .filter((m) => (!st || st.includes(m.d.status)) && (!q.category || m.d.category === q.category) && (q.submitted === undefined || m.d.submitted === q.submitted))
+        .filter((m) => (!st || st.includes(m.d.status)) && (!q.category || m.d.category === q.category) && (q.submitted === undefined || m.d.submitted === q.submitted) && (q.todaySlate === undefined || m.d.todaySlate === q.todaySlate))
         .filter((m) => matches(q.keyword, m.d.publicNo, m.d.title.zhCN, m.d.title.en, m.d.title.zhTW))
         .map(summary)
         .sort((a, b) => b.publicNo.localeCompare(a.publicNo));
@@ -311,6 +330,7 @@ function apply(m: Mkt, d: DraftInput) {
     ...d,
     resolutionMode: d.resolutionMode,
     userCap: d.userCap ?? m.d.userCap,
+    todaySlate: d.todaySlate ?? m.d.todaySlate,
     options: d.options.map((o, i) => ({ optionNo: `${m.d.publicNo}${i + 1}`, seq: i + 1, label: o.label, winCondition: o.winCondition })),
     missing: missingOf(d),
     version: m.d.version + 1,
@@ -371,15 +391,37 @@ function move(m: Mkt, to: MarketStatus, reason: string | null) {
   m.d.updatedAt = iso(Date.now());
 }
 
-export function publishMarket(no: string, checked: boolean): Promise<MarketDetail> {
+/** 同时开放上限（参数 market.maxOpen，0 = 不限） */
+function maxOpen(): number {
+  return Number(mockParams.find((p) => p.key === 'market.maxOpen')?.value ?? '2');
+}
+const openCount = () => markets.filter((m) => m.d.status === 'listed' || m.d.status === 'paused').length;
+
+export function setTodaySlate(no: string, todaySlate: boolean): Promise<MarketDetail> {
+  return mutate(() => {
+    const m = find(no);
+    if (!['draft', 'listed', 'paused'].includes(m.d.status)) throw illegal();
+    m.d.todaySlate = todaySlate;
+    return m.d;
+  });
+}
+
+export function getOpenLimit(): Promise<OpenLimit> {
+  return respond(() => ({ open: openCount(), limit: maxOpen() }), { empty: () => ({ open: 0, limit: maxOpen() }) });
+}
+
+export function publishMarket(no: string, input: PublishInput): Promise<MarketDetail> {
   return mutate(() => {
     const m = find(no);
     const fields = [...m.d.missing];
-    if (!checked) fields.push({ field: 'checked', code: 'required' });
+    if (!input.checked) fields.push({ field: 'checked', code: 'required' });
+    const limit = maxOpen();
+    if (limit > 0 && openCount() + 1 > limit && !input.overLimit) fields.push({ field: 'overLimit', code: 'required' });
     if (fields.length) throw new ApiError('errors.validationFailed', undefined, { status: 400, code: 'VALIDATION_FAILED', fields });
     if (m.d.status !== 'draft') throw illegal();
     move(m, 'listed', null);
     m.d.submitted = false;
+    if (input.todaySlate !== undefined) m.d.todaySlate = input.todaySlate;
     return m.d;
   });
 }
@@ -1066,10 +1108,11 @@ export function getMarketDashboard(): Promise<MarketDashboard> {
           poolReconOpen: issues.filter((i) => i.status === 'open').length,
           withdrawalsPending: 3,
         },
+        slate: { open: openCount(), limit: maxOpen(), today: markets.filter((m) => m.d.todaySlate && m.d.eventStartAt.slice(0, 10) === iso(Date.now()).slice(0, 10)).length },
         updatedAt: iso(Date.now()),
       };
     },
-    { empty: () => ({ today: zero, week: { ...zero, from: '2026-10-19' }, pending: { review: 0, awaitingProposal: 0, awaitingConfirm: 0, autoFailed: 0, overdue: 0, publicizing: 0, disputed: 0, settleAbnormal: 0, poolReconOpen: 0, withdrawalsPending: 0 }, updatedAt: iso(Date.now()) }) },
+    { empty: () => ({ today: zero, week: { ...zero, from: '2026-10-19' }, pending: { review: 0, awaitingProposal: 0, awaitingConfirm: 0, autoFailed: 0, overdue: 0, publicizing: 0, disputed: 0, settleAbnormal: 0, poolReconOpen: 0, withdrawalsPending: 0 }, slate: { open: 0, limit: maxOpen(), today: 0 }, updatedAt: iso(Date.now()) }) },
   );
 }
 
@@ -1090,14 +1133,14 @@ function windows(slots: string[], period: '15M' | '1H', generatedFirst: boolean)
   const len = period === '1H' ? HOUR : 15 * MIN;
   const day = Date.UTC(2026, 9, 25);
   return [0, 1, 2, 3].map((d) => {
-    const [h, m] = (slots[0] ?? '13:00').split(':').map(Number);
+    const [h, m] = (slots[0] ?? '13:00').slice(0, 5).split(':').map(Number);
     const start = day + d * DAY + h * HOUR + m * MIN;
     return { windowStart: iso(start), windowEnd: iso(start + len), openAt: iso(start - 3 * HOUR), closeAt: iso(start - 30_000), generated: generatedFirst && d < 2, marketNo: generatedFirst && d < 2 ? `10791000000${d}` : null };
   });
 }
 
 let autogens: Autogen[] = [
-  { autogenNo: '1000000000000000002', symbol: 'BTCUSDT', period: '1H', category: 'CRYPTO_1H', mode: 'schedule', slots: ['13:00'], rollingCount: 3, generateAheadMinutes: 1440, templateNo: '1000000000000000001', userCap: null, enabled: true, checkedBy: 1, checkedAt: iso(BASE - 3 * DAY), checkedTemplateVersion: 2, version: 4, createdAt: iso(BASE - 10 * DAY), updatedAt: iso(BASE - 3 * DAY), upcoming: windows(['13:00'], '1H', true), sample: sample(L('BTC 涨还是跌：2026-10-25 13:00–14:00 UTC', 'BTC Up or Down: 2026-10-25 13:00–14:00 UTC', 'BTC 漲還是跌：2026-10-25 13:00–14:00 UTC')), missing: [] },
+  { autogenNo: '1000000000000000002', symbol: 'BTCUSDT', period: '1H', category: 'CRYPTO_1H', mode: 'schedule', slots: ['13:00', '20:00@6,7'], rollingCount: 3, generateAheadMinutes: 1440, templateNo: '1000000000000000001', userCap: null, enabled: true, checkedBy: 1, checkedAt: iso(BASE - 3 * DAY), checkedTemplateVersion: 2, version: 4, createdAt: iso(BASE - 10 * DAY), updatedAt: iso(BASE - 3 * DAY), upcoming: windows(['13:00'], '1H', true), sample: sample(L('BTC 涨还是跌：2026-10-25 13:00–14:00 UTC', 'BTC Up or Down: 2026-10-25 13:00–14:00 UTC', 'BTC 漲還是跌：2026-10-25 13:00–14:00 UTC')), missing: [] },
   { autogenNo: '1000000000000000003', symbol: 'ETHUSDT', period: '15M', category: 'CRYPTO_15M', mode: 'rolling', slots: [], rollingCount: 4, generateAheadMinutes: 1440, templateNo: '1000000000000000001', userCap: '1000.00', enabled: false, checkedBy: null, checkedAt: null, checkedTemplateVersion: null, version: 1, createdAt: iso(BASE - 2 * DAY), updatedAt: iso(BASE - 2 * DAY), upcoming: windows(['06:00'], '15M', false), sample: sample(L('ETH 涨还是跌：2026-10-25 06:00–06:15 UTC', 'ETH Up or Down: 2026-10-25 06:00–06:15 UTC', 'ETH 漲還是跌：2026-10-25 06:00–06:15 UTC')), missing: [] },
 ];
 
@@ -1111,7 +1154,8 @@ function checkAutogen(i: AutogenInput) {
   if (i.mode === 'schedule') {
     if (!i.slots.length) fields.push({ field: 'slots', code: 'required' });
     i.slots.forEach((s, k) => {
-      const ok = /^\d{2}:\d{2}$/.test(s) && (i.period === '1H' ? s.endsWith(':00') : Number(s.slice(3)) % 15 === 0);
+      // S13：可以带星期（"13:00@1,6,7"）
+      const ok = /^\d{2}:\d{2}(@[1-7](,[1-7]){0,6})?$/.test(s) && (i.period === '1H' ? s.slice(3, 5) === '00' : Number(s.slice(3, 5)) % 15 === 0);
       if (!ok) fields.push({ field: `slots[${k}]`, code: 'invalid' });
     });
   }
@@ -1317,4 +1361,197 @@ export function resetFcMocks(): void {
   seedCases();
   runs = seedRuns();
   seedComp();
+  riskAlerts = seedRisk();
+}
+
+// ---------------------------------------------------------------- 风控告警、员工账户（forecast S10，和后端 RiskOps 字段一致）
+
+const RISK_DETAIL: Record<RiskAlertKind, (i: number) => Record<string, string>> = {
+  late_large_bet: (i) => ({ betNo: `20${4810 + i}`, optionId: '3', poolAfter: '6420.00', pct: `${32 + (i % 9)}.5`, limitPct: '30', secondsBeforeClose: `${60 + i * 7}`, limitMinutes: '5' }),
+  linked_opposite: (i) => ({ linkedUsers: String(100489 + (i % 3) * 7), options: '1', linkedOptions: `${100489 + (i % 3) * 7}:2` }),
+  new_account_longshot: () => ({ betNo: '204899', odds: '6.82', limitOdds: '5', limitAmount: '1000.00', accountDays: '2', limitDays: '7' }),
+  deposit_no_bet: (i) => ({ withdrawalNo: `30${7700 + i}`, deposit: '2000.00', stake: `${120 + i}.00`, multiple: '1' }),
+};
+const RISK_STATUSES: RiskAlertStatus[] = ['new', 'new', 'seen', 'new', 'handled', 'false_positive'];
+
+const seedRisk = (): RiskAlert[] => Array.from({ length: 26 }, (_, i): RiskAlert => {
+  const kind = (['late_large_bet', 'linked_opposite', 'new_account_longshot', 'deposit_no_bet'] as const)[i % 4];
+  const c = mockCustomers[(i * 5) % mockCustomers.length];
+  const status = RISK_STATUSES[i % RISK_STATUSES.length];
+  const done = status === 'handled' || status === 'false_positive';
+  return {
+    id: String(500 - i),
+    kind,
+    userId: String(c.id),
+    customer: c.name,
+    marketNo: kind === 'deposit_no_bet' ? null : `10790000000${String(10 + (i % 6)).padStart(3, '0')}`,
+    market: kind === 'deposit_no_bet' ? null : ['BTC 15 分钟涨跌 · 13:00', '曼城 vs 利物浦 · 胜平负', '美联储 11 月议息：降息 25 基点？'][i % 3],
+    amount: kind === 'linked_opposite' ? null : kind === 'deposit_no_bet' ? '1800' : kind === 'new_account_longshot' ? '1200' : '2400',
+    detail: RISK_DETAIL[kind](i),
+    status,
+    note: done ? (status === 'handled' ? '已联系客户，正常' : '同一家庭的两个账户，已核实') : null,
+    handledBy: status === 'new' ? null : 'amos',
+    handledAt: status === 'new' ? null : iso(BASE - i * HOUR + 30 * MIN),
+    createdAt: iso(BASE - i * HOUR),
+  };
+});
+let riskAlerts = seedRisk();
+
+export function listRiskAlerts(q: RiskAlertQuery): Promise<Page<RiskAlert>> {
+  return respond(
+    () =>
+      paginate(
+        riskAlerts.filter((a) => (!q.kind || a.kind === q.kind) && (!q.status || a.status === q.status) && matches(q.keyword, a.userId, a.customer)),
+        q.page,
+        q.pageSize,
+      ),
+    { empty: () => emptyPage<RiskAlert>(q.page, q.pageSize) },
+  );
+}
+
+export function getRiskAlertCounts(): Promise<RiskAlertCounts> {
+  const count = (list: RiskAlert[]): RiskAlertCounts => {
+    const openList = list.filter((a) => a.status === 'new' || a.status === 'seen');
+    return {
+      open: openList.length,
+      openByKind: {
+        late_large_bet: openList.filter((a) => a.kind === 'late_large_bet').length,
+        linked_opposite: openList.filter((a) => a.kind === 'linked_opposite').length,
+        new_account_longshot: openList.filter((a) => a.kind === 'new_account_longshot').length,
+        deposit_no_bet: openList.filter((a) => a.kind === 'deposit_no_bet').length,
+      },
+      byStatus: {
+        new: list.filter((a) => a.status === 'new').length,
+        seen: list.filter((a) => a.status === 'seen').length,
+        handled: list.filter((a) => a.status === 'handled').length,
+        false_positive: list.filter((a) => a.status === 'false_positive').length,
+      },
+    };
+  };
+  return respond(() => count(riskAlerts), { empty: () => count([]) });
+}
+
+export function setRiskAlertStatus(id: string, status: RiskAlertStatus, note: string | null): Promise<RiskAlert> {
+  return mutate(() => {
+    const n = note?.trim() || null;
+    if (!n && (status === 'handled' || status === 'false_positive')) {
+      throw new ApiError('errors.validationFailed', undefined, { status: 400, code: 'VALIDATION_FAILED', fields: [{ field: 'note', code: 'required' }] });
+    }
+    const a = riskAlerts.find((x) => x.id === id);
+    if (!a) throw new ApiError('errors.notFound', undefined, { status: 404, code: 'NOT_FOUND' });
+    Object.assign(a, { status, note: n, handledBy: 'amos', handledAt: iso(Date.now()) });
+    return a;
+  });
+}
+
+export function getCustomerLinks(id: number): Promise<CustomerLink[]> {
+  const others = mockCustomers.filter((c) => c.id !== id).slice(0, 3);
+  return respond(
+    (): CustomerLink[] =>
+      id % 2 === 0
+        ? [
+            { userId: String(others[0].id), customer: others[0].name, reason: 'device', evidence: '9f3c…e21a', firstSeenAt: iso(BASE - 3 * DAY) },
+            { userId: String(others[0].id), customer: others[0].name, reason: 'ip', evidence: '45.77.12.9', firstSeenAt: iso(BASE - 3 * DAY) },
+            { userId: String(others[1].id), customer: others[1].name, reason: 'withdraw_to', evidence: 'TRC20:TQ5xV…k9Pd', firstSeenAt: iso(BASE - DAY) },
+          ]
+        : [],
+    { empty: () => [] },
+  );
+}
+
+export function setCustomerStaff(id: number, staff: boolean, reason: string): Promise<StaffRefund> {
+  return mutate(() => {
+    needReason(reason);
+    const c = mockCustomers.find((x) => x.id === id);
+    if (!c) throw new ApiError('errors.notFound', undefined, { status: 404, code: 'NOT_FOUND' });
+    const was = c.staff;
+    c.staff = staff;
+    return staff && !was ? { markets: 2, bets: 3, amount: '450.00' } : { markets: 0, bets: 0, amount: '0.00' };
+  });
+}
+
+// ---------------------------------------------------------------- S13 来源统计（原型数据）
+
+const GROWTH_SOURCES: Array<[string, string, string, number]> = [
+  ['tg_ch', 'w43', '', 38],
+  ['x', 'launch', 'kol_amy', 21],
+  // S15：客户分享链接的 ref 是随机分享码，统计里换算成分享人的客户编号
+  ['share', 'card', 'k7mqx2hpre', 9],
+  ['', '', '', 12],
+];
+
+export function getGrowthReport(q: GrowthQuery): Promise<GrowthReport> {
+  const basis = q.basis ?? 'first';
+  const weeks = ['2026-W43', '2026-W42', '2026-W41'];
+  const cohorts: GrowthCohort[] = weeks.flatMap((week, wi) =>
+    GROWTH_SOURCES.map(([src, cmp, ref, base]) => {
+      const reg = Math.max(1, Math.round(base / (wi + 1)) - (basis === 'reg' && src === '' ? 2 : 0));
+      const eligible = wi === 0 ? 0 : reg;
+      return {
+        week, src, cmp, ref,
+        refCustomer: ref === 'k7mqx2hpre' ? '100023' : null,
+        visits: src ? reg * 6 + wi : 0,
+        registrations: reg,
+        firstDeposits: Math.round(reg * 0.4),
+        activated: Math.round(reg * 0.55),
+        week2Active: eligible ? Math.round(reg * 0.3) : 0,
+        week2Eligible: eligible,
+      };
+    }),
+  );
+  const sum = (k: keyof Omit<GrowthCohort, 'week' | 'src' | 'cmp' | 'ref' | 'refCustomer'>) => cohorts.reduce((a, c) => a + c[k], 0);
+  return respond(
+    () => {
+      const ended = markets.filter((m) => ['settled', 'voided', 'cancelled'].includes(m.d.status));
+      return {
+        from: q.from ?? '2026-09-07',
+        to: q.to ?? '2026-11-01',
+        basis,
+        cohorts,
+        totals: { visits: sum('visits'), registrations: sum('registrations'), firstDeposits: sum('firstDeposits'), activated: sum('activated'), week2Active: sum('week2Active'), week2Eligible: sum('week2Eligible') },
+        marketWeeks: [
+          { week: '2026-W43', ended: 4, settled: 2, voided: 1, cancelled: 1, validRate: '50.0', medianBettors: '6' },
+          { week: '2026-W42', ended: 10, settled: 10, voided: 0, cancelled: 0, validRate: '100.0', medianBettors: '7.5' },
+        ],
+        reasons: [
+          { status: 'voided', reason: 'POSTPONED_48H', count: 1 },
+          { status: 'cancelled', reason: '主办方宣布比赛取消', count: 1 },
+        ],
+        markets: ended.map((m) => {
+          const s = summary(m);
+          return {
+            marketNo: m.d.publicNo,
+            category: m.d.category,
+            titleZhCN: m.d.title.zhCN,
+            titleEn: m.d.title.en,
+            status: m.d.status as 'settled' | 'voided' | 'cancelled',
+            endedAt: m.d.statusLog[m.d.statusLog.length - 1]?.time ?? m.d.updatedAt,
+            bettors: s.bettors,
+            pool: s.pool,
+            reason: m.d.voidReason ?? m.d.cancelReason,
+          };
+        }),
+        truncated: false,
+      };
+    },
+    {
+      empty: () => ({ from: q.from ?? '2026-09-07', to: q.to ?? '2026-11-01', basis, cohorts: [], totals: { visits: 0, registrations: 0, firstDeposits: 0, activated: 0, week2Active: 0, week2Eligible: 0 }, marketWeeks: [], reasons: [], markets: [], truncated: false }),
+    },
+  );
+}
+
+/** 原型：在浏览器里生成一份同样表头的 CSV（只有客户编号，没有邮箱） */
+export async function exportGrowth(kind: GrowthExportKind, q: GrowthQuery, lang: string): Promise<void> {
+  const r = await getGrowthReport(q);
+  const en = lang === 'en';
+  if (kind === 'sources') {
+    downloadCsv(`growth-sources.csv`, [
+      en ? ['week', 'src', 'cmp', 'ref', 'visits', 'registrations', 'first_deposits', 'activated', 'week2_active', 'week2_eligible'] : ['注册周', '来源', '活动', '推荐人', '访问', '注册', '首充', '激活（首注）', '第 2 周仍下注', '第 2 周可算人数'],
+      ...r.cohorts.map((c) => [c.week, c.src, c.cmp, c.ref, c.visits, c.registrations, c.firstDeposits, c.activated, c.week2Active, c.week2Eligible]),
+    ]);
+  } else if (kind === 'markets') {
+    downloadCsv(`growth-markets.csv`, [en ? ['market_no', 'category', 'status', 'ended_at', 'bettors', 'pool', 'reason'] : ['市场编号', '品类', '状态', '结束时间', '下注人数', '奖池', '原因'], ...r.markets.map((m) => [m.marketNo, m.category, m.status, m.endedAt, m.bettors, m.pool, m.reason ?? ''])]);
+  } else {
+    downloadCsv(`growth-customers.csv`, [en ? ['customer_no', 'registered_at', 'first_src'] : ['客户编号', '注册时间', '首次来源'], ['100200', '2026-10-20T08:00:00Z', 'tg_ch']]);
+  }
 }

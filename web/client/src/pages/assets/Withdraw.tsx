@@ -9,7 +9,7 @@ import { errorKey, isApiError } from '../../api/errors';
 import { cancelWithdraw, getWithdrawInfo, listWhitelist, listWithdrawals, submitWithdraw } from '../../api/wallet';
 import type { WhitelistAddress, Withdrawal, WithdrawInfo } from '../../api/types';
 import { useToast } from '../../app/contexts';
-import { EmptyState, ErrorState, Loading } from '../../components/AsyncView';
+import { EmptyState, ErrorState, LoadMore, Loading } from '../../components/AsyncView';
 import { FieldErrors, Select, TextField } from '../../components/Form';
 import { Icon } from '../../components/Icon';
 import { PageHeader } from '../../components/Layout';
@@ -348,11 +348,7 @@ function Records() {
               );
             })}
           </ul>
-          {s.hasMore && (
-            <button type="button" className="btn btn-ghost btn-block" onClick={s.loadMore} disabled={s.loading}>
-              {s.loading ? t('common.loading') : t('common.loadMore', { shown: s.items.length, total: s.total })}
-            </button>
-          )}
+          <LoadMore shown={s.items.length} total={s.total} hasMore={s.hasMore} loading={s.loadingMore} error={s.moreError} onMore={() => void s.loadMore()} />
         </>
       )}
       <ConfirmDialog open={!!cancel} title={t('withdraw.cancelTitle')} confirmText={t('withdraw.cancelConfirm')} tone="danger" busy={busy} onConfirm={doCancel} onClose={() => setCancel(null)}>

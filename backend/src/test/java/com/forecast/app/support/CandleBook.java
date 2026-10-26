@@ -22,10 +22,18 @@ public final class CandleBook {
   private final Map<String, Entry> entries = new ConcurrentHashMap<>();
   /** 某个来源全部请求都这样回（优先于价格），例如一直 500 */
   private final Map<String, Reply> sourceFault = new ConcurrentHashMap<>();
+  /** 每个回复前等多久（毫秒，forecast S14：让两个触发的取数一定重叠） */
+  private volatile long delayMs;
 
   public void clear() {
     entries.clear();
     sourceFault.clear();
+    delayMs = 0;
+  }
+
+  /** 之后每个回复都慢这么久（clear 时复原） */
+  public void delay(long ms) {
+    delayMs = ms;
   }
 
   public void price(String source, String symbol, Instant windowStart, String open, String close) {
@@ -44,57 +52,63 @@ public final class CandleBook {
 
   public Function<URI, Reply> handler() {
     return u -> {
-      String path = u.getPath();
-      Map<String, String> q = query(u);
-      if (path.startsWith("/binance/")) {
-        Reply f = sourceFault.get("BINANCE");
-        if (f != null) return f;
-        long ws = Long.parseLong(q.get("startTime"));
-        long we = Long.parseLong(q.get("endTime")) + 1;
-        Entry e = entries.get(key("BINANCE", q.get("symbol"), ws));
-        if (e == null) return Reply.ok("[]");
-        List<String> rows = new ArrayList<>();
-        for (long t = ws; t < we; t += 60_000) {
-          String o = t == ws ? e.open() : e.open();
-          String c = t + 60_000 >= we ? e.close() : e.open();
-          rows.add("[" + t + ",\"" + o + "\",\"" + o + "\",\"" + o + "\",\"" + c + "\",\"1.0\"," + (t + 59_999) + ",\"1\",1,\"0.5\",\"0.5\",\"0\"]");
-        }
-        return Reply.ok("[" + String.join(",", rows) + "]");
-      }
-      if (path.startsWith("/okx/")) {
-        Reply f = sourceFault.get("OKX");
-        if (f != null) return f;
-        long we = Long.parseLong(q.get("after"));
-        long ws = Long.parseLong(q.get("before")) + 1;
-        String symbol = q.get("instId").replace("-", "");
-        Entry e = entries.get(key("OKX", symbol, ws));
-        if (e == null) return Reply.ok("{\"code\":\"0\",\"msg\":\"\",\"data\":[]}");
-        List<String> rows = new ArrayList<>();
-        for (long t = we - 60_000; t >= ws; t -= 60_000) {
-          String c = t + 60_000 >= we ? e.close() : e.open();
-          String confirm = t + 60_000 >= we ? String.valueOf(e.confirmLast()) : "1";
-          rows.add("[\"" + t + "\",\"" + e.open() + "\",\"" + e.open() + "\",\"" + e.open() + "\",\"" + c + "\",\"1\",\"1\",\"1\",\"" + confirm + "\"]");
-        }
-        return Reply.ok("{\"code\":\"0\",\"msg\":\"\",\"data\":[" + String.join(",", rows) + "]}");
-      }
-      if (path.startsWith("/coinbase/")) {
-        Reply f = sourceFault.get("COINBASE");
-        if (f != null) return f;
-        long ws = Long.parseLong(q.get("start")) * 1000;
-        long lastStart = Long.parseLong(q.get("end")) * 1000;
-        String asset = path.replaceAll(".*/products/([A-Z]+)-USD/candles", "$1");
-        Entry e = entries.get(key("COINBASE", asset + "USDT", ws));
-        if (e == null) return Reply.ok("{\"candles\":[]}");
-        List<String> rows = new ArrayList<>();
-        for (long t = lastStart; t >= ws; t -= 60_000) {
-          String c = t == lastStart ? e.close() : e.open();
-          rows.add("{\"start\":\"" + t / 1000 + "\",\"low\":\"" + e.open() + "\",\"high\":\"" + e.open() + "\",\"open\":\"" + e.open() + "\",\"close\":\"" + c
-              + "\",\"volume\":\"1\"}");
-        }
-        return Reply.ok("{\"candles\":[" + String.join(",", rows) + "]}");
-      }
-      return Reply.status(404, "{}");
+      Reply r = reply(u);
+      long d = delayMs;
+      return d <= 0 || r.disconnect() || r.delayMs() > 0 ? r : new Reply(r.status(), r.body(), d, false, r.trickleMs());
     };
+  }
+
+  private Reply reply(URI u) {
+    String path = u.getPath();
+    Map<String, String> q = query(u);
+    if (path.startsWith("/binance/")) {
+      Reply f = sourceFault.get("BINANCE");
+      if (f != null) return f;
+      long ws = Long.parseLong(q.get("startTime"));
+      long we = Long.parseLong(q.get("endTime")) + 1;
+      Entry e = entries.get(key("BINANCE", q.get("symbol"), ws));
+      if (e == null) return Reply.ok("[]");
+      List<String> rows = new ArrayList<>();
+      for (long t = ws; t < we; t += 60_000) {
+        String o = t == ws ? e.open() : e.open();
+        String c = t + 60_000 >= we ? e.close() : e.open();
+        rows.add("[" + t + ",\"" + o + "\",\"" + o + "\",\"" + o + "\",\"" + c + "\",\"1.0\"," + (t + 59_999) + ",\"1\",1,\"0.5\",\"0.5\",\"0\"]");
+      }
+      return Reply.ok("[" + String.join(",", rows) + "]");
+    }
+    if (path.startsWith("/okx/")) {
+      Reply f = sourceFault.get("OKX");
+      if (f != null) return f;
+      long we = Long.parseLong(q.get("after"));
+      long ws = Long.parseLong(q.get("before")) + 1;
+      String symbol = q.get("instId").replace("-", "");
+      Entry e = entries.get(key("OKX", symbol, ws));
+      if (e == null) return Reply.ok("{\"code\":\"0\",\"msg\":\"\",\"data\":[]}");
+      List<String> rows = new ArrayList<>();
+      for (long t = we - 60_000; t >= ws; t -= 60_000) {
+        String c = t + 60_000 >= we ? e.close() : e.open();
+        String confirm = t + 60_000 >= we ? String.valueOf(e.confirmLast()) : "1";
+        rows.add("[\"" + t + "\",\"" + e.open() + "\",\"" + e.open() + "\",\"" + e.open() + "\",\"" + c + "\",\"1\",\"1\",\"1\",\"" + confirm + "\"]");
+      }
+      return Reply.ok("{\"code\":\"0\",\"msg\":\"\",\"data\":[" + String.join(",", rows) + "]}");
+    }
+    if (path.startsWith("/coinbase/")) {
+      Reply f = sourceFault.get("COINBASE");
+      if (f != null) return f;
+      long ws = Long.parseLong(q.get("start")) * 1000;
+      long lastStart = Long.parseLong(q.get("end")) * 1000;
+      String asset = path.replaceAll(".*/products/([A-Z]+)-USD/candles", "$1");
+      Entry e = entries.get(key("COINBASE", asset + "USDT", ws));
+      if (e == null) return Reply.ok("{\"candles\":[]}");
+      List<String> rows = new ArrayList<>();
+      for (long t = lastStart; t >= ws; t -= 60_000) {
+        String c = t == lastStart ? e.close() : e.open();
+        rows.add("{\"start\":\"" + t / 1000 + "\",\"low\":\"" + e.open() + "\",\"high\":\"" + e.open() + "\",\"open\":\"" + e.open() + "\",\"close\":\"" + c
+            + "\",\"volume\":\"1\"}");
+      }
+      return Reply.ok("{\"candles\":[" + String.join(",", rows) + "]}");
+    }
+    return Reply.status(404, "{}");
   }
 
   private static String key(String source, String symbol, long start) {

@@ -34,7 +34,14 @@ export function storeLang(l: Lang): void {
   }
 }
 
+/** 地址栏 ?lang=（客户端"我的"里的服务条款等链接带上客户端的语言，S11）；不认识的忽略 */
+export function langFromSearch(search: string | undefined): Lang | null {
+  const v = new URLSearchParams(search ?? '').get('lang');
+  return v === 'zh-CN' || v === 'zh-TW' || v === 'en' ? v : null;
+}
+
 export function initialLang(): Lang {
   const nav = typeof navigator !== 'undefined' ? navigator : undefined;
-  return detectLang(readStoredLang(), nav?.languages, nav?.language);
+  const fromUrl = typeof location !== 'undefined' ? langFromSearch(location.search) : null;
+  return fromUrl ?? detectLang(readStoredLang(), nav?.languages, nav?.language);
 }

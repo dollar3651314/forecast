@@ -52,6 +52,8 @@ export function login(email: string, password: string): Promise<Session> {
 
 export function register(req: RegisterRequest): Promise<Session> {
   return mutate(() => {
+    // 和后端一样：没勾"已年满 18 周岁并同意服务条款"拒绝（S11）
+    if (!req.adultConfirmed) throw new ApiError('validationFailed', { agree: ['validation.mustAgree'] });
     if (req.code !== MOCK_EMAIL_CODE) throw new ApiError('codeInvalid', { code: ['errors.codeInvalid'] });
     if (req.email.toLowerCase() === 'taken@example.com') throw new ApiError('emailTaken', { email: ['errors.emailTaken'] });
     db.profile = { ...db.profile, email: req.email, firstName: req.firstName, middleName: req.middleName, lastName: req.lastName, birthDate: req.birthDate, nationality: req.nationality };
@@ -164,10 +166,11 @@ function view(n: StoredNotification, lang: Lang): NotificationItem {
   return {
     id: n.id,
     kind: n.kind,
-    title: lang === 'en' ? n.title.en : n.title.zh,
-    body: lang === 'en' ? n.body.en : n.body.zh,
+    title: lang === 'en' ? n.title.en : lang === 'zh-TW' ? n.title.tw || n.title.zh : n.title.zh,
+    body: lang === 'en' ? n.body.en : lang === 'zh-TW' ? n.body.tw || n.body.zh : n.body.zh,
     read: n.read,
     createdAt: n.createdAt,
+    link: n.link ?? null,
   };
 }
 

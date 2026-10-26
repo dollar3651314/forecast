@@ -9,10 +9,12 @@
  */
 import * as mock from '../mocks/handlers';
 import * as fm from '../mocks/fc';
+import * as mc from '../mocks/content';
 import * as runtime from '../mocks/runtime';
 import { IS_MOCK } from './mode';
 import * as real from './real';
 import * as rf from './realFc';
+import * as rc from './realContent';
 import { ApiError } from './types';
 
 export type { CurrentAdmin } from './types';
@@ -185,6 +187,41 @@ export const deleteMarket: typeof rf.deleteMarket = IS_MOCK ? fm.deleteMarket : 
 export const submitMarket: typeof rf.submitMarket = IS_MOCK ? fm.submitMarket : rf.submitMarket;
 export const returnMarket: typeof rf.returnMarket = IS_MOCK ? fm.returnMarket : rf.returnMarket;
 export const publishMarket: typeof rf.publishMarket = IS_MOCK ? fm.publishMarket : rf.publishMarket;
+export const setTodaySlate: typeof rf.setTodaySlate = IS_MOCK ? fm.setTodaySlate : rf.setTodaySlate;
+export const getOpenLimit: typeof rf.getOpenLimit = IS_MOCK ? fm.getOpenLimit : rf.getOpenLimit;
+// forecast S15：内容中心（事件和文章自动化程序）
+export const listDrafts: typeof rc.listDrafts = IS_MOCK ? mc.listDrafts : rc.listDrafts;
+export const getDraftGroup: typeof rc.getDraftGroup = IS_MOCK ? mc.getDraftGroup : rc.getDraftGroup;
+export const generateContentDrafts: typeof rc.generateContentDrafts = IS_MOCK ? mc.generateContentDrafts : rc.generateContentDrafts;
+export const editDraft: typeof rc.editDraft = IS_MOCK ? mc.editDraft : rc.editDraft;
+export const publishDraft: typeof rc.publishDraft = IS_MOCK ? mc.publishDraft : rc.publishDraft;
+export const rejectDraft: typeof rc.rejectDraft = IS_MOCK ? mc.rejectDraft : rc.rejectDraft;
+export const retryDraft: typeof rc.retryDraft = IS_MOCK ? mc.retryDraft : rc.retryDraft;
+export const copiedDraft: typeof rc.copiedDraft = IS_MOCK ? mc.copiedDraft : rc.copiedDraft;
+export const getContentStatus: typeof rc.getContentStatus = IS_MOCK ? mc.getContentStatus : rc.getContentStatus;
+export const updateContentSettings: typeof rc.updateContentSettings = IS_MOCK ? mc.updateContentSettings : rc.updateContentSettings;
+export const setContentStopped: typeof rc.setContentStopped = IS_MOCK ? mc.setContentStopped : rc.setContentStopped;
+export const listContentWords: typeof rc.listContentWords = IS_MOCK ? mc.listContentWords : rc.listContentWords;
+export const addContentWord: typeof rc.addContentWord = IS_MOCK ? mc.addContentWord : rc.addContentWord;
+export const deleteContentWord: typeof rc.deleteContentWord = IS_MOCK ? mc.deleteContentWord : rc.deleteContentWord;
+export const getCandidates: typeof rc.getCandidates = IS_MOCK ? mc.getCandidates : rc.getCandidates;
+export const listEcon: typeof rc.listEcon = IS_MOCK ? mc.listEcon : rc.listEcon;
+export const addEcon: typeof rc.addEcon = IS_MOCK ? mc.addEcon : rc.addEcon;
+export const updateEcon: typeof rc.updateEcon = IS_MOCK ? mc.updateEcon : rc.updateEcon;
+export const cancelEcon: typeof rc.cancelEcon = IS_MOCK ? mc.cancelEcon : rc.cancelEcon;
+export const draftEcon: typeof rc.draftEcon = IS_MOCK ? mc.draftEcon : rc.draftEcon;
+export const listEconTemplates: typeof rc.listEconTemplates = IS_MOCK ? mc.listEconTemplates : rc.listEconTemplates;
+export const updateEconTemplate: typeof rc.updateEconTemplate = IS_MOCK ? mc.updateEconTemplate : rc.updateEconTemplate;
+export const listContentPages: typeof rc.listContentPages = IS_MOCK ? mc.listContentPages : rc.listContentPages;
+export const refreshBtcPage: typeof rc.refreshBtcPage = IS_MOCK ? mc.refreshBtcPage : rc.refreshBtcPage;
+export const setPageVisible: typeof rc.setPageVisible = IS_MOCK ? mc.setPageVisible : rc.setPageVisible;
+export const makeDataCard: typeof rc.makeDataCard = IS_MOCK ? mc.makeDataCard : rc.makeDataCard;
+export const makeCompare: typeof rc.makeCompare = IS_MOCK ? mc.makeCompare : rc.makeCompare;
+export const listContentLogs: typeof rc.listContentLogs = IS_MOCK ? mc.listContentLogs : rc.listContentLogs;
+export const exportContentLogs: typeof rc.exportContentLogs = IS_MOCK ? mc.exportContentLogs : rc.exportContentLogs;
+// forecast S13：来源统计
+export const getGrowthReport: typeof rf.getGrowthReport = IS_MOCK ? fm.getGrowthReport : rf.getGrowthReport;
+export const exportGrowth: typeof rf.exportGrowth = IS_MOCK ? fm.exportGrowth : rf.exportGrowth;
 export const pauseMarket: typeof rf.pauseMarket = IS_MOCK ? fm.pauseMarket : rf.pauseMarket;
 export const resumeMarket: typeof rf.resumeMarket = IS_MOCK ? fm.resumeMarket : rf.resumeMarket;
 export const cancelMarket: typeof rf.cancelMarket = IS_MOCK ? fm.cancelMarket : rf.cancelMarket;
@@ -236,6 +273,12 @@ export const compensate: typeof rf.compensate = IS_MOCK ? fm.compensate : rf.com
 export const listCompensations: typeof rf.listCompensations = IS_MOCK ? fm.listCompensations : rf.listCompensations;
 export const getCompensation: typeof rf.getCompensation = IS_MOCK ? fm.getCompensation : rf.getCompensation;
 export const getReport: typeof rf.getReport = IS_MOCK ? fm.getReport : rf.getReport;
+// forecast S10：风控告警、员工账户、关联账户
+export const listRiskAlerts: typeof rf.listRiskAlerts = IS_MOCK ? fm.listRiskAlerts : rf.listRiskAlerts;
+export const getRiskAlertCounts: typeof rf.getRiskAlertCounts = IS_MOCK ? fm.getRiskAlertCounts : rf.getRiskAlertCounts;
+export const setRiskAlertStatus: typeof rf.setRiskAlertStatus = IS_MOCK ? fm.setRiskAlertStatus : rf.setRiskAlertStatus;
+export const getCustomerLinks: typeof rf.getCustomerLinks = IS_MOCK ? fm.getCustomerLinks : rf.getCustomerLinks;
+export const setCustomerStaff: typeof rf.setCustomerStaff = IS_MOCK ? fm.setCustomerStaff : rf.setCustomerStaff;
 
 // ---- 原型场景（只在 mock 模式下有界面入口） ----
 // 真实接口模式下恒为"正常数据"、版本号恒为 0；按编译期常量选，real 构建不打包模拟层（vite.config.ts 的 mockFree）

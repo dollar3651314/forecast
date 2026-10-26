@@ -1,10 +1,11 @@
 /**
  * 新手引导（C83，需求 P9，架构方案第 9.4 节）：4 步 ① 在这里押一件事的结果 ② 押中了分输方的奖池（赔率随奖池变化、只对盈利抽成）
  * ③ 完成身份认证 ④ 充值 USDT，终点落在充值页（资产）；不做试玩。可以跳过；新客户（认证未提交）第一次登录自动打开一次，之后在"我的 → 新手引导"重看。
+ * S13：在市场详情页不自动打开（游客点"押注"登录后回到市场时会直接弹出下注抽屉，引导会盖住它）；回到列表等别的页面再打开。
  */
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { getKyc } from '../api/user';
 import { useAuth } from '../app/contexts';
 import { useAsync } from '../hooks/useAsync';
@@ -24,6 +25,7 @@ const STEPS: Array<{ key: string; icon: IconName }> = [
 export function Onboarding() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const { session } = useAuth();
   const userId = session?.userId;
   const { forcedOpen, finish } = useOnboarding(userId);
@@ -31,7 +33,8 @@ export function Onboarding() {
   const [closed, setClosed] = useState(false);
   const [step, setStep] = useState(0);
 
-  const auto = !!userId && kyc.data?.status === 'none' && !onboardingDone(userId) && !closed;
+  const betting = /^\/markets\/[^/]+/.test(location.pathname);
+  const auto = !!userId && kyc.data?.status === 'none' && !onboardingDone(userId) && !closed && !betting;
   const open = forcedOpen || auto;
   if (!open) return null;
 

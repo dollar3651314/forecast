@@ -51,6 +51,12 @@ export type ApiErrorReason =
   | 'disputeClosed'
   | 'disputeNotBettor'
   | 'disputeExists'
+  // #23 开赛提醒（forecast S11，market/remind/ReminderController）
+  | 'reminderNotAvailable'
+  | 'reminderLoginRequired'
+  | 'reminderTooMany'
+  // 分享卡片（forecast S14，market/card/CardController）：只能为自己押过、还在下注期的选项生成挑战卡，为押中的已结算市场生成开奖卡
+  | 'cardNotAvailable'
   | 'validationFailed'
   | 'badRequest'
   | 'forbidden'
@@ -137,6 +143,11 @@ export const SERVER_CODES: Record<string, ApiErrorReason> = {
   DISPUTE_CLOSED: 'disputeClosed',
   DISPUTE_NOT_BETTOR: 'disputeNotBettor',
   DISPUTE_EXISTS: 'disputeExists',
+  // #23 开赛提醒（forecast S11）：已开放或已结束 / 没用邮箱和密码登录过（403，SQ-20）/ 订阅中的太多
+  REMINDER_NOT_AVAILABLE: 'reminderNotAvailable',
+  REMINDER_LOGIN_REQUIRED: 'reminderLoginRequired',
+  REMINDER_TOO_MANY: 'reminderTooMany',
+  CARD_NOT_AVAILABLE: 'cardNotAvailable',
   // 钱包
   WALLET_NOT_READY: 'walletNotReady',
   WHITELIST_FULL: 'whitelistFull',
@@ -175,6 +186,9 @@ export const FIELD_CODES: Record<string, string> = {
   TOO_LONG: 'validation.tooLong',
   BIRTH_DATE_INVALID: 'validation.dateInvalid',
   NATIONALITY_INVALID: 'validation.nationalityInvalid',
+  // 注册（forecast S11，需求 P8）：没勾"已年满 18 周岁并同意服务条款"、未满 18 周岁
+  ADULT_REQUIRED: 'validation.mustAgree',
+  AGE_UNDER_18: 'validation.ageUnder18',
   DOC_TYPE_INVALID: 'validation.docTypeInvalid',
   DOC_NUMBER_INVALID: 'validation.docNumberInvalid',
   FILE_TOO_LARGE: 'validation.fileSize',

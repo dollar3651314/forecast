@@ -3,6 +3,7 @@
  * 今日 / 近 7 天的下注额、下注人数、平台收入（抽成 + 尾差）、补偿支出、新注册、充值、提现。
  * C41：彩池部分（GET /api/admin/dashboard/markets）和资金部分（GET /api/admin/dashboard，复制源）分开取，一处慢或出错只影响自己那一块，
  * 各自有"重试"。每 30 秒自动刷新（v2 E7），可暂停，页面不可见时停止。"今天"按 UTC。
+ * S13（MF-3，SQ-21）：场次两项：同时开放 X / 上限 Y（超过时标红）、今日场次 N（今天 UTC 开始、列入今日场次的市场）。
  */
 import { useCallback } from 'react';
 import { Link } from 'react-router-dom';
@@ -167,6 +168,30 @@ export function DashboardPage() {
           {f ? <TodoCard todo={{ key: 'kyc', count: f.pendingKyc, to: '/kyc', perm: 'kyc:view', tone: 'orange' }} /> : null}
         </section>
       )}
+      {m ? (
+        <>
+          <h2 className="dash-h">{t('dash.slate')}</h2>
+          <section className="detail-grid" aria-label={t('dash.slate')}>
+            <div className={`card stat ${m.slate.limit > 0 && m.slate.open > m.slate.limit ? 'stat-red' : ''}`} data-testid="dash-open">
+              <div className="k">{t('dash.openNow')}</div>
+              <div className="v">
+                {m.slate.open}
+                <small className="muted"> / {m.slate.limit > 0 ? m.slate.limit : t('dash.noLimit')}</small>
+              </div>
+              <div className="muted">
+                <Link to="/markets?tab=active">{t('common.view')}</Link>
+              </div>
+            </div>
+            <div className="card stat" data-testid="dash-slate">
+              <div className="k">{t('dash.todaySlate')}</div>
+              <div className="v">{m.slate.today}</div>
+              <div className="muted">
+                <Link to="/markets?slate=1">{t('common.view')}</Link>
+              </div>
+            </div>
+          </section>
+        </>
+      ) : null}
       <h2 className="dash-h">{t('dash.numbers')}</h2>
       {markets.error ? null : !m ? (
         <div className="card card-pad">

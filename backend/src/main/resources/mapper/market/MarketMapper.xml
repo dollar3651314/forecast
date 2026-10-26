@@ -11,16 +11,16 @@
   <sql id="marketCols">
     id, public_no, category, title_en, title_zh_cn, title_zh_tw, rules_en, rules_zh_cn, rules_zh_tw, resolution_mode, source_primary, source_backup,
     source_ref, status, submitted_for_listing, settle_phase, winning_option_id, actual_start_at, resolved_by, open_at, close_at, event_start_at, event_end_at, fee_rate, user_cap, dispute_window_min,
-    dispute_deadline_at, void_reason, cancel_reason, cover_path, autogen_id, created_by, listed_by, deleted_at, version, created_at, updated_at
+    dispute_deadline_at, void_reason, cancel_reason, cover_path, autogen_id, today_slate, ended_at, created_by, listed_by, deleted_at, version, created_at, updated_at
   </sql>
 
   <insert id="insertMarket" useGeneratedKeys="true" keyProperty="id">
     INSERT INTO market_question (public_no, category, title_en, title_zh_cn, title_zh_tw, rules_en, rules_zh_cn, rules_zh_tw, resolution_mode,
       source_primary, source_backup, source_ref, status, open_at, close_at, event_start_at, event_end_at, fee_rate, user_cap, dispute_window_min,
-      cover_path, autogen_id, created_by, created_at, updated_at)
+      cover_path, autogen_id, today_slate, created_by, created_at, updated_at)
     VALUES (#{publicNo}, #{category}, #{titleEn}, #{titleZhCn}, #{titleZhTw}, #{rulesEn}, #{rulesZhCn}, #{rulesZhTw}, #{resolutionMode},
       #{sourcePrimary}, #{sourceBackup}, #{sourceRef}, 'DRAFT', #{openAt}, #{closeAt}, #{eventStartAt}, #{eventEndAt}, #{feeRate}, #{userCap},
-      #{disputeWindowMin}, #{coverPath}, #{autogenId}, #{createdBy}, #{createdAt}, #{updatedAt})
+      #{disputeWindowMin}, #{coverPath}, #{autogenId}, #{todaySlate}, #{createdBy}, #{createdAt}, #{updatedAt})
   </insert>
 
   <!-- 自动生成（S6）：某个模板在一段时间里已经生成的市场（窗口开始时间 = event_start_at）；唯一键 uk_market_autogen_window 保证同一窗口只有一个 -->
@@ -35,8 +35,14 @@
       rules_en = #{rulesEn}, rules_zh_cn = #{rulesZhCn}, rules_zh_tw = #{rulesZhTw}, resolution_mode = #{resolutionMode},
       source_primary = #{sourcePrimary}, source_backup = #{sourceBackup}, source_ref = #{sourceRef}, open_at = #{openAt}, close_at = #{closeAt},
       event_start_at = #{eventStartAt}, event_end_at = #{eventEndAt}, user_cap = #{userCap}, dispute_window_min = #{disputeWindowMin},
-      cover_path = #{coverPath}, version = version + 1, updated_at = #{updatedAt}
+      cover_path = #{coverPath}, today_slate = #{todaySlate}, version = version + 1, updated_at = #{updatedAt}
     WHERE id = #{id} AND status = 'DRAFT' AND deleted_at IS NULL
+  </update>
+
+  <!-- S13：草稿上架时、已上架 / 已暂停时改"列入今日场次"（调用方持有市场行锁） -->
+  <update id="setTodaySlate">
+    UPDATE market_question SET today_slate = #{slate}, version = version + 1, updated_at = #{now}
+    WHERE id = #{id} AND status IN ('DRAFT', 'LISTED', 'PAUSED') AND deleted_at IS NULL
   </update>
 
   <update id="softDeleteDraft">
@@ -105,6 +111,7 @@
       <if test="listedBy != null">, listed_by = #{listedBy}, submitted_for_listing = 0</if>
       <if test="cancelReason != null">, cancel_reason = #{cancelReason}</if>
       <if test="voidReason != null">, void_reason = #{voidReason}</if>
+      <if test="to == 'SETTLED' or to == 'CANCELLED' or to == 'VOIDED'">, ended_at = #{now}</if>
     WHERE id = #{id} AND status = #{from} AND deleted_at IS NULL
   </update>
 
@@ -183,6 +190,7 @@
       <if test="statuses != null">AND status IN <foreach collection="statuses" item="s" open="(" separator="," close=")">#{s}</foreach></if>
       <if test="category != null">AND category = #{category}</if>
       <if test="submitted != null">AND submitted_for_listing = #{submitted}</if>
+      <if test="todaySlate != null">AND today_slate = #{todaySlate}</if>
       <if test="keyword != null">
         AND (title_en LIKE CONCAT('%', #{keyword}, '%') OR title_zh_cn LIKE CONCAT('%', #{keyword}, '%') OR title_zh_tw LIKE CONCAT('%', #{keyword}, '%')
         <if test="no != null">OR public_no = #{no}</if>)
@@ -205,6 +213,12 @@
   <sql id="clientWhere">
     WHERE deleted_at IS NULL AND status IN <foreach collection="statuses" item="s" open="(" separator="," close=")">#{s}</foreach>
     <if test="category != null">AND category = #{category}</if>
+    <!-- S11 搜索：题目（三种语言）包含关键字，或市场编号等于它；关键字里的 % _ ! 已在 MarketService 里用 ! 转义 -->
+    <if test="keyword != null">
+      AND (title_en LIKE CONCAT('%', #{keyword}, '%') ESCAPE '!' OR title_zh_cn LIKE CONCAT('%', #{keyword}, '%') ESCAPE '!'
+        OR title_zh_tw LIKE CONCAT('%', #{keyword}, '%') ESCAPE '!'
+        <if test="no != null">OR public_no = #{no}</if>)
+    </if>
   </sql>
 
   <select id="clientList" resultType="com.forecast.app.market.core.MarketRows$Market">
@@ -218,5 +232,63 @@
 
   <select id="clientCount" resultType="long">
     SELECT COUNT(*) FROM market_question <include refid="clientWhere"/>
+  </select>
+
+  <!-- S11 按奖池排序：先取符合条件的全部 id（按截止时间，最多 limit 个），奖池合计由 pool 模块给，在 MarketService 里排序和分页 -->
+  <select id="clientIds" resultType="long">
+    SELECT id FROM market_question <include refid="clientWhere"/> ORDER BY close_at, id LIMIT #{limit}
+  </select>
+
+  <!-- ===================== S13 推广功能（MF-3 场次、MF-4 公开浏览、MF-6 开奖记录和周报） ===================== -->
+
+  <!-- 同时开放的市场数（第 4.2 节）：已上架或已暂停、还没到截止时间（包括还没到开放下注时间的） -->
+  <select id="countOpen" resultType="long">
+    SELECT COUNT(*) FROM market_question WHERE status IN ('LISTED', 'PAUSED') AND close_at &gt; #{now} AND deleted_at IS NULL
+  </select>
+
+  <!-- 今日场次：带标记、不是草稿，按场次时间（事件开始时间）落在 [from, to) 里；按时间排 -->
+  <select id="slate" resultType="com.forecast.app.market.core.MarketRows$Market">
+    SELECT <include refid="marketCols"/> FROM market_question
+    WHERE today_slate = 1 AND status &lt;&gt; 'DRAFT' AND deleted_at IS NULL AND event_start_at &gt;= #{from} AND event_start_at &lt; #{to}
+    ORDER BY event_start_at, id LIMIT #{limit}
+  </select>
+
+  <!-- 下一场：带标记、还能下注或待开放（已上架 / 已暂停）、场次时间不早于 from -->
+  <select id="nextSlate" resultType="com.forecast.app.market.core.MarketRows$Market">
+    SELECT <include refid="marketCols"/> FROM market_question
+    WHERE today_slate = 1 AND status IN ('LISTED', 'PAUSED') AND deleted_at IS NULL AND event_start_at &gt;= #{from}
+    ORDER BY event_start_at, id LIMIT 1
+  </select>
+
+  <!-- 后台仪表盘：今天（UTC）的场次数 -->
+  <select id="countSlate" resultType="long">
+    SELECT COUNT(*) FROM market_question
+    WHERE today_slate = 1 AND status &lt;&gt; 'DRAFT' AND deleted_at IS NULL AND event_start_at &gt;= #{from} AND event_start_at &lt; #{to}
+  </select>
+
+  <sql id="endedWhere">
+    WHERE deleted_at IS NULL AND ended_at IS NOT NULL AND status IN <foreach collection="statuses" item="s" open="(" separator="," close=")">#{s}</foreach>
+    <if test="category != null">AND category = #{category}</if>
+    <if test="from != null">AND ended_at &gt;= #{from}</if>
+    <if test="to != null">AND ended_at &lt; #{to}</if>
+  </sql>
+
+  <!-- 开奖记录：已结算 / 已作废 / 已取消，最近结束的在前 -->
+  <select id="endedList" resultType="com.forecast.app.market.core.MarketRows$Market">
+    SELECT <include refid="marketCols"/> FROM market_question <include refid="endedWhere"/> ORDER BY ended_at DESC, id DESC LIMIT #{offset}, #{limit}
+  </select>
+
+  <select id="endedCount" resultType="long">
+    SELECT COUNT(*) FROM market_question <include refid="endedWhere"/>
+  </select>
+
+  <!-- 最早一个已结束市场的结束时间（周报从哪一周开始） -->
+  <select id="firstEndedAt" resultType="java.time.LocalDateTime">
+    SELECT MIN(ended_at) FROM market_question WHERE deleted_at IS NULL AND status IN ('SETTLED', 'CANCELLED', 'VOIDED')
+  </select>
+
+  <!-- 站点地图：客户端看得到的市场（不含草稿），最近更新的在前 -->
+  <select id="sitemap" resultType="com.forecast.app.market.core.MarketRows$Market">
+    SELECT <include refid="marketCols"/> FROM market_question WHERE deleted_at IS NULL AND status &lt;&gt; 'DRAFT' ORDER BY updated_at DESC, id DESC LIMIT #{limit}
   </select>
 </mapper>

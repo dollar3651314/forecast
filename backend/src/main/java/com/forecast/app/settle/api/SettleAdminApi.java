@@ -10,6 +10,12 @@ import java.util.Optional;
  */
 public interface SettleAdminApi {
 
+  /** 员工补登时退回的结果（forecast S10，E15）：退了几个市场、几笔、合计（2 位小数字符串） */
+  record StaffRefund(int markets, int bets, String amount) {}
+
+  /** 员工补登（E15）：退回这个客户在结算还没开始的市场里的有效下注（{@code SettleService.refundStaffBets}） */
+  StaffRefund refundStaffBets(long userId);
+
   /**
    * 一张结算单或退款单。
    *

@@ -50,7 +50,8 @@ import tools.jackson.databind.ObjectMapper;
  *   <li>转人工：进度 MANUAL + 裁决记录 AUTO_FAILED（带两个来源的数据和存档行）+ S7 裁决台的进度（"自动裁决失败"）+ 员工告警 {@code SPORTS_AUTO_FAILED}；
  *       市场留在待裁决，由人按首选来源提议、确认、公示，或作废。</li>
  * </ol>
- * 进度行的每次改动都是带旧状态和版本号的条件更新；结算三道防重复：多实例、重复执行只结算一次。
+ * 进度行的每次改动都是带旧状态和版本号的条件更新；结算三道防重复：多实例、重复执行只结算一次。取数之前先认领（S14，{@code SportsMapper.claim}），
+ * 同时到的两个触发只有一个去取数。
  */
 @Service
 public class SportsResolver {
@@ -238,6 +239,12 @@ public class SportsResolver {
         out.put(t.marketId, "closed");
         continue;
       }
+      // S14：先认领这一次尝试再取数（同时到的另一个触发认领不到，不取数、不多存原始返回）
+      if (mapper.claim(t.marketId, t.version, now, now.plus(props.getClaimTtl())) != 1) {
+        out.put(t.marketId, "busy");
+        continue;
+      }
+      t.version++;
       refs.put(t.marketId, m);
       pending.add(t);
     }

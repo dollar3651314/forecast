@@ -58,6 +58,11 @@ class AccountFacade implements AccountApi {
   }
 
   @Override
+  public boolean hasLoggedIn(long userId) {
+    return auth.hasLoggedIn(userId);
+  }
+
+  @Override
   public java.util.Set<Long> staffAmong(java.util.Collection<Long> userIds) {
     return auth.staffAmong(userIds);
   }

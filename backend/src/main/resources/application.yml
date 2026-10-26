@@ -186,6 +186,25 @@ forecast:
     # 加密市场自动生成任务（forecast S6，market/autogen/CryptoAutogenJob）：每分钟一轮，按后台启用的自动生成模板生成并直接上架。
     # 模板（按场次 / 滚动、币种、周期）在后台"加密自动生成"里配置，新库默认 BTC 1 小时每天 13:00 UTC 一场、关闭（启用要 market:publish 检查一次）
     autogen-enabled: true
+    # #23 开赛提醒（forecast S11，market/remind/ReminderJob）：每 30 秒一轮，市场到开放时间时给订阅了的客户发一封邮件（租约 market.reminder）
+    reminder-enabled: true
+  # 客户端的地址（forecast S11）：邮件里的链接（#23 开赛提醒的市场链接、退订链接）用它拼成完整地址，例如 https://fc-test.quickcome.online；
+  # 部署时由 compose 按 APP_DOMAIN 填（deploy/kit/docker-compose.yml）。没填时链接只有路径（邮件里点不开），健康检查不受影响
+  client-url: ${FC_CLIENT_URL:}
+  # 不登录也能看（forecast S13，MF-4，需求 v1.3 第 5.1 节虚线框、NF-14：需求要求打开）：市场列表、今日场次、详情、开奖记录、周报、说明页、
+  # 奖池推送不要求登录（只返回公开数据）。关掉（false）时和 S12 以前一样要登录，robots.txt 禁止收录。下注、我的下注、资产等一直要登录
+  public-browse:
+    enabled: ${FC_PUBLIC_BROWSE_ENABLED:true}
+  # 公开页面（搜索引擎看到的标题、说明页）里的品牌名（S13；上线前沿用 Quick Come，正式上线改名时和前端 brand.ts 一起改，约定 17）
+  public:
+    brand-name: Quick Come
+  # 分享卡片（S14，MF-5，market/card）：服务器用 Java2D 画 1200 × 630 的 PNG。字体在这些目录里找（DejaVu Sans + 文泉驿正黑，镜像 deploy/app.Dockerfile 安装）；
+  # 找不到中文字体时健康检查 alerts 报 cards.font（不影响 status）。同时最多画 max-concurrent 张，按内容缓存最近 cache-size 张（每张约 30～80 KB）
+  cards:
+    font-dirs: /usr/share/fonts,/usr/local/share/fonts
+    font-alert: true
+    max-concurrent: 2
+    cache-size: 64
   # 结算（forecast S5，settle/run/SettleProperties）。batch-size：派彩时每批的持仓数（退款时每批的下注数）；
   # 500（默认）= 先算好、落结算单，再每批一个事务分批派彩、可以续跑（架构方案第 4.3 节方案 B，AQ-3 Amos 2026-10-25 定）；
   # 0 = 计算和派彩在同一个事务里一次完成（保留为可配置项）。派彩任务每 2 秒推进分批派彩的单（提交后也立即跑一轮）；彩池对账每天 UTC 00:30。
@@ -193,6 +212,12 @@ forecast:
     batch-size: ${FC_SETTLE_BATCH_SIZE:500}
     worker-enabled: true
     recon-enabled: true
+  # 风控告警（forecast S10，riskalert 模块；需求第 8.1 节）：每 30 秒按 id 往后扫新的登录、充值、白名单、提现、下注、派彩完成的结算单，
+  # 建关联账户、记告警、给有 risk_alert:view 的管理员发邮件。scan-lag：写入多久以后才处理（等进行中的事务提交）。阈值在后台"参数设置"
+  riskalert:
+    scan-enabled: true
+    scan-lag: 10s
+    batch: 500
   # 自动裁决（forecast S6，resolve 模块；技术方案/v1-架构方案.md 第 6 节，外部调用清单第 6.3 节，agents C81）。
   # 加密市场：窗口结束 1 分钟后取主源（币安）和备源（OKX）的 1 分钟 K 线，方向一致 → 结算；不一致或拿不到 → 每分钟重试，30 分钟后转人工。
   # 数据源都是公开行情接口，不要 key。Coinbase 是第三源（BTC-USD），默认关闭，只在主备一方拿不到时补位（AQ-13）。
@@ -204,6 +229,8 @@ forecast:
     first-delay: 60s
     retry-interval: 60s
     give-up-after: 30m
+    # 认领期（S14）：取数前先认领这一次尝试（条件更新），定时任务和别的触发同时到时只有一个去取数；要比一轮取数长（约 27 秒，第三源补位约 54 秒）
+    claim-ttl: 2m
     gateway:
       connect-timeout: 3s
       read-timeout: 5s
@@ -257,6 +284,12 @@ forecast:
         backoff: 2s
         max-backoff: 8s
         rate-limit: 25
+      # Polymarket 公开接口（forecast S15，MF-9 对照图的素材；gamma-api 的 /markets?slug=）。使用条款还没核实（市场策略 F-11、需求第 15 节），
+      # 默认关闭；Amos 核实条款后设 FC_SOURCE_POLYMARKET_ENABLED=true 才会调用。用的时候一律写"数据来自 Polymarket 公开接口，非 Polymarket 官方"
+      polymarket:
+        enabled: ${FC_SOURCE_POLYMARKET_ENABLED:false}
+        base-url: https://gamma-api.polymarket.com
+        read-timeout: 10s
   # 体育赛程和自动裁决（forecast S8，resolve/sports；需求说明书 v1.3 第 4.2、4.3 节）。赛程每 4 小时从主源拉未来 7 天；
   # 自动裁决：事件结束（进入待裁决）后每 5 分钟看一次主源，完赛后等 30 分钟，两个来源比分一致 → 结算；不一致 / 状态异常 → 转人工；
   # 等完 30 分钟以后备源还拿不到再等 30 分钟、事件结束 6 小时后主源还没完赛 → 转人工。第一期不建独立抓取程序、不用 Gemini（AQ-18）
@@ -271,7 +304,32 @@ forecast:
     give-up-after: 30m
     unfinished-limit: 6h
     kickoff-tolerance: 15m
+    # 认领期（S14，同上）：主备先后各一次、每次限频排队最多 30 秒，一轮约 2 分钟
+    claim-ttl: 5m
     interactive-queue-wait: 10s
+  # 事件和文章自动化程序（forecast S15，content 模块；需求文档/v1.3-事件和文章自动化.md，NF-15、NF-16）。和主应用同一个进程、自己的线程池和表，
+  # 只能经 MarketDraftApi 建市场草稿（没有上架、改状态、动资金的权限）；出错、关掉都不影响下注、结算、充值、提现。
+  # enabled（FC_CONTENT_ENABLED）：总开关，关掉时定时任务不跑、手动生成返回 503，已发布的页面照常显示。
+  # 每日上限、各功能开关、紧急停止在后台"内容中心 → 用量和设置"（表 content_setting），不在这里。
+  content:
+    enabled: ${FC_CONTENT_ENABLED:true}
+    jobs-enabled: true
+    async: true
+    executor-threads: 2
+    executor-queue: 50
+    gemini:
+      # key 只由 Amos 填进服务器 .env（不进仓库、不经过 AI、不进日志，后台只显示"已配置 / 未配置"，C21）；没填时 AI 起草的部分降级停用
+      api-key: ${FC_GEMINI_API_KEY:}
+      model: ${FC_GEMINI_MODEL:gemini-2.5-flash-lite}
+      base-url: https://generativelanguage.googleapis.com
+      connect-timeout: 5s
+      read-timeout: 30s
+      attempts: 3
+      backoff: 2s
+      max-backoff: 8s
+      failure-threshold: 5
+      open-duration: 60s
+      pause-on-429: 10m
   # 对象存储（证件照片）。现在是本地目录，正式环境在 S20 换成对象存储服务
   storage:
     local-dir: ${FC_STORAGE_DIR:./data/storage}

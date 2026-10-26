@@ -56,22 +56,23 @@ class LedgerQueries implements FundsApi, CustomerFlowApi, LedgerAdminApi {
     return depositsSince(userId, null).net();
   }
 
-  /** S1 过渡：恒为 0（见 {@link CustomerFlowApi} 的说明，S10 改成下注口径） */
   @Override
-  public BigDecimal realizedPnl(long userId, LocalDateTime since) {
-    return BigDecimal.ZERO;
+  @Transactional(readOnly = true)
+  public Realized realized(long userId, LocalDateTime since) {
+    LedgerMapper.RealizedRow r = mapper.realized(userId, since);
+    return r == null ? Realized.ZERO : realized(r);
   }
 
-  /** S1 过渡：恒为 0（同上） */
   @Override
-  public NetProfit netProfit(long userId) {
-    return new NetProfit(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
+  @Transactional(readOnly = true)
+  public List<MarketRealized> paidMarketsSince(long userId, LocalDateTime since) {
+    List<Long> ids = mapper.paidMarketsSince(userId, since);
+    if (ids.isEmpty()) return List.of();
+    return mapper.realizedByMarket(userId, ids).stream().map(r -> new MarketRealized(r.marketId, realized(r), r.firstPayoutAt)).toList();
   }
 
-  /** S1 过渡：恒为 0（同上） */
-  @Override
-  public BigDecimal openedNotionalSince(long userId, LocalDateTime since) {
-    return BigDecimal.ZERO;
+  private static Realized realized(LedgerMapper.RealizedRow r) {
+    return new Realized(zero(r.payout), zero(r.compensation), zero(r.stake), zero(r.fee));
   }
 
   // ---------- LedgerAdminApi ----------

@@ -16,7 +16,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 final class ModuleRules {
 
   /** 第 2.3 节的全部模块；market、pool、resolve、settle、riskalert 在 S3 以后才有代码，规则先写上（没有代码时照样成立） */
-  static final List<String> MODULES = List.of("ledger", "account", "wallet", "notification", "admin", "market", "pool", "resolve", "settle", "riskalert");
+  static final List<String> MODULES = List.of("ledger", "account", "wallet", "notification", "admin", "market", "pool", "resolve", "settle", "riskalert", "growth", "content");
 
   private ModuleRules() {}
 

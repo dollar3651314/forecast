@@ -64,7 +64,7 @@ class KycFlowTest {
     ArgumentCaptor<Map<String, String>> p = ArgumentCaptor.forClass(Map.class);
     verify(mail, atLeastOnce()).send(eq(email), eq("EMAIL_CODE"), p.capture());
     MockHttpServletResponse r = mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content("{\"email\":\"" + email + "\",\"code\":\"" + p.getValue().get("code")
-        + "\",\"password\":\"password123\",\"firstName\":\"Siyuan\",\"lastName\":\"Ouyang\",\"birthDate\":\"1990-05-01\",\"nationality\":\"CN\"}")).andReturn().getResponse();
+        + "\",\"password\":\"password123\",\"firstName\":\"Siyuan\",\"lastName\":\"Ouyang\",\"birthDate\":\"1990-05-01\",\"nationality\":\"CN\",\"adultConfirmed\":true}")).andReturn().getResponse();
     assertThat(r.getStatus()).isEqualTo(200);
     return new User(jdbc.queryForObject("SELECT id FROM account_user WHERE email = ?", Long.class, email), email, r.getCookie("fc_session"));
   }

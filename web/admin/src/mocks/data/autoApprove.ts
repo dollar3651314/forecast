@@ -114,17 +114,18 @@ interface Ctx {
   doneSum: number;
   /** 累计提现：不是驳回、撤销、失败已退回的出金合计，含本笔 */
   withdrawn: number;
-  /** R13：累计已实现盈亏、付的手续费、付的隔夜费（R9 的"盈亏"也用 realized） */
+  /** R13：累计派彩、补偿、已结算本金、抽成（forecast S10 的彩池口径；R9 的"盈亏"用净盈利） */
   profit: Profit;
 }
 interface Profit {
-  realized: number;
+  payout: number;
+  compensation: number;
+  stake: number;
   fee: number;
-  swap: number;
 }
 /** 默认：不盈利（310 − 236.80 − 85.45 = −12.25） */
-const NO_PROFIT: Profit = { realized: 310, fee: 236.8, swap: 85.45 };
-const netOf = (p: Profit) => Math.round((p.realized - p.fee - p.swap) * 100) / 100;
+const NO_PROFIT: Profit = { payout: 310, compensation: 0, stake: 236.8, fee: 85.45 };
+const netOf = (p: Profit) => Math.round((p.payout + p.compensation - p.stake - p.fee) * 100) / 100;
 type Fail = Record<string, string> | ((c: Ctx) => Record<string, string>);
 type Fails = Partial<Record<AutoRuleCode, Fail>>;
 
@@ -142,11 +143,13 @@ function passValues(c: Ctx): Record<AutoRuleCode, Record<string, string>> {
     R6: { hours: p.R6.hours },
     R7: { days: String(c.regDays), limit: p.R7.days, kyc: c.kyc },
     R8: { volume: n2(dep * 2.4), deposit: n2(dep), ratio: '2.4', limit: p.R8.multiple },
-    R9: { withdrawn: n2(c.withdrawn), deposit: n2(dep), pnl: n2(c.profit.realized), cap: n2(dep + c.profit.realized) },
+    R9: { withdrawn: n2(c.withdrawn), deposit: n2(dep), pnl: n2(netOf(c.profit)), cap: n2(dep + netOf(c.profit)) },
     R10: { profit: '820.00', principal: n2(principal), pct: principal ? ((820 / principal) * 100).toFixed(1) : '—', limitAbs: p.R10.maxProfit7d, limitPct: p.R10.maxProfitPct },
     R11: { count: '1', limit: p.R11.maxCount },
     R12: { balance: '38500.00', need: n2(c.amt - Number(c.w.fee)) },
-    R13: { net: n2(netOf(c.profit)), realized: n2(c.profit.realized), fee: n2(c.profit.fee), swap: n2(c.profit.swap), limit: p.R13.maxNetProfit },
+    R13: { net: n2(netOf(c.profit)), payout: n2(c.profit.payout), compensation: n2(c.profit.compensation), stake: n2(c.profit.stake), fee: n2(c.profit.fee), limit: p.R13.maxNetProfit },
+    R14: { profit: '0.00', markets: '0', linked: '0', days: p.R14.days, limit: p.R14.minProfit },
+    R15: { count: '0', days: p.R15.days },
   };
 }
 
@@ -157,7 +160,7 @@ function implied(c: Ctx): Fails {
   if (c.sameAddr === 0) f.R5 = {};
   if (c.regDays < Number(c.v.params.R7.days) || c.kyc !== 'approved') f.R7 = {};
   if (c.deposit === 0) f.R9 = { withdrawn: n2(c.withdrawn), deposit: '0.00', pnl: '0.00', cap: '0.00' };
-  else if (c.withdrawn > c.deposit + c.profit.realized) f.R9 = {};
+  else if (c.withdrawn > c.deposit + netOf(c.profit)) f.R9 = {};
   if (netOf(c.profit) > Number(c.v.params.R13.maxNetProfit)) f.R13 = {};
   return f;
 }
@@ -213,7 +216,7 @@ const PLANS: Plan[] = [
   { ci: 9, fails: { R1: {} } },
   { ci: 10, fails: { R1: {}, R12: (c) => ({ issues: 'hotWallet', balance: '820.00', need: n2(c.amt - Number(c.w.fee)) }) } },
   // 盈利客户：近 7 天盈利超过上限（R10），累计净盈利也 > 0（R13 自动算出来）
-  { ci: 11, fails: { R1: {}, R10: R10_HIGH }, profit: (c) => ({ realized: r10Profit(c) + 640, fee: 486.2, swap: 133.8 }) },
+  { ci: 11, fails: { R1: {}, R10: R10_HIGH }, profit: (c) => ({ payout: r10Profit(c) + 640, compensation: 0, stake: 486.2, fee: 133.8 }) },
   { ci: 12, fails: { R1: {}, R8: R8_LOW } },
   // 只触发 1 条且不是 R1：提交时预判可以自动通过，冷静期里改了密码，复判转人工
   { ci: 13, fails: { R6: R6_PWD }, preFails: {} },
@@ -243,7 +246,7 @@ const PLANS: Plan[] = [
   { x: 4, fails: {} },
   { x: 5, fails: {} },
   // R13（v1.2）：只触发 R13 的盈利客户——金额 300、老地址、规则都满足，但累计净盈利 1,860 − 212.40 − 47.60 = 1,600 > 门槛 0，转人工
-  { x: 6, fails: {}, profit: () => ({ realized: 1860, fee: 212.4, swap: 47.6 }) },
+  { x: 6, fails: {}, profit: () => ({ payout: 1860, compensation: 0, stake: 212.4, fee: 47.6 }) },
 ];
 
 function outcomeOf(master: boolean, rules: AutoRuleResult[]): AutoReviewOutcome {

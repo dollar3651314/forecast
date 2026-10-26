@@ -214,8 +214,9 @@ export function getMenuBadges(): Promise<MenuBadges> {
       kyc: db.kycApplications.filter((k) => k.status === 'pending').length,
       withdrawals: db.withdrawals.filter((w) => w.status === 'pending').length,
       review: 2,
+      riskAlerts: 9,
     }),
-    { empty: () => ({ kyc: 0, withdrawals: 0, review: 0 }) },
+    { empty: () => ({ kyc: 0, withdrawals: 0, review: 0, riskAlerts: 0 }) },
   );
 }
 

@@ -91,6 +91,22 @@ public final class ExternalHttp {
   public Response get(URI uri, Duration connectTimeout, Duration readTimeout, int maxBytes, Map<String, String> headers) throws Failure {
     HttpRequest.Builder b = HttpRequest.newBuilder(uri).timeout(readTimeout).header("Accept", "application/json").GET();
     if (headers != null) headers.forEach(b::header);
+    return send(b, connectTimeout, readTimeout, maxBytes);
+  }
+
+  /**
+   * POST 一个 JSON 请求体（forecast S15：Gemini 的 generateContent）。超时、响应体上限和 GET 一样；不重试。
+   *
+   * @param headers 额外的请求头（例如 key），不会出现在任何日志和异常信息里
+   */
+  public Response postJson(URI uri, Duration connectTimeout, Duration readTimeout, int maxBytes, Map<String, String> headers, byte[] body) throws Failure {
+    HttpRequest.Builder b = HttpRequest.newBuilder(uri).timeout(readTimeout).header("Accept", "application/json").header("Content-Type", "application/json")
+        .POST(HttpRequest.BodyPublishers.ofByteArray(body));
+    if (headers != null) headers.forEach(b::header);
+    return send(b, connectTimeout, readTimeout, maxBytes);
+  }
+
+  private Response send(HttpRequest.Builder b, Duration connectTimeout, Duration readTimeout, int maxBytes) throws Failure {
     CompletableFuture<HttpResponse<byte[]>> f = client(connectTimeout).sendAsync(b.build(), info -> new Capped(maxBytes));
     try {
       // 总时长 = 连接超时 + 读取超时（连接阶段由 connectTimeout 自己报错，这里是兜底）

@@ -4,6 +4,8 @@
  * 单笔最小提现必须大于每条链的提现手续费（后端校验，不满足时提示是哪条链，RQ-16）。
  * 接口是 S3 已有的 GET/PUT /api/admin/params/{fee|betting}；S9：加裁决时限（S7）、体育（S8）两组；两组权限点分开取，
  * 没有某个权限点时那几张卡片显示"没有权限"，不影响另一组（单笔最小提现在"提现"组，SQ-6）。
+ * S13：加"场次"一组（同时开放的市场数上限，超过时上架要勾"仍要上架"，0 = 不限；需求第 4.2 节）。
+ * S10：加"风控"一组（尾盘大额的分钟和比例、新账户押中冷门的天数 / 金额 / 赔率、关联账户的同一线索最多几个客户，需求第 8.1 节）；单位多了个数（count）和倍数（multiple）。
  */
 import { useCallback } from 'react';
 import { Alert, Card, Col, Form, Input, Row } from 'antd';
@@ -32,7 +34,12 @@ const GROUPS: Array<{ key: string; section: ParamSection }> = [
   { key: 'dispute', section: 'betting' },
   { key: 'resolve', section: 'betting' },
   { key: 'sports', section: 'betting' },
+  { key: 'risk', section: 'betting' },
+  { key: 'slate', section: 'betting' },
 ];
+
+/** 输入框后缀（翻译键）；个数类的后缀写在名字里 */
+const SUFFIX: Record<ParamItem['unit'], string | null> = { percent: 'pm.pctUnit', usdt: 'pm.usdtUnit', seconds: 'pm.secUnit', minutes: 'pm.minUnit', multiple: 'pm.multUnit', count: null };
 
 function nameKey(key: string): string {
   return `pm.key.${key.replace(/\./g, '_')}`;
@@ -48,6 +55,10 @@ function show(p: ParamItem, t: (k: string, o?: Record<string, unknown>) => strin
       return Number(p.value) % 60 === 0 ? t('pm.hours', { n: Number(p.value) / 60 }) : t('pm.minutes', { n: p.value });
     case 'seconds':
       return t('pm.seconds', { n: p.value });
+    case 'multiple':
+      return t('pm.multiple', { n: p.value });
+    case 'count':
+      return t(`pm.countUnit.${p.key.replace(/\./g, '_')}`, { n: p.value, defaultValue: p.value });
     default:
       return p.value;
   }
@@ -65,7 +76,8 @@ export function ParamsPage() {
   const stateOf = (section: ParamSection) => (section === 'fee' ? fee : betting);
   const allowed = (section: ParamSection) => (section === 'fee' ? canFee : canBet);
 
-  const edit = (p: ParamItem) =>
+  const edit = (p: ParamItem) => {
+    const suffix = SUFFIX[p.unit];
     hr.ask({
       title: t('pm.editTitle', { name: t(nameKey(p.key)) }),
       description: t('pm.editDesc', { value: show(p, t) }),
@@ -77,15 +89,16 @@ export function ParamsPage() {
           extra={p.key === 'withdraw.minAmount' ? t('pm.minWithdrawHint') : p.section === 'fee' ? t('pm.feeHint') : undefined}
           rules={[
             { required: true, whitespace: true, message: t('validation.required') },
-            { pattern: p.unit === 'usdt' || p.unit === 'percent' ? /^\d+(\.\d{1,2})?$/ : /^\d+$/, message: t('validation.positiveNumber') },
+            { pattern: p.unit === 'usdt' || p.unit === 'percent' || p.unit === 'multiple' ? /^\d+(\.\d{1,2})?$/ : /^\d+$/, message: t('validation.positiveNumber') },
           ]}
         >
-          <Input suffix={p.unit === 'percent' ? '%' : p.unit === 'usdt' ? 'USDT' : p.unit === 'seconds' ? t('pm.secUnit') : t('pm.minUnit')} />
+          <Input suffix={suffix ? t(suffix) : undefined} />
         </Form.Item>
       ),
       onConfirm: (v) => updateParam(p.section, p.key, String(v.value).trim(), v.reason, p.value),
       onDone: () => (p.section === 'fee' ? fee.reload() : betting.reload()),
     });
+  };
 
   return (
     <>
@@ -122,6 +135,8 @@ export function ParamsPage() {
                 {g.key === 'fee' && <p className="pm-note">{t('pm.feeNote')}</p>}
                 {g.key === 'resolve' && <p className="pm-note">{t('pm.resolveNote')}</p>}
                 {g.key === 'sports' && <p className="pm-note">{t('pm.sportsNote')}</p>}
+                {g.key === 'risk' && <p className="pm-note">{t('pm.riskNote')}</p>}
+                {g.key === 'slate' && <p className="pm-note">{t('pm.slateNote')}</p>}
               </Card>
             </Col>
           );

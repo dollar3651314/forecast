@@ -5,6 +5,7 @@
  * - 返回 401 时通知登录状态（AuthProvider 清空会话，路由守卫回到登录页）；
  * - 响应里的 null 一律当成"没有这个字段"（undefined），和 types.ts 的可选字段一致。
  */
+import { deviceId } from './device';
 import { ApiError, fromServer, type ServerErrorBody, type ServerErrorOptions } from './errors';
 
 const TIMEOUT_MS = 15_000;
@@ -27,6 +28,8 @@ export interface RequestOptions extends ServerErrorOptions {
   query?: Record<string, string | number | undefined>;
   /** 401 时不触发"回到登录页"（例如启动时检查是否已登录） */
   quiet401?: boolean;
+  /** 带上设备号（请求头 X-Device-Id，forecast S10：登录、注册时，关联账户的线索，见 ./device.ts） */
+  device?: boolean;
 }
 
 /** 把 JSON 里的 null 去掉 */
@@ -45,6 +48,7 @@ export function buildUrl(path: string, query?: RequestOptions['query']): string 
 
 export async function request<T>(method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, opt: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' };
+  if (opt.device) headers['X-Device-Id'] = deviceId();
   let body: BodyInit | undefined;
   if (opt.form) body = opt.form;
   else if (opt.body !== undefined) {

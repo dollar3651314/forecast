@@ -46,7 +46,10 @@ export default function Login() {
       subtitle={t('auth.loginSubtitle')}
       footer={
         <>
-          {t('auth.noAccount')} <Link to="/register">{t('auth.goRegister')}</Link>
+          {t('auth.noAccount')}{' '}
+          <Link to="/register" state={location.state}>
+            {t('auth.goRegister')}
+          </Link>
         </>
       }
     >

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 分享卡片的凭证（forecast S14，MF-5）。market_share 只增不改：这里没有它的 UPDATE、DELETE（MarketAppendOnlyTest 检查）。 -->
+<mapper namespace="com.forecast.app.market.card.ShareMapper">
+
+  <sql id="cols">
+    s.id, s.token, s.market_id, q.public_no, s.user_id, s.kind, s.option_id, s.show_amount, s.amount, s.created_at
+  </sql>
+
+  <select id="byToken" resultType="com.forecast.app.market.card.ShareMapper$Row">
+    SELECT <include refid="cols"/> FROM market_share s JOIN market_question q ON q.id = s.market_id WHERE s.token = #{token}
+  </select>
+
+  <select id="find" resultType="com.forecast.app.market.card.ShareMapper$Row">
+    SELECT <include refid="cols"/> FROM market_share s JOIN market_question q ON q.id = s.market_id
+    WHERE s.user_id = #{userId} AND s.market_id = #{marketId} AND s.kind = #{kind} AND s.option_id = #{optionId} AND s.show_amount = #{showAmount}
+  </select>
+
+  <insert id="insertIgnore">
+    INSERT IGNORE INTO market_share (token, market_id, user_id, kind, option_id, show_amount, amount, created_at)
+    VALUES (#{token}, #{marketId}, #{userId}, #{kind}, #{optionId}, #{showAmount}, #{amount}, #{now})
+  </insert>
+</mapper>

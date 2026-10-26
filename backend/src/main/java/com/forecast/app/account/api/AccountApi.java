@@ -31,6 +31,12 @@ public interface AccountApi {
    */
   boolean isStaff(long userId);
 
+  /**
+   * 注册后用邮箱和密码成功登录过至少一次（{@code account_user.last_login_at} 不为空；注册时的自动登录不算）。forecast S11：#23 开赛提醒只开放给这样的客户
+   * （SQ-20，Amos 2026-10-25"开放给登录成功过的客户"）。用户不存在时抛 {@code BizException("USER_NOT_FOUND")}。
+   */
+  boolean hasLoggedIn(long userId);
+
   /** 一批客户里哪些是员工账户（forecast S5：结算时退回员工的下注，E15）；不存在的用户不在结果里 */
   java.util.Set<Long> staffAmong(java.util.Collection<Long> userIds);
 

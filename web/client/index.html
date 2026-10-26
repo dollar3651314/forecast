@@ -4,6 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#ffffff" />
+    <!-- 官网地址（服务条款、隐私、风险披露的链接，S11）：部署时 Nginx 换成 https://官网域名，端到端测试站点换成本机官网（src/lib/siteUrl.ts） -->
+    <meta name="fc-site-url" content="__FC_SITE_URL__" />
     <script>
       // 主题跟随系统（RQ-1）；选过的（fc.theme）优先。和 src/app/ThemeProvider.tsx 同一个规则，渲染前先设好，避免闪一下另一种颜色
       (function () {
@@ -11,17 +13,29 @@
         try { t = localStorage.getItem('fc.theme'); } catch (e) {}
         if (t !== 'light' && t !== 'dark') t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         document.documentElement.setAttribute('data-theme', t);
+        // S13：能运行脚本时隐藏服务器给搜索引擎的正文（.seo-static），由单页应用渲染
+        document.documentElement.classList.add('js');
       })();
     </script>
+    <style>
+      .js .seo-static { display: none; }
+    </style>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Quick Come" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <title>Quick Come</title>
+    <!--
+      S13（MF-4、NF-14、AC-85）：部署时 Nginx 用 SSI 把后端（/api/public/seo/head、/body，market/pub/SeoPages）按当前页面生成的标题、描述、
+      三种语言互相标注、Open Graph 和页面正文嵌进来，搜索引擎不运行脚本也能读到内容（deploy/nginx/site.conf.template）。
+      后端出错或开发时（npm run dev）用下面的默认标题；正文为空。
+    -->
+    <!--# block name="seo_head" --><title>Quick Come</title><!--# endblock -->
+    <!--# block name="seo_none" --><!--# endblock -->
+    <!--# include virtual="/__seo/head" stub="seo_head" -->
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><!--# include virtual="/__seo/body" stub="seo_none" --></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

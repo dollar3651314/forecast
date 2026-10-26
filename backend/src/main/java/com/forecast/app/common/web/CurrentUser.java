@@ -23,6 +23,15 @@ public final class CurrentUser {
     return request.getAttribute(ATTR) instanceof Long id ? java.util.Optional.of(id) : java.util.Optional.empty();
   }
 
+  /**
+   * 当前请求的用户 ID；没登录时为空（forecast S13：不登录也能看的接口用，例如市场详情——登录了带上本人的持仓，没登录只有公开数据）。
+   */
+  public static java.util.Optional<Long> optional() {
+    RequestAttributes attrs = RequestContextHolder.getRequestAttributes();
+    Object v = attrs == null ? null : attrs.getAttribute(ATTR, RequestAttributes.SCOPE_REQUEST);
+    return v instanceof Long id ? java.util.Optional.of(id) : java.util.Optional.empty();
+  }
+
   /** 当前请求的用户 ID；没有登录时抛 UNAUTHORIZED（过滤器已拦截，正常不会走到这里）。 */
   public static long id() {
     RequestAttributes attrs = RequestContextHolder.getRequestAttributes();

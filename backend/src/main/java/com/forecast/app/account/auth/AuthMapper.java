@@ -5,6 +5,7 @@ import com.forecast.app.account.auth.Rows.Profile;
 import com.forecast.app.account.auth.Rows.SessionRow;
 import com.forecast.app.account.auth.Rows.UserRow;
 import org.apache.ibatis.annotations.Mapper;
+import java.time.LocalDateTime;
 import org.apache.ibatis.annotations.Param;
 
 /** 账户模块的 SQL，见 resources/mapper/account/AuthMapper.xml。 */
@@ -30,6 +31,9 @@ interface AuthMapper {
   int updateStatus(@Param("id") long id, @Param("status") String status);
 
   int touchLogin(@Param("id") long id);
+
+  /** 用邮箱和密码成功登录过（last_login_at 不为空；注册时自动登录不算，forecast S11 #23 订阅的条件 SQ-20）；用户不存在时为 null */
+  Boolean hasLoggedIn(@Param("id") long id);
 
   // ---------- 账号安全事件（v2 提现自动审批 R6） ----------
   int insertSecurityEvent(@Param("userId") long userId, @Param("type") String type, @Param("at") java.time.LocalDateTime at);
@@ -69,6 +73,8 @@ interface AuthMapper {
     Long id;
     final String email;
     final String passwordHash;
+    /** 勾选"已年满 18 周岁并同意服务条款"的时间（forecast S11） */
+    LocalDateTime termsAcceptedAt;
 
     UserInsert(String email, String passwordHash) {
       this.email = email;

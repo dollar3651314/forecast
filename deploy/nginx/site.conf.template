@@ -89,12 +89,67 @@ server {
     expires 30d;
     try_files $uri =404;
   }
+  # ---- forecast S13（MF-4、NF-14、AC-85）：给搜索引擎的页面内容 ----
+  # 客户端的 index.html 里有两个 SSI 指令（web/client/index.html）：Nginx 在返回页面时向后端要这一页的 <head> 部分（标题、描述、三种语言互相标注、
+  # Open Graph）和正文（题目、选项、概率、截止时间或结果……，market/pub/SeoPages），嵌进页面；搜索引擎不运行脚本也能读到内容，
+  # 浏览器运行脚本后单页应用照常接管（正文被隐藏、替换），登录后的体验不变。原来的页面地址经请求头 X-Fc-Page 传给后端（子请求里 $request_uri
+  # 仍是原请求的地址）。后端慢或出错时 2～3 秒放弃，用页面里的默认标题（stub），页面照常打开。
+  location ^~ /__seo/ {
+    internal;
+    # proxy.inc 里的 set $forecast_app 要在 rewrite … break 之前执行（break 之后同一 location 的 set 不再执行，变量为空）
+    include /etc/nginx/snippets/proxy.inc;
+    rewrite ^/__seo/(.*)$ /api/public/seo/$1 break;
+    proxy_set_header X-Fc-Page $request_uri;
+    proxy_pass_request_body off;
+    proxy_set_header Content-Length "";
+    proxy_connect_timeout 2s;
+    proxy_read_timeout 3s;
+  }
+  # robots.txt、站点地图由后端按"不登录也能看"的开关和客户端域名生成
+  location = /robots.txt {
+    include /etc/nginx/snippets/proxy.inc;
+    rewrite ^ /api/public/robots.txt break;
+    proxy_read_timeout 10s;
+  }
+  location = /sitemap.xml {
+    include /etc/nginx/snippets/proxy.inc;
+    rewrite ^ /api/public/sitemap.xml break;
+    proxy_read_timeout 30s;
+  }
+  # 分享链接 /m/<市场编号>（架构方案第 18 节预留）→ 市场详情，查询参数（src、ref）保留
+  location ~ "^/m/([0-9]{1,19})$" {
+    return 301 /markets/$1$is_args$args;
+  }
+  # 市场详情、一周的周报、S15 的 SEO 页面（/insights/<slug>）：先问后端这一页存不存在（草稿、不存在的市场、不合法的周 → 后端 403 → 这里返回 404 状态码的页面，AC-85）；
+  # 后端出错（5xx、超时）时照常返回页面，不因为检查失败打不开
+  location ~ "^/(markets|results/weekly|insights)/[^/]+/?$" {
+    auth_request /__seo/exists;
+    error_page 403 =404 /index.html;
+    error_page 500 502 503 504 = /index.html;
+    expires -1;
+    ssi on;
+    ssi_silent_errors on;
+    sub_filter_once on;
+    sub_filter '__FC_SITE_URL__' 'https://${WWW_DOMAIN}';
+    try_files /index.html =404;
+  }
+
+  # 页面里的官网地址占位符（注册页、"我的"里的服务条款、隐私、风险披露链接，forecast S11）换成官网域名（web/client/src/lib/siteUrl.ts）；
+  # 只替换 HTML（sub_filter 默认只处理 text/html），脚本、Service Worker 不受影响。S13：HTML 里的 SSI 指令在这里处理（ssi 默认只处理 text/html）
   location ~ ^/(index\.html|sw\.js|push-sw\.js|registerSW\.js|manifest\.webmanifest)$ {
     expires -1;
+    ssi on;
+    ssi_silent_errors on;
+    sub_filter_once on;
+    sub_filter '__FC_SITE_URL__' 'https://${WWW_DOMAIN}';
   }
   # 页面路由：有这个文件就返回文件，否则回到 index.html（不按目录查找，/assets 目录不会被当成页面）
   location / {
     expires -1;
+    ssi on;
+    ssi_silent_errors on;
+    sub_filter_once on;
+    sub_filter '__FC_SITE_URL__' 'https://${WWW_DOMAIN}';
     try_files $uri /index.html;
   }
 }

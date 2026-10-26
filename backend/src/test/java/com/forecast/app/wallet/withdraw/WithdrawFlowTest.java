@@ -403,7 +403,7 @@ class WithdrawFlowTest {
     ArgumentCaptor<Map<String, String>> p = ArgumentCaptor.forClass(Map.class);
     verify(mail, atLeastOnce()).send(eq(email), eq("EMAIL_CODE"), p.capture());
     Cookie c = mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content("{\"email\":\"" + email + "\",\"code\":\"" + p.getValue().get("code")
-        + "\",\"password\":\"password123\",\"firstName\":\"A\",\"lastName\":\"B\",\"birthDate\":\"1990-05-01\",\"nationality\":\"CN\"}")).andReturn().getResponse().getCookie("fc_session");
+        + "\",\"password\":\"password123\",\"firstName\":\"A\",\"lastName\":\"B\",\"birthDate\":\"1990-05-01\",\"nationality\":\"CN\",\"adultConfirmed\":true}")).andReturn().getResponse().getCookie("fc_session");
     long uid = jdbc.queryForObject("SELECT id FROM account_user WHERE email = ?", Long.class, email);
     ledger.apply(new LedgerCommand(uid, Bucket.AVAILABLE, new BigDecimal("1000"), LedgerEntryType.DEPOSIT, "TEST", "dep-" + uid, "测试入金"));
 

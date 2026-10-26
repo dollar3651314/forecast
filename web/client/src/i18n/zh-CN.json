@@ -21,7 +21,8 @@
     "save": "保存",
     "search": "搜索",
     "submitting": "提交中…",
-    "viewAll": "全部"
+    "viewAll": "全部",
+    "loadMoreFailed": "加载失败：{{reason}}"
   },
   "nav": {
     "assets": "资产",
@@ -83,7 +84,6 @@
     "passwordRule": "8–64 位，至少包含字母和数字",
     "confirmPassword": "确认密码",
     "newPassword": "新密码",
-    "agree": "我已阅读并同意《服务条款》《隐私政策》和《风险提示》（文案待法务审核）",
     "register": "注册",
     "forgotTitle": "重置密码",
     "forgotSubtitle": "通过邮箱验证码设置新密码，其他设备上的登录将全部失效",
@@ -91,8 +91,9 @@
     "resetDone": "密码已重置",
     "resetDoneBody": "请用新密码登录",
     "backToLogin": "返回登录",
-    "riskNotice": "风险提示：预测有输有赢，押错的本金不退。（正式文案由 PM 定稿，待法务审核）",
-    "codeSentReal": "验证码已发送到 {{email}}，10 分钟内有效"
+    "riskNotice": "风险提示：预测有输有赢，押错选项的本金不会退回。请只用你能承受损失的资金参与。",
+    "codeSentReal": "验证码已发送到 {{email}}，10 分钟内有效",
+    "adultAgree": "我已年满 18 周岁，已阅读并同意<terms>《服务条款》</terms>、<privacy>《隐私政策》</privacy>和<risk>《风险披露》</risk>"
   },
   "profile": {
     "section": "个人资料",
@@ -133,7 +134,7 @@
     "warnTitle": "充值前请确认",
     "warnOnly": "只能向此地址转入 {{network}} 网络的 USDT",
     "warnWrong": "转错网络或币种，资金无法找回",
-    "warnConfirm": "到账需要 {{n}} 个区块确认，约 {{m}} 分钟，到账后会通知您",
+    "warnConfirm": "到账需要 {{n}} 个区块确认，约 {{m}} 分钟，到账后会通知你",
     "warnMin": "单笔最少 {{min}} USDT，低于该金额不会入账",
     "records": "充值记录",
     "recordsEmpty": "暂无充值记录",
@@ -190,7 +191,7 @@
     "canWithdraw": "可以提现",
     "kycNeedTitle": "提现前需要完成身份认证",
     "kycNeed": {
-      "none": "您还没有提交身份认证。认证通过后才能提现，注册和充值不受影响。",
+      "none": "你还没有提交身份认证。认证通过后才能提现，注册和充值不受影响。",
       "pending": "身份认证审核中，通常 1 个工作日内完成，通过后即可提现。",
       "approved": "",
       "rejected": "身份认证被驳回，请查看原因后重新提交。"
@@ -268,7 +269,7 @@
     "address": "地址",
     "label": "备注名",
     "labelHint": "方便自己识别，最多 30 个字",
-    "rule": "新地址 24 小时后生效，最多 10 个。请确认地址属于您本人。",
+    "rule": "新地址 24 小时后生效，最多 10 个。请确认地址属于你本人。",
     "added": "地址已添加",
     "addedBody": "24 小时后可用于提现",
     "addedAt": "添加于 {{time}}",
@@ -299,7 +300,13 @@
     "version": "{{brand}} · v0.1",
     "onboarding": "新手引导",
     "themeSystem": "跟随系统",
-    "howItWorks": "规则说明"
+    "howItWorks": "规则说明",
+    "help": "规则和条款",
+    "rules": "规则说明",
+    "faq": "常见问题",
+    "terms": "服务条款",
+    "privacy": "隐私政策",
+    "risk": "风险披露"
   },
   "kyc": {
     "intro": "只在提现前需要身份认证；注册和充值不受影响。",
@@ -311,8 +318,8 @@
     },
     "statusDesc": {
       "none": "请提交证件信息",
-      "pending": "通常 1 个工作日内完成，结果会通过站内信、推送和邮件通知您。",
-      "approved": "您已完成身份认证，可以提现。",
+      "pending": "通常 1 个工作日内完成，结果会通过站内信、推送和邮件通知你。",
+      "approved": "你已完成身份认证，可以提现。",
       "rejected": "请根据驳回原因重新提交。"
     },
     "rejectReason": "驳回原因：",
@@ -336,7 +343,7 @@
   },
   "notifications": {
     "empty": "暂无通知",
-    "emptyHint": "成交、强平、出入金和认证结果都会通知您",
+    "emptyHint": "下注、结算、充值提现和认证结果都会通知你",
     "markAll": "全部已读",
     "allReadDone": "已全部标记为已读",
     "unread": "未读",
@@ -346,13 +353,14 @@
       "withdraw": "出金",
       "kyc": "认证",
       "system": "系统"
-    }
+    },
+    "open": "查看"
   },
   "prefs": {
     "push": "推送通知",
-    "pushDesc": "成交、强平、出入金和认证结果推送到手机或浏览器",
+    "pushDesc": "结算、公示、退款、充值提现和认证结果推送到手机或浏览器（下注成功、补充说明只发站内信）",
     "email": "邮件通知",
-    "emailDesc": "同样的事件发送到您的邮箱",
+    "emailDesc": "充值提现、认证结果、退款、补偿和你订阅的开赛提醒发到你的邮箱（结算结果不发邮件）",
     "inbox": "站内信",
     "inboxDesc": "站内信始终开启",
     "browserPerm": "浏览器通知权限",
@@ -432,7 +440,11 @@
     "optionNotFound": "这个选项不存在，请刷新后再试",
     "disputeClosed": "不在争议窗口内，不能提交争议",
     "disputeNotBettor": "只有在这个市场有下注的客户可以提交争议",
-    "disputeExists": "你已经对这个市场提交过争议"
+    "disputeExists": "你已经对这个市场提交过争议",
+    "reminderNotAvailable": "这个市场已经开放下注或已经结束，不能再订阅开赛提醒。",
+    "reminderLoginRequired": "开赛提醒只对用邮箱和密码登录过的账户开放：退出后重新登录一次即可订阅。",
+    "reminderTooMany": "订阅中的开赛提醒太多了（最多 100 个），请先在\"通知偏好\"里退订一些。",
+    "cardNotAvailable": "这张卡片现在不能生成：挑战卡只能为自己押过、还在下注期的选项生成，开奖卡只能为押中的已结算市场生成。"
   },
   "validation": {
     "fixAll": "请修改以上标红的内容后再提交",
@@ -522,7 +534,7 @@
     "depositNow": "现在去充值",
     "kyc": {
       "title": "完成身份认证",
-      "body": "小额下注只要邮箱；累计充值超过 1,000 USDT 或提现前，需要证件 + 手持证件自拍，一般 1 个工作日内审核完。",
+      "body": "小额下注只要邮箱；累计充值超过认证门槛（默认 1,000 USDT）或提现前，需要证件 + 手持证件自拍，一般 1 个工作日内审核完。",
       "items": [
         "身份证正反面或护照信息页",
         "手持证件的自拍"
@@ -533,7 +545,7 @@
       "title": "充值 USDT 开始",
       "body": "在\"资产 → 充值\"选网络、复制你的专属地址，从交易所或钱包转入 USDT。",
       "items": [
-        "支持 ERC20、TRC20、BEP20 三个网络",
+        "支持 ERC20、TRC20、BSC（BEP20）三个网络",
         "到账后余额自动更新，并收到通知"
       ],
       "note": "只能转入 USDT，网络要和地址一致，转错无法找回。"
@@ -549,7 +561,7 @@
     },
     "odds": {
       "title": "押中了，分输方的奖池",
-      "body": "开奖后，输的选项的钱按押注比例分给押中的人。赔率随奖池变化，截止时确定；平台只对盈利部分抽成 5%。",
+      "body": "开奖后，输的选项的钱按押注比例分给押中的人。赔率随奖池变化，截止时确定；平台只对盈利部分抽成（默认 5%，每个市场写明）。",
       "example": "押 100 → 赢了约回 162.29\n已扣抽成；输了 0",
       "note": "下注后不能撤销。"
     },
@@ -581,6 +593,7 @@
     "count": "{{n}} 个市场",
     "poolLine": "奖池 {{amount}} USDT",
     "people": "{{n}} 人",
+    "people_one": "{{n}} 人",
     "closesIn": "还剩 {{t}}",
     "closesAt": "截止 {{t}}",
     "closedAt": "已于 {{t}} 截止",
@@ -601,17 +614,21 @@
       "disputed": "争议处理中",
       "settled": "已结算",
       "cancelled": "已取消",
-      "voided": "已作废"
+      "voided": "已作废",
+      "upcoming": "未开放"
     },
     "more": "还有 {{n}} 个选项",
     "result": "结果：{{opt}}",
     "noBetsYet": "还没有人押，先押的人赢了拿走输方全部（扣费后）",
     "empty": "暂无市场",
-    "emptyHint": "换个品类或筛选条件看看，新的加密市场每 15 分钟生成一次。",
+    "emptyHint": "新的市场上架后会出现在这里。",
     "mine": "我押了 {{amount}}",
     "probAria": "{{opt}}：概率 {{pct}}，预计赔率 {{mult}}",
     "oddsNote": "概率 = 选项奖池 ÷ 总奖池；倍数是扣抽成后的预计赔率，随奖池变化、截止时确定。",
-    "firstBet": "还没人押，做第一个"
+    "firstBet": "还没人押，做第一个",
+    "clearFilters": "清除筛选",
+    "emptyFilteredHint": "当前的品类、显示或搜索条件下没有市场。已结束的市场在\"显示 → 已结束\"里。",
+    "emptySearch": "没有找到\"{{q}}\""
   },
   "md": {
     "totalPool": "总奖池",
@@ -636,6 +653,7 @@
     "winner": "赢",
     "mine": "我在本市场的下注",
     "mineLine": "{{amount}} USDT · {{n}} 笔",
+    "mineLine_one": "{{amount}} USDT · {{n}} 笔",
     "ifWin": "赢了约回 {{v}}",
     "tabs": {
       "rules": "规则",
@@ -707,7 +725,8 @@
         "E7_NO_RESULT": "比赛中断，没有有效比分",
         "E10_UNDETERMINED": "无法确定结果",
         "E11_UNDETERMINABLE": "规则无法判定",
-        "OTHER": "其他"
+        "OTHER": "其他",
+        "MANUAL": "平台按规则作废"
       },
       "decision": {
         "upheld": "维持原结果",
@@ -720,7 +739,18 @@
         "overturned": "已处理：改判",
         "voided": "已处理：作废",
         "closed": "已结束"
-      }
+      },
+      "settling": "结算中",
+      "settlingNote": "结果已确定，派彩正在分批入账，几分钟内完成。",
+      "poolTotal": "奖池合计",
+      "positions": "押中 / 未押中持仓",
+      "positionsV": "{{w}} / {{l}}",
+      "myStake": "我的本金",
+      "myRefund": "我的退款",
+      "myCompensation": "我的补偿",
+      "refundTitle": "退款",
+      "refundTotal": "退款合计（全额退回）",
+      "conservation": "派彩合计 + 抽成合计 + 尾差 = 奖池合计；平台只拿抽成和尾差。"
     },
     "how": {
       "title": "彩池（pari-mutuel）怎么算",
@@ -733,7 +763,8 @@
       "exampleEmpty": "现在还没有人押。先押的人如果押中，拿走输方全部奖池（扣抽成后）。",
       "final": "奖池在截止前一直变化，最终赔率在截止时确定；下注后不能撤销。市场取消或作废时全额退回。"
     },
-    "feeOnProfit": "只对盈利部分收"
+    "feeOnProfit": "只对盈利部分收",
+    "openAt": "开放下注"
   },
   "bet": {
     "title": "押注",
@@ -780,7 +811,7 @@
     "staked": "总下注",
     "payout": "总派彩",
     "net": "净盈亏",
-    "sumNote": "已结算的派彩减去已结算的下注",
+    "sumNote": "总下注不含已退回的；总派彩含补偿；净盈亏 = 总派彩 − 已结算的下注",
     "col": {
       "market": "市场",
       "option": "选项",
@@ -809,9 +840,10 @@
       "settled": "还没有已结算的下注",
       "refunded": "没有退回的下注"
     },
-    "emptyHint": "去市场挑一个你有把握的问题。",
+    "emptyHint": "去市场看看有哪些问题可以押。",
     "goMarkets": "去看市场",
-    "count": "{{n}} 笔"
+    "count": "{{n}} 笔",
+    "positionNote": "本选项 {{n}} 笔合计 {{amount}}，按合计结算"
   },
   "dispute": {
     "title": "提交争议",
@@ -831,8 +863,8 @@
   },
   "authSide": {
     "title": "看好哪个结果，就押哪个",
-    "sub": "足球、NBA、加密涨跌、经济时事。彩池玩法：赢了分输方的奖池，平台只对盈利抽成 5%。",
-    "p1": "只用 USDT，ERC20 / TRC20 / BEP20 充值",
+    "sub": "足球、NBA、加密涨跌、经济时事。彩池玩法：押中的人分输方的奖池，平台只对盈利抽成（默认 5%）。",
+    "p1": "只用 USDT，ERC20 / TRC20 / BSC（BEP20）充值",
     "p2": "平台不当庄、不做市，结果和依据公开",
     "p3": "手机、电脑都能用，可以添加到主屏幕",
     "exHome": "主胜 曼城",
@@ -841,5 +873,148 @@
     "exLeague": "足球 · 英超",
     "exPool": "奖池 10,000 USDT",
     "exTitle": "曼城 vs 利物浦（90 分钟胜平负）"
+  },
+  "remind": {
+    "title": "开赛提醒",
+    "desc": "在还没开放下注的市场详情里点\"开放时提醒我\"，开放下注时会给你的账户邮箱发一封邮件（只发一次，邮件里也能退订）。",
+    "emailOff": "你关闭了邮件通知，开赛提醒不会发出。要收提醒请打开上面的\"邮件\"。",
+    "empty": "还没有订阅开赛提醒",
+    "emptyHint": "在还没开放下注的市场里订阅。",
+    "pitch": "还没开放下注，开放时可以发邮件提醒你。",
+    "subscribe": "开放时提醒我",
+    "subscribed": "已订阅：开放下注时发邮件提醒你",
+    "active": "已订阅开赛提醒，开放下注时发邮件给你。",
+    "unsubscribe": "退订",
+    "unsubscribed": "已退订开赛提醒",
+    "sent": "开赛提醒已发到你的邮箱。",
+    "closed": "已经开放下注，不再需要提醒。",
+    "missed": "这个市场在开放前已经结束，提醒没有发出。",
+    "needLogin": "开赛提醒只对用邮箱和密码登录过的账户开放：退出后重新登录一次即可订阅。",
+    "manage": "管理开赛提醒",
+    "unsubTitle": "退订开赛提醒",
+    "unsubDone": "已退订\"{{title}}\"的开赛提醒，不会再给你发这一场的邮件。",
+    "unsubSent": "\"{{title}}\"的提醒已经发过，之后不会再发。",
+    "unsubInvalid": "退订链接无效或不完整。可以登录后在\"我的 → 通知偏好\"里管理开赛提醒。",
+    "status": {
+      "none": "未订阅",
+      "active": "订阅中",
+      "sent": "已发送",
+      "cancelled": "已退订",
+      "missed": "未发送（市场已结束）"
+    },
+    "guest": "还没开放下注。登录后可以订阅\"开放时提醒我\"。"
+  },
+  "guest": {
+    "login": "登录",
+    "register": "注册",
+    "loginToBet": "登录后押注",
+    "registerToBet": "没有账户？注册",
+    "betHint": "登录后才能押注；登录后回到这里，选中的选项不变。"
+  },
+  "slate": {
+    "title": "今日场次",
+    "none": "今天没有场次。",
+    "next": "下一场：{{t}}（{{utc}}）{{title}}",
+    "noneNext": "下一场的时间还没定。"
+  },
+  "pub": {
+    "linksLabel": "开奖记录和说明",
+    "results": "开奖记录",
+    "weekly": "周报",
+    "howTo": "怎么玩、怎么充、怎么提",
+    "toMarkets": "去看市场",
+    "insights": "数据和文章"
+  },
+  "res": {
+    "title": "开奖记录",
+    "intro": "每个已结算、已作废、已取消的市场：结果、依据、奖池、派彩合计、抽成和尾差，和结算记录一致。",
+    "statusLabel": "状态",
+    "allStatus": "全部状态",
+    "rangeLabel": "时间",
+    "range": {
+      "all": "全部时间",
+      "7d": "近 7 天",
+      "30d": "近 30 天"
+    },
+    "count": "{{n}} 场",
+    "empty": "还没有已结束的市场",
+    "emptyHint": "市场结算、作废或取消后会出现在这里。",
+    "emptyFiltered": "没有符合筛选条件的市场",
+    "fee": "抽成合计",
+    "dust": "尾差",
+    "refunded": "退款合计",
+    "refundedShort": "全额退款",
+    "colMarket": "市场",
+    "endedAt": "结束时间"
+  },
+  "wk": {
+    "title": "周报",
+    "intro": "每周（周一 00:00 UTC 起）结束的市场：场数、有效场数、作废和取消的原因、奖池、派彩和抽成合计。",
+    "markets": "结束场数",
+    "settled": "有效场数",
+    "voided": "作废或取消",
+    "pool": "奖池合计",
+    "payout": "派彩合计",
+    "fee": "抽成合计",
+    "dust": "尾差合计",
+    "refund": "退款合计",
+    "inProgress": "本周截至现在",
+    "more": "更早的周",
+    "allShown": "已全部显示，共 {{n}} 周",
+    "empty": "还没有周报",
+    "oneTitle": "周报 {{week}}",
+    "notFound": "没有这一周的周报",
+    "reasons": "作废和取消的原因",
+    "marketsTitle": "这一周结束的市场",
+    "noMarkets": "这一周没有结束的市场"
+  },
+  "share": {
+    "button": "分享",
+    "title": "分享卡片",
+    "challengeTitle": "下注成功 · 挑战卡",
+    "winTitle": "分享开奖卡",
+    "weeklyTitle": "分享周报",
+    "native": "分享",
+    "copy": "复制链接",
+    "copied": "链接已复制",
+    "copyFail": "复制失败，请长按链接手动复制",
+    "download": "下载图片",
+    "telegram": "发到 Telegram",
+    "x": "发到 X",
+    "link": "分享链接",
+    "showAmount": "在卡片上显示我的派彩金额",
+    "imageError": "卡片图片暂时显示不出来，链接仍然可以分享",
+    "refNote": "链接里带一个随机分享码（不是你的客户编号），只用于统计来源，不发任何奖励"
+  },
+  "ins": {
+    "title": "数据和文章",
+    "intro": "焦点战的实时奖池、BTC 每小时涨跌统计和玩法文章。文字都经人工审核，数字来自本站奖池和公开行情。",
+    "empty": "还没有页面",
+    "updated": "更新于 {{at}}",
+    "published": "发布于 {{at}}",
+    "fallback": "这篇还没有当前语言的版本，先显示另一种语言。",
+    "disclaimer": "本页只陈述数据，不预测结果，也不构成任何建议。",
+    "total": "奖池合计",
+    "bettors": "下注人数",
+    "closeAt": "截止下注",
+    "poolNote": "奖池随下注变化，最终以截止时为准（数据时间 {{at}}）。",
+    "toMarket": "去看这个市场",
+    "kind": {
+      "FOCUS": "焦点战",
+      "BTC_STATS": "BTC 统计",
+      "ARTICLE": "文章"
+    },
+    "btc": {
+      "up24": "过去 24 小时收涨",
+      "up7d": "过去 7 天收涨",
+      "change24": "24 小时涨跌幅",
+      "lastClose": "最新收盘价",
+      "byHour": "按 UTC 小时：过去 7 天收涨的天数",
+      "hour": "UTC 小时",
+      "upDays": "收涨天数",
+      "pct": "比例",
+      "rule": "口径和本站 BTC 市场一样：一小时的收盘价 ≥ 开盘价算涨（相等也算涨），否则算跌。",
+      "source": "数据来源：{{source}}；{{from}} 到 {{to}}，共 {{bars}} 根 1 小时 K 线；取数时间 {{at}}。"
+    }
   }
 }
