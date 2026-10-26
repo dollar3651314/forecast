@@ -16,6 +16,6 @@ interface JobLeaseMapper {
   /** 只有自己持有时才续约 */
   int renew(@Param("name") String name, @Param("owner") String owner, @Param("ttlMillis") long ttlMillis);
 
-  /** 只有自己持有时才释放（把到期时间改成现在） */
+  /** 只有自己持有时才释放（把到期时间改成早已过去的时间，别的实例立刻能拿到） */
   int release(@Param("name") String name, @Param("owner") String owner);
 }
