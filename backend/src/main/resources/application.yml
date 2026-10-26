@@ -284,6 +284,12 @@ forecast:
         backoff: 2s
         max-backoff: 8s
         rate-limit: 25
+      # Polymarket 公开接口（forecast S15，MF-9 对照图的素材；gamma-api 的 /markets?slug=）。使用条款还没核实（市场策略 F-11、需求第 15 节），
+      # 默认关闭；Amos 核实条款后设 FC_SOURCE_POLYMARKET_ENABLED=true 才会调用。用的时候一律写"数据来自 Polymarket 公开接口，非 Polymarket 官方"
+      polymarket:
+        enabled: ${FC_SOURCE_POLYMARKET_ENABLED:false}
+        base-url: https://gamma-api.polymarket.com
+        read-timeout: 10s
   # 体育赛程和自动裁决（forecast S8，resolve/sports；需求说明书 v1.3 第 4.2、4.3 节）。赛程每 4 小时从主源拉未来 7 天；
   # 自动裁决：事件结束（进入待裁决）后每 5 分钟看一次主源，完赛后等 30 分钟，两个来源比分一致 → 结算；不一致 / 状态异常 → 转人工；
   # 等完 30 分钟以后备源还拿不到再等 30 分钟、事件结束 6 小时后主源还没完赛 → 转人工。第一期不建独立抓取程序、不用 Gemini（AQ-18）
@@ -301,6 +307,29 @@ forecast:
     # 认领期（S14，同上）：主备先后各一次、每次限频排队最多 30 秒，一轮约 2 分钟
     claim-ttl: 5m
     interactive-queue-wait: 10s
+  # 事件和文章自动化程序（forecast S15，content 模块；需求文档/v1.3-事件和文章自动化.md，NF-15、NF-16）。和主应用同一个进程、自己的线程池和表，
+  # 只能经 MarketDraftApi 建市场草稿（没有上架、改状态、动资金的权限）；出错、关掉都不影响下注、结算、充值、提现。
+  # enabled（FC_CONTENT_ENABLED）：总开关，关掉时定时任务不跑、手动生成返回 503，已发布的页面照常显示。
+  # 每日上限、各功能开关、紧急停止在后台"内容中心 → 用量和设置"（表 content_setting），不在这里。
+  content:
+    enabled: ${FC_CONTENT_ENABLED:true}
+    jobs-enabled: true
+    async: true
+    executor-threads: 2
+    executor-queue: 50
+    gemini:
+      # key 只由 Amos 填进服务器 .env（不进仓库、不经过 AI、不进日志，后台只显示"已配置 / 未配置"，C21）；没填时 AI 起草的部分降级停用
+      api-key: ${FC_GEMINI_API_KEY:}
+      model: ${FC_GEMINI_MODEL:gemini-2.5-flash-lite}
+      base-url: https://generativelanguage.googleapis.com
+      connect-timeout: 5s
+      read-timeout: 30s
+      attempts: 3
+      backoff: 2s
+      max-backoff: 8s
+      failure-threshold: 5
+      open-duration: 60s
+      pause-on-429: 10m
   # 对象存储（证件照片）。现在是本地目录，正式环境在 S20 换成对象存储服务
   storage:
     local-dir: ${FC_STORAGE_DIR:./data/storage}

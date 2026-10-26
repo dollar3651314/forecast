@@ -44,7 +44,9 @@ class SessionFilter extends OncePerRequestFilter {
    */
   static final java.util.regex.Pattern PUBLIC_BROWSE = java.util.regex.Pattern.compile(
       "^/api/markets(/today|/\\d{1,19})?$|^/api/public/(results|weekly(/[^/]+)?|pages/how-to-play|share)$|^/api/ws/markets$"
-          + "|^/api/public/cards/[a-z]+/[A-Za-z0-9_-]{1,32}\\.png$");
+          + "|^/api/public/cards/[a-z]+/[A-Za-z0-9_-]{1,32}\\.png$"
+          // S15：自动化程序的 SEO 页面（MF-11）
+          + "|^/api/public/insights(/[a-z0-9-]{1,80})?$");
 
   private final SessionService sessions;
   private final AuthProperties props;

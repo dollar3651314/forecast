@@ -14,7 +14,7 @@ public final class Menus {
 
   public static final List<Item> TREE = List.of(
       leaf("dashboard", "menu.dashboard", "/dashboard", Permission.DASHBOARD_VIEW),
-      // forecast S9：需求第 6.1 节（内容中心还没有；风控告警 S10；来源统计 S13）。默认顺序同迁移 V17 的 admin_menu
+      // forecast S9：需求第 6.1 节（风控告警 S10；来源统计 S13；内容中心 S15）。默认顺序同迁移 V17 的 admin_menu
       group("market", "menu.market",
           leaf("markets", "menu.markets", "/markets", Permission.MARKET_VIEW),
           leaf("market-review", "menu.marketReview", "/markets/review", Permission.MARKET_PUBLISH),
@@ -29,6 +29,15 @@ public final class Menus {
       leaf("reports", "menu.reports", "/reports", Permission.REPORT_VIEW),
       // forecast S13：来源统计（需求第 6.1 节，MF-1、MF-10；迁移 V21 写默认顺序）
       leaf("growth", "menu.growth", "/growth", Permission.GROWTH_VIEW),
+      // forecast S15：内容中心（需求第 6.1 节、自动化需求第 7 节；迁移 V24 写默认顺序）
+      group("content", "menu.content",
+          leaf("content-drafts", "menu.contentDrafts", "/content/drafts", Permission.CONTENT_VIEW),
+          leaf("content-events", "menu.contentEvents", "/content/events", Permission.CONTENT_VIEW),
+          leaf("content-pages", "menu.contentPages", "/content/pages", Permission.CONTENT_VIEW),
+          leaf("content-templates", "menu.contentTemplates", "/content/templates", Permission.CONTENT_VIEW),
+          leaf("content-tools", "menu.contentTools", "/content/tools", Permission.CONTENT_EDIT),
+          leaf("content-logs", "menu.contentLogs", "/content/logs", Permission.CONTENT_VIEW),
+          leaf("content-settings", "menu.contentSettings", "/content/settings", Permission.CONTENT_VIEW)),
       leaf("params", "menu.params", "/params", Permission.FEE_EDIT),
       leaf("customers", "menu.customers", "/customers", Permission.CUSTOMER_VIEW),
       leaf("kyc", "menu.kyc", "/kyc", Permission.KYC_VIEW),

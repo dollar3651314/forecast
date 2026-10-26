@@ -95,7 +95,13 @@ public enum Permission {
   RISK_ALERT_VIEW("risk_alert:view", "risk", false),
   RISK_ALERT_HANDLE("risk_alert:handle", "risk", false),
   /** 来源统计、增长数据 CSV 导出（S13，MF-1、MF-10；需求第 6.2 节） */
-  GROWTH_VIEW("growth:view", "growth", false);
+  GROWTH_VIEW("growth:view", "growth", false),
+  /** 内容中心（S15，需求第 2.2、6.2 节、自动化需求第 7 节）：查看草稿箱、事件候选、页面、日志、用量 */
+  CONTENT_VIEW("content:view", "content", false),
+  /** 修改草稿和模板、手动触发生成、录入经济日历（市场草稿仍要 market:publish 才能上架） */
+  CONTENT_EDIT("content:edit", "content", false),
+  /** 对外发布：发布草稿箱里的内容、改内容中心的设置和词表、紧急停止（C73：对外发布由 Amos 决定，默认只有超管有；高危） */
+  CONTENT_PUBLISH("content:publish", "content", true);
 
   public final String code;
   public final String module;

@@ -4,7 +4,7 @@
 // - 官网（v2，web/site/dist）在另一个端口 E2E_SITE_PORT（默认 4174）：和测试环境的官网域名一样，只转发 /api/health，
 //   其他 /api/ 返回 404；页面里的客户端地址占位符换成本站客户端地址（Nginx 换成 https://${APP_DOMAIN}，见 deploy/nginx/site.conf.template）
 // - forecast S13（MF-4）：和部署形态的 Nginx 一样处理客户端页面里的 SSI 指令（向后端 /api/public/seo/head、/body 要标题和正文嵌进页面，
-//   市场详情、一周的周报先问 /api/public/seo/exists，不存在返回 404 状态码）；/robots.txt、/sitemap.xml 转到后端；/m/<编号> 跳到市场详情
+//   市场详情、一周的周报、S15 的 /insights/<slug> 先问 /api/public/seo/exists，不存在返回 404 状态码）；/robots.txt、/sitemap.xml 转到后端；/m/<编号> 跳到市场详情
 //   （deploy/nginx/site.conf.template 的同名部分）
 // 环境变量：E2E_PORT（默认 4173）、E2E_SITE_PORT（默认 4174）、E2E_BACKEND（默认 http://127.0.0.1:8080）
 import http from 'node:http';
@@ -117,7 +117,7 @@ async function serveStatic(req, res) {
   // S13：SSI 指令换成后端给的标题和正文；市场详情、周报先问这一页存不存在（后端 403 = 不存在 → 404）
   if (site.prefix === '/' && file.endsWith('.html')) {
     let status = 200;
-    if (/^\/(markets|results\/weekly)\/[^/]+\/?$/.test(url.pathname)) {
+    if (/^\/(markets|results\/weekly|insights)\/[^/]+\/?$/.test(url.pathname)) {
       const e = await backendGet('/api/public/seo/exists', req.url);
       if (e.status === 403) status = 404;
     }

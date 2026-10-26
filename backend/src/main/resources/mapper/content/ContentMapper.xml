@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 事件和文章自动化程序（forecast S15）。只有 content 模块使用；content_log 只增不改（ContentAppendOnlyTest）。 -->
+<mapper namespace="com.forecast.app.content.core.ContentMapper">
+
+  <!-- ===== 设置 ===== -->
+  <select id="settings" resultType="com.forecast.app.content.core.ContentRows$Setting">
+    SELECT setting_key, value, updated_by, updated_at FROM content_setting ORDER BY setting_key
+  </select>
+
+  <update id="updateSetting">
+    UPDATE content_setting SET value = #{value}, updated_by = #{adminId}, updated_at = #{now} WHERE setting_key = #{key}
+  </update>
+
+  <!-- ===== 词表 ===== -->
+  <select id="words" resultType="com.forecast.app.content.core.ContentRows$Word">
+    SELECT id, kind, word, built_in, created_by, created_at FROM content_word
+    <where><if test="kind != null">kind = #{kind}</if></where>
+    ORDER BY kind, id
+  </select>
+
+  <insert id="insertWord">
+    INSERT IGNORE INTO content_word (kind, word, built_in, created_by, created_at) VALUES (#{kind}, #{word}, 0, #{adminId}, #{now})
+  </insert>
+
+  <select id="word" resultType="com.forecast.app.content.core.ContentRows$Word">
+    SELECT id, kind, word, built_in, created_by, created_at FROM content_word WHERE id = #{id}
+  </select>
+
+  <delete id="deleteWord">
+    DELETE FROM content_word WHERE id = #{id} AND built_in = 0
+  </delete>
+
+  <!-- ===== 模板 ===== -->
+  <sql id="tplCols">code, title_en, title_zh_cn, title_zh_tw, rules_en, rules_zh_cn, rules_zh_tw, options, source_primary, source_backup, version, updated_by, updated_at</sql>
+
+  <select id="templates" resultType="com.forecast.app.content.core.ContentRows$Template">
+    SELECT <include refid="tplCols"/> FROM content_template ORDER BY code
+  </select>
+
+  <select id="template" resultType="com.forecast.app.content.core.ContentRows$Template">
+    SELECT <include refid="tplCols"/> FROM content_template WHERE code = #{code}
+  </select>
+
+  <update id="updateTemplate">
+    UPDATE content_template SET title_en = #{titleEn}, title_zh_cn = #{titleZhCn}, title_zh_tw = #{titleZhTw}, rules_en = #{rulesEn},
+      rules_zh_cn = #{rulesZhCn}, rules_zh_tw = #{rulesZhTw}, options = #{options}, source_primary = #{sourcePrimary}, source_backup = #{sourceBackup},
+      version = version + 1, updated_by = #{updatedBy}, updated_at = #{updatedAt}
+    WHERE code = #{code} AND version = #{version}
+  </update>
+
+  <!-- ===== 经济日历 ===== -->
+  <sql id="econCols">id, kind, period, release_at, prev_value, source_url, status, market_no, note, created_by, created_at, updated_at, version</sql>
+
+  <insert id="insertEcon" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO content_econ_event (kind, period, release_at, prev_value, source_url, status, created_by, created_at, updated_at, version)
+    VALUES (#{kind}, #{period}, #{releaseAt}, #{prevValue}, #{sourceUrl}, 'SCHEDULED', #{createdBy}, #{createdAt}, #{updatedAt}, 0)
+  </insert>
+
+  <select id="econ" resultType="com.forecast.app.content.core.ContentRows$Econ">
+    SELECT <include refid="econCols"/> FROM content_econ_event WHERE id = #{id}
+  </select>
+
+  <select id="econs" resultType="com.forecast.app.content.core.ContentRows$Econ">
+    SELECT <include refid="econCols"/> FROM content_econ_event WHERE release_at &gt;= #{from} ORDER BY release_at, id LIMIT #{limit}
+  </select>
+
+  <select id="econDue" resultType="com.forecast.app.content.core.ContentRows$Econ">
+    SELECT <include refid="econCols"/> FROM content_econ_event WHERE status = 'SCHEDULED' AND release_at &lt;= #{due} ORDER BY release_at, id LIMIT #{limit}
+  </select>
+
+  <update id="updateEcon">
+    UPDATE content_econ_event SET kind = #{kind}, period = #{period}, release_at = #{releaseAt}, prev_value = #{prevValue}, source_url = #{sourceUrl},
+      status = 'SCHEDULED', note = NULL, updated_at = #{updatedAt}, version = version + 1
+    WHERE id = #{id} AND version = #{version} AND status IN ('SCHEDULED', 'FAILED', 'EXPIRED')
+  </update>
+
+  <update id="casEcon">
+    UPDATE content_econ_event SET status = #{status}, market_no = COALESCE(#{marketNo}, market_no), note = #{note}, updated_at = #{now}, version = version + 1
+    WHERE id = #{id} AND version = #{version}
+  </update>
+
+  <update id="failStuckEcon">
+    UPDATE content_econ_event SET status = 'FAILED', note = '生成中断（程序重启），可以点"立即生成"', updated_at = #{now}, version = version + 1
+    WHERE status = 'DRAFTING' AND updated_at &lt; #{before}
+  </update>
+
+  <!-- ===== 过滤日志 ===== -->
+  <insert id="insertFilterIgnore">
+    INSERT IGNORE INTO content_filter_log (source, ref, title, reason, matched, created_at) VALUES (#{source}, #{ref}, #{title}, #{reason}, #{matched}, #{now})
+  </insert>
+
+  <select id="filters" resultType="com.forecast.app.content.core.ContentRows$Filter">
+    SELECT id, source, ref, title, reason, matched, created_at FROM content_filter_log ORDER BY id DESC LIMIT #{limit}
+  </select>
+
+  <select id="filteredRefs" resultType="string">
+    SELECT ref FROM content_filter_log WHERE source = #{source} AND ref IN
+    <foreach collection="refs" item="r" open="(" separator="," close=")">#{r}</foreach>
+  </select>
+
+  <!-- ===== 草稿 ===== -->
+  <sql id="draftCols">id, draft_no, group_no, kind, lang, title, body, refs, checks, check_ok, status, fail_reason, reject_reason, market_no, page_slug, topic,
+    expires_at, ai_calls, created_by, created_at, updated_at, edited_by, published_by, published_at, version</sql>
+
+  <insert id="insertDraft" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO content_draft (draft_no, group_no, kind, lang, title, body, refs, checks, check_ok, status, market_no, page_slug, topic, expires_at, ai_calls,
+      created_by, created_at, updated_at, version)
+    VALUES (#{draftNo}, #{groupNo}, #{kind}, #{lang}, #{title}, #{body}, #{refs}, #{checks}, #{checkOk}, #{status}, #{marketNo}, #{pageSlug}, #{topic},
+      #{expiresAt}, 0, #{createdBy}, #{createdAt}, #{updatedAt}, 0)
+  </insert>
+
+  <select id="draft" resultType="com.forecast.app.content.core.ContentRows$Draft">
+    SELECT <include refid="draftCols"/> FROM content_draft WHERE draft_no = #{draftNo}
+  </select>
+
+  <select id="group" resultType="com.forecast.app.content.core.ContentRows$Draft">
+    SELECT <include refid="draftCols"/> FROM content_draft WHERE group_no = #{groupNo} ORDER BY lang DESC
+  </select>
+
+  <sql id="draftWhere">
+    <where>
+      <if test="status != null">AND status = #{status}</if>
+      <if test="kind != null">AND kind = #{kind}</if>
+      <if test="lang != null">AND lang = #{lang}</if>
+    </where>
+  </sql>
+
+  <!-- 待审核的排在最前（今天要发的），其余按时间倒序 -->
+  <select id="drafts" resultType="com.forecast.app.content.core.ContentRows$Draft">
+    SELECT <include refid="draftCols"/> FROM content_draft <include refid="draftWhere"/>
+    ORDER BY (status = 'PENDING') DESC, id DESC LIMIT #{offset}, #{limit}
+  </select>
+
+  <select id="countDrafts" resultType="long">
+    SELECT COUNT(*) FROM content_draft <include refid="draftWhere"/>
+  </select>
+
+  <update id="finishDraft">
+    UPDATE content_draft SET status = #{status}, title = #{title}, body = #{body}, checks = #{checks}, check_ok = #{checkOk}, fail_reason = #{failReason},
+      ai_calls = ai_calls + #{aiCalls}, updated_at = #{now}, version = version + 1
+    WHERE id = #{id} AND status = 'GENERATING'
+  </update>
+
+  <update id="editDraft">
+    UPDATE content_draft SET title = #{title}, body = #{body}, checks = #{checks}, check_ok = #{checkOk}, status = 'PENDING', fail_reason = NULL,
+      edited_by = #{adminId}, updated_at = #{now}, version = version + 1
+    WHERE id = #{id} AND version = #{version} AND status IN ('PENDING', 'FAILED')
+  </update>
+
+  <update id="moveDraft">
+    UPDATE content_draft SET status = #{to},
+      <if test="to == 'REJECTED'">reject_reason = #{reason},</if>
+      <if test="to == 'PUBLISHED'">published_by = #{adminId}, published_at = #{now},</if>
+      <if test="to == 'GENERATING'">fail_reason = NULL,</if>
+      updated_at = #{now}, version = version + 1
+    WHERE id = #{id} AND version = #{version} AND status = #{from}
+  </update>
+
+  <update id="expireDrafts">
+    UPDATE content_draft SET status = 'EXPIRED', updated_at = #{now}, version = version + 1
+    WHERE status IN ('PENDING', 'FAILED', 'GENERATING') AND expires_at IS NOT NULL AND expires_at &lt;= #{now}
+  </update>
+
+  <update id="failStuck">
+    UPDATE content_draft SET status = 'FAILED', fail_reason = '起草中断（程序重启或排队超时），可以重试', updated_at = #{now}, version = version + 1
+    WHERE status = 'GENERATING' AND updated_at &lt; #{stuckBefore}
+  </update>
+
+  <select id="countByStatusSince" resultType="long">
+    SELECT COUNT(*) FROM content_draft WHERE status = #{status} AND created_at &gt;= #{since}
+  </select>
+
+  <select id="countMarketDrafts" resultType="long">
+    SELECT COUNT(*) FROM content_draft WHERE market_no = #{marketNo} AND kind = #{kind} AND created_at &gt;= #{since}
+  </select>
+
+  <select id="countArticleGroups" resultType="long">
+    SELECT COUNT(DISTINCT group_no) FROM content_draft WHERE kind = 'ARTICLE' AND created_at &gt;= #{since} AND status NOT IN ('REJECTED', 'FAILED')
+  </select>
+
+  <select id="publishedFor" resultType="com.forecast.app.content.core.ContentRows$Draft">
+    SELECT <include refid="draftCols"/> FROM content_draft WHERE market_no = #{marketNo} AND kind = #{kind} AND status = 'PUBLISHED'
+    ORDER BY published_at DESC, id DESC LIMIT 4
+  </select>
+
+  <!-- ===== 页面 ===== -->
+  <sql id="pageCols">id, slug, kind, market_no, title_en, title_zh_cn, title_zh_tw, intro_en, intro_zh_cn, intro_zh_tw, body_en, body_zh_cn, body_zh_tw, data,
+    data_at, status, created_day, created_at, updated_at</sql>
+
+  <insert id="insertPageIgnore" useGeneratedKeys="true" keyProperty="id">
+    INSERT IGNORE INTO content_page (slug, kind, market_no, title_en, title_zh_cn, title_zh_tw, body_en, body_zh_cn, body_zh_tw, data, data_at, status,
+      created_day, created_at, updated_at)
+    VALUES (#{slug}, #{kind}, #{marketNo}, #{titleEn}, #{titleZhCn}, #{titleZhTw}, #{bodyEn}, #{bodyZhCn}, #{bodyZhTw}, #{data}, #{dataAt}, 'VISIBLE',
+      #{createdDay}, #{createdAt}, #{updatedAt})
+  </insert>
+
+  <select id="page" resultType="com.forecast.app.content.core.ContentRows$Page">
+    SELECT <include refid="pageCols"/> FROM content_page WHERE slug = #{slug}
+  </select>
+
+  <select id="pageByMarket" resultType="com.forecast.app.content.core.ContentRows$Page">
+    SELECT <include refid="pageCols"/> FROM content_page WHERE market_no = #{marketNo}
+  </select>
+
+  <select id="pages" resultType="com.forecast.app.content.core.ContentRows$Page">
+    SELECT <include refid="pageCols"/> FROM content_page
+    <where><if test="visibleOnly">status = 'VISIBLE'</if></where>
+    ORDER BY id DESC LIMIT #{limit}
+  </select>
+
+  <select id="countPagesOn" resultType="long">
+    SELECT COUNT(*) FROM content_page WHERE created_day = #{day}
+  </select>
+
+  <update id="updatePageData">
+    UPDATE content_page SET data = #{data}, data_at = #{dataAt}, updated_at = #{now} WHERE id = #{id}
+  </update>
+
+  <update id="updatePageIntro">
+    UPDATE content_page SET
+    <choose>
+      <when test="lang == 'en'">intro_en = #{intro},</when>
+      <otherwise>intro_zh_cn = #{intro}, intro_zh_tw = #{introTw},</otherwise>
+    </choose>
+    updated_at = #{now} WHERE id = #{id}
+  </update>
+
+  <update id="updateArticle">
+    UPDATE content_page SET
+    <choose>
+      <when test="lang == 'en'">title_en = #{title}, body_en = #{body},</when>
+      <otherwise>title_zh_cn = #{title}, title_zh_tw = #{titleTw}, body_zh_cn = #{body}, body_zh_tw = #{bodyTw},</otherwise>
+    </choose>
+    updated_at = #{now} WHERE id = #{id}
+  </update>
+
+  <update id="setPageStatus">
+    UPDATE content_page SET status = #{status}, updated_at = #{now} WHERE id = #{id}
+  </update>
+
+  <!-- ===== 日志（只增不改） ===== -->
+  <insert id="insertLog">
+    INSERT INTO content_log (action, kind, ref, lang, outcome, detail, ai_calls, admin_id, created_at)
+    VALUES (#{action}, #{kind}, #{ref}, #{lang}, #{outcome}, #{detail}, #{aiCalls}, #{adminId}, #{createdAt})
+  </insert>
+
+  <sql id="logWhere">
+    <where>
+      <if test="from != null">AND created_at &gt;= #{from}</if>
+      <if test="to != null">AND created_at &lt; #{to}</if>
+      <if test="action != null">AND action = #{action}</if>
+    </where>
+  </sql>
+
+  <select id="logs" resultType="com.forecast.app.content.core.ContentRows$Log">
+    SELECT id, action, kind, ref, lang, outcome, detail, ai_calls, admin_id, created_at FROM content_log <include refid="logWhere"/>
+    ORDER BY id DESC LIMIT #{offset}, #{limit}
+  </select>
+
+  <select id="countLogs" resultType="long">
+    SELECT COUNT(*) FROM content_log <include refid="logWhere"/>
+  </select>
+
+  <select id="countLogsSince" resultType="long">
+    SELECT COUNT(*) FROM content_log WHERE action = #{action} AND created_at &gt;= #{since}
+  </select>
+
+  <!-- ===== Gemini 用量（先 INSERT IGNORE 出当天的行，再条件更新；不对不存在的行加锁，约定 34） ===== -->
+  <insert id="ensureAiDay">
+    INSERT IGNORE INTO content_ai_day (day) VALUES (#{day})
+  </insert>
+
+  <update id="reserveAi">
+    UPDATE content_ai_day SET used = used + 1,
+      <choose><when test="score">score_used = score_used + 1</when><otherwise>content_used = content_used + 1</otherwise></choose>
+    WHERE day = #{day} AND used &lt; #{cap}
+  </update>
+
+  <update id="aiSuccess">
+    UPDATE content_ai_day SET consecutive_failures = 0, tokens_in = tokens_in + #{tokensIn}, tokens_out = tokens_out + #{tokensOut} WHERE day = #{day}
+  </update>
+
+  <update id="aiFailure">
+    UPDATE content_ai_day SET failures = failures + 1, consecutive_failures = consecutive_failures + 1 WHERE day = #{day}
+  </update>
+
+  <update id="markAlert">
+    UPDATE content_ai_day SET alerts = CONCAT(alerts, #{kind}, ',') WHERE day = #{day} AND FIND_IN_SET(#{kind}, alerts) = 0
+  </update>
+
+  <select id="aiDay" resultType="com.forecast.app.content.core.ContentRows$AiDay">
+    SELECT day, used, content_used, score_used, failures, consecutive_failures, tokens_in, tokens_out, alerts FROM content_ai_day WHERE day = #{day}
+  </select>
+
+  <select id="aiDays" resultType="com.forecast.app.content.core.ContentRows$AiDay">
+    SELECT day, used, content_used, score_used, failures, consecutive_failures, tokens_in, tokens_out, alerts FROM content_ai_day
+    WHERE day &gt;= #{from} AND day &lt;= #{to} ORDER BY day
+  </select>
+</mapper>

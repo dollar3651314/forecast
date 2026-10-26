@@ -95,7 +95,9 @@ export function toApiError(status: number, body: ErrorBody | null): ApiError {
     return new ApiError('errors.passwordWeak', undefined, { status, code, fields });
   }
   const key = (code && ERROR_KEYS[code]) || (status >= 500 ? 'errors.serverError' : 'errors.unknown');
-  return new ApiError(key, undefined, { status, code, fields: fields.length ? fields : undefined });
+  // forecast S15：没登记的业务错误码带上后端的说明（内容中心的"哪个词不能用""为什么不能发布"），界面按 errors.fc.<code> 显示（utils/errors.ts）
+  const params = code && !ERROR_KEYS[code] && body?.message ? { detail: body.message } : undefined;
+  return new ApiError(key, params, { status, code, fields: fields.length ? fields : undefined });
 }
 
 type Query = Record<string, string | number | boolean | null | undefined>;

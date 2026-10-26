@@ -1,6 +1,7 @@
 package com.forecast.app.market.pub;
 
 import com.forecast.app.market.api.I18nText;
+import com.forecast.app.market.api.PublicPageProvider;
 import com.forecast.app.market.card.CardModel;
 import com.forecast.app.market.card.CardService;
 import com.forecast.app.market.core.ClientViews;
@@ -19,6 +20,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
@@ -33,7 +35,7 @@ import tools.jackson.databind.ObjectMapper;
  *       （有脚本的浏览器一开始就隐藏它，见 {@code web/client/index.html}），所以登录后的体验不变。</li>
  * </ul>
  * 公开的页面：{@code /}、{@code /markets}、{@code /markets/{编号}}、{@code /results}、{@code /results/weekly}、{@code /results/weekly/{周}}、
- * {@code /how-to-play}。三种语言用 {@code ?lang=en|zh-CN|zh-TW} 区分地址，不带 lang 的是 x-default（英文）。别的路径（登录后才能看的页面）只给品牌标题和 noindex。
+ * {@code /how-to-play}；S15 起还有别的模块提供的页面（{@link PublicPageProvider}：自动化程序的 {@code /insights/**}，MF-11）。三种语言用 {@code ?lang=en|zh-CN|zh-TW} 区分地址，不带 lang 的是 x-default（英文）。别的路径（登录后才能看的页面）只给品牌标题和 noindex。
  * <p>只用公开数据：没有任何客户的个人数据（详情按"没登录"取，列表的奖池本来就不带个人数据）。所有文字都经过 HTML 转义。
  */
 @Component
@@ -52,17 +54,24 @@ public class SeoPages {
   private final ObjectMapper json;
   private final Clock clock;
   private final CardService cards;
+  private final ObjectProvider<PublicPageProvider> providers;
   private final boolean publicBrowse;
 
   SeoPages(MarketService markets, MarketPublicService pub, PublicContent content, ObjectMapper json, Clock clock, CardService cards,
-      @Value("${forecast.public-browse.enabled:true}") boolean publicBrowse) {
+      ObjectProvider<PublicPageProvider> providers, @Value("${forecast.public-browse.enabled:true}") boolean publicBrowse) {
     this.markets = markets;
     this.pub = pub;
     this.content = content;
     this.json = json;
     this.clock = clock;
     this.cards = cards;
+    this.providers = providers;
     this.publicBrowse = publicBrowse;
+  }
+
+  /** 管这个路径的别的模块（S15） */
+  private Optional<PublicPageProvider> provider(String path) {
+    return providers.orderedStream().filter(pp -> pp.handles(path)).findFirst();
   }
 
   /**
@@ -109,6 +118,19 @@ public class SeoPages {
     }
   }
 
+  /** 别的模块提供的页面在站点地图里的条目（S15） */
+  List<PublicPageProvider.Entry> providedSitemap() {
+    List<PublicPageProvider.Entry> out = new java.util.ArrayList<>();
+    providers.orderedStream().forEach(pp -> {
+      try {
+        out.addAll(pp.sitemap());
+      } catch (RuntimeException e) {
+        log.warn("公开页面提供者 {} 的站点地图生成失败，跳过", pp.getClass().getSimpleName(), e);
+      }
+    });
+    return out;
+  }
+
   /** 这个页面是否存在（草稿、不存在的市场，不合法的周：否） */
   public boolean exists(String uri) {
     Page p = Page.of(uri);
@@ -123,6 +145,8 @@ public class SeoPages {
         return false;
       }
     }
+    Optional<PublicPageProvider> pp = provider(p.path());
+    if (pp.isPresent()) return pp.get().exists(p.path());
     return true;
   }
 
@@ -161,6 +185,11 @@ public class SeoPages {
       }
     }
     if (path.equals("/how-to-play")) return new Meta(content.text(l, "howto.title"), content.text(l, "howto.description"), true);
+    Optional<PublicPageProvider> pp = provider(path);
+    if (pp.isPresent()) {
+      PublicPageProvider.Meta pm = pp.get().meta(path, l);
+      return new Meta(pm.title(), pm.description(), pm.index());
+    }
     // 登录后才能看的页面（资产、我的下注、我的……）和登录注册页：只给品牌标题，不收录
     return new Meta(content.brand(), content.text(l, "site.description"), false);
   }
@@ -271,7 +300,8 @@ public class SeoPages {
       sb.append("<a href=\"/markets").append(q).append("\">").append(esc(content.text(l, "markets.h1"))).append("</a> · ");
       sb.append("<a href=\"/results").append(q).append("\">").append(esc(content.text(l, "results.h1"))).append("</a> · ");
       sb.append("<a href=\"/results/weekly").append(q).append("\">").append(esc(content.text(l, "results.weekly"))).append("</a> · ");
-      sb.append("<a href=\"/how-to-play").append(q).append("\">").append(esc(content.text(l, "howto.h1"))).append("</a>");
+      sb.append("<a href=\"/how-to-play").append(q).append("\">").append(esc(content.text(l, "howto.h1"))).append("</a> · ");
+      sb.append("<a href=\"/insights").append(q).append("\">").append(esc(content.text(l, "insights.nav"))).append("</a>");
       sb.append("</nav>\n<main>\n").append(main).append("</main>\n</div>\n");
       return sb.toString();
     } catch (RuntimeException e) {
@@ -295,6 +325,8 @@ public class SeoPages {
     Matcher w = WEEK.matcher(path);
     if (w.matches()) return weekMain(w.group(1), l, q);
     if (path.equals("/how-to-play")) return howToMain(l);
+    Optional<PublicPageProvider> pp = provider(path);
+    if (pp.isPresent()) return pp.get().mainHtml(path, l, q);
     return null;
   }
 

@@ -6,6 +6,7 @@
  * 不登录也能看，和登录后同一个框架（Layout 没登录时右上角是"登录 / 注册"，C90 位置不变）；下注、我的下注、资产、我的仍要登录
  * （点"押注"先去登录，登录后回到原市场和原选项）。分享链接 /m/:publicNo（架构方案第 18 节预留）跳到市场详情，查询参数（src、ref）保留。
  * 地址里的来源参数（src、cmp、ref、start）由 AttributionCapture 记下（MF-1，lib/attribution.ts）。
+ * S15（MF-11）：数据和文章 /insights、/insights/:slug（焦点战、BTC 每小时涨跌统计、文章），不登录可看。
  */
 import { lazy, Suspense, useEffect, type ReactNode } from 'react';
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation, useParams } from 'react-router-dom';
@@ -40,6 +41,8 @@ const Results = lazy(() => import('./pages/results/Results'));
 const Weekly = lazy(() => import('./pages/results/Weekly'));
 const WeekPage = lazy(() => import('./pages/results/WeekPage'));
 const HowTo = lazy(() => import('./pages/HowTo'));
+const Insights = lazy(() => import('./pages/insights/Insights'));
+const InsightPage = lazy(() => import('./pages/insights/InsightPage'));
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { session, checking, loggedOut } = useAuth();
@@ -112,6 +115,8 @@ export function AppRoutes() {
           <Route path="results/weekly" element={<Weekly />} />
           <Route path="results/weekly/:week" element={<WeekPage />} />
           <Route path="how-to-play" element={<HowTo />} />
+          <Route path="insights" element={<Insights />} />
+          <Route path="insights/:slug" element={<InsightPage />} />
           {/* 要登录 */}
           <Route
             element={

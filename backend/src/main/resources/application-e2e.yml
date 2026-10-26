@@ -67,3 +67,14 @@ forecast:
   sports:
     sync-enabled: false
     resolver-enabled: false
+  # 事件和文章自动化程序（forecast S15）：Gemini 的地址指向后端自己的替身 /api/e2e/gemini/**（content/web/E2eContent），端到端走真实的客户端、
+  # 起草、检查和发布流程，不连真实的 Gemini；key 是测试值（ci_only_ 开头），"没有 key"由用例经 /api/e2e/gemini/mode 切换。
+  # 定时任务不跑（每日草稿包会和用例抢数据），用例用 /api/e2e/content/tick、/pack 触发；读取超时调短（替身的慢回复用例）
+  content:
+    jobs-enabled: false
+    gemini:
+      api-key: ci_only_e2e_gemini
+      base-url: http://127.0.0.1:${server.port:8080}/api/e2e/gemini
+      read-timeout: 5s
+      backoff: 200ms
+      max-backoff: 400ms

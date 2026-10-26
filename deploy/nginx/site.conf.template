@@ -120,9 +120,9 @@ server {
   location ~ "^/m/([0-9]{1,19})$" {
     return 301 /markets/$1$is_args$args;
   }
-  # 市场详情、一周的周报：先问后端这一页存不存在（草稿、不存在的市场、不合法的周 → 后端 403 → 这里返回 404 状态码的页面，AC-85）；
+  # 市场详情、一周的周报、S15 的 SEO 页面（/insights/<slug>）：先问后端这一页存不存在（草稿、不存在的市场、不合法的周 → 后端 403 → 这里返回 404 状态码的页面，AC-85）；
   # 后端出错（5xx、超时）时照常返回页面，不因为检查失败打不开
-  location ~ "^/(markets|results/weekly)/[^/]+/?$" {
+  location ~ "^/(markets|results/weekly|insights)/[^/]+/?$" {
     auth_request /__seo/exists;
     error_page 403 =404 /index.html;
     error_page 500 502 503 504 = /index.html;

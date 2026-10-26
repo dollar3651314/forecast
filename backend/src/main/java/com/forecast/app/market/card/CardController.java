@@ -1,5 +1,6 @@
 package com.forecast.app.market.card;
 
+import com.forecast.app.account.api.ShareCodeApi;
 import com.forecast.app.common.error.BizException;
 import com.forecast.app.common.ratelimit.UserWriteLimited;
 import com.forecast.app.common.web.CurrentUser;
@@ -32,7 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
  *       公开的卡片图片（1200 × 630 PNG，Open Graph 和下载用）；{@code GET /api/public/cards/s/{凭证}.png?lang=}：客户生成的挑战卡、开奖卡。
  *       不登录也能取（和市场详情一样跟 {@code forecast.public-browse.enabled}）；带 ETag，内容没变时 304。</li>
  *   <li>{@code GET /api/public/share?kind=market|countdown|weekly&no=|week=&lang=}：分享用的链接、图片地址、标题和文字。登录了链接带分享人
- *       {@code ref}（客户编号），没登录不带；都带 {@code src=share}、{@code cmp=card-<种类>}（来源统计 MF-1，<b>不给分享人任何奖励</b>，MQ-5）。</li>
+ *       {@code ref}（S15 起是分享人的随机分享码 {@link ShareCodeApi}，不再是递增的客户编号），没登录不带；都带 {@code src=share}、{@code cmp=card-<种类>}（来源统计 MF-1，<b>不给分享人任何奖励</b>，MQ-5）。</li>
  *   <li>{@code POST /api/me/share} {@code {kind: challenge|win, marketNo, optionNo, showAmount, lang}}：生成挑战卡 / 押中的开奖卡（要登录，按客户限流）。</li>
  * </ul>
  * 分享链接用短链接 {@code /m/{编号}}（Nginx 301 到市场详情，参数保留）；{@code cl} 是卡片的语言（给 Telegram、X 的链接预览选语言，客户端不用它，
@@ -47,10 +48,12 @@ class CardController {
   private static final CacheControl LIVE = CacheControl.maxAge(Duration.ofSeconds(60)).cachePublic();
 
   private final CardService cards;
+  private final ShareCodeApi shareCodes;
   private final String clientUrl;
 
-  CardController(CardService cards, @Value("${forecast.client-url:}") String clientUrl) {
+  CardController(CardService cards, ShareCodeApi shareCodes, @Value("${forecast.client-url:}") String clientUrl) {
     this.cards = cards;
+    this.shareCodes = shareCodes;
     this.clientUrl = clientUrl == null ? "" : clientUrl.strip().replaceAll("/+$", "");
   }
 
@@ -99,7 +102,7 @@ class CardController {
   ShareInfo share(@RequestParam String kind, @RequestParam(required = false) String no, @RequestParam(required = false) String week,
       @RequestParam(required = false) String lang, HttpServletRequest req) {
     String l = PublicContent.lang(lang);
-    Long ref = CurrentUser.optional().orElse(null);
+    String ref = CurrentUser.optional().map(shareCodes::codeOf).orElse(null);
     String b = base(req);
     if ("weekly".equals(kind)) {
       CardModel m = cards.weeklyCard(week, l).orElseThrow(CardController::notFound);
@@ -134,18 +137,18 @@ class CardController {
     };
     CardModel m = cards.tokenCard(s.token(), l).orElseThrow(CardController::notFound);
     String b = base(req);
-    return new ShareInfo(m.kind(), b + "/m/" + no + query(m.kind(), userId, l, s.token()), b + "/api/public/cards/s/" + s.token() + ".png?lang=" + l, m.title(),
+    return new ShareInfo(m.kind(), b + "/m/" + no + query(m.kind(), shareCodes.codeOf(userId), l, s.token()), b + "/api/public/cards/s/" + s.token() + ".png?lang=" + l, m.title(),
         m.text());
   }
 
   // =====================================================================
 
-  /** 链接参数：src=share、cmp=card-<种类>、ref=分享人（登录了才有）、cl=卡片语言、card=凭证 */
-  static String query(String kind, Long ref, String lang, String token) {
+  /** 链接参数：src=share、cmp=card-<种类>、ref=分享人的分享码（登录了才有，S15）、cl=卡片语言、card=凭证 */
+  static String query(String kind, String ref, String lang, String token) {
     Map<String, String> q = new LinkedHashMap<>();
     q.put("src", "share");
     q.put("cmp", "card-" + kind);
-    if (ref != null) q.put("ref", String.valueOf(ref));
+    if (ref != null) q.put("ref", ref);
     q.put("cl", lang);
     if (token != null) q.put("card", token);
     StringBuilder sb = new StringBuilder();

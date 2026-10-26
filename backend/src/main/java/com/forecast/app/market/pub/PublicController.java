@@ -122,6 +122,8 @@ class PublicController {
       for (String p : List.of("/markets", "/results", "/results/weekly", "/how-to-play")) url(sb, b, p, null);
       for (MarketPublicService.Week w : pub.weeks(1).items()) if (w.complete()) url(sb, b, "/results/weekly/" + w.week(), null);
       for (MarketPublicService.SitemapEntry e : pub.sitemap(SITEMAP_MARKETS)) url(sb, b, "/markets/" + e.publicNo(), e.lastModified());
+      // S15：自动化程序的 SEO 页面（/insights/**，MF-11）
+      for (com.forecast.app.market.api.PublicPageProvider.Entry e : seo.providedSitemap()) url(sb, b, e.path(), e.lastModified());
     }
     sb.append("</urlset>\n");
     return ResponseEntity.ok().cacheControl(CacheControl.noCache()).contentType(MediaType.APPLICATION_XML).body(sb.toString());

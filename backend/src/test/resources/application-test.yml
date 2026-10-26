@@ -132,5 +132,17 @@ forecast:
   riskalert:
     scan-enabled: false
     scan-lag: 0s
+  # 事件和文章自动化程序（S15）不定时跑，测试里直接调用 ContentTasks.runOnce()；起草在调用线程里做完（async = false）。
+  # Gemini 不连外网：地址指向本机不监听的端口，用到的测试换成本机的 HTTP 替身（ContentTestSupport）；key 是测试值
+  content:
+    jobs-enabled: false
+    async: false
+    gemini:
+      api-key: ci_only_test_gemini
+      base-url: http://127.0.0.1:9
+      connect-timeout: 500ms
+      read-timeout: 1s
+      backoff: 20ms
+      max-backoff: 80ms
   storage:
     local-dir: ${java.io.tmpdir}/forecast-test-storage

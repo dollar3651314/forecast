@@ -6,6 +6,7 @@ import { App } from './App';
 import './i18n';
 import './styles/global.css';
 import './styles/markets.css';
+import './styles/content.css';
 import { IS_MOCK } from './api/mode';
 import { BRAND_NAME } from './lib/brand';
 

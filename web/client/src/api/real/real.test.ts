@@ -391,6 +391,20 @@ describe('Web Push 订阅', () => {
   });
 });
 
+describe('S15 SEO 页面（MF-11）', () => {
+  it('列表和一页的地址带语言；401 不当成登录失效', async () => {
+    let lost = 0;
+    const off = onUnauthorized(() => lost++);
+    stubFetch({ body: { items: [] } }, { body: { slug: 'btc-hourly' } }, { status: 401, body: { code: 'UNAUTHORIZED', message: 'x', fields: [] } });
+    await pub.listInsights('zh-TW');
+    await pub.getInsight('btc-hourly', 'en');
+    await expect(pub.getInsight('focus-1', 'en')).rejects.toMatchObject({ reason: 'unauthorized' });
+    expect(calls.map((c) => c.url)).toEqual(['/api/public/insights?lang=zh-TW', '/api/public/insights/btc-hourly?lang=en', '/api/public/insights/focus-1?lang=en']);
+    expect(lost).toBe(0);
+    off();
+  });
+});
+
 describe('S13 不登录也能看的接口（MF-1、MF-3、MF-4、MF-6）', () => {
   it('今日场次、开奖记录、周报、说明页的地址；401 不当成登录失效', async () => {
     let lost = 0;

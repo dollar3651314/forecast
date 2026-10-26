@@ -5,7 +5,7 @@ import { ALL_PERMISSION_CODES } from './permissions';
 
 describe('菜单', () => {
   it('一级菜单共 13 个，顺序和后端 Menus.java 一致', () => {
-    expect(MENU.map((m) => m.key)).toEqual(['dashboard', 'market', 'judge', 'settle', 'reports', 'growth', 'params', 'customers', 'kyc', 'funds', 'risk-alerts', 'notify', 'system']);
+    expect(MENU.map((m) => m.key)).toEqual(['dashboard', 'market', 'judge', 'settle', 'reports', 'growth', 'content', 'params', 'customers', 'kyc', 'funds', 'risk-alerts', 'notify', 'system']);
   });
 
   it('每个页面路由都对应一个菜单入口', () => {

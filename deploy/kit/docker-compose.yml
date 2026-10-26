@@ -54,6 +54,8 @@ services:
       # JVM 各部分上限（C75，覆盖镜像里的默认值；镜像默认值按 768 MB 容器设，见 deploy/app.Dockerfile）：
       #   堆 256 + 元空间 128 + 代码缓存 48 + 直接内存 32 + 线程栈 512K × 约 110 个线程（Tomcat 最多 60 个 + 连接池、定时任务、推送等）≈ 55
       #   = 519 MB，加 GC、JIT 编译、类库等其他本地内存约 50 MB，合计约 570 MB ≤ mem_limit 576 MB
+      #   S15 事件和文章自动化程序跑在这个进程里（不另起容器：另起一个 JVM 至少要 150 MB，C75 的余量只有 171 MB）：多 2 个工作线程（约 1 MB 栈，
+      #   在上面"约 110 个线程"里）、堆里同时最多 2 张 1200 × 630 的图（约 6 MB），Gemini 的请求和返回只有几 KB；上限不变（开发记录/S15-自动化程序.md 第 3 节）
       JAVA_TOOL_OPTIONS: "-Xms128m -Xmx256m -XX:MaxMetaspaceSize=128m -XX:ReservedCodeCacheSize=48m -XX:MaxDirectMemorySize=32m -Xss512k -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError"
       # 线程数和数据库连接数也有上限，线程栈和 MySQL 的连接内存才算得清（测试环境的访问量远用不到）
       SERVER_TOMCAT_THREADS_MAX: "60"
@@ -84,6 +86,14 @@ services:
       FC_SRC_FOOTBALL_DATA_TOKEN: ${FC_SRC_FOOTBALL_DATA_TOKEN:-}
       FC_SRC_BALLDONTLIE_KEY: ${FC_SRC_BALLDONTLIE_KEY:-}
       FC_SRC_THESPORTSDB_KEY: ${FC_SRC_THESPORTSDB_KEY:-}
+      # 事件和文章自动化（forecast S15，开发记录/S15-自动化程序.md）：内容程序跑在应用进程里（不另起容器，C75 内存余量不够）；
+      # FC_CONTENT_ENABLED=false 关掉整个内容程序（其他功能不受影响）。Gemini key 由 Amos 填，不经过 AI、不进仓库；空着 = "未配置"，
+      # AI 起草不可用，市场草稿、数据卡、页面数据照常
+      FC_CONTENT_ENABLED: ${FC_CONTENT_ENABLED:-true}
+      FC_GEMINI_API_KEY: ${FC_GEMINI_API_KEY:-}
+      FC_GEMINI_MODEL: ${FC_GEMINI_MODEL:-gemini-2.5-flash-lite}
+      # Polymarket 公开接口（大 V 对照图引用同类题）：条款待核实，默认关闭
+      FC_SOURCE_POLYMARKET_ENABLED: ${FC_SOURCE_POLYMARKET_ENABLED:-false}
       # 区块链（D4 第二步才填，全部用测试网）；没配置的链不扫块
       FC_WALLET_TRON_XPUB: ${FC_WALLET_TRON_XPUB:-}
       FC_WALLET_ETH_RPC_URL: ${FC_WALLET_ETH_RPC_URL:-}

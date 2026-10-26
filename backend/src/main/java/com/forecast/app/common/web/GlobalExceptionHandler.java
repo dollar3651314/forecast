@@ -80,6 +80,21 @@ public class GlobalExceptionHandler {
       Map.entry("REMINDER_NOT_AVAILABLE", HttpStatus.CONFLICT),
       Map.entry("REMINDER_TOO_MANY", HttpStatus.CONFLICT),
       Map.entry("REMINDER_LOGIN_REQUIRED", HttpStatus.FORBIDDEN),
+      // forecast S15：事件和文章自动化程序（内容中心）
+      Map.entry("CONTENT_DISABLED", HttpStatus.SERVICE_UNAVAILABLE),
+      Map.entry("AI_UNAVAILABLE", HttpStatus.CONFLICT),
+      Map.entry("DATA_UNAVAILABLE", HttpStatus.CONFLICT),
+      Map.entry("DRAFT_STATE_CHANGED", HttpStatus.CONFLICT),
+      Map.entry("DRAFT_CHECK_FAILED", HttpStatus.CONFLICT),
+      Map.entry("DRAFT_EXPIRED", HttpStatus.CONFLICT),
+      Map.entry("DRAFT_COPY_ONLY", HttpStatus.CONFLICT),
+      Map.entry("PUBLISH_STOPPED", HttpStatus.CONFLICT),
+      Map.entry("PAGE_LIMIT", HttpStatus.CONFLICT),
+      Map.entry("ARTICLE_LIMIT", HttpStatus.CONFLICT),
+      Map.entry("MARKET_STARTED", HttpStatus.CONFLICT),
+      Map.entry("ECON_STATE_CHANGED", HttpStatus.CONFLICT),
+      Map.entry("CONTENT_TEMPLATE_CHANGED", HttpStatus.CONFLICT),
+      Map.entry("WORD_BUILT_IN", HttpStatus.CONFLICT),
       Map.entry("NOT_FOUND", HttpStatus.NOT_FOUND));
 
   @ExceptionHandler(BizException.class)

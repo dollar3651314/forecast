@@ -1475,6 +1475,8 @@ export function setCustomerStaff(id: number, staff: boolean, reason: string): Pr
 const GROWTH_SOURCES: Array<[string, string, string, number]> = [
   ['tg_ch', 'w43', '', 38],
   ['x', 'launch', 'kol_amy', 21],
+  // S15：客户分享链接的 ref 是随机分享码，统计里换算成分享人的客户编号
+  ['share', 'card', 'k7mqx2hpre', 9],
   ['', '', '', 12],
 ];
 
@@ -1487,6 +1489,7 @@ export function getGrowthReport(q: GrowthQuery): Promise<GrowthReport> {
       const eligible = wi === 0 ? 0 : reg;
       return {
         week, src, cmp, ref,
+        refCustomer: ref === 'k7mqx2hpre' ? '100023' : null,
         visits: src ? reg * 6 + wi : 0,
         registrations: reg,
         firstDeposits: Math.round(reg * 0.4),
@@ -1496,7 +1499,7 @@ export function getGrowthReport(q: GrowthQuery): Promise<GrowthReport> {
       };
     }),
   );
-  const sum = (k: keyof Omit<GrowthCohort, 'week' | 'src' | 'cmp' | 'ref'>) => cohorts.reduce((a, c) => a + c[k], 0);
+  const sum = (k: keyof Omit<GrowthCohort, 'week' | 'src' | 'cmp' | 'ref' | 'refCustomer'>) => cohorts.reduce((a, c) => a + c[k], 0);
   return respond(
     () => {
       const ended = markets.filter((m) => ['settled', 'voided', 'cancelled'].includes(m.d.status));

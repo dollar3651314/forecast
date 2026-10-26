@@ -1,8 +1,8 @@
 /**
  * 分享卡片（forecast S14，MF-5；需求说明书 v1.3.2 第 5.2 节"分享卡片和挑战卡"、AC-86、AC-87；开发记录/S14-分享卡片.md）。两种形态都跑（tests/targets.ts）。
- * 1. 电脑 1366×768：市场详情"分享"（市场卡，链接带 src=share、cmp=card-market、分享人 ref）→ 下注 → 弹出挑战卡（主操作在首屏，C79）→
+ * 1. 电脑 1366×768：市场详情"分享"（市场卡，链接带 src=share、cmp=card-market、分享人的随机分享码 ref——S15 起不再是客户编号）→ 下注 → 弹出挑战卡（主操作在首屏，C79）→
  *    不跑 JS 打开挑战卡链接（Telegram、X 的抓取看到的）：og:image 是这张挑战卡、twitter:card 大图；图片是 1200×630 的 PNG（经过 Nginx）→
- *    带 JS 打开链接：记一次 src=share 的访问 → 后台来源统计里有这个分享人（MF-1，不发任何奖励）。
+ *    带 JS 打开链接：记一次 src=share 的访问 → 后台来源统计里分享码换算成这个分享人的客户编号（MF-1，不发任何奖励）。
  * 2. 手机 390 / 375：市场卡"分享"调系统分享面板（navigator.share），下注后挑战卡的"分享"按钮在首屏内（C79）。
  * 3. 平台裁决结算后：赢家在"我的下注"分享押中的开奖卡，派彩金额默认不显示、勾选后显示（AC-86）；取消的市场、周报、封盘倒计时的卡片图片；robots 放行卡片图片。
  */
@@ -12,6 +12,9 @@ import { CLIENT_PASSWORD, step, uniqueId } from './support';
 import { CLIENT_URL, DEPLOYED, STUB_URL } from './targets';
 
 type Share = { kind: string; url: string; imageUrl: string; title: string; text: string };
+
+/** 分享码（S15，后端 ShareCodeApi.FORMAT）：10 位小写字母和数字，去掉容易看错的 i、l、o、0、1 */
+const CODE = '[a-hj-km-np-z][a-hj-km-np-z2-9]{9}';
 
 /** PNG 的宽高（IHDR：第 16～23 字节） */
 function pngSize(b: Buffer): { w: number; h: number } {
@@ -71,7 +74,7 @@ test('电脑：市场卡分享带分享人 → 下注后挑战卡 → 链接预�
     const uid = await userIdOf(client.api);
     await step('登录（页面）', () => loginInPage(page, client.email));
 
-    await step('市场详情"分享"：市场卡图片、链接带 src=share、cmp=card-market、ref=客户编号、cl=zh-CN', async () => {
+    const code = await step('市场详情"分享"：市场卡图片、链接带 src=share、cmp=card-market、ref=分享码（不是客户编号）、cl=zh-CN', async () => {
       await page.goto(`/markets/${m.no}`);
       const loaded = page.waitForResponse((r) => r.url().includes(`/api/public/cards/market/${m.no}.png`));
       await page.getByTestId('share-open').click();
@@ -79,10 +82,14 @@ test('电脑：市场卡分享带分享人 → 下注后挑战卡 → 链接预�
       await expect(dlg).toBeVisible();
       expect((await loaded).status()).toBe(200);
       await expect(dlg.getByTestId('share-img')).toHaveJSProperty('naturalWidth', 1200);
-      await expect(dlg.getByTestId('share-url')).toHaveValue(new RegExp(`/m/${m.no}\\?src=share&cmp=card-market&ref=${uid}&cl=zh-CN$`));
+      await expect(dlg.getByTestId('share-url')).toHaveValue(new RegExp(`/m/${m.no}\\?src=share&cmp=card-market&ref=${CODE}&cl=zh-CN$`));
+      const url = await dlg.getByTestId('share-url').inputValue();
+      const c = /[?&]ref=([^&]+)/.exec(url)![1];
+      expect(c, '链接里不出现客户编号').not.toBe(uid);
       await expectInFirstScreen(page, 'share-copy', '电脑 1366×768 分享弹窗的"复制链接"');
       await page.keyboard.press('Escape');
       await expect(dlg).toHaveCount(0);
+      return c;
     });
 
     const link = await step('右栏押"是" 10 → 下注成功后弹出挑战卡（可以关掉）', async () => {
@@ -93,7 +100,7 @@ test('电脑：市场卡分享带分享人 → 下注后挑战卡 → 链接预�
       await expect(dlg).toBeVisible();
       await expect(dlg.getByTestId('share-img')).toHaveJSProperty('naturalWidth', 1200);
       const url = await dlg.getByTestId('share-url').inputValue();
-      expect(url).toMatch(new RegExp(`/m/${m.no}\\?src=share&cmp=card-challenge&ref=${uid}&cl=zh-CN&card=[A-Za-z0-9_-]{22}$`));
+      expect(url).toMatch(new RegExp(`/m/${m.no}\\?src=share&cmp=card-challenge&ref=${code}&cl=zh-CN&card=[A-Za-z0-9_-]{22}$`));
       await expectInFirstScreen(page, 'share-copy', '电脑 1366×768 挑战卡的"复制链接"');
       await expect(dlg.getByTestId('share-tg')).toHaveAttribute('href', new RegExp(`^https://t\\.me/share/url\\?url=${encodeURIComponent(url).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
       await dlg.getByRole('button', { name: '关闭' }).click();
@@ -118,22 +125,23 @@ test('电脑：市场卡分享带分享人 → 下注后挑战卡 → 链接预�
       await p.close();
     });
 
-    await step('带 JS 打开链接：记一次带来源的访问（src=share、cmp=card-challenge、ref=分享人）', async () => {
+    await step('带 JS 打开链接：记一次带来源的访问（src=share、cmp=card-challenge、ref=分享码）', async () => {
       const p = await visitor.newPage();
       const visit = p.waitForRequest((r) => r.url().includes('/api/attribution/visit') && r.method() === 'POST');
       await p.goto(link);
       const body = (await visit).postDataJSON() as { src?: string; cmp?: string; ref?: string };
-      expect(body).toMatchObject({ src: 'share', cmp: 'card-challenge', ref: uid });
+      expect(body).toMatchObject({ src: 'share', cmp: 'card-challenge', ref: code });
       await expect(p).toHaveURL(new RegExp(`/markets/${m.no}\\?`));
       await expect(p.getByRole('heading', { name: new RegExp(title) })).toBeVisible();
       await p.close();
     });
 
-    await step('后台来源统计：这个分享人的分享链接有 1 次访问（只记来源，不发奖励）', async () => {
+    await step('后台来源统计：这个分享码有 1 次访问，换算成分享人的客户编号（只记来源，不发奖励）', async () => {
       const a = await adminSession(anon);
-      const r = await json<{ cohorts: { src: string; cmp: string; ref: string; visits: number }[] }>(await a.get('/api/admin/growth/report'), '来源统计');
-      const row = r.cohorts.find((c) => c.src === 'share' && c.cmp === 'card-challenge' && c.ref === uid);
+      const r = await json<{ cohorts: { src: string; cmp: string; ref: string; refCustomer: string | null; visits: number }[] }>(await a.get('/api/admin/growth/report'), '来源统计');
+      const row = r.cohorts.find((c) => c.src === 'share' && c.cmp === 'card-challenge' && c.ref === code);
       expect(row?.visits).toBe(1);
+      expect(row?.refCustomer).toBe(uid);
       await a.dispose();
     });
     await client.api.dispose();
@@ -178,7 +186,7 @@ for (const vp of [
         await page.getByTestId('share-native').click();
         const shared = await page.evaluate(() => (window as unknown as { __shared: ShareData[] }).__shared);
         expect(shared).toHaveLength(1);
-        expect(shared[0].url).toMatch(new RegExp(`/m/${m.no}\\?src=share&cmp=card-market&ref=\\d+&cl=zh-CN$`));
+        expect(shared[0].url).toMatch(new RegExp(`/m/${m.no}\\?src=share&cmp=card-market&ref=${CODE}&cl=zh-CN$`));
         expect(shared[0].text).toContain('奖池');
         await page.getByRole('button', { name: '关闭' }).click();
       });

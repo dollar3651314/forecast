@@ -33,7 +33,7 @@ function pct(a: number, b: number): string {
   return b > 0 ? `${((a * 100) / b).toFixed(1)}%` : '—';
 }
 
-function Source({ c }: { c: Pick<GrowthCohort, 'src' | 'cmp' | 'ref'> }) {
+function Source({ c }: { c: Pick<GrowthCohort, 'src' | 'cmp' | 'ref' | 'refCustomer'> }) {
   const { t } = useTranslation();
   if (!c.src && !c.cmp && !c.ref) return <span className="muted">{t('gr.direct')}</span>;
   return (
@@ -41,6 +41,7 @@ function Source({ c }: { c: Pick<GrowthCohort, 'src' | 'cmp' | 'ref'> }) {
       {c.src ? <Tag color="blue">{c.src}</Tag> : <span className="muted">—</span>}
       {c.cmp ? <Tag>{c.cmp}</Tag> : null}
       {c.ref ? <Tag color="purple">{t('gr.refBy', { ref: c.ref })}</Tag> : null}
+      {c.refCustomer ? <Tag color="geekblue">{t('gr.refCustomer', { no: c.refCustomer })}</Tag> : null}
     </Space>
   );
 }

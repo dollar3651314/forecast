@@ -8,7 +8,7 @@
  * 都不需要登录（`quiet401`：服务器关掉公开浏览时返回 401，页面自己去登录页，不当成"登录失效"）。
  */
 import { get, post } from '../http';
-import type { HowToPage, Lang, Page, ResultItem, ResultQuery, TodaySlate, WeekDetail, WeekList } from '../types';
+import type { HowToPage, InsightList, InsightView, Lang, Page, ResultItem, ResultQuery, TodaySlate, WeekDetail, WeekList } from '../types';
 
 export const todaySlate = (from: string, to: string): Promise<TodaySlate> => get<TodaySlate>('/api/markets/today', { query: { from, to }, quiet401: true });
 
@@ -23,3 +23,8 @@ export const getHowTo = (lang: Lang): Promise<HowToPage> => get<HowToPage>('/api
 
 export const recordVisit = (v: { src?: string; cmp?: string; ref?: string; start?: string }): Promise<void> =>
   post<void>('/api/attribution/visit', v, { device: true, quiet401: true });
+
+/** S15：SEO 页面（MF-11）：`GET /api/public/insights?lang`、`GET /api/public/insights/{slug}?lang` */
+export const listInsights = (lang: Lang): Promise<InsightList> => get<InsightList>('/api/public/insights', { query: { lang }, quiet401: true });
+export const getInsight = (slug: string, lang: Lang): Promise<InsightView> =>
+  get<InsightView>(`/api/public/insights/${encodeURIComponent(slug)}`, { query: { lang }, quiet401: true });

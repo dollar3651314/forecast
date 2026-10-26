@@ -17,9 +17,14 @@ import java.util.List;
  */
 public interface GrowthAdminApi {
 
-  /** 一个注册周 × 一个来源 */
+  /**
+   * 一个注册周 × 一个来源。
+   *
+   * @param refCustomer 分享人（S15）：ref 是分享码时换成它的客户编号；旧链接（S14）里 src=share 的纯数字 ref 就是客户编号，原样给；
+   *     其他（渠道编号、不认识的码）为空。只在后台显示
+   */
   record Cohort(String week, String src, String cmp, String ref, long visits, long registrations, long firstDeposits, long activated, long week2Active,
-      long week2Eligible) {}
+      long week2Eligible, String refCustomer) {}
 
   /** 一个已结束的市场 */
   record MarketRow(String marketNo, String category, String titleZhCN, String titleEn, String status, String endedAt, int bettors, String pool, String reason) {}

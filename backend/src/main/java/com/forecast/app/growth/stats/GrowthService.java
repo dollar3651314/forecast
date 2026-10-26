@@ -1,6 +1,7 @@
 package com.forecast.app.growth.stats;
 
 import com.forecast.app.account.api.AttributionApi;
+import com.forecast.app.account.api.ShareCodeApi;
 import com.forecast.app.common.error.ValidationException;
 import com.forecast.app.growth.api.GrowthAdminApi;
 import com.forecast.app.growth.visit.VisitMapper;
@@ -47,15 +48,18 @@ public class GrowthService implements GrowthAdminApi {
   private final MarketApi markets;
   private final MarketPoolView poolView;
   private final VisitMapper visits;
+  private final ShareCodeApi shareCodes;
   private final Clock clock;
 
-  GrowthService(AttributionApi attribution, WalletSignalsApi wallet, PoolApi pool, MarketApi markets, MarketPoolView poolView, VisitMapper visits, Clock clock) {
+  GrowthService(AttributionApi attribution, WalletSignalsApi wallet, PoolApi pool, MarketApi markets, MarketPoolView poolView, VisitMapper visits,
+      ShareCodeApi shareCodes, Clock clock) {
     this.attribution = attribution;
     this.wallet = wallet;
     this.pool = pool;
     this.markets = markets;
     this.poolView = poolView;
     this.visits = visits;
+    this.shareCodes = shareCodes;
     this.clock = clock;
   }
 
@@ -156,14 +160,28 @@ public class GrowthService implements GrowthAdminApi {
     }
     List<Cohort> cohorts = new ArrayList<>();
     long[] t = new long[6];
+    Map<String, Long> owners = shareCodes.owners(rows.keySet().stream().map(k -> k.get(3)).toList());
     for (Map.Entry<List<String>, long[]> e : rows.entrySet()) {
       long[] v = e.getValue();
       for (int i = 0; i < 6; i++) t[i] += v[i];
-      cohorts.add(new Cohort(e.getKey().get(0), e.getKey().get(1), e.getKey().get(2), e.getKey().get(3), v[0], v[1], v[2], v[3], v[4], v[5]));
+      List<String> k = e.getKey();
+      cohorts.add(new Cohort(k.get(0), k.get(1), k.get(2), k.get(3), v[0], v[1], v[2], v[3], v[4], v[5], refCustomer(k.get(1), k.get(3), owners)));
     }
     MarketPart mp = marketPart(r);
     return new Report(r.fromMonday().toString(), r.toMondayExclusive().minusDays(1).toString(), r.basis(), cohorts,
         new Totals(t[0], t[1], t[2], t[3], t[4], t[5]), mp.weeks(), mp.reasons(), mp.rows(), col.truncated());
+  }
+
+  /** 旧链接（S14）里 ref 是客户编号：只认 src=share 的纯数字（别的渠道的 ref 可能是渠道自己的编号） */
+  private static final java.util.regex.Pattern LEGACY_REF = java.util.regex.Pattern.compile("\\d{1,19}");
+
+  /** 分享人的客户编号（S15）：分享码 → 它的客户；src=share 的纯数字 → 旧链接，原样；其他为空 */
+  static String refCustomer(String src, String ref, Map<String, Long> owners) {
+    if (ref == null || ref.isEmpty()) return null;
+    Long owner = owners.get(ref);
+    if (owner != null) return String.valueOf(owner);
+    if ("share".equals(src) && LEGACY_REF.matcher(ref).matches()) return ref;
+    return null;
   }
 
   record MarketPart(List<MarketWeek> weeks, List<ReasonCount> reasons, List<MarketRow> rows) {}
@@ -241,11 +259,13 @@ public class GrowthService implements GrowthAdminApi {
     switch (kind) {
       case "sources" -> {
         Report rep = report(from, to, basis);
-        out.row(en ? List.of("week", "src", "cmp", "ref", "visits", "registrations", "first_deposits", "activated", "week2_active", "week2_eligible")
-            : List.of("注册周", "渠道 src", "活动 cmp", "分享人 ref", "访问", "注册", "首充", "激活（首注）", "第 2 周仍下注", "第 2 周已过完的注册"));
+        out.row(en ? List.of("week", "src", "cmp", "ref", "visits", "registrations", "first_deposits", "activated", "week2_active", "week2_eligible",
+            "ref_customer_no")
+            : List.of("注册周", "渠道 src", "活动 cmp", "分享人 ref", "访问", "注册", "首充", "激活（首注）", "第 2 周仍下注", "第 2 周已过完的注册",
+                "分享人客户编号"));
         for (Cohort c : rep.cohorts()) {
           out.row(List.of(c.week(), c.src(), c.cmp(), c.ref(), String.valueOf(c.visits()), String.valueOf(c.registrations()), String.valueOf(c.firstDeposits()),
-              String.valueOf(c.activated()), String.valueOf(c.week2Active()), String.valueOf(c.week2Eligible())));
+              String.valueOf(c.activated()), String.valueOf(c.week2Active()), String.valueOf(c.week2Eligible()), nz(c.refCustomer())));
         }
       }
       case "markets" -> {
@@ -260,9 +280,15 @@ public class GrowthService implements GrowthAdminApi {
       default -> {
         Collected col = customers(r);
         out.row(en ? List.of("customer_no", "registered_at", "week", "first_src", "first_cmp", "first_ref", "first_start", "reg_src", "reg_cmp", "reg_ref",
-            "reg_start", "first_deposit_at", "first_bet_at", "week2_active")
+            "reg_start", "first_deposit_at", "first_bet_at", "week2_active", "first_ref_customer_no", "reg_ref_customer_no")
             : List.of("客户编号", "注册时间（UTC）", "注册周", "首次来源 src", "首次来源 cmp", "首次来源 ref", "首次来源 start", "注册来源 src", "注册来源 cmp",
-                "注册来源 ref", "注册来源 start", "首充时间（UTC）", "首注时间（UTC）", "第 2 周仍下注"));
+                "注册来源 ref", "注册来源 start", "首充时间（UTC）", "首注时间（UTC）", "第 2 周仍下注", "首次来源分享人客户编号", "注册来源分享人客户编号"));
+        List<String> refs = new ArrayList<>();
+        for (Customer c : col.customers()) {
+          if (c.first() != null && c.first().ref() != null) refs.add(c.first().ref());
+          if (c.reg() != null && c.reg().ref() != null) refs.add(c.reg().ref());
+        }
+        Map<String, Long> owners = shareCodes.owners(refs);
         for (Customer c : col.customers()) {
           AttributionApi.Source f = c.first();
           AttributionApi.Source g = c.reg();
@@ -270,7 +296,8 @@ public class GrowthService implements GrowthAdminApi {
               f == null ? "" : nz(f.ref()), f == null ? "" : nz(f.start()), g == null ? "" : nz(g.src()), g == null ? "" : nz(g.cmp()),
               g == null ? "" : nz(g.ref()), g == null ? "" : nz(g.start()), c.firstDepositAt() == null ? "" : c.firstDepositAt().toInstant(ZoneOffset.UTC).toString(),
               c.firstBetAt() == null ? "" : c.firstBetAt().toInstant(ZoneOffset.UTC).toString(),
-              c.week2Active() == null ? "" : c.week2Active() ? "1" : "0"));
+              c.week2Active() == null ? "" : c.week2Active() ? "1" : "0", f == null ? "" : nz(refCustomer(f.src(), f.ref(), owners)),
+              g == null ? "" : nz(refCustomer(g.src(), g.ref(), owners))));
         }
       }
     }

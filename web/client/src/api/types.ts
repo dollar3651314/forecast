@@ -690,3 +690,81 @@ export interface ShareCreate {
   optionNo?: string;
   showAmount?: boolean;
 }
+
+// ---------------------------------------------------------------- S15 SEO 页面（MF-11；后端 content/page/Insights）
+
+/** 页面种类：焦点战（每场一页）、BTC 每小时涨跌统计、文章 */
+export type InsightKind = 'FOCUS' | 'BTC_STATS' | 'ARTICLE';
+
+export interface InsightItem {
+  slug: string;
+  kind: InsightKind;
+  title: string;
+  /** 审核发布过的说明（文章取第一段）；没有时为空 */
+  summary: string | null;
+  marketNo: string | null;
+  updatedAt: string;
+}
+
+export interface InsightList {
+  items: InsightItem[];
+}
+
+/** 焦点战页的市场快照（实时，和市场详情同一来源） */
+export interface InsightMarket {
+  publicNo: string;
+  category: MarketCategory;
+  title: I18nText;
+  status: string;
+  openAt: string;
+  closeAt: string;
+  eventStartAt: string | null;
+  eventEndAt: string | null;
+  todaySlate: boolean;
+  feeRate: string;
+  total: string;
+  bettors: number;
+  options: Array<{ optionNo: string; seq: number; label: I18nText; amount: string; bettors: number; pct: string; mult: string | null }>;
+  winningOptionNo: string | null;
+  sourcePrimary: string | null;
+  at: string;
+}
+
+/** BTC 每小时涨跌统计（收盘价 ≥ 开盘价算涨，和本站加密市场同一口径） */
+export interface BtcStats {
+  symbol: string;
+  source: string;
+  fetchedAt: string;
+  sha256: string;
+  from: string;
+  to: string;
+  bars: number;
+  up24: number;
+  down24: number;
+  up24Pct: string;
+  up7d: number;
+  down7d: number;
+  up7dPct: string;
+  lastClose: string;
+  change24Pct: string;
+  byHour: Array<{ hour: number; up: number; total: number; pct: string }>;
+}
+
+export interface InsightView {
+  slug: string;
+  kind: InsightKind;
+  lang: Lang;
+  title: string;
+  /** 审核发布过的说明；这种语言还没有时为空（页面只显示数据） */
+  intro: string | null;
+  /** 文章正文 */
+  body: string | null;
+  marketNo: string | null;
+  market: InsightMarket | null;
+  btc: BtcStats | null;
+  /** 审核发布过的赛前数据短文 */
+  preview: { title: string; body: string; publishedAt: string } | null;
+  updatedAt: string;
+  /** 这种语言还没有、显示的是另一种语言时为那种语言 */
+  fallbackLang: Lang | null;
+}

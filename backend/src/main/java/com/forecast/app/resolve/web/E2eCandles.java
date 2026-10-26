@@ -25,6 +25,9 @@ import org.springframework.web.bind.annotation.RestController;
  *       设一个窗口的开始价、结束价（fail = true 时这个来源返回 500）；S14 加可选的 {@code delayMs}（0～4000）：这个来源回复前先等这么久，
  *       让端到端里两个触发（定时任务、用例的 tick）的取数一定重叠（crypto.spec.ts 偶发失败的根因复现）</li>
  *   <li>{@code GET /api/e2e/candles/binance/api/v3/klines}、{@code GET /api/e2e/candles/okx/api/v5/market/history-candles}：照真实接口的格式返回</li>
+ *   <li>S15：{@code interval=1h}（币安）/ {@code bar=1H}（OKX）返回固定规律的 1 小时 K 线（{@link #hourlyClose}：开盘 60000 + 小时序号 × 10，
+ *       每 3 小时里 2 涨 1 跌），给自动化程序的 BTC 每小时涨跌统计页、行情短文；{@code POST /api/e2e/candles/hourly} {@code {"fail": true}} 让两个来源都返回 500
+ *       （"数据不可用"的降级）</li>
  *   <li>{@code POST /api/e2e/resolve/tick}：立即跑一轮自动裁决（不用等 15 秒的任务）；S7 起同时跑一轮平台裁决的任务（公示期满结算、E6 / E7 到期作废、超时提醒）</li>
  * </ul>
  */
@@ -63,8 +66,41 @@ class E2eCandles {
     return ResponseEntity.ok(Map.of("sources", sources));
   }
 
+  /** S15：1 小时 K 线是否返回 500 */
+  private volatile boolean hourlyFail;
+
+  record Hourly(Boolean fail) {}
+
+  @PostMapping("/api/e2e/candles/hourly")
+  Map<String, Object> hourly(@RequestBody Hourly body) {
+    hourlyFail = body != null && Boolean.TRUE.equals(body.fail());
+    return Map.of("fail", hourlyFail);
+  }
+
+  /** 第 h 小时（从 1970 起的小时序号）的开盘价、收盘价：每 3 小时里第 0 个跌，另外两个涨 */
+  static BigDecimal[] hourlyBar(long hourIndex) {
+    BigDecimal open = BigDecimal.valueOf(60_000 + (hourIndex % 1000) * 10);
+    BigDecimal close = hourIndex % 3 == 0 ? open.subtract(BigDecimal.valueOf(25)) : open.add(BigDecimal.valueOf(35));
+    return new BigDecimal[] {open, close};
+  }
+
+  static BigDecimal hourlyClose(long hourIndex) {
+    return hourlyBar(hourIndex)[1];
+  }
+
   @GetMapping("/api/e2e/candles/binance/api/v3/klines")
-  ResponseEntity<Object> binance(@RequestParam String symbol, @RequestParam long startTime, @RequestParam long endTime) {
+  ResponseEntity<Object> binance(@RequestParam String symbol, @RequestParam long startTime, @RequestParam long endTime,
+      @RequestParam(required = false) String interval) {
+    if ("1h".equals(interval)) {
+      if (hourlyFail) return ResponseEntity.status(500).body(Map.of("code", -1, "msg", "e2e: 500"));
+      List<Object> out = new ArrayList<>();
+      for (long t = (startTime + 3_599_999) / 3_600_000 * 3_600_000; t <= endTime; t += 3_600_000) {
+        BigDecimal[] b = hourlyBar(t / 3_600_000);
+        out.add(List.of(t, b[0].toPlainString(), b[0].max(b[1]).toPlainString(), b[0].min(b[1]).toPlainString(), b[1].toPlainString(), "1.0", t + 3_599_999,
+            "1.0", 1, "0.5", "0.5", "0"));
+      }
+      return ResponseEntity.ok(out);
+    }
     Window w = windows.get(key("BINANCE", symbol, startTime));
     pause(w);
     if (w != null && w.fail()) return ResponseEntity.status(500).body(Map.of("code", -1, "msg", "e2e: 500"));
@@ -80,8 +116,19 @@ class E2eCandles {
   }
 
   @GetMapping("/api/e2e/candles/okx/api/v5/market/history-candles")
-  ResponseEntity<Object> okx(@RequestParam String instId, @RequestParam long after, @RequestParam long before) {
+  ResponseEntity<Object> okx(@RequestParam String instId, @RequestParam long after, @RequestParam long before, @RequestParam(required = false) String bar) {
     String symbol = instId.replace("-", "");
+    if ("1H".equals(bar)) {
+      if (hourlyFail) return ResponseEntity.status(500).body(Map.of("code", "50001", "msg", "e2e: 500"));
+      List<Object> data = new ArrayList<>();
+      for (long t = (after - 1) / 3_600_000 * 3_600_000; t > before && data.size() < 100; t -= 3_600_000) {
+        if (t >= after) continue;
+        BigDecimal[] b = hourlyBar(t / 3_600_000);
+        data.add(List.of(String.valueOf(t), b[0].toPlainString(), b[0].max(b[1]).toPlainString(), b[0].min(b[1]).toPlainString(), b[1].toPlainString(), "1", "1",
+            "1", "1"));
+      }
+      return ResponseEntity.ok(Map.of("code", "0", "msg", "", "data", data));
+    }
     Window w = windows.get(key("OKX", symbol, before + 1));
     pause(w);
     if (w != null && w.fail()) return ResponseEntity.status(500).body(Map.of("code", "50001", "msg", "e2e: 500"));

@@ -98,9 +98,13 @@ class S14CardsTest extends SettleTestSupport {
     String url = s.path("url").asString();
     assertThat(url).isEqualTo("https://app.forecast.test/m/" + m.no() + "?src=share&cmp=card-market&cl=zh-CN");
     assertThat(s.path("imageUrl").asString()).isEqualTo("https://app.forecast.test/api/public/cards/market/" + m.no() + ".png?lang=zh-CN");
-    // 登录了：ref = 客户编号（只用于来源统计，MQ-5）
+    // 登录了：ref = 这个客户的随机分享码（S15：不再是递增的客户编号；只用于来源统计，MQ-5）
     JsonNode mine = share("kind=market&no=" + m.no() + "&lang=en", a.cookie());
-    assertThat(mine.path("url").asString()).isEqualTo("https://app.forecast.test/m/" + m.no() + "?src=share&cmp=card-market&ref=" + a.id() + "&cl=en");
+    String code = shareCode(a.id());
+    assertThat(code).matches("[a-hj-km-np-z][a-hj-km-np-z2-9]{9}").isNotEqualTo(String.valueOf(a.id()));
+    assertThat(mine.path("url").asString()).isEqualTo("https://app.forecast.test/m/" + m.no() + "?src=share&cmp=card-market&ref=" + code + "&cl=en");
+    // 同一个客户每次都是同一个码
+    assertThat(share("kind=market&no=" + m.no() + "&lang=zh-CN", a.cookie()).path("url").asString()).contains("ref=" + code + "&");
     assertThat(mine.path("text").asString()).contains("Pool 120.00 USDT · 3 bettors").contains("est. odds ×");
     // 图片：三种语言都是 1200 × 630 的 PNG；ETag 一样时 304；不登录也能取
     for (String l : List.of("zh-CN", "zh-TW", "en")) png(anon(get("/api/public/cards/market/" + m.no() + ".png?lang=" + l)));
@@ -142,7 +146,7 @@ class S14CardsTest extends SettleTestSupport {
     assertThat(text).doesNotContain("当前预计赔率 ×");
     String token = jdbc.queryForObject("SELECT token FROM market_share WHERE user_id = ? AND kind = 'CHALLENGE'", String.class, a.id());
     assertThat(token).matches("[A-Za-z0-9_-]{22}");
-    assertThat(s.path("url").asString()).isEqualTo("https://app.forecast.test/m/" + m.no() + "?src=share&cmp=card-challenge&ref=" + a.id() + "&cl=zh-CN&card=" + token);
+    assertThat(s.path("url").asString()).isEqualTo("https://app.forecast.test/m/" + m.no() + "?src=share&cmp=card-challenge&ref=" + shareCode(a.id()) + "&cl=zh-CN&card=" + token);
     assertThat(s.path("imageUrl").asString()).isEqualTo("https://app.forecast.test/api/public/cards/s/" + token + ".png?lang=zh-CN");
     png(anon(get(path(s.path("imageUrl").asString()))));
     // 对面有人押了：写对面当前的预计赔率（和详情的奖池同一个数，需求第 3.4 节）；再分享沿用同一个凭证
@@ -194,7 +198,7 @@ class S14CardsTest extends SettleTestSupport {
     JsonNode w = body(create(a.cookie(), Map.of("kind", "win", "marketNo", m.no(), "lang", "zh-CN")));
     assertThat(w.path("kind").asString()).isEqualTo("win");
     assertThat(w.path("text").asString()).startsWith("我押中了「选项1 简」").doesNotContain("我的派彩");
-    assertThat(w.path("url").asString()).contains("cmp=card-win&ref=" + a.id());
+    assertThat(w.path("url").asString()).contains("cmp=card-win&ref=" + shareCode(a.id()));
     png(anon(get(path(w.path("imageUrl").asString()))));
     // 选择显示：显示本人的派彩（和详情里本人的结算结果一致）；换了一个凭证
     String payout = getJson("/api/markets/" + m.no(), a.cookie()).path("settle").path("mine").path("payout").asString();
@@ -313,7 +317,7 @@ class S14CardsTest extends SettleTestSupport {
     Market m = market(2);
     User a = user("500");
     bet(a.id(), m, 0, "10");
-    String head = anon(get("/api/public/seo/head").header("X-Fc-Page", "/markets/" + m.no() + "?src=share&cmp=card-market&ref=" + a.id() + "&cl=zh-CN"))
+    String head = anon(get("/api/public/seo/head").header("X-Fc-Page", "/markets/" + m.no() + "?src=share&cmp=card-market&ref=abcdefghjk&cl=zh-CN"))
         .getContentAsString();
     assertThat(head).contains("<meta property=\"og:image\" content=\"https://app.forecast.test/api/public/cards/market/" + m.no() + ".png?lang=zh-CN\">")
         .contains("<meta property=\"og:image:width\" content=\"1200\">").contains("<meta property=\"og:image:height\" content=\"630\">")
@@ -348,5 +352,10 @@ class S14CardsTest extends SettleTestSupport {
     String text = share("kind=market&no=" + m.no() + "&lang=zh-CN", null).path("text").asString();
     assertThat(text).contains("另有 2 个选项");
     for (String l : List.of("zh-CN", "en")) png(anon(get("/api/public/cards/market/" + m.no() + ".png?lang=" + l)));
+  }
+
+  /** 这个客户的分享码（S15，account_share_code） */
+  String shareCode(long uid) {
+    return jdbc.queryForObject("SELECT code FROM account_share_code WHERE user_id = ?", String.class, uid);
   }
 }

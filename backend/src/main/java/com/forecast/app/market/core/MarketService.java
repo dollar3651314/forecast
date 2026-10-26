@@ -61,7 +61,7 @@ import tools.jackson.databind.ObjectMapper;
  * </ul>
  */
 @Service
-public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
+public class MarketService implements MarketApi, MarketAdminApi, MarketLabels, com.forecast.app.market.api.MarketDraftApi {
 
   private static final Logger log = LoggerFactory.getLogger(MarketService.class);
 
@@ -437,18 +437,42 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
   @Override
   @Transactional
   public Detail createDraft(DraftInput in, long adminId) {
+    return detailOf(mapper.findById(insertDraft(in, adminId)));
+  }
+
+  /**
+   * 自动化程序建草稿（S15，{@link com.forecast.app.market.api.MarketDraftApi}）：和后台新建同一套检查，建草稿的人为空（系统生成）；
+   * 建好后直接"提交上架"（进后台"待上架"、提醒有 market:publish 的人，和人工提交同一套必填检查），<b>上架仍要人检查后点</b>（自动化需求第 3.3 节）。
+   */
+  @Override
+  @Transactional
+  public long createDraft(DraftInput in) {
+    long publicNo = mapper.findById(insertDraft(in, null)).publicNo;
+    submit(publicNo);
+    return publicNo;
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public Optional<String> status(long publicNo) {
+    MarketRows.Market m = mapper.findByPublicNo(publicNo);
+    return m == null ? Optional.empty() : Optional.of(status(m).api());
+  }
+
+  /** 插入草稿和选项，返回内部 id */
+  private long insertDraft(DraftInput in, Long createdBy) {
     Draft d = parse(in);
     LocalDateTime now = now();
     MarketRows.Market m = new MarketRows.Market();
     d.fill(m);
     m.publicNo = ids.next();
     m.feeRate = defaultFeeRate(d.category);
-    m.createdBy = adminId;
+    m.createdBy = createdBy;
     m.createdAt = now;
     m.updatedAt = now;
     mapper.insertMarket(m);
     insertOptions(m.id, d.options, now);
-    return detailOf(mapper.findById(m.id));
+    return m.id;
   }
 
   @Override
@@ -1188,9 +1212,12 @@ public class MarketService implements MarketApi, MarketAdminApi, MarketLabels {
         origin(m), pool, t == null ? 0 : t.bettors(), m.todaySlate);
   }
 
-  /** 市场从哪里来：manual 手动 / autogen 加密自动生成 / sports 从赛程生成 */
+  /** 市场从哪里来：manual 手动 / autogen 加密自动生成 / sports 从赛程生成 / econ 经济日历（S15，自动化程序生成的草稿） */
   private static String origin(MarketRows.Market m) {
-    return m.autogenId != null ? "autogen" : m.sourceRef != null && m.sourceRef.contains("\"fixtureNo\"") ? "sports" : "manual";
+    if (m.autogenId != null) return "autogen";
+    if (m.sourceRef != null && m.sourceRef.contains("\"fixtureNo\"")) return "sports";
+    if (m.sourceRef != null && m.sourceRef.contains("\"econKind\"")) return "econ";
+    return "manual";
   }
 
   private Detail detailOf(MarketRows.Market m) {

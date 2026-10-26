@@ -922,7 +922,8 @@
     "results": "Results",
     "weekly": "Weekly reports",
     "howTo": "How to play, deposit and withdraw",
-    "toMarkets": "Browse markets"
+    "toMarkets": "Browse markets",
+    "insights": "Data & articles"
   },
   "res": {
     "title": "Results",
@@ -983,6 +984,37 @@
     "link": "Share link",
     "showAmount": "Show my payout on the card",
     "imageError": "The card image can't be shown right now; you can still share the link",
-    "refNote": "The link includes your customer number, used only to count where visitors come from. No rewards are paid."
+    "refNote": "The link carries a random share code (not your customer number), used only to count where visitors come from. No rewards are paid."
+  },
+  "ins": {
+    "title": "Data & articles",
+    "intro": "Live pools for focus matches, BTC hourly up/down statistics and how-to articles. All text is reviewed by a person; numbers come from this site's pools and public market data.",
+    "empty": "No pages yet",
+    "updated": "Updated {{at}}",
+    "published": "Published {{at}}",
+    "fallback": "This article isn't available in your language yet; showing another language.",
+    "disclaimer": "This page only states data. It does not predict outcomes and is not advice.",
+    "total": "Total pool",
+    "bettors": "Bettors",
+    "closeAt": "Betting closes",
+    "poolNote": "The pool changes as people bet; the final figures are those at close (data as of {{at}}).",
+    "toMarket": "Go to this market",
+    "kind": {
+      "FOCUS": "Focus match",
+      "BTC_STATS": "BTC stats",
+      "ARTICLE": "Article"
+    },
+    "btc": {
+      "up24": "Hours up, last 24 h",
+      "up7d": "Hours up, last 7 days",
+      "change24": "24 h change",
+      "lastClose": "Last close",
+      "byHour": "By UTC hour: days closing up over the last 7 days",
+      "hour": "UTC hour",
+      "upDays": "Days up",
+      "pct": "Share",
+      "rule": "Same rule as this site's BTC markets: an hour is up when its close ≥ its open (equal counts as up), otherwise down.",
+      "source": "Source: {{source}}; {{from}} to {{to}}, {{bars}} one-hour candles; fetched {{at}}."
+    }
   }
 }

@@ -1,7 +1,7 @@
 /**
  * 后台菜单。每个页面都必须在这里有入口（由单元测试检查），和后端 admin/security/Menus.java 一致（后端测试 AdminSystemTest 核对）。
  * forecast S1：复制源的交易、风控、品种行情、交易参数四组删除；S9 按需求说明书第 6.1 节加上市场管理、裁决、结算与补偿、报表、参数设置（11 个一级菜单）；
- * S10 加风控告警（12 个）；S13 加来源统计（13 个，MF-1、MF-10）。
+ * S10 加风控告警（12 个）；S13 加来源统计（13 个，MF-1、MF-10）；S15 加内容中心（14 个）。
  */
 import type { ReactNode } from 'react';
 import {
@@ -10,6 +10,7 @@ import {
   BarChartOutlined,
   BellOutlined,
   ControlOutlined,
+  FileTextOutlined,
   FundOutlined,
   IdcardOutlined,
   ReconciliationOutlined,
@@ -36,7 +37,7 @@ export interface MenuItemDef {
 
 export const MENU: MenuItemDef[] = [
   { key: 'dashboard', labelKey: 'menu.dashboard', icon: <AppstoreOutlined />, path: '/dashboard', permission: 'dashboard:view' },
-  // forecast S9：需求第 6.1 节（内容中心、来源统计还没有；风控告警 S10）。顺序和后端 Menus.java、迁移 V17 的 admin_menu 一致
+  // forecast S9：需求第 6.1 节（风控告警 S10；来源统计 S13；内容中心 S15）。顺序和后端 Menus.java、迁移 V17 的 admin_menu 一致
   {
     key: 'market',
     labelKey: 'menu.market',
@@ -68,6 +69,21 @@ export const MENU: MenuItemDef[] = [
   },
   { key: 'reports', labelKey: 'menu.reports', icon: <BarChartOutlined />, path: '/reports', permission: 'report:view' },
   { key: 'growth', labelKey: 'menu.growth', icon: <RiseOutlined />, path: '/growth', permission: 'growth:view' },
+  // forecast S15：内容中心（需求第 6.1 节、自动化需求第 7 节；迁移 V24 写默认顺序）
+  {
+    key: 'content',
+    labelKey: 'menu.content',
+    icon: <FileTextOutlined />,
+    children: [
+      { key: 'content-drafts', labelKey: 'menu.contentDrafts', path: '/content/drafts', permission: 'content:view' },
+      { key: 'content-events', labelKey: 'menu.contentEvents', path: '/content/events', permission: 'content:view' },
+      { key: 'content-pages', labelKey: 'menu.contentPages', path: '/content/pages', permission: 'content:view' },
+      { key: 'content-templates', labelKey: 'menu.contentTemplates', path: '/content/templates', permission: 'content:view' },
+      { key: 'content-tools', labelKey: 'menu.contentTools', path: '/content/tools', permission: 'content:edit' },
+      { key: 'content-logs', labelKey: 'menu.contentLogs', path: '/content/logs', permission: 'content:view' },
+      { key: 'content-settings', labelKey: 'menu.contentSettings', path: '/content/settings', permission: 'content:view' },
+    ],
+  },
   { key: 'params', labelKey: 'menu.params', icon: <ControlOutlined />, path: '/params', permission: 'fee:edit' },
   { key: 'customers', labelKey: 'menu.customers', icon: <TeamOutlined />, path: '/customers', permission: 'customer:view' },
   { key: 'kyc', labelKey: 'menu.kyc', icon: <IdcardOutlined />, path: '/kyc', permission: 'kyc:view', badge: 'kyc' },
