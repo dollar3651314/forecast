@@ -226,6 +226,52 @@ forecast:
       coinbase:
         enabled: ${FC_SOURCE_COINBASE_ENABLED:false}
         base-url: https://api.coinbase.com
+      # 体育数据源（forecast S8，AQ-17：足球 football-data.org 免费档 + TheSportsDB，NBA balldontlie 免费档 + TheSportsDB；架构方案第 6.1、6.3、6.4 节）。
+      # key 只由 Amos 填进服务器环境变量（只写变量名）；没配 key 的来源"未开通"：不调用，健康检查 alerts 里显示 DOWN，用到它的市场转人工。
+      # 超时：连接 3 秒、读取 10 秒；一轮最多 3 次，间隔 2、4 秒（不超过 8 秒）。限频按各家公布的限额留余量，超过的排队等（最多 30 秒，超过这一轮不调用）：
+      # football-data 免费档每分钟 10 次 → 8；balldontlie 免费档每分钟 5 次 → 4；TheSportsDB 免费 key 每分钟 30 次 → 25（付费档 100 次，买了以后可调高）
+      football-data:
+        base-url: https://api.football-data.org
+        key: ${FC_SRC_FOOTBALL_DATA_TOKEN:}
+        key-required: true
+        key-env: FC_SRC_FOOTBALL_DATA_TOKEN
+        read-timeout: 10s
+        backoff: 2s
+        max-backoff: 8s
+        rate-limit: 8
+      balldontlie:
+        base-url: https://api.balldontlie.io
+        key: ${FC_SRC_BALLDONTLIE_KEY:}
+        key-required: true
+        key-env: FC_SRC_BALLDONTLIE_KEY
+        read-timeout: 10s
+        backoff: 2s
+        max-backoff: 8s
+        rate-limit: 4
+      thesportsdb:
+        base-url: https://www.thesportsdb.com
+        key: ${FC_SRC_THESPORTSDB_KEY:}
+        key-required: true
+        key-env: FC_SRC_THESPORTSDB_KEY
+        read-timeout: 10s
+        backoff: 2s
+        max-backoff: 8s
+        rate-limit: 25
+  # 体育赛程和自动裁决（forecast S8，resolve/sports；需求说明书 v1.3 第 4.2、4.3 节）。赛程每 4 小时从主源拉未来 7 天；
+  # 自动裁决：事件结束（进入待裁决）后每 5 分钟看一次主源，完赛后等 30 分钟，两个来源比分一致 → 结算；不一致 / 状态异常 → 转人工；
+  # 等完 30 分钟以后备源还拿不到再等 30 分钟、事件结束 6 小时后主源还没完赛 → 转人工。第一期不建独立抓取程序、不用 Gemini（AQ-18）
+  sports:
+    sync-enabled: true
+    resolver-enabled: true
+    sync-interval: 4h
+    horizon-days: 7
+    candidate-batch: 10
+    poll-interval: 5m
+    finish-wait: 30m
+    give-up-after: 30m
+    unfinished-limit: 6h
+    kickoff-tolerance: 15m
+    interactive-queue-wait: 10s
   # 对象存储（证件照片）。现在是本地目录，正式环境在 S20 换成对象存储服务
   storage:
     local-dir: ${FC_STORAGE_DIR:./data/storage}

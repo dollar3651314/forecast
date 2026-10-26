@@ -4,7 +4,7 @@
 <mapper namespace="com.forecast.app.notification.service.NotifyMapper">
 
   <select id="template" resultType="com.forecast.app.notification.service.Rows$TemplateRow">
-    SELECT code, audience, kind, name_zh, name_en, title_zh, title_en, body_zh, body_en, variables, channels, built_in, enabled, updated_at
+    SELECT code, audience, kind, name_zh, name_en, title_zh, title_en, body_zh, body_en, title_tw, body_tw, req_no, staff_perms, variables, channels, built_in, enabled, updated_at
     FROM notify_template WHERE code = #{code}
   </select>
 
@@ -119,12 +119,12 @@
 
   <!-- 后台（S16b） -->
   <select id="templates" resultType="com.forecast.app.notification.service.Rows$TemplateRow">
-    SELECT code, audience, kind, name_zh, name_en, title_zh, title_en, body_zh, body_en, variables, channels, built_in, enabled, updated_at
-    FROM notify_template ORDER BY FIELD(audience, 'USER', 'ANY', 'STAFF'), code
+    SELECT code, audience, kind, name_zh, name_en, title_zh, title_en, body_zh, body_en, title_tw, body_tw, req_no, staff_perms, variables, channels, built_in, enabled, updated_at
+    FROM notify_template ORDER BY FIELD(audience, 'USER', 'ANY', 'STAFF'), CAST(NULLIF(SUBSTRING(req_no, 2), '') AS UNSIGNED), code
   </select>
 
   <update id="updateTemplate">
-    UPDATE notify_template SET title_zh = #{titleZh}, body_zh = #{bodyZh}, title_en = #{titleEn}, body_en = #{bodyEn}, enabled = #{enabled}
+    UPDATE notify_template SET title_zh = #{titleZh}, body_zh = #{bodyZh}, title_en = #{titleEn}, body_en = #{bodyEn}, title_tw = #{titleTw}, body_tw = #{bodyTw}, enabled = #{enabled}
     WHERE code = #{code}
   </update>
 

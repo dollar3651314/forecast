@@ -26,6 +26,11 @@ class AlertMonitorTest {
     public void send(String to, String template, Map<String, String> params) {
       sent.add(to + " " + template + " " + params.get("itemZh") + (params.containsKey("detail") ? " " + params.get("detail") : ""));
     }
+
+    @Override
+    public void send(String to, String template, Map<String, String> params, String lang) {
+      send(to, template, params);
+    }
   }
 
   /** 状态可以改的检查项 */

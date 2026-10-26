@@ -25,6 +25,11 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
  */
 class E2eProfileTest {
 
+  static HttpResponse<String> post(String url, String json) throws Exception {
+    return HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create(url)).header("Content-Type", "application/json")
+        .POST(HttpRequest.BodyPublishers.ofString(json)).build(), HttpResponse.BodyHandlers.ofString());
+  }
+
   static HttpResponse<String> get(int port, String path) throws Exception {
     return HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + path)).build(), HttpResponse.BodyHandlers.ofString());
   }
@@ -94,7 +99,12 @@ class E2eProfileTest {
       assertThat(e2ePaths(mapping)).contains("/api/e2e/mail/code", "/api/e2e/wallet/deposit", "/api/e2e/wallet/mine",
           "/api/e2e/wallet/withdrawals/advance", "/api/e2e/wallet/withdrawals/{id}/confirm", "/api/e2e/clock", "/api/e2e/clock/advance", "/api/e2e/clock/reset",
           "/api/e2e/markets/tick", "/api/e2e/settle/tick", "/api/e2e/settle/recon", "/api/e2e/autogen/tick", "/api/e2e/resolve/tick", "/api/e2e/candles",
-          "/api/e2e/candles/binance/api/v3/klines", "/api/e2e/candles/okx/api/v5/market/history-candles");
+          "/api/e2e/candles/binance/api/v3/klines", "/api/e2e/candles/okx/api/v5/market/history-candles",
+          // S8：替身体育数据源
+          "/api/e2e/sports/fixtures", "/api/e2e/sports/state", "/api/e2e/sports/tick", "/api/e2e/sports/football-data/v4/matches",
+          "/api/e2e/sports/football-data/v4/matches/{id}", "/api/e2e/sports/balldontlie/v1/games", "/api/e2e/sports/balldontlie/v1/games/{id}",
+          "/api/e2e/sports/thesportsdb/api/v1/json/{key}/lookupevent.php", "/api/e2e/sports/thesportsdb/api/v1/json/{key}/searchevents.php",
+          "/api/e2e/sports/thesportsdb/api/v1/json/{key}/eventsday.php");
       // 替身数据源（S6）：设一个窗口的价格，照币安、OKX 的格式回出来，真实的适配器能解析
       HttpResponse<String> set = HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/e2e/candles"))
           .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString("{\"symbol\":\"BTCUSDT\",\"windowStart\":\"2026-11-01T13:00:00Z\","
@@ -110,6 +120,37 @@ class E2eProfileTest {
       assertThat(bn.parse(bBody, q).direction()).isEqualTo("UP");
       assertThat(bn.parse(bBody, q).count()).isEqualTo(60);
       assertThat(ok.parse(oBody, q).open()).isEqualByComparingTo("100");
+      // 替身体育数据源（S8）：加一场比赛、设完赛，照 football-data、TheSportsDB、balldontlie 的格式回出来，真实的适配器能解析；没带 key 的拒绝
+      String sp = "http://localhost:" + port + "/api/e2e/sports";
+      assertThat(post(sp + "/fixtures", "{\"sport\":\"FOOTBALL\",\"primaryRef\":\"9001\",\"backupRef\":\"7001\",\"home\":\"Arsenal FC\",\"away\":\"Everton FC\","
+          + "\"backupHome\":\"Arsenal\",\"backupAway\":\"Everton\",\"kickoffAt\":\"2026-11-01T15:00:00Z\"}").statusCode()).isEqualTo(200);
+      assertThat(post(sp + "/fixtures", "{\"sport\":\"NBA\",\"primaryRef\":\"9002\",\"backupRef\":\"7002\",\"home\":\"Los Angeles Lakers\","
+          + "\"away\":\"Boston Celtics\",\"kickoffAt\":\"2026-11-01T23:30:00Z\"}").statusCode()).isEqualTo(200);
+      assertThat(post(sp + "/state", "{\"primaryRef\":\"9001\",\"status\":\"FINISHED\",\"homeScore\":2,\"awayScore\":1}").statusCode()).isEqualTo(200);
+      com.forecast.app.resolve.source.ResolveProperties.Source fdCfg = new com.forecast.app.resolve.source.ResolveProperties.Source(true, sp + "/football-data");
+      fdCfg.setKey("e2e");
+      com.forecast.app.resolve.source.SourceRequest<com.forecast.app.resolve.source.ScoreFixture> fdReq = new com.forecast.app.resolve.source.FootballData()
+          .fixture(fdCfg, "FOOTBALL", "9001");
+      HttpResponse<String> fdRes = HttpClient.newHttpClient().send(HttpRequest.newBuilder(fdReq.uri()).header("X-Auth-Token", "e2e").build(),
+          HttpResponse.BodyHandlers.ofString());
+      assertThat(fdReq.parser().parse(fdRes.body()).homeScore()).isEqualTo(2);
+      assertThat(HttpClient.newHttpClient().send(HttpRequest.newBuilder(fdReq.uri()).build(), HttpResponse.BodyHandlers.ofString()).statusCode())
+          .as("没带 token").isEqualTo(403);
+      com.forecast.app.resolve.source.ResolveProperties.Source tsCfg = new com.forecast.app.resolve.source.ResolveProperties.Source(true, sp + "/thesportsdb");
+      tsCfg.setKey("e2e");
+      com.forecast.app.resolve.source.SourceRequest<com.forecast.app.resolve.source.ScoreFixture> tsReq = new com.forecast.app.resolve.source.TheSportsDb()
+          .fixture(tsCfg, "FOOTBALL", "7001");
+      com.forecast.app.resolve.source.ScoreFixture ts = tsReq.parser().parse(HttpClient.newHttpClient().send(HttpRequest.newBuilder(tsReq.uri()).build(),
+          HttpResponse.BodyHandlers.ofString()).body());
+      assertThat(ts.homeName()).isEqualTo("Arsenal");
+      assertThat(ts.awayScore()).isEqualTo(1);
+      com.forecast.app.resolve.source.ResolveProperties.Source bdCfg = new com.forecast.app.resolve.source.ResolveProperties.Source(true, sp + "/balldontlie");
+      bdCfg.setKey("e2e");
+      com.forecast.app.resolve.source.SourceRequest<com.forecast.app.resolve.source.ScoreSource.SchedulePage> bdReq = new com.forecast.app.resolve.source.Balldontlie()
+          .schedule(bdCfg, "NBA", java.time.LocalDate.parse("2026-11-01"), java.time.LocalDate.parse("2026-11-02"), null);
+      assertThat(bdReq.parser().parse(HttpClient.newHttpClient().send(HttpRequest.newBuilder(bdReq.uri()).header("Authorization", "e2e").build(),
+          HttpResponse.BodyHandlers.ofString()).body()).fixtures()).extracting(com.forecast.app.resolve.source.ScoreFixture::homeName)
+          .containsExactly("Los Angeles Lakers");
       // 可调时钟（S3）：往后拨，业务时钟跟着走；reset 回到系统时间
       assertThat(clock.getClass().getSimpleName()).as("e2e 下业务时钟是可调时钟").isEqualTo("OffsetClock");
       java.time.Instant before = clock.instant();

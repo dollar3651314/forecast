@@ -28,7 +28,8 @@ export function DataTable<T extends object>({ error, onRetry, total, page, pageS
     <Table<T>
       size="middle"
       scroll={{ x: 'max-content' }}
-      locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={emptyText ?? t('common.empty')} /> }}
+      // 第一次加载时还没有数据：只显示加载动画，不先显示"暂无数据"（S9 截图自查）
+      locale={{ emptyText: rest.loading && !rest.dataSource ? <div style={{ height: 80 }} /> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={emptyText ?? t('common.empty')} /> }}
       pagination={
         total !== undefined
           ? {

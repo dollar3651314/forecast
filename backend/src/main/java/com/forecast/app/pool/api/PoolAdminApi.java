@@ -37,4 +37,22 @@ public interface PoolAdminApi {
    * @throws com.forecast.app.common.error.BizException NOT_FOUND：市场不存在或是草稿
    */
   MarketBets marketBets(long marketNo, String optionNo, Long userId, String status, int page, int pageSize);
+
+  /**
+   * 同上，可以按金额排序（S9：后台市场详情的"前 20 大下注"）。
+   *
+   * @param sort time（默认，收到时间倒序）/ amount（金额倒序）
+   */
+  MarketBets marketBets(long marketNo, String optionNo, Long userId, String status, String sort, int page, int pageSize);
+
+  /**
+   * 一段时间里的下注（仪表盘，S9）：收到时间在 [from, to) 的有效下注（退回的不算）。
+   *
+   * @param amount 下注额（2 位小数）
+   * @param bets 笔数
+   * @param bettors 下注人数（去重）
+   */
+  record BetStats(String amount, long bets, long bettors) {}
+
+  BetStats betStats(java.time.Instant from, java.time.Instant to);
 }

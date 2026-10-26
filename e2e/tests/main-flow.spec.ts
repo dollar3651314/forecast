@@ -97,6 +97,7 @@ test('客户主流程（手机 390px）和后台审核', async ({ browser }) => 
       await page.getByRole('checkbox').check();
       await expectNoHorizontalScroll(page, '注册页');
       await page.getByRole('button', { name: '注册', exact: true }).click();
+      // M1 起首页是市场列表（/home 跳到 /markets）
       await expect(page).toHaveURL(/\/markets$/);
       await skipOnboarding(page);
     });
@@ -109,6 +110,7 @@ test('客户主流程（手机 390px）和后台审核', async ({ browser }) => 
       await page.getByLabel('邮箱', { exact: true }).fill(email);
       await page.getByLabel('密码', { exact: true }).fill(CLIENT_PASSWORD);
       await page.getByRole('button', { name: '登录', exact: true }).click();
+      // M1 起首页是市场列表（/home 跳到 /markets）
       await expect(page).toHaveURL(/\/markets$/);
       await expectSecureCookie(client, 'fc_session');
       await expectEnvBanner(page);

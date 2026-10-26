@@ -62,18 +62,20 @@ public class DepositService {
   private final Snowflake ids;
   /** v2 归集：从我们的充值地址转出的 USDT 交给它区分"归集"和"不是归集的转出"；测试里可以为空 */
   private final SweepOutflows outflows;
+  /** 通知 #7（S9）：累计充值第一次超过 KYC 阈值；测试里可以为空 */
+  private final KycThresholdNotice kycNotice;
 
   /** 测试用：不关心告警和对外编号的生成器时（用默认参数各建一个） */
   DepositService(DepositMapper mapper, ChainClients clients, AddressService addresses, LedgerApi ledger, WalletProperties props, TransactionTemplate tx,
       FundsApi funds, StaffAlertApi staff, NotifyApi notify, Confirmations confirmations, UserEventsApi events) {
     this(mapper, clients, addresses, ledger, props, tx, funds, staff, notify, confirmations, events,
-        new ChainMonitor(props, clients, AlertProperties.defaults(), Clock.systemUTC(), null), Snowflake.shared(1), null);
+        new ChainMonitor(props, clients, AlertProperties.defaults(), Clock.systemUTC(), null), Snowflake.shared(1), null, null);
   }
 
   @Autowired
   DepositService(DepositMapper mapper, ChainClients clients, AddressService addresses, LedgerApi ledger, WalletProperties props, TransactionTemplate tx,
       FundsApi funds, StaffAlertApi staff, NotifyApi notify, Confirmations confirmations, UserEventsApi events, ChainMonitor monitor, Snowflake ids,
-      SweepOutflows outflows) {
+      SweepOutflows outflows, KycThresholdNotice kycNotice) {
     this.mapper = mapper;
     this.clients = clients;
     this.addresses = addresses;
@@ -88,6 +90,7 @@ public class DepositService {
     this.monitor = monitor;
     this.ids = ids;
     this.outflows = outflows;
+    this.kycNotice = kycNotice;
   }
 
   /** 每 15 秒：每条链先扫块再确认 */
@@ -196,8 +199,18 @@ public class DepositService {
       Optional<Long> user = Optional.of(dest.get().userId());
       BigDecimal amount = new BigDecimal(t.rawAmount()).movePointLeft(cfg.usdtDecimals()).setScale(8, RoundingMode.DOWN);
       String status = amount.compareTo(props.minDeposit()) < 0 ? "BELOW_MIN" : "PENDING";
-      if (mapper.insertIgnore(ids.next(), chain.name(), t.txHash(), t.logIndex(), t.blockNumber(), t.blockHash(), t.from(), t.to(), user.get(), amount,
-          status) == 1) {
+      long uid = user.get();
+      // 低于最小金额的：记录和通知 #4（只发站内信，S9）在同一个事务里，记录已存在（重复扫到）就不再发
+      Boolean inserted = tx.execute(st -> {
+        boolean ins = mapper.insertIgnore(ids.next(), chain.name(), t.txHash(), t.logIndex(), t.blockNumber(), t.blockHash(), t.from(), t.to(), uid, amount,
+            status) == 1;
+        if (ins && "BELOW_MIN".equals(status)) {
+          notify.toUser(uid, "DEPOSIT_BELOW_MIN", Map.of("amount", amount.stripTrailingZeros().toPlainString(), "chain", chain.name(), "min",
+              props.minDeposit().stripTrailingZeros().toPlainString()));
+        }
+        return ins;
+      });
+      if (Boolean.TRUE.equals(inserted)) {
         log.info("发现充值 chain={} tx={} user={} amount={} status={}", chain, t.txHash(), user.get(), amount, status);
         // 低于最小充值金额的不会再变，这里就推；待确认的由同一次 run 里紧接着的 confirm 推（新记录的确认数是 0，一定会变），
         // 避免同一笔推两次。插入是自动提交的，客户端收到后重新拉取时记录已经能查到
@@ -237,6 +250,8 @@ public class DepositService {
           d.chain() + ":" + d.txHash() + ":" + d.logIndex(), "充值 " + d.chain()));
       // 到账通知（AC-07），和入账同一事务
       notify.toUser(d.userId(), "DEPOSIT_CREDITED", Map.of("amount", d.amount().stripTrailingZeros().toPlainString(), "chain", d.chain()));
+      // 通知 #7（S9）：累计充值第一次超过 KYC 阈值、还没认证
+      if (kycNotice != null) kycNotice.afterCredit(d.userId(), d.amount());
       return true;
     });
     if (!Boolean.TRUE.equals(done)) return;

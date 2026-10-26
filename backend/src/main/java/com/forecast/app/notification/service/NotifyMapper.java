@@ -71,7 +71,7 @@ interface NotifyMapper {
   List<Rows.TemplateRow> templates();
 
   void updateTemplate(@Param("code") String code, @Param("titleZh") String titleZh, @Param("bodyZh") String bodyZh, @Param("titleEn") String titleEn,
-      @Param("bodyEn") String bodyEn, @Param("enabled") boolean enabled);
+      @Param("bodyEn") String bodyEn, @Param("titleTw") String titleTw, @Param("bodyTw") String bodyTw, @Param("enabled") boolean enabled);
 
   List<Rows.RecordRow> records(@Param("channel") String channel, @Param("status") String status, @Param("userIds") java.util.Collection<Long> userIds,
       @Param("offset") int offset, @Param("limit") int limit);

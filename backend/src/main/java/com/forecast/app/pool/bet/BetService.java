@@ -190,8 +190,10 @@ public class BetService {
     Map<String, String> params = new LinkedHashMap<>();
     params.put("market", t.title().zhCN());
     params.put("marketEn", t.title().en());
+    params.put("marketTw", t.title().zhTW());
     params.put("option", t.optionLabel().zhCN());
     params.put("optionEn", t.optionLabel().en());
+    params.put("optionTw", t.optionLabel().zhTW());
     params.put("amount", money(c.amount()));
     params.put("betNo", biz);
     notify.toUser(userId, "BET_PLACED", params);

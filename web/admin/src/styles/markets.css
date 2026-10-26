@@ -1,4 +1,52 @@
-/* forecast M1 原型：市场管理、规则模板、裁决台、参数设置。颜色只用 global.css 的变量（浅色深色都能用）。 */
+/* forecast 后台页面（M1 原型起，S9 接真实接口）：仪表盘、市场管理、市场详情、自动生成、体育、裁决台、争议、结算、报表、参数设置。颜色只用 global.css 的变量（浅色深色都能用）。 */
+
+/* ---------- 通用：筛选条、说明列表 ---------- */
+.fc-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 12px 0; }
+.fc-bar-tight { margin: 10px 0 6px; }
+.fc-dl { margin: 0 0 8px; }
+.fc-dl > div { display: flex; gap: 10px; padding: 5px 0; border-bottom: 1px solid var(--hair); font-size: 13px; }
+.fc-dl dt { flex: none; width: 96px; color: var(--muted); }
+.fc-dl dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.fc-dl-inline { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 13px; }
+.row-selected > td { background: var(--row-selected) !important; }
+.i18n-multi { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.i18n-ml { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.i18n-tag { font-size: 11px; color: var(--muted); font-weight: 600; margin-right: 6px; }
+.i18n-view > div { display: flex; gap: 6px; padding: 3px 0; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.i18n-view .i18n-tag { flex: none; width: 34px; }
+@media (max-width: 767px) {
+  .i18n-inputs, .i18n-multi { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---------- 仪表盘 ---------- */
+.dash-h { font-size: 14px; font-weight: 700; margin: 16px 0 8px; color: var(--muted); }
+.dash-todos { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.dash-periods { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.dash-dl { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 16px; }
+.dash-dl > div { display: flex; flex-direction: column; padding: 6px 0; border-bottom: 1px solid var(--hair); }
+.dash-dl dt { font-size: 12px; color: var(--muted); }
+.dash-dl dd { margin: 0; font-size: 16px; }
+.stat-red { border-left: 3px solid #dc2626; }
+@media (max-width: 1199px) {
+  .dash-todos { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 767px) {
+  .dash-todos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dash-periods { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---------- 市场详情、自动生成、体育 ---------- */
+.mkd-grid { margin-top: 12px; }
+.mkd-pool { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 8px; }
+.mkd-pool > div { display: flex; align-items: baseline; gap: 8px; }
+.mkd-opt { display: flex; flex-direction: column; padding: 6px 0; border-bottom: 1px solid var(--hair); font-size: 13px; }
+.mkd-log { font-size: 12.5px; padding: 4px 0; border-bottom: 1px dashed var(--hair); overflow-wrap: anywhere; }
+.mke-more { display: flex; gap: 8px; flex-wrap: wrap; }
+.ag-list { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.ag-sample { margin-top: 8px; font-size: 13px; }
+.ag-tpl { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--hair); }
+.ag-tpl:last-child { border-bottom: 0; }
+.ag-form .ant-form-item { margin-bottom: 8px; }
 
 /* ---------- 市场管理列表 ---------- */
 .mk-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 12px 0; }
@@ -61,8 +109,8 @@
 .rs-links { display: flex; flex-direction: column; gap: 2px; }
 .rs-src { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .rs-src td { padding: 5px 6px; border-bottom: 1px solid var(--hair); }
-.rs-src .ok, .rs-pv .ok { color: var(--long); }
-.rs-src .bad, .rs-pv .bad { color: var(--danger); }
+.rs-src .ok, .rs-pv .ok, .rs-detail .ok { color: var(--long); }
+.rs-src .bad, .rs-pv .bad, .rs-detail .bad { color: var(--danger); }
 .rs-rules { font-size: 12.5px; color: var(--muted); margin: 0; }
 .rs-preview { border: 1px solid var(--border); border-radius: var(--r-lg); padding: 10px 12px; background: var(--s2); }
 .rs-pv-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; flex-wrap: wrap; margin-bottom: 4px; }
@@ -75,7 +123,32 @@
 .rs-decide { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
 .rs-pick { display: flex; flex-wrap: wrap; margin-top: 6px; }
 .rs-submit { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+/* C79：表单比一屏长时主操作贴在可视区底部 */
+.rs-decide .rs-submit { position: sticky; bottom: 0; z-index: 2; background: var(--s1); padding: 8px 0; border-top: 1px solid var(--hair); }
+.rs-parsed { max-width: 360px; font-family: var(--mono); font-size: 12px; }
 .rs-submit .muted { font-size: 11.5px; }
+
+.rs-more { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--hair); }
+.rs-shots { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.rs-shots img { width: 96px; height: 54px; object-fit: cover; border: 1px solid var(--border); border-radius: 4px; }
+.rs-form .ant-form-item { margin-bottom: 8px; }
+.rs-pager { justify-content: space-between; width: 100%; }
+@media (max-width: 991px) {
+  .rs-layout { grid-template-columns: minmax(0, 1fr); }
+  .rs-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---------- 公示与争议 ---------- */
+.ds-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+.ds-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.ds-item { border: 1px solid var(--border); border-radius: var(--r-lg); padding: 8px 10px; font-size: 13px; display: flex; flex-direction: column; gap: 4px; overflow-wrap: anywhere; }
+.ds-left .ant-table-row { cursor: pointer; }
+@media (max-width: 991px) {
+  .ds-layout { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---------- 报表 ---------- */
+.rp-note { margin: 8px 0; font-size: 12px; }
 
 /* ---------- 参数设置 ---------- */
 .pm-grid { margin-top: 12px; }

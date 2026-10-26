@@ -52,6 +52,8 @@ public final class StubHttp implements AutoCloseable {
   private final HttpServer server;
   private final ExecutorService pool = Executors.newCachedThreadPool();
   private final List<URI> requests = new CopyOnWriteArrayList<>();
+  /** 每个请求的请求头（名字小写，取第一个值；forecast S8：核对 key 有没有带） */
+  private final List<java.util.Map<String, String>> headers = new CopyOnWriteArrayList<>();
   private volatile Function<URI, Reply> handler = u -> Reply.status(404, "{}");
 
   public StubHttp() {
@@ -78,16 +80,25 @@ public final class StubHttp implements AutoCloseable {
     return List.copyOf(requests);
   }
 
+  /** 收到的请求头（和 {@link #requests()} 一一对应） */
+  public List<java.util.Map<String, String>> headers() {
+    return List.copyOf(headers);
+  }
+
   public int hits() {
     return requests.size();
   }
 
   public void clear() {
     requests.clear();
+    headers.clear();
   }
 
   private void serve(HttpExchange ex) throws IOException {
     URI u = ex.getRequestURI();
+    java.util.Map<String, String> h = new java.util.HashMap<>();
+    ex.getRequestHeaders().forEach((k, v) -> h.put(k.toLowerCase(java.util.Locale.ROOT), v.isEmpty() ? "" : v.get(0)));
+    headers.add(h);
     requests.add(u);
     Reply r;
     try {

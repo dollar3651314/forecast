@@ -130,6 +130,14 @@ public enum ConfigKey {
   RESOLVE_PROPOSE_MACRO("resolve.proposeMinutes.MACRO", Unit.MINUTES, "resolve", BigDecimal.ONE, BigDecimal.valueOf(10_080), 0, Params.BETTING),
   /** 确认时限（需求第 4.4 节：提议后 2 小时） */
   RESOLVE_CONFIRM_MINUTES("resolve.confirmMinutes", Unit.MINUTES, "resolve", BigDecimal.ONE, BigDecimal.valueOf(10_080), 0, Params.BETTING),
+  /**
+   * forecast S8（迁移 V16）：体育市场从赛程生成草稿时带出的时间（需求第 3.7 节第 5 条）：开赛前几分钟截止（默认 5），
+   * 事件结束 = 开赛 + 几分钟（足球 120、NBA 180；到了进入待裁决、开始看数据源是否完赛）
+   */
+  SPORTS_CLOSE_LEAD_FOOTBALL("sports.closeLeadMinutes.FOOTBALL", Unit.MINUTES, "sports", BigDecimal.ZERO, BigDecimal.valueOf(1440), 0, Params.BETTING),
+  SPORTS_CLOSE_LEAD_NBA("sports.closeLeadMinutes.NBA", Unit.MINUTES, "sports", BigDecimal.ZERO, BigDecimal.valueOf(1440), 0, Params.BETTING),
+  SPORTS_EVENT_MINUTES_FOOTBALL("sports.eventMinutes.FOOTBALL", Unit.MINUTES, "sports", BigDecimal.valueOf(60), BigDecimal.valueOf(1440), 0, Params.BETTING),
+  SPORTS_EVENT_MINUTES_NBA("sports.eventMinutes.NBA", Unit.MINUTES, "sports", BigDecimal.valueOf(60), BigDecimal.valueOf(1440), 0, Params.BETTING),
   /** KYC 阈值（RQ-10）：累计充值超过它、没有通过证件 + 人脸认证的客户不能新下注（S10 起用） */
   KYC_DEPOSIT_THRESHOLD("kyc.depositThreshold", Unit.USDT, "kyc", BigDecimal.ZERO, new BigDecimal("1000000000"), 2, Params.BETTING);
 

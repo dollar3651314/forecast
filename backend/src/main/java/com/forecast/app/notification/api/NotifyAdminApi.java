@@ -14,9 +14,13 @@ public interface NotifyAdminApi {
    */
   void manual(long userId, Set<NotifyChannel> channels, String title, String body, long operatorId);
 
-  /** 一个模板；audience USER / STAFF / ANY，channels 是 INBOX、PUSH、EMAIL 的子集 */
+  /**
+   * 一个模板；audience USER / STAFF / ANY，channels 是 INBOX、PUSH、EMAIL 的子集。
+   * S9：titleTw / bodyTw 繁体（员工模板为空，按简体发）；reqNo 需求第 7 节的编号（#1～#23）；staffPerms 员工模板按角色发给有这些权限点的管理员（SQ-14）。
+   */
   record Template(String code, String audience, String kind, String nameZh, String nameEn, String titleZh, String bodyZh, String titleEn, String bodyEn,
-      List<String> variables, List<NotifyChannel> channels, boolean builtIn, boolean enabled, LocalDateTime updatedAt) {}
+      String titleTw, String bodyTw, String reqNo, List<String> staffPerms, List<String> variables, List<NotifyChannel> channels, boolean builtIn,
+      boolean enabled, LocalDateTime updatedAt) {}
 
   /** 一条通知记录；status PENDING / SENT / FAILED / SKIPPED，source TEMPLATE / MANUAL */
   record Record(long id, Long userId, String recipient, String source, String templateCode, NotifyChannel channel, String title, String status,
@@ -27,9 +31,9 @@ public interface NotifyAdminApi {
   List<Template> templates();
 
   /**
-   * 改模板文案（为空的字段不改）。正文里只能用模板列出的变量；内置模板不能停用（停用会让出金等流程的通知发不出去）。
+   * 改模板文案（为空的字段不改；繁体可以改成空串 = 按简体发，只对客户模板有意义）。正文里只能用模板列出的变量；内置模板不能停用（停用会让出金等流程的通知发不出去）。
    */
-  Template updateTemplate(String code, String titleZh, String bodyZh, String titleEn, String bodyEn, Boolean enabled);
+  Template updateTemplate(String code, String titleZh, String bodyZh, String titleEn, String bodyEn, String titleTw, String bodyTw, Boolean enabled);
 
   /** channel、status 为空表示不筛选；userIds 不为空时只查这些客户 */
   Page<Record> records(NotifyChannel channel, String status, Collection<Long> userIds, int offset, int limit);

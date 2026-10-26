@@ -168,7 +168,9 @@ class SystemService {
   }
 
   private ParamView paramView(SystemConfig.Entry e) {
-    return new ParamView(e.key().key, e.value(), e.key().unit.api(), e.key().group, e.key().params.name().toLowerCase(), AdminUserService.time(e.updatedAt()));
+    // 没人改过（迁移写的初始值，updated_by 为空）时不给时间，页面显示"默认值"（S9）
+    String updated = e.updatedBy() == null ? null : AdminUserService.time(e.updatedAt());
+    return new ParamView(e.key().key, e.value(), e.key().unit.api(), e.key().group, e.key().params.name().toLowerCase(), updated);
   }
 
   /**

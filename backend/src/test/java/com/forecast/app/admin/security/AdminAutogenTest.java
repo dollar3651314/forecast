@@ -26,7 +26,7 @@ class AdminAutogenTest extends AdminTestSupport {
   void reset() {
     jdbc.update("UPDATE market_question SET autogen_id = NULL WHERE autogen_id IS NOT NULL");
     jdbc.update("DELETE FROM market_autogen WHERE public_no <> ?", Long.parseLong(DEFAULT_NO));
-    jdbc.update("UPDATE market_autogen SET enabled = 0, mode = 'SCHEDULE', slots = '[\"13:00\"]', rolling_count = 3, generate_ahead_min = 60, user_cap = NULL, "
+    jdbc.update("UPDATE market_autogen SET enabled = 0, mode = 'SCHEDULE', slots = '[\"13:00\"]', rolling_count = 3, generate_ahead_min = 1440, user_cap = NULL, "
         + "checked_by = NULL, checked_at = NULL, checked_template_version = NULL WHERE public_no = ?", Long.parseLong(DEFAULT_NO));
   }
 

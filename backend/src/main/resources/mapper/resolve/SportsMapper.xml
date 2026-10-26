@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  体育赛程和自动裁决（forecast S8）。只有 resolve 模块使用（表名以 resolve_ 开头）。
+  - resolve_record（裁决记录）只增不改：这里只有 INSERT（ResolveAppendOnlyTest 检查）。
+  - resolve_sports_task 的改动都是带旧状态的条件更新（PENDING 的还带版本号）：多实例、重复执行只生效一次。
+  - resolve_fixture 的对应关系只在锁住这一行以后改（确认、取消对应），同步只改队名、时间、状态。
+-->
+<mapper namespace="com.forecast.app.resolve.sports.SportsMapper">
+
+  <sql id="fixtureCols">
+    id, public_no, sport, competition_code, competition_name, league_ref, home_name, home_short, away_name, away_short, kickoff_at, original_kickoff_at,
+    primary_source, primary_ref, primary_status, primary_raw_status, backup_source, backup_ref, backup_swapped, backup_home, backup_away, backup_kickoff_at,
+    mapping_confirmed_by, mapping_confirmed_at, candidates, candidates_at, candidates_error, kickoff_alerted_at, fetched_at, version, created_at, updated_at
+  </sql>
+
+  <insert id="insertFixture" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO resolve_fixture (public_no, sport, competition_code, competition_name, league_ref, home_name, home_short, away_name, away_short, kickoff_at,
+      original_kickoff_at, primary_source, primary_ref, primary_status, primary_raw_status, backup_swapped, fetched_at, version, created_at, updated_at)
+    VALUES (#{publicNo}, #{sport}, #{competitionCode}, #{competitionName}, #{leagueRef}, #{homeName}, #{homeShort}, #{awayName}, #{awayShort}, #{kickoffAt},
+      #{originalKickoffAt}, #{primarySource}, #{primaryRef}, #{primaryStatus}, #{primaryRawStatus}, 0, #{fetchedAt}, 0, #{createdAt}, #{updatedAt})
+  </insert>
+
+  <select id="fixtureByPrimary" resultType="com.forecast.app.resolve.sports.SportsRows$Fixture">
+    SELECT <include refid="fixtureCols"/> FROM resolve_fixture WHERE primary_source = #{source} AND primary_ref = #{ref}
+  </select>
+
+  <select id="fixture" resultType="com.forecast.app.resolve.sports.SportsRows$Fixture">
+    SELECT <include refid="fixtureCols"/> FROM resolve_fixture WHERE id = #{id}
+  </select>
+
+  <select id="fixtureByNo" resultType="com.forecast.app.resolve.sports.SportsRows$Fixture">
+    SELECT <include refid="fixtureCols"/> FROM resolve_fixture WHERE public_no = #{publicNo}
+  </select>
+
+  <select id="lockFixture" resultType="com.forecast.app.resolve.sports.SportsRows$Fixture">
+    SELECT <include refid="fixtureCols"/> FROM resolve_fixture WHERE id = #{id} FOR UPDATE
+  </select>
+
+  <update id="updateFromSync">
+    UPDATE resolve_fixture SET competition_code = #{competitionCode}, competition_name = #{competitionName}, league_ref = #{leagueRef},
+      home_name = #{homeName}, home_short = #{homeShort}, away_name = #{awayName}, away_short = #{awayShort}, kickoff_at = #{kickoffAt},
+      primary_status = #{primaryStatus}, primary_raw_status = #{primaryRawStatus}, fetched_at = #{fetchedAt}, version = version + 1, updated_at = #{updatedAt}
+    WHERE id = #{id}
+  </update>
+
+  <update id="setCandidates">
+    UPDATE resolve_fixture SET candidates = #{candidates}, candidates_at = #{now}, candidates_error = #{error}, version = version + 1, updated_at = #{now}
+    WHERE id = #{id}
+  </update>
+
+  <update id="confirmMapping">
+    UPDATE resolve_fixture SET backup_source = #{source}, backup_ref = #{ref}, backup_swapped = #{swapped}, backup_home = #{home}, backup_away = #{away},
+      backup_kickoff_at = #{kickoff}, mapping_confirmed_by = #{by}, mapping_confirmed_at = #{now}, version = version + 1, updated_at = #{now}
+    WHERE id = #{id}
+  </update>
+
+  <update id="clearMapping">
+    UPDATE resolve_fixture SET backup_source = NULL, backup_ref = NULL, backup_swapped = 0, backup_home = NULL, backup_away = NULL, backup_kickoff_at = NULL,
+      mapping_confirmed_by = NULL, mapping_confirmed_at = NULL, version = version + 1, updated_at = #{now}
+    WHERE id = #{id} AND backup_ref IS NOT NULL
+  </update>
+
+  <update id="markKickoffAlerted">
+    UPDATE resolve_fixture SET kickoff_alerted_at = #{kickoff}, version = version + 1, updated_at = #{now}
+    WHERE id = #{id} AND (kickoff_alerted_at IS NULL OR kickoff_alerted_at &lt;&gt; #{kickoff})
+  </update>
+
+  <sql id="fixtureWhere">
+    <where>
+      kickoff_at &gt;= #{from} AND kickoff_at &lt; #{to}
+      <if test="sport != null">AND sport = #{sport}</if>
+      <if test="mapping == 'confirmed'">AND backup_ref IS NOT NULL</if>
+      <if test="mapping == 'unconfirmed'">AND backup_ref IS NULL</if>
+    </where>
+  </sql>
+
+  <select id="fixtures" resultType="com.forecast.app.resolve.sports.SportsRows$Fixture">
+    SELECT <include refid="fixtureCols"/> FROM resolve_fixture <include refid="fixtureWhere"/>
+    ORDER BY kickoff_at, id LIMIT #{offset}, #{limit}
+  </select>
+
+  <select id="countFixtures" resultType="long">
+    SELECT COUNT(*) FROM resolve_fixture <include refid="fixtureWhere"/>
+  </select>
+
+  <select id="needCandidates" resultType="com.forecast.app.resolve.sports.SportsRows$Fixture">
+    SELECT <include refid="fixtureCols"/> FROM resolve_fixture
+    WHERE backup_ref IS NULL AND candidates_at IS NULL AND kickoff_at &gt; #{now}
+    ORDER BY kickoff_at, id LIMIT #{limit}
+  </select>
+
+  <insert id="insertFixtureMarket">
+    INSERT INTO resolve_fixture_market (market_id, fixture_id, play, line, created_by, created_at)
+    VALUES (#{marketId}, #{fixtureId}, #{play}, #{line}, #{createdBy}, #{createdAt})
+  </insert>
+
+  <select id="fixtureMarkets" resultType="com.forecast.app.resolve.sports.SportsRows$FixtureMarket">
+    SELECT market_id, fixture_id, play, line, created_by, created_at FROM resolve_fixture_market WHERE fixture_id = #{fixtureId} ORDER BY created_at, market_id
+  </select>
+
+  <select id="fixtureMarket" resultType="com.forecast.app.resolve.sports.SportsRows$FixtureMarket">
+    SELECT market_id, fixture_id, play, line, created_by, created_at FROM resolve_fixture_market WHERE market_id = #{marketId}
+  </select>
+
+  <select id="marketsOf" resultType="long">
+    SELECT market_id FROM resolve_fixture_market WHERE fixture_id = #{fixtureId} AND play = #{play}
+      AND <choose><when test="line == null">line IS NULL</when><otherwise>line = #{line}</otherwise></choose>
+  </select>
+
+  <sql id="taskCols">
+    market_id, fixture_id, sport, play, line, primary_source, primary_ref, backup_source, backup_ref, backup_swapped, close_at, kickoff_at, status, attempts,
+    next_attempt_at, finished_seen_at, settle_after_at, give_up_at, unfinished_deadline_at, result_option_id, actual_start_at, last_reason, last_attempt_at,
+    version, created_at, updated_at
+  </sql>
+
+  <insert id="insertTaskIgnore">
+    INSERT IGNORE INTO resolve_sports_task (market_id, fixture_id, sport, play, line, primary_source, primary_ref, backup_source, backup_ref, backup_swapped,
+      close_at, kickoff_at, status, attempts, next_attempt_at, unfinished_deadline_at, last_reason, version, created_at, updated_at)
+    VALUES (#{marketId}, #{fixtureId}, #{sport}, #{play}, #{line}, #{primarySource}, #{primaryRef}, #{backupSource}, #{backupRef}, #{backupSwapped},
+      #{closeAt}, #{kickoffAt}, #{status}, 0, #{nextAttemptAt}, #{unfinishedDeadlineAt}, #{lastReason}, 0, #{createdAt}, #{updatedAt})
+  </insert>
+
+  <select id="task" resultType="com.forecast.app.resolve.sports.SportsRows$Task">
+    SELECT <include refid="taskCols"/> FROM resolve_sports_task WHERE market_id = #{marketId}
+  </select>
+
+  <select id="dueTasks" resultType="long">
+    SELECT market_id FROM resolve_sports_task WHERE status IN ('PENDING', 'RESOLVING') AND next_attempt_at &lt;= #{now}
+    ORDER BY next_attempt_at, market_id LIMIT #{limit}
+  </select>
+
+  <update id="retryLater">
+    UPDATE resolve_sports_task SET attempts = attempts + 1, next_attempt_at = #{next}, last_reason = #{reason}, last_attempt_at = #{now},
+      version = version + 1, updated_at = #{now}
+    WHERE market_id = #{marketId} AND status = 'PENDING' AND version = #{version}
+  </update>
+
+  <update id="finishedSeen">
+    UPDATE resolve_sports_task SET attempts = attempts + 1, finished_seen_at = #{seen}, settle_after_at = #{settleAfter}, give_up_at = #{giveUp},
+      next_attempt_at = #{settleAfter}, last_reason = #{reason}, last_attempt_at = #{now}, version = version + 1, updated_at = #{now}
+    WHERE market_id = #{marketId} AND status = 'PENDING' AND version = #{version} AND finished_seen_at IS NULL
+  </update>
+
+  <update id="toResolving">
+    UPDATE resolve_sports_task SET status = 'RESOLVING', attempts = attempts + 1, result_option_id = #{optionId}, actual_start_at = #{actualStartAt},
+      next_attempt_at = #{next}, last_reason = #{reason}, last_attempt_at = #{now}, version = version + 1, updated_at = #{now}
+    WHERE market_id = #{marketId} AND status = 'PENDING' AND version = #{version}
+  </update>
+
+  <update id="toResolved">
+    UPDATE resolve_sports_task SET status = 'RESOLVED', last_reason = #{reason}, version = version + 1, updated_at = #{now}
+    WHERE market_id = #{marketId} AND status = 'RESOLVING'
+  </update>
+
+  <update id="resolvingLater">
+    UPDATE resolve_sports_task SET next_attempt_at = #{next}, last_reason = #{reason}, version = version + 1, updated_at = #{now}
+    WHERE market_id = #{marketId} AND status = 'RESOLVING'
+  </update>
+
+  <update id="toManual">
+    UPDATE resolve_sports_task SET status = 'MANUAL', attempts = attempts + 1, last_reason = #{reason}, last_attempt_at = #{now}, version = version + 1,
+      updated_at = #{now}
+    WHERE market_id = #{marketId} AND status = 'PENDING' AND version = #{version}
+  </update>
+
+  <update id="close">
+    UPDATE resolve_sports_task SET status = 'CLOSED', last_reason = #{reason}, version = version + 1, updated_at = #{now}
+    WHERE market_id = #{marketId} AND status IN ('PENDING', 'RESOLVING')
+  </update>
+
+  <sql id="templateCols">
+    kind, name, title_en, title_zh_cn, title_zh_tw, rules_en, rules_zh_cn, rules_zh_tw, source_primary, source_backup, options, version, updated_by,
+    created_at, updated_at
+  </sql>
+
+  <select id="templates" resultType="com.forecast.app.resolve.sports.SportsRows$Template">
+    SELECT <include refid="templateCols"/> FROM resolve_sports_template ORDER BY FIELD(kind, 'FOOTBALL_1X2', 'FOOTBALL_OU', 'NBA_ML', 'NBA_TOTAL'), kind
+  </select>
+
+  <select id="template" resultType="com.forecast.app.resolve.sports.SportsRows$Template">
+    SELECT <include refid="templateCols"/> FROM resolve_sports_template WHERE kind = #{kind}
+  </select>
+
+  <update id="updateTemplate">
+    UPDATE resolve_sports_template SET name = #{t.name}, title_en = #{t.titleEn}, title_zh_cn = #{t.titleZhCn}, title_zh_tw = #{t.titleZhTw},
+      rules_en = #{t.rulesEn}, rules_zh_cn = #{t.rulesZhCn}, rules_zh_tw = #{t.rulesZhTw}, source_primary = #{t.sourcePrimary},
+      source_backup = #{t.sourceBackup}, options = #{t.options}, version = version + 1, updated_by = #{t.updatedBy}, updated_at = #{t.updatedAt}
+    WHERE kind = #{t.kind} AND version = #{oldVersion}
+  </update>
+
+  <insert id="insertRecord" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO resolve_record (market_id, kind, option_id, actual_start_at, detail, note, actor, created_at)
+    VALUES (#{marketId}, #{kind}, #{optionId}, #{actualStartAt}, #{detail}, #{note}, #{actor}, #{createdAt})
+  </insert>
+</mapper>

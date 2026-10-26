@@ -1,107 +1,214 @@
 /**
- * 仪表盘：今日注册、今日入金和出金、待审核 KYC 和出金数。forecast S1 删除了复制源的持仓数、平台盈亏、净敞口；
- * 市场、彩池、平台收入在 S3 以后加，报表在 S9。
- * v2 E7：每 30 秒自动刷新（汇总数字，不需要和风控看板一样快），可暂停，页面不可见时停止。
+ * 仪表盘（需求第 6.2 节）：待处理（待上架、待提议、待确认、自动裁决失败、超时、争议中、结算异常、彩池对账差异、出金待审核、KYC）；
+ * 今日 / 近 7 天的下注额、下注人数、平台收入（抽成 + 尾差）、补偿支出、新注册、充值、提现。
+ * C41：彩池部分（GET /api/admin/dashboard/markets）和资金部分（GET /api/admin/dashboard，复制源）分开取，一处慢或出错只影响自己那一块，
+ * 各自有"重试"。每 30 秒自动刷新（v2 E7），可暂停，页面不可见时停止。"今天"按 UTC。
  */
 import { useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Skeleton } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { getDashboard } from '../api';
+import { getDashboard, getMarketDashboard } from '../api';
+import type { DashPeriod } from '../api/fcTypes';
 import { useApi } from '../hooks/useApi';
 import { useAutoRefresh } from '../hooks/useAutoRefresh';
 import { AutoRefreshControl } from '../components/AutoRefreshControl';
 import { PageHeader } from '../components/PageHeader';
 import { ErrorState } from '../components/ErrorState';
-import { Amount } from '../components/Num';
+import { Amount, Num } from '../components/Num';
 import { fullTime } from '../utils/display';
 import { useAuth } from '../auth/AuthContext';
 
-export function DashboardPage() {
+interface Todo {
+  key: string;
+  count: number;
+  to: string;
+  perm: string;
+  tone: 'orange' | 'red' | 'violet' | '';
+}
+
+function TodoCard({ todo }: { todo: Todo }) {
   const { t } = useTranslation();
   const { can } = useAuth();
-  const fetcher = useCallback(() => getDashboard(), []);
-  const { data, loading, error, reload, refresh } = useApi(fetcher);
-  const auto = useAutoRefresh(refresh, 30_000);
+  return (
+    <div className={`card kpi ${todo.count > 0 ? todo.tone : 'green'}`} data-testid={`todo-${todo.key}`}>
+      <div className="k">{t(`dash.todo.${todo.key}`)}</div>
+      <div className="v">
+        <b>{todo.count}</b>
+        {can(todo.perm) && todo.count > 0 ? (
+          <Link className="kpi-link" to={todo.to}>
+            {t('dash.handle')}
+          </Link>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function PeriodCard({ title, p }: { title: string; p: DashPeriod }) {
+  const { t } = useTranslation();
+  return (
+    <div className="card card-pad dash-period">
+      <div className="card-title">
+        <span>{title}</span>
+        <span className="muted">{p.from === p.to ? `${p.from} UTC` : `${p.from} ~ ${p.to} UTC`}</span>
+      </div>
+      <dl className="dash-dl">
+        <div>
+          <dt>{t('dash.betAmount')}</dt>
+          <dd>
+            <Amount value={p.betAmount} strong /> <small className="muted">USDT</small>
+          </dd>
+        </div>
+        <div>
+          <dt>{t('dash.bettors')}</dt>
+          <dd>
+            <Num strong>{p.bettors}</Num> <small className="muted">{t('dash.bets', { n: p.bets })}</small>
+          </dd>
+        </div>
+        <div>
+          <dt>{t('dash.revenue')}</dt>
+          <dd>
+            <Amount value={p.revenue} strong /> <small className="muted">{t('dash.revenueNote')}</small>
+          </dd>
+        </div>
+        <div>
+          <dt>{t('dash.compensation')}</dt>
+          <dd>
+            <Amount value={p.compensation} />
+          </dd>
+        </div>
+        <div>
+          <dt>{t('dash.registrations')}</dt>
+          <dd>
+            <Num strong>{p.registrations}</Num>
+          </dd>
+        </div>
+        <div>
+          <dt>{t('dash.deposit')}</dt>
+          <dd>
+            <Amount value={p.deposit} /> <small className="muted">{t('dashboard.txCount', { count: p.depositCount })}</small>
+          </dd>
+        </div>
+        <div>
+          <dt>{t('dash.withdraw')}</dt>
+          <dd>
+            <Amount value={p.withdraw} /> <small className="muted">{t('dashboard.txCount', { count: p.withdrawCount })}</small>
+          </dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
+export function DashboardPage() {
+  const { t } = useTranslation();
+  const markets = useApi(useCallback(() => getMarketDashboard(), []));
+  const funds = useApi(useCallback(() => getDashboard(), []));
+  const refreshMarkets = markets.refresh;
+  const refreshFunds = funds.refresh;
+  const refreshAll = useCallback(() => {
+    refreshMarkets();
+    refreshFunds();
+  }, [refreshMarkets, refreshFunds]);
+  const auto = useAutoRefresh(refreshAll, 30_000);
+  const m = markets.data;
+  const f = funds.data;
+  const todos: Todo[] = m
+    ? [
+        { key: 'review', count: m.pending.review, to: '/markets/review', perm: 'market:publish', tone: 'orange' },
+        { key: 'awaitingProposal', count: m.pending.awaitingProposal, to: '/resolve?tab=awaiting_proposal', perm: 'resolve:propose', tone: 'orange' },
+        { key: 'awaitingConfirm', count: m.pending.awaitingConfirm, to: '/resolve?tab=awaiting_confirm', perm: 'resolve:propose', tone: 'orange' },
+        { key: 'autoFailed', count: m.pending.autoFailed, to: '/resolve?tab=auto_failed', perm: 'resolve:propose', tone: 'red' },
+        { key: 'overdue', count: m.pending.overdue, to: '/resolve?tab=overdue', perm: 'resolve:propose', tone: 'red' },
+        { key: 'disputed', count: m.pending.disputed, to: '/resolve/disputes', perm: 'dispute:view', tone: 'violet' },
+        { key: 'settleAbnormal', count: m.pending.settleAbnormal, to: '/settle/runs?status=abnormal', perm: 'pool_recon:view', tone: 'red' },
+        { key: 'poolReconOpen', count: m.pending.poolReconOpen, to: '/funds/pool-recon', perm: 'pool_recon:view', tone: 'red' },
+        { key: 'withdrawalsPending', count: m.pending.withdrawalsPending, to: '/funds/withdrawals', perm: 'withdrawal:view', tone: 'orange' },
+      ]
+    : [];
 
   return (
     <>
       <PageHeader
         title={t('dashboard.title')}
-        sub={data ? t('dashboard.updatedAt', { time: fullTime(data.updatedAt) }) : t('dashboard.sub')}
+        sub={m ? t('dashboard.updatedAt', { time: fullTime(m.updatedAt) }) : t('dash.sub')}
         extra={
           <>
             <AutoRefreshControl auto={auto} />
-            <Button icon={<ReloadOutlined />} onClick={reload} loading={loading}>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={() => {
+                markets.reload();
+                funds.reload();
+              }}
+              loading={markets.loading || funds.loading}
+            >
               {t('common.refresh')}
             </Button>
           </>
         }
       />
-      {error ? (
+      <h2 className="dash-h">{t('dash.pending')}</h2>
+      {markets.error ? (
         <div className="card">
-          <ErrorState error={error} onRetry={reload} />
+          <ErrorState error={markets.error} onRetry={markets.reload} compact />
         </div>
-      ) : !data ? (
+      ) : !m ? (
+        <div className="card card-pad">
+          <Skeleton active paragraph={{ rows: 2 }} />
+        </div>
+      ) : (
+        <section className="kpis dash-todos" aria-label={t('dash.pending')}>
+          {todos.map((x) => (
+            <TodoCard key={x.key} todo={x} />
+          ))}
+          {f ? <TodoCard todo={{ key: 'kyc', count: f.pendingKyc, to: '/kyc', perm: 'kyc:view', tone: 'orange' }} /> : null}
+        </section>
+      )}
+      <h2 className="dash-h">{t('dash.numbers')}</h2>
+      {markets.error ? null : !m ? (
         <div className="card card-pad">
           <Skeleton active paragraph={{ rows: 6 }} />
         </div>
       ) : (
-        <>
-          <section className="kpis" aria-label={t('dashboard.todo')}>
-            <div className="card kpi orange">
-              <div className="k">{t('dashboard.pendingKyc')}</div>
-              <div className="v">
-                <b>{t('common.countItems', { count: data.pendingKyc })}</b>
-                {can('kyc:view') ? <Link className="kpi-link" to="/kyc">{t('dashboard.goReview')}</Link> : null}
-              </div>
+        <section className="dash-periods">
+          <PeriodCard title={t('dash.today')} p={m.today} />
+          <PeriodCard title={t('dash.week')} p={m.week} />
+        </section>
+      )}
+      <h2 className="dash-h">{t('dash.funds')}</h2>
+      {funds.error ? (
+        <div className="card">
+          <ErrorState error={funds.error} onRetry={funds.reload} compact />
+        </div>
+      ) : !f ? (
+        <div className="card card-pad">
+          <Skeleton active paragraph={{ rows: 2 }} />
+        </div>
+      ) : (
+        <section className="detail-grid" aria-label={t('dash.funds')}>
+          <div className="card stat">
+            <div className="k">{t('dashboard.todayRegistrations')}</div>
+            <div className="v">{f.todayRegistrations}</div>
+            <div className="muted">{t('dashboard.online', { count: f.onlineCustomers })}</div>
+          </div>
+          <div className={`card stat ${f.failedTasks > 0 ? 'stat-red' : ''}`}>
+            <div className="k">{t('dashboard.failedTasks')}</div>
+            <div className="v">{f.failedTasks}</div>
+            <div className="muted">
+              <Link to="/funds/tasks">{t('common.view')}</Link>
             </div>
-            <div className="card kpi orange">
-              <div className="k">{t('dashboard.pendingWithdrawals')}</div>
-              <div className="v">
-                <b>{t('common.countUnit', { count: data.pendingWithdrawals })}</b>
-                {can('withdrawal:view') ? <Link className="kpi-link" to="/funds/withdrawals">{t('dashboard.goReview')}</Link> : null}
-              </div>
+          </div>
+          <div className={`card stat ${f.openReconciliations > 0 ? 'stat-red' : ''}`}>
+            <div className="k">{t('dashboard.openRecon')}</div>
+            <div className="v">{f.openReconciliations}</div>
+            <div className="muted">
+              <Link to="/funds/reconciliation">{t('common.view')}</Link>
             </div>
-            <div className={`card kpi ${data.failedTasks > 0 ? 'red' : ''}`}>
-              <div className="k">{t('dashboard.failedTasks')}</div>
-              <div className="v">
-                <b>{t('common.countItems', { count: data.failedTasks })}</b>
-                {can('task:view') ? <Link className="kpi-link" to="/funds/tasks">{t('common.view')}</Link> : null}
-              </div>
-            </div>
-            <div className={`card kpi ${data.openReconciliations > 0 ? 'red' : ''}`}>
-              <div className="k">{t('dashboard.openRecon')}</div>
-              <div className="v">
-                <b>{t('common.countItems', { count: data.openReconciliations })}</b>
-                {can('recon:view') ? <Link className="kpi-link" to="/funds/reconciliation">{t('common.view')}</Link> : null}
-              </div>
-            </div>
-          </section>
-
-          <section className="detail-grid" aria-label={t('dashboard.today')}>
-            <div className="card stat">
-              <div className="k">{t('dashboard.todayRegistrations')}</div>
-              <div className="v">{data.todayRegistrations}</div>
-              <div className="muted">{t('dashboard.online', { count: data.onlineCustomers })}</div>
-            </div>
-            <div className="card stat">
-              <div className="k">{t('dashboard.todayDeposit')}</div>
-              <div className="v">
-                <Amount value={data.todayDeposit} /> <small className="muted">USDT</small>
-              </div>
-              <div className="muted">{t('dashboard.txCount', { count: data.todayDepositCount })}</div>
-            </div>
-            <div className="card stat">
-              <div className="k">{t('dashboard.todayWithdraw')}</div>
-              <div className="v">
-                <Amount value={data.todayWithdraw} /> <small className="muted">USDT</small>
-              </div>
-              <div className="muted">{t('dashboard.txCount', { count: data.todayWithdrawCount })}</div>
-            </div>
-          </section>
-        </>
+          </div>
+        </section>
       )}
     </>
   );

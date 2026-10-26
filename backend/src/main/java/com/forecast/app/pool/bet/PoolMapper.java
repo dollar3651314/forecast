@@ -81,7 +81,10 @@ interface PoolMapper {
 
   /** 后台：一个市场的下注明细，按收到时间倒序 */
   List<PoolRows.BetLine> marketBets(@Param("marketId") long marketId, @Param("optionId") Long optionId, @Param("userId") Long userId,
-      @Param("status") String status, @Param("offset") int offset, @Param("limit") int limit);
+      @Param("status") String status, @Param("byAmount") boolean byAmount, @Param("offset") int offset, @Param("limit") int limit);
+
+  /** 仪表盘（S9）：收到时间在 [from, to) 的有效下注 */
+  PoolRows.BetStat betStats(@Param("from") java.time.LocalDateTime from, @Param("to") java.time.LocalDateTime to);
 
   long countMarketBets(@Param("marketId") long marketId, @Param("optionId") Long optionId, @Param("userId") Long userId, @Param("status") String status);
 

@@ -265,9 +265,9 @@ class NotifyService implements NotifyApi, NotifyAdminApi {
     return r;
   }
 
-  /** 按邮箱发（验证码、风控人员，{@link AddressMailer}）。不知道收件人语言，中英文各一份 */
+  /** 按邮箱发（验证码、员工，{@link AddressMailer}）。lang 为空 = 不知道收件人语言，中英文各一份；不为空只发这种语言（S9，#23） */
   @Transactional
-  void sendToAddress(String to, String template, Map<String, String> params) {
+  void sendToAddress(String to, String template, Map<String, String> params, String lang) {
     Rows.TemplateRow t = mapper.template(template);
     if (t == null || "USER".equals(t.audience)) throw new IllegalArgumentException("不能按邮箱发的模板：" + template);
     String title = Render.render(t, params, Render.ZH).title();
@@ -277,6 +277,7 @@ class NotifyService implements NotifyApi, NotifyAdminApi {
     p.put("to", to);
     p.put("template", t.code);
     p.put("params", params == null ? Map.of() : params);
+    if (lang != null) p.put("lang", lang);
     enqueueMail(p);
   }
 
@@ -403,8 +404,13 @@ class NotifyService implements NotifyApi, NotifyAdminApi {
   private static NotifyAdminApi.Template template(Rows.TemplateRow t) {
     List<String> vars = t.variables == null || t.variables.isBlank() ? List.of() : java.util.Arrays.stream(t.variables.split(",")).map(String::strip).toList();
     List<NotifyChannel> chs = java.util.Arrays.stream(t.channels.split(",")).map(c -> NotifyChannel.valueOf(c.strip())).toList();
-    return new NotifyAdminApi.Template(t.code, t.audience, t.kind, t.nameZh, t.nameEn, t.titleZh, t.bodyZh, t.titleEn, t.bodyEn, vars, chs, t.builtIn,
-        t.enabled, t.updatedAt);
+    List<String> perms = t.staffPerms == null || t.staffPerms.isBlank() ? List.of() : java.util.Arrays.stream(t.staffPerms.split(",")).map(String::strip).toList();
+    return new NotifyAdminApi.Template(t.code, t.audience, t.kind, t.nameZh, t.nameEn, t.titleZh, t.bodyZh, t.titleEn, t.bodyEn, nz(t.titleTw), nz(t.bodyTw),
+        t.reqNo, perms, vars, chs, t.builtIn, t.enabled, t.updatedAt);
+  }
+
+  private static String nz(String s) {
+    return s == null ? "" : s;
   }
 
   @Override
@@ -417,7 +423,8 @@ class NotifyService implements NotifyApi, NotifyAdminApi {
 
   @Override
   @Transactional
-  public NotifyAdminApi.Template updateTemplate(String code, String titleZh, String bodyZh, String titleEn, String bodyEn, Boolean enabled) {
+  public NotifyAdminApi.Template updateTemplate(String code, String titleZh, String bodyZh, String titleEn, String bodyEn, String titleTw, String bodyTw,
+      Boolean enabled) {
     Rows.TemplateRow t = mapper.template(code);
     if (t == null) throw new com.forecast.app.common.error.BizException("NOT_FOUND", "模板不存在");
     java.util.Set<String> allowed = new java.util.HashSet<>(template(t).variables());
@@ -426,11 +433,22 @@ class NotifyService implements NotifyApi, NotifyAdminApi {
     String bz = text(c, "bodyZh", bodyZh, t.bodyZh, 1000, allowed);
     String te = text(c, "titleEn", titleEn, t.titleEn, 200, allowed);
     String be = text(c, "bodyEn", bodyEn, t.bodyEn, 1000, allowed);
+    // 繁体：可以清空（清空 = 按简体发）；标题和正文要么都有、要么都空
+    String tt = twText(c, "titleTw", titleTw, nz(t.titleTw), 200, allowed);
+    String bt = twText(c, "bodyTw", bodyTw, nz(t.bodyTw), 1000, allowed);
+    if (tt.isEmpty() != bt.isEmpty()) c.add(tt.isEmpty() ? "titleTw" : "bodyTw", "required");
     boolean en = enabled == null ? t.enabled : enabled;
     if (t.builtIn && !en) throw new com.forecast.app.common.error.BizException("BUILT_IN_CANNOT_DISABLE", "内置模板不能停用");
     c.throwIfAny();
-    mapper.updateTemplate(code, tz, bz, te, be, en);
+    mapper.updateTemplate(code, tz, bz, te, be, tt, bt, en);
     return template(mapper.template(code));
+  }
+
+  /** 繁体：null 不改，空串 = 清空（按简体发），其余同 {@link #text} */
+  private static String twText(ValidationException.Collector c, String field, String value, String old, int max, java.util.Set<String> allowed) {
+    if (value == null) return old;
+    if (value.isBlank()) return "";
+    return text(c, field, value, old, max, allowed);
   }
 
   /** 为空不改；不能为空白、不能超长、只能用模板列出的变量 */
@@ -509,7 +527,7 @@ class NotifyService implements NotifyApi, NotifyAdminApi {
   /** 客户端切换语言时告诉服务端，推送和邮件按这个语言生成 */
   @Transactional
   void setLang(long userId, String lang) {
-    if (!Render.ZH.equals(lang) && !Render.EN.equals(lang)) throw new ValidationException(List.of(new ValidationException.Field("lang", "invalid")));
+    if (!Render.ZH.equals(lang) && !Render.EN.equals(lang) && !Render.TW.equals(lang)) throw new ValidationException(List.of(new ValidationException.Field("lang", "invalid")));
     mapper.upsertLang(userId, lang);
   }
 

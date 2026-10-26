@@ -2,6 +2,7 @@ package com.forecast.app.resolve.auto;
 
 import com.forecast.app.market.api.MarketApi;
 import com.forecast.app.resolve.api.ResolveAdminApi;
+import com.forecast.app.resolve.sports.SportsResolver;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.HashSet;
@@ -23,11 +24,13 @@ class ResolveAdmin implements ResolveAdminApi {
 
   private final ResolveMapper mapper;
   private final MarketApi markets;
+  private final SportsResolver sports;
   private final ObjectMapper json;
 
-  ResolveAdmin(ResolveMapper mapper, MarketApi markets, ObjectMapper json) {
+  ResolveAdmin(ResolveMapper mapper, MarketApi markets, SportsResolver sports, ObjectMapper json) {
     this.mapper = mapper;
     this.markets = markets;
+    this.sports = sports;
     this.json = json;
   }
 
@@ -47,7 +50,8 @@ class ResolveAdmin implements ResolveAdminApi {
         iso(r.createdAt))).toList();
     List<Fetch> fv = mapper.fetches(id, FETCH_LIMIT).stream().map(f -> new Fetch(f.id, f.source, f.attempt, f.requestUrl, f.httpStatus,
         f.outcome.toLowerCase(Locale.ROOT), parse(f.parsed), f.error, f.body, f.bodySha256, iso(f.fetchedAt), f.elapsedMs)).toList();
-    return Optional.of(new Evidence(String.valueOf(marketNo), t == null ? null : task(t, String.valueOf(marketNo), opts), rv, fv));
+    return Optional.of(new Evidence(String.valueOf(marketNo), t == null ? null : task(t, String.valueOf(marketNo), opts), rv, fv,
+        sports.view(id, String.valueOf(marketNo), opts)));
   }
 
   @Override

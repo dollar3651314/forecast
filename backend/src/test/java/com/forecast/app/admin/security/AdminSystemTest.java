@@ -68,6 +68,30 @@ class AdminSystemTest extends AdminTestSupport {
   }
 
   /**
+   * SQ-19（Amos 2026-10-25："只创建一个角色，我自己登录用，我要什么都可以做，未来再由我根据需要创建其他角色"）：
+   * 内置角色只有超级管理员一个；超管的权限不存表，按 {@code Permission} 枚举全部给（RoleService.permissionsOf、AdminContext.has），
+   * 所以以后新加的权限点（S3～S9 的 market、resolve、dispute、settle、fee、betting_params、pool_recon、report 等）自动归超管。
+   */
+  @Test
+  void SQ19_内置角色只有超级管理员_超管拥有后端声明的全部权限点() throws Exception {
+    assertThat(jdbc.queryForList("SELECT code FROM admin_role WHERE built_in = 1", String.class)).containsExactly("super_admin");
+    Admin s = superAdmin();
+    JsonNode me = body(call(get("/api/admin/me"), s.cookie(), null));
+    assertThat(me.get("isSuperAdmin").asBoolean()).isTrue();
+    Set<String> granted = new LinkedHashSet<>();
+    me.get("permissions").forEach(p -> granted.add(p.asString()));
+    for (Permission p : Permission.values()) assertThat(granted).as("超管要有 %s", p.code).contains(p.code);
+    assertThat(granted).hasSize(Permission.values().length);
+    JsonNode roles = body(call(get("/api/admin/roles"), s.cookie(), null));
+    for (JsonNode role : roles) {
+      if (!"super_admin".equals(role.get("code").asString())) continue;
+      Set<String> rp = new LinkedHashSet<>();
+      role.get("permissions").forEach(p -> rp.add(p.asString()));
+      assertThat(rp).isEqualTo(granted);
+    }
+  }
+
+  /**
    * 安全审查 SEC-04：原来只拦"重置超级管理员的密码"。有"编辑管理员"权限的普通管理员可以重置权限比自己大的管理员的密码，
    * 拿到临时密码后登录成对方，绕过"不能分配超出自己权限的角色"（后台方案第 9 节补充）。现在要求对方的权限点都在自己的范围内。
    */
