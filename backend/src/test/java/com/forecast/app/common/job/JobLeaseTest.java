@@ -122,6 +122,20 @@ class JobLeaseTest {
     assertThat(b.runExclusive(job, Duration.ofSeconds(30), () -> {})).isTrue();
   }
 
+  /**
+   * 释放时租约必须已经过期，别的实例和释放在同一毫秒里也能拿到。原来释放把到期时间设成"现在"，同一毫秒内
+   * {@code lease_until < 现在} 不成立，偶发拿不到（staging 的 CI 上"执行出错_租约照样释放"因此失败过一次）。
+   * 释放语句里 updated_at 就是释放那一刻，所以用 lease_until &lt; updated_at 判断，结果不受快慢影响。
+   */
+  @Test
+  void 释放时租约已经过期_同一毫秒内别的实例也能拿到() {
+    String job = job();
+    JobLease a = new JobLease(mapper, "a");
+    assertThat(a.runExclusive(job, Duration.ofSeconds(30), () -> {})).isTrue();
+    assertThat(jdbc.queryForObject("SELECT lease_until < updated_at FROM common_job_lease WHERE name = ?", Boolean.class, job))
+        .as("释放后的到期时间早于释放时刻").isTrue();
+  }
+
   @Test
   void 默认实例名带主机名和进程号_每个实例不同() {
     assertThat(JobLease.defaultOwner()).contains(":").isNotEqualTo(JobLease.defaultOwner());
