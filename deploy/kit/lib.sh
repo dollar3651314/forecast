@@ -1,6 +1,9 @@
-# 部署脚本的公共函数（S20）。由 deploy.sh、rollback.sh、backup.sh、restore.sh、first-start.sh 引用，不单独运行。
+# 部署脚本的公共函数（S20）。由 deploy.sh、rollback.sh、backup.sh、restore.sh、start.sh、stop.sh 引用，不单独运行。
 # shellcheck shell=bash
-FC_DIR=/opt/forecast
+# FC_DIR、FC_PROJECT、FC_COMPOSE_OVERRIDE 只用于在开发机上演练（e2e/run-deployed.sh 用 backup.sh、restore.sh 做备份恢复演练，S12）；
+# 服务器上不要设（sudo、systemd 都不带这些变量，用下面的默认值）
+FC_DIR=${FC_DIR:-/opt/forecast}
+FC_PROJECT=${FC_PROJECT:-forecast}
 REG=ghcr.io/dollar3651314/forecast
 cd "$FC_DIR" || exit 1
 mkdir -p "$FC_DIR/state" "$FC_DIR/logs" "$FC_DIR/backup"
@@ -13,7 +16,9 @@ pull() {
 
 # 带上两个变量文件运行 docker compose：.env（密钥和域名，Amos 填）、state/image.env（当前版本）
 compose() {
-  docker compose --project-name forecast --project-directory "$FC_DIR" -f "$FC_DIR/docker-compose.yml" \
+  local extra=()
+  [ -n "${FC_COMPOSE_OVERRIDE:-}" ] && extra=(-f "$FC_COMPOSE_OVERRIDE")
+  docker compose --project-name "$FC_PROJECT" --project-directory "$FC_DIR" -f "$FC_DIR/docker-compose.yml" "${extra[@]}" \
     --env-file "$FC_DIR/.env" --env-file "$FC_DIR/state/image.env" "$@"
 }
 

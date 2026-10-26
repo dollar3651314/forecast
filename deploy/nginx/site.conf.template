@@ -1,7 +1,7 @@
-# 测试环境站点（S20，部署方案 v1.1 第 4 节；v2 加官网，部署方案第 14 节）。${APP_DOMAIN}、${ADMIN_DOMAIN}、${WWW_DOMAIN} 在容器启动时由 .env 替换；
+# 测试环境站点（复制源 S20；forecast 部署方案 `部署方案/v1-测试环境与切换.md`）。${APP_DOMAIN}、${ADMIN_DOMAIN}、${WWW_DOMAIN} 在容器启动时由 .env 替换；
 # Nginx 自己的变量（例如 $host）不受影响（只替换已定义的环境变量）。
 # 证书：一张 Let's Encrypt 证书同时包含三个域名（客户端、后台、官网），名字固定为 forecast（first-start.sh 申请，certbot 自动续期；
-# 已有服务器加官网域名时按部署方案第 14 节扩展证书）。
+# 证书里缺域名时按部署方案第 8 节扩展）。
 
 # 限流（功能取舍对照表 P-05）：Nginx 是第一道防线，只防明显的洪水，阈值比后端（common/ratelimit：每 IP 每分钟 600 次接口、
 # 120 次 WebSocket 握手，每客户每分钟 60 次交易写操作）宽松；正常使用碰不到。按 Nginx 看到的来源 IP（$binary_remote_addr）计数。

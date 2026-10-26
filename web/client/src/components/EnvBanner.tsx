@@ -1,11 +1,13 @@
 /**
  * 测试环境标识条（S20）：real 模式下后端健康检查返回非空 `env` 时，在页面顶部原型横幅的位置显示"测试环境"。
  * 固定在顶部预留的横幅高度里（--banner-h），不遮挡页面内容，也不接收点击；文字过长时省略，不会出现横向滚动。
+ * 真实模式默认不预留高度（生产没有标识条，不留空白）；显示标识条时给根元素加 env-on，恢复 24px（S12，lib/bannerSpace.ts）。
  * mock 模式不显示（那里有原型横幅）。
  */
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { loadEnvLabel } from '../api/envLabel';
+import { showEnvBannerSpace } from '../lib/bannerSpace';
 import { Icon } from './Icon';
 
 export function EnvBanner() {
@@ -14,7 +16,9 @@ export function EnvBanner() {
   useEffect(() => {
     let alive = true;
     void loadEnvLabel().then((v) => {
-      if (alive) setEnv(v);
+      if (!alive) return;
+      setEnv(v);
+      if (v) showEnvBannerSpace();
     });
     return () => {
       alive = false;
