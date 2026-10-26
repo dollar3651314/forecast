@@ -1,10 +1,15 @@
 /**
  * 测试环境标识条（S20）：real 模式启动时调一次 /api/health，env 非空才显示；失败不显示、不报错；mock 模式不调用。
+ * S12（原 S11 的 SQ-28）：真实模式不给顶部横幅留 24px（生产没有空白），显示标识条时才恢复。
  */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import process from 'node:process';
 import { act, render, screen } from '@testing-library/react';
 import { vi } from 'vitest';
 import i18n from '../i18n';
 import { fetchEnvLabel, loadEnvLabel, resetEnvLabel } from '../api/envLabel';
+import { ENV_ON_CLASS, initBannerSpace, NO_PROTO_CLASS } from '../lib/bannerSpace';
 import { EnvBanner } from './EnvBanner';
 
 const mode = vi.hoisted(() => ({ mock: true }));
@@ -46,6 +51,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+  document.documentElement.classList.remove(NO_PROTO_CLASS, ENV_ON_CLASS);
   mode.mock = true;
   vi.unstubAllGlobals();
   await i18n.changeLanguage('zh-CN');
@@ -63,6 +69,8 @@ describe('测试环境标识条', () => {
     });
     expect(screen.getAllByTestId('env-banner')).toHaveLength(2);
     expect(urls).toEqual(['/api/health']);
+    // 显示标识条时恢复顶部预留的 24px（根元素 env-on），标识条不遮挡内容
+    expect(document.documentElement).toHaveClass(ENV_ON_CLASS);
   });
 
   it('英文界面显示 Test environment', async () => {
@@ -76,6 +84,8 @@ describe('测试环境标识条', () => {
     stubHealth({ status: 200, body: '{"status":"UP","version":"a1b2c3d","db":"UP","redis":"UP"}' });
     await renderBanner();
     expect(screen.queryByTestId('env-banner')).toBeNull();
+    // 生产：不恢复预留高度
+    expect(document.documentElement).not.toHaveClass(ENV_ON_CLASS);
     resetEnvLabel();
     stubHealth({ status: 200, body: '{"status":"UP","env":"  "}' });
     expect(await fetchEnvLabel()).toBe('');
@@ -100,5 +110,29 @@ describe('测试环境标识条', () => {
     await renderBanner();
     expect(screen.queryByTestId('env-banner')).toBeNull();
     expect(urls).toEqual([]);
+  });
+});
+
+/** 读 CSS 文件（vitest 里样式不参与布局计算，这里核对规则本身；真实浏览器里的高度在 e2e/tests/client.spec.ts 里量） */
+const css = (name: string) => readFileSync(join(process.cwd(), 'src/styles', name), 'utf8');
+
+describe('顶部横幅的预留高度（S12）', () => {
+  it('真实模式启动时给根元素加 no-proto；原型模式不加', () => {
+    const real = document.createElement('div');
+    initBannerSpace(real, false);
+    expect(real).toHaveClass(NO_PROTO_CLASS);
+    const mock = document.createElement('div');
+    initBannerSpace(mock, true);
+    expect(mock).not.toHaveClass(NO_PROTO_CLASS);
+  });
+
+  it('样式：默认 24px（原型横幅）；no-proto 时 0（生产不留空白）；no-proto + env-on 时恢复 24px（测试环境标识条）', () => {
+    expect(css('tokens.css')).toMatch(/--banner-h:\s*24px;/);
+    const layout = css('layout.css').replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(layout).toMatch(/:root\.no-proto\s*\{\s*--banner-h:\s*0px;\s*\}/);
+    expect(layout).toMatch(/:root\.no-proto\.env-on\s*\{\s*--banner-h:\s*24px;\s*\}/);
+    // 页面、顶栏、标识条都按 --banner-h 让位，不写死 24px
+    expect(layout).toMatch(/\.app, \.auth \{ padding-top: var\(--banner-h\); \}/);
+    expect(layout).toMatch(/\.env-banner \{[^}]*height: var\(--banner-h\)/);
   });
 });

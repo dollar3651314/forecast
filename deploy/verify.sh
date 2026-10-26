@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# 从外部确认测试环境部署成功（S20，部署方案 v1.1 第 8 节）。在任何能上网的机器上运行，不需要登录服务器：
-#   bash deploy/verify.sh test-app.<域名> test-admin.<域名> [期望的提交号] [官网域名 test-www.<域名>]
-# 检查：版本、HTTPS 和证书、跳转、不该开放的路径和端口、页面能打开、测试环境标识；给了官网域名时再检查官网（AC2-10，部署方案第 14 节）。
-# 只检查官网、不核对提交号时，第三个参数写 ""（例如 verify.sh test-app.x test-admin.x "" test-www.x）。
+# 从外部确认测试环境部署成功（复制源 S20；forecast：部署方案/v1-测试环境第一次部署清单.md 第 9 步）。在任何能上网的机器上运行，不需要登录服务器：
+#   bash deploy/verify.sh fc-test.quickcome.online fc-test-admin.quickcome.online [期望的提交号] fc-test-www.quickcome.online
+# 检查：版本、HTTPS 和证书、跳转、不该开放的路径和端口、页面能打开、测试环境标识；给了官网域名时再检查官网；
+# forecast S12 加：不登录也能看的页面（S13 robots.txt、sitemap.xml、不存在的市场返回 404）、S16 数据页、端到端测试接口的新路径。
+# 只检查官网、不核对提交号时，第三个参数写 ""（例如 verify.sh fc-test.x fc-test-admin.x "" fc-test-www.x）。
 # 追踪号（X-Request-Id）；业务告警（v2 E8，只在后台域名的健康检查里有）只提示、不算部署失败。
-# 真实 IP（伪造 X-Forwarded-For 不起作用）、WebSocket、冒烟流程要在浏览器里手动确认，见部署方案第 8 节。
+# 证书签发方、WebSocket、冒烟流程要在浏览器里手动确认，见第一次部署清单第 10 步。
 set -uo pipefail
 app=${1:?用法：verify.sh <客户端域名> <后台域名> [提交号]}
 admin=${2:?用法：verify.sh <客户端域名> <后台域名> [提交号]}
@@ -43,17 +44,22 @@ done
 echo "== 页面"
 [ "$(code "https://$app/")" = 200 ] && ok "客户端首页 200" || bad "客户端首页打不开"
 [ "$(code "https://$admin/admin/")" = 200 ] && ok "后台首页 200" || bad "后台首页打不开"
+# forecast S13（不登录也能看、搜索引擎版本）、S16（公开概率看板 /data）
+[ "$(code "https://$app/data")" = 200 ] && ok "数据页 /data 200" || bad "数据页 /data 打不开"
+[ "$(code "https://$app/robots.txt")" = 200 ] && ok "robots.txt 200（后端生成）" || bad "robots.txt 打不开"
+[ "$(code "https://$app/sitemap.xml")" = 200 ] && ok "sitemap.xml 200（后端生成）" || bad "sitemap.xml 打不开"
+c=$(code "https://$app/markets/1"); [ "$c" = 404 ] && ok "不存在的市场 /markets/1 返回 404（AC-85）" || bad "不存在的市场 /markets/1 返回 $c（应为 404）"
 
 echo "== 不该对外的路径"
 # 带分号的写法（Spring 会忽略分号后面的内容）也要拦住（安全审查 SEC-02）
-for u in "https://$app/api/admin/me" "https://$app/api/admin;x/me" "https://$app/api/e2e/mail/code" "https://$app/actuator/health" "https://$app/actuator/prometheus" "https://$admin/actuator/health" "https://$admin/actuator/prometheus" "https://$admin/api/ledger/entries"; do
+for u in "https://$app/api/admin/me" "https://$app/api/admin;x/me" "https://$app/api/e2e/mail/code" "https://$app/api/e2e/telegram/updates" "https://$app/actuator/health" "https://$app/actuator/prometheus" "https://$admin/actuator/health" "https://$admin/actuator/prometheus" "https://$admin/api/ledger/entries"; do
   c=$(code "$u"); { [ "$c" = 404 ] || [ "$c" = 401 ]; } && ok "$c $u" || bad "$c $u（应为 404）"
 done
 
 if [ -n "$www" ]; then
   echo "== 官网 $www"
   [ "$(code "http://$www/")" = 301 ] && ok "http 跳转到 https" || bad "官网 http 没有跳转"
-  if curl -s -o /dev/null --max-time 10 "https://$www/"; then ok "$www 证书有效"; else bad "$www 证书无效或无法访问（证书里有没有这个域名？见部署方案第 14 节）"; fi
+  if curl -s -o /dev/null --max-time 10 "https://$www/"; then ok "$www 证书有效"; else bad "$www 证书无效或无法访问（证书里有没有这个域名？见部署方案第 8 节）"; fi
   page=$(curl -s --max-time 10 "https://$www/" || true)
   case "$page" in *'name="fc-client-url"'*) ok "官网首页能打开" ;; *) bad "官网首页打不开或不是官网" ;; esac
   case "$page" in *"content=\"https://$app\""*) ok "注册、登录跳到 https://$app" ;; *) bad "官网页面里的客户端地址不是 https://$app" ;; esac

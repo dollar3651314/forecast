@@ -10,16 +10,20 @@
 #   E2E_MVN_ARGS       传给 Maven 的额外参数（例如本机离线时 -o）
 #   E2E_KEEP=1         测试结束后不停容器、不删临时目录（排查用；之后 docker compose -p forecast-e2e down -v 并手动删目录）
 #   E2E_BUILDX_CACHE=gha  用 docker buildx 和 GitHub Actions 缓存构建镜像（CI 的 e2e-deployed 设；本机不要设）
+#   E2E_IMAGE_TAG      镜像标签（默认 e2e-local）。同一台机器上有别人也在跑时换一个，免得覆盖别人的镜像；跑完自己删
+#   E2E_SKIP_BACKUP_DRILL=1  不做最后的备份恢复演练（S12）
 #   E2E_APP_DOMAIN、E2E_ADMIN_DOMAIN、E2E_WWW_DOMAIN  三个假域名（默认 test-app.e2e.test、test-admin.e2e.test、test-www.e2e.test（官网）；
 #                      .test 是保留的顶级域名，不会解析到外网）
 # 密码（数据库、Redis、第一个超管）每次随机生成，只写进临时目录的 .env，结束时连同临时目录一起删除，不进仓库、不打印。
 # 日志：e2e/logs/deployed/（各容器日志、内存、耗时；不进仓库）。Playwright 报告同默认形态：e2e/playwright-report/。
+# 用例全部通过后，再用服务器上真正用的 deploy/kit/backup.sh、restore.sh 做一次备份恢复演练（S12，部署方案第 13 节）：
+# 数据库 + 对象存储目录（证件、裁决截图）备份 → 改坏数据库、删掉文件 → 恢复 → 核对数据库和文件都回到备份时的样子、后端健康检查通过。
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT=$PWD
 PROJECT=forecast-e2e
 REG=ghcr.io/dollar3651314/forecast
-TAG=e2e-local
+TAG=${E2E_IMAGE_TAG:-e2e-local}
 APP_DOMAIN=${E2E_APP_DOMAIN:-test-app.e2e.test}
 ADMIN_DOMAIN=${E2E_ADMIN_DOMAIN:-test-admin.e2e.test}
 WWW_DOMAIN=${E2E_WWW_DOMAIN:-test-www.e2e.test}
@@ -174,4 +178,54 @@ say "Playwright 结束（退出码 $rc）"
 # 跑完主流程后各容器的内存（和部署方案第 9 节的上限对照）
 docker stats --no-stream --format 'table {{.Name}}\t{{.MemUsage}}\t{{.MemPerc}}\t{{.CPUPerc}}' \
   "$PROJECT-web-1" "$PROJECT-app-1" "$PROJECT-mysql-1" "$PROJECT-redis-1" | tee "$LOGS/memory.txt"
-exit "$rc"
+[ "$rc" = 0 ] || exit "$rc"
+
+# ---------- 6. 备份恢复演练（S12）：用服务器上的 backup.sh、restore.sh，数据目录布局和服务器 /opt/forecast 一样 ----------
+[ -n "${E2E_SKIP_BACKUP_DRILL:-}" ] && exit 0
+say "备份恢复演练（deploy/kit/backup.sh、restore.sh）"
+cp "$ROOT"/deploy/kit/*.sh "$ROOT/deploy/kit/docker-compose.yml" "$TMP/"
+kit() { FC_DIR="$TMP" FC_PROJECT="$PROJECT" FC_COMPOSE_OVERRIDE="$ROOT/e2e/compose.deployed.yml" bash "$TMP/$1" "${@:2}"; }
+sql() { compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot -N -B forecast' <<< "$1"; }
+# 文件清单：路径 + sha256（在后端容器里算，属主是 uid 10001 的文件本机不是 root 也能读）
+files_sum() { compose exec -T app sh -c 'cd /data && find storage -type f -exec sha256sum {} + | sort -k2'; }
+# 数据库核对：跑完用例后不再变的几张表的行数（客户、证件申请、裁决截图、员工），加上迁移版本
+db_facts() { sql "SELECT (SELECT COUNT(*) FROM account_user), (SELECT COUNT(*) FROM account_kyc_application), (SELECT COUNT(*) FROM resolve_attachment), (SELECT COUNT(*) FROM admin_user), (SELECT MAX(installed_rank) FROM flyway_schema_history);"; }
+drill_fail() { echo "备份恢复演练没有通过：$*" >&2; exit 1; }
+
+# 放一个演练用的文件，保证文件包里至少有一个（用例上传的证件、截图也会在里面）
+compose exec -T app sh -c 'mkdir -p /data/storage/drill && head -c 4096 /dev/urandom > /data/storage/drill/probe.bin'
+before_files=$(files_sum)
+before_db=$(db_facts)
+echo "$before_files" | awk '{print $2}' > "$LOGS/drill-files.txt"
+echo "  备份前：$(echo "$before_files" | wc -l) 个文件；客户、证件申请、裁决截图、员工、迁移：$before_db"
+
+kit backup.sh drill > "$LOGS/drill-backup.log" 2>&1 || { cat "$LOGS/drill-backup.log" >&2; drill_fail "backup.sh 失败"; }
+db_file=$(ls -1t "$TMP"/backup/forecast-*-drill.sql.gz | head -1)
+st_file=${db_file%.sql.gz}.storage.tgz
+[ -f "$st_file" ] || drill_fail "没有生成文件包 $(basename "$st_file")"
+for f in "$db_file" "$st_file"; do
+  [ "$(stat -c %a "$f")" = 600 ] || drill_fail "$(basename "$f") 的权限不是 600"
+done
+gzip -t "$db_file" || drill_fail "数据库备份不是完整的 gzip"
+tar -tzf "$st_file" | grep -qx 'storage/drill/probe.bin' || drill_fail "文件包里没有演练文件"
+[ "$(tar -tzf "$st_file" | grep -vc '/$')" = "$(echo "$before_files" | wc -l)" ] || drill_fail "文件包里的文件数和对象存储目录不一致"
+echo "  备份：$(basename "$db_file")（$(du -h "$db_file" | cut -f1)）、$(basename "$st_file")（$(du -h "$st_file" | cut -f1)），权限 600"
+
+# 改坏：数据库多一张表、少一个客户；删掉演练文件和用例上传的第一个文件、改坏剩下的第一个
+sql "CREATE TABLE drill_after_backup (id INT); DELETE FROM account_user ORDER BY id DESC LIMIT 1;"
+[ "$(db_facts)" != "$before_db" ] || drill_fail "没能改动数据库"
+compose exec -T app sh -c 'rm -f /data/storage/drill/probe.bin; f=$(find /data/storage -type f | sort | head -1); [ -z "$f" ] || rm -f "$f"; g=$(find /data/storage -type f | sort | head -1); [ -z "$g" ] || echo broken > "$g"'
+[ "$(files_sum)" != "$before_files" ] || drill_fail "没能改动对象存储目录"
+
+printf 'RESTORE\n' | kit restore.sh "$db_file" > "$LOGS/drill-restore.log" 2>&1 || { cat "$LOGS/drill-restore.log" >&2; drill_fail "restore.sh 失败"; }
+ls "$TMP"/backup/forecast-*-before-restore.sql.gz "$TMP"/backup/forecast-*-before-restore.storage.tgz > /dev/null || drill_fail "恢复前没有先备份（before-restore）"
+[ -z "$(sql "SHOW TABLES LIKE 'drill_after_backup';")" ] || drill_fail "数据库没有回到备份时的样子（备份之后建的表还在）"
+after_db=$(db_facts)
+[ "$after_db" = "$before_db" ] || drill_fail "数据库核对不一致：备份前 $before_db，恢复后 $after_db"
+after_files=$(files_sum)
+[ "$after_files" = "$before_files" ] || { diff <(echo "$before_files") <(echo "$after_files") >&2; drill_fail "对象存储目录没有恢复到备份时的内容"; }
+owner=$(compose exec -T app sh -c 'stat -c %u /data/storage/drill/probe.bin')
+[ "$owner" = 10001 ] || drill_fail "恢复出来的文件属主是 $owner，不是后端用户 10001"
+lcurl -sf --max-time 5 --resolve "$APP_DOMAIN:443:127.0.0.1" -k "https://$APP_DOMAIN/api/health" | grep -q '"status":"UP"' || drill_fail "恢复后经 Nginx 的健康检查不是 UP"
+say "备份恢复演练通过：数据库（$after_db）和 $(echo "$after_files" | wc -l) 个文件都回到备份时的内容，后端健康检查 UP"
+exit 0

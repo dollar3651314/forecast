@@ -12,8 +12,8 @@
 #   - 环境变量换成 FC_ 前缀，库名 forecast_*，镜像 forecast-app / forecast-web，后端 wallet 包路径 com/forecast/app。
 #   - checks 加"整个仓库没有旧品牌名"（node scripts/check-brand.mjs --repo，名单在 scripts/brand-check.json）。
 #     架构方案第 12.1 节写的 scripts/check-i18n.mjs 复制源没有这个脚本，S1 不加（三个前端的 i18n 键检查在各自的单元测试里）。
-#   - publish-staging 保留但现在不会触发：仓库还没有 staging 分支，也没有测试服务器（架构方案第 11 节，S14）。
-#     建好 staging 分支和测试服务器以前，push 到 staging 的事件不会发生；仓库 Variables 里的 FC_STAGING_APP_URL 也没设。
+#   - publish-staging 保留但现在不会触发：仓库还没有 staging 分支，也没有测试服务器（架构方案第 11 节；S12 第一次部署时建，
+#     部署方案/v1-测试环境第一次部署清单.md 第 0 步）。建好以前 push 到 staging 的事件不会发生；仓库 Variables 里的 FC_STAGING_APP_URL 也没设（SQ-46）。
 # Actions 用量：公开仓库免费；私有仓库消耗账户的免费额度（复制源私有期间额度用完过，CI 停了）。仓库公开还是私有由 Amos 处理（FQ-12）；
 #   私有时每月检查一次用量，超过 70% 提醒 Amos（C74 第 6 条）。路径过滤、取消旧运行、缓存都是为了省用量。
 name: ci
@@ -114,6 +114,8 @@ jobs:
           node-version: 22
       - name: 项目地图和索引检查（C53）
         run: node scripts/check-project-index.mjs
+      - name: 部署环境变量三处一致、都标了必填 / 可选（application.yml、deploy/kit/docker-compose.yml、env.example；forecast S12）
+        run: node scripts/check-deploy-env.mjs
       - name: 整个仓库没有旧品牌名、旧环境变量前缀、旧服务器地址（架构方案第 1.4 节 ⑦；名单和排除的文件在 scripts/brand-check.json）
         run: node scripts/check-brand.mjs --repo
       - name: 密钥扫描（仓库里不能出现密钥的值）
@@ -438,7 +440,7 @@ jobs:
           echo "全部通过（跳过的算通过）"
   publish-staging:
     # 只在合并到 staging（push）并且上面的检查全部通过时运行；PR 上不运行。
-    # forecast S1：保留但现在不会触发（还没有 staging 分支和测试服务器，S14 建）。
+    # forecast S1：保留但现在不会触发（还没有 staging 分支和测试服务器，S12 第一次部署时建）。
     # push 时 changes 的输出全部是 'true'，下面每个 job 都会真正运行；任何一个失败、取消或被跳过，本 job 都不运行（不发布）。
     if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
     needs: [checks, web-client, web-admin, web-site, backend, contracts, sweep-anvil, e2e, e2e-deployed]

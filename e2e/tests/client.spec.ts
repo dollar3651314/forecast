@@ -5,6 +5,8 @@
  *    详情看到结果和结算合计、通知中心点结算通知回到这个市场。
  * 2. 电脑 1366×768：开赛提醒（#23，SQ-20）：注册后的自动登录也算登录过（S16，SQ-27），注册完直接在还没开放的市场订阅 →
  *    "通知偏好"里看到、退订另一个 → 到开放时间（可调时钟）发出一封邮件（链接完整），退订的不发 → 邮件里的退订链接不用登录也能打开。
+ * 3. S12（原 S11 的 SQ-28）：顶部横幅的预留高度。生产（健康检查没有 env）顶部不留 24px 空白；测试环境（env=test）标识条占 24px、
+ *    顶栏在它下面不被遮挡。两种情况都用改写健康检查响应的办法在同一个后端上造出来，手机和电脑各量一次。
  * 两种形态都跑（tests/targets.ts）。拨过的时钟在结束时复原。
  */
 import { expect, request, test, type APIRequestContext, type BrowserContext, type Page } from '@playwright/test';
@@ -248,5 +250,54 @@ test('开赛提醒（#23）：只给登录过的客户（注册后的自动登�
     await anon.post('/api/e2e/clock/reset');
     await ctx.close();
     await anon.dispose();
+  }
+});
+
+test('顶部横幅的预留高度（S12）：生产没有测试标识、不留空白；测试环境标识条占 24px、不遮挡顶栏', async ({ browser }) => {
+  // 真实的健康检查响应（直接问后端；部署形态里测试进程解析不了假域名，所以不在路由里转发浏览器的请求）
+  const anon = await request.newContext({ baseURL: STUB_URL });
+  const real = (await (await anon.get('/api/health')).json()) as Record<string, unknown>;
+  await anon.dispose();
+  expect(real.status).toBe('UP');
+  delete real.alert;
+  delete real.alerts;
+  for (const env of ['', 'test']) {
+    for (const viewport of [{ width: 390, height: 844 }, { width: 1366, height: 768 }]) {
+      const label = `${env ? '测试环境' : '生产'}，宽 ${viewport.width}`;
+      const ctx = await browser.newContext({ baseURL: CLIENT_URL, ignoreHTTPSErrors: DEPLOYED, viewport, locale: 'zh-CN', serviceWorkers: 'block' });
+      const page = await ctx.newPage();
+      try {
+        await step(`${label}：打开市场列表，量顶栏和页面的上边距`, async () => {
+          // 页面的健康检查用后端真实的响应，只改写 env：没有 = 生产（不设 FC_ENV_LABEL），test = 测试环境
+          await page.route('**/api/health', async (route) => {
+            const body: Record<string, unknown> = { ...real };
+            delete body.env;
+            if (env) body.env = env;
+            await route.fulfill({ json: body });
+          });
+          const health = page.waitForResponse((r) => new URL(r.url()).pathname === '/api/health');
+          await page.goto('/markets');
+          await health;
+          const bar = page.locator(viewport.width < 1024 ? '.mbar' : '.topnav');
+          await expect(bar).toBeVisible();
+          const top = () => bar.evaluate((e) => Math.round(e.getBoundingClientRect().top));
+          const pad = () => page.locator('.app').evaluate((e) => getComputedStyle(e).paddingTop);
+          if (env) {
+            await expect(page.getByTestId('env-banner')).toBeVisible();
+            await expect.poll(top, { message: '顶栏在标识条下面' }).toBe(24);
+            expect(await pad()).toBe('24px');
+            const banner = await page.getByTestId('env-banner').boundingBox();
+            expect(Math.round(banner!.y + banner!.height)).toBeLessThanOrEqual(24);
+          } else {
+            await expect(page.getByTestId('env-banner')).toHaveCount(0);
+            expect(await top(), '顶栏贴着页面顶部，没有 24px 空白').toBe(0);
+            expect(await pad()).toBe('0px');
+          }
+          await expectNoHorizontalScroll(page, label);
+        });
+      } finally {
+        await ctx.close();
+      }
+    }
   }
 });

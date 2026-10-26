@@ -23,7 +23,7 @@ services:
     environment:
       APP_DOMAIN: ${APP_DOMAIN:?缺少 APP_DOMAIN}
       ADMIN_DOMAIN: ${ADMIN_DOMAIN:?缺少 ADMIN_DOMAIN}
-      # 官网（v2，部署方案第 14 节）。已有服务器的 .env 还没加时用一个不会被访问到的占位域名，Nginx 照常启动，官网那一段不生效
+      # 官网。.env 里没有时用一个不会被访问到的占位域名，Nginx 照常启动，官网那一段不生效（forecast 第一次部署时三个域名都要填，first-start.sh 会检查）
       WWW_DOMAIN: ${WWW_DOMAIN:-www-not-configured.invalid}
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro
@@ -126,7 +126,7 @@ services:
         condition: service_healthy
     # 单实例：停机时先处理完队列再退出
     stop_grace_period: 60s
-    # 不给容器用交换分区（memswap = mem）：到上限就被杀掉重启，不能拖着整台机器换页卡死（部署方案第 19 节）
+    # 不给容器用交换分区（memswap = mem）：到上限就被杀掉重启，不能拖着整台机器换页卡死（部署方案第 3 节）
     mem_limit: 576m
     memswap_limit: 576m
     logging: *logging

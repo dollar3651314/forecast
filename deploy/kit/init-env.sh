@@ -8,7 +8,8 @@
 # - 邮件（FC_MAIL_*）、区块链（FC_WALLET_*）由 Amos 自己填。
 set -euo pipefail
 [ "$(id -u)" = 0 ] || { echo "请用 root 运行（sudo）" >&2; exit 1; }
-cd /opt/forecast
+# FC_DIR 只用于在开发机上演练（S12），服务器上不设
+cd "${FC_DIR:-/opt/forecast}"
 [ -f .env ] || cp env.example .env
 chmod 600 .env
 
@@ -32,7 +33,7 @@ b64url() { base64 -w0 | tr '+/' '-_' | tr -d '='; }
   set_if_empty ADMIN_DOMAIN "$2"
   set_if_empty CERT_EMAIL "$3"
 }
-# 官网域名（v2，可选的第 4 个参数；部署方案第 14 节）
+# 官网域名（第 4 个参数；forecast 第一次部署时就要给，first-start.sh 申请证书要三个域名）
 [ $# -ge 4 ] && set_if_empty WWW_DOMAIN "$4"
 
 set_if_empty MYSQL_ROOT_PASSWORD "$(rand 24)"
