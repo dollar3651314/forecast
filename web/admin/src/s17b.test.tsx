@@ -117,6 +117,18 @@ describe('客户详情：人工加款、扣款', () => {
     expect(await screen.findByText(/已扣款 1\.00 USDT/, undefined, { timeout: 5000 })).toBeInTheDocument();
   });
 
+  it('同一个页面先加款再扣款：扣款弹窗的类别按扣款的初始值选中（不留上一个弹窗的初始值）', { timeout: 40000 }, async () => {
+    page(c.id);
+    await clickEnabled(/人工加款/);
+    let dialog = await screen.findByRole('dialog', undefined, { timeout: 5000 });
+    expect(within(dialog).getByLabelText('充值未到账补入')).toBeChecked();
+    fireEvent.click(within(dialog).getByRole('button', { name: /取\s?消/ }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument(), { timeout: 5000 });
+    await clickEnabled(/人工扣款/);
+    dialog = await screen.findByRole('dialog', undefined, { timeout: 5000 });
+    expect(within(dialog).getByLabelText('误入账扣回')).toBeChecked();
+  });
+
   it('没有 balance:adjust：两个按钮都置灰', async () => {
     page(c.id, 2);
     await screen.findByText('最近登录 IP');

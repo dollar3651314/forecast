@@ -13,6 +13,10 @@ forecast:
     ws-handshake-per-minute: 1000000
     user-write-per-minute: 1000000
     admin-login-per-ip: 1000000
+  # 发验证码按 IP 限次（SEC-03，默认每小时 30 次）：端到端的注册都来自 127.0.0.1，用例多了以后一次全量就超过 30 次
+  # （S17B 加了人工调账的用例后，排在最后的用例注册时收到 429 CODE_TOO_FREQUENT）。限次本身在后端 SendCodeLimiterTest 里单独测
+  auth:
+    code-ip-hourly-limit: 1000000
   # 钱包：TRON 的 xpub 来自 BIP39 公开的测试助记词（"abandon … about"，人人都知道，没有任何价值）；
   # USDT 合约地址是三条链官方 USDT 合约的公开地址。不配置节点地址：扫块和广播由 e2e 的链替身代替，不连任何真实节点。
   # ERC20、BEP20 的充值地址只用 CREATE2 合约地址（开发记录/钱包-合约地址方案.md）：下面四个地址就是 contracts/script/anvil-e2e.sh
