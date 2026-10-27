@@ -46,14 +46,21 @@ if command -v ss > /dev/null; then
 fi
 
 echo "== 2/4 别的项目的自动更新、备份定时器"
-timers=$(systemctl list-unit-files --type=timer --state=enabled --no-legend 2> /dev/null | awk '{print $1}' \
-  | grep -E -- '-(deploy|backup)\.timer$' | grep -v '^forecast-' || true)
-active=$(systemctl list-units --type=timer --state=active --no-legend 2> /dev/null | awk '{print $1}' \
-  | grep -E -- '-(deploy|backup)\.timer$' | grep -v '^forecast-' || true)
-if [ -z "$timers$active" ]; then
+# "别的项目"只认有 <名字>-deploy.timer 的（和 switch-lib.sh 的 other_discover 一样），只查它的 <名字>-deploy.timer、<名字>-backup.timer。
+# 不能按 *-backup.timer 宽匹配：Debian / Ubuntu 自带的 dpkg-db-backup.timer 也叫这个名字，它不会拉起任何容器（线上第一次运行时误报过）。
+projects=$(systemctl list-unit-files --type=timer --no-legend '*-deploy.timer' 2> /dev/null | awk '{print $1}' \
+  | sed -n 's/-deploy\.timer$//p' | grep -vx forecast | sort -u || true)
+live=""
+for n in $projects; do
+  for t in "$n-deploy.timer" "$n-backup.timer"; do
+    if [ "$(systemctl is-enabled "$t" 2> /dev/null)" = enabled ] || systemctl is-active -q "$t" 2> /dev/null; then live="$live $t"; fi
+  done
+done
+live=$(echo "$live" | tr ' ' '\n' | sed '/^$/d' | sort -u | tr '\n' ' ' | sed 's/ $//')
+if [ -z "$live" ]; then
   ok "没有启用中的别的项目的 deploy / backup 定时器"
 else
-  bad "这些定时器还启用着（会把别的项目自动拉起来），先 systemctl disable --now：$(echo "$timers $active" | tr '\n' ' ')"
+  bad "这些定时器还启用着（会把别的项目自动拉起来），先 systemctl disable --now：$live"
 fi
 cron=$(crontab -l 2> /dev/null | grep -v '^#' | grep -E 'deploy\.sh|docker' | grep -v '/opt/forecast/' || true)
 [ -z "$cron" ] || bad "root 的 crontab 里有别的项目的部署命令，先注释掉：$cron"

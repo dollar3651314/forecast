@@ -3,6 +3,8 @@
 # （/opt/forecast、/usr/local/bin/fc、/etc/letsencrypt/live/forecast、/etc/systemd/system/forecast-*）按测试服务器的样子跑一遍：
 #   - 一个假的"另一个项目" oldproj：/opt/oldproj 下的 lib.sh、backup.sh、deploy.sh、compose（4 个小容器占 80、443、127.0.0.1:8080），
 #     systemd 里有 oldproj-deploy.timer、oldproj-backup.timer（启用着）——和测试服务器上那个项目的布局一样，只是名字不同；
+#   - 系统自带的 dpkg-db-backup.timer（Debian / Ubuntu 都有，启用着，没有对应的 deploy 定时器）：不是别的项目，preflight 不能报它，切换时不能动它
+#     （线上第一次运行时 preflight 按 *-backup.timer 宽匹配把它当成了别的项目）；
 #   - systemctl、certbot、apt-get、swapon、sysctl 用替身（放在临时目录，只对本脚本启动的命令生效）：这台机器上没有 systemd 或者不能改系统；
 #     certbot 替身用本次生成的 CA 签证书（三个域名），要 80 端口空着（和 --standalone 一样），可以让它失败（模拟 DNS 没生效）；
 #   - 三个假域名 *.oneclick.test 临时写进 /etc/hosts 指向 127.0.0.1；镜像用本机的 forecast-web / forecast-app（标成 staging）。
@@ -87,10 +89,13 @@ trap 'exit 130' INT TERM
 say "准备替身（systemctl、certbot、apt-get、swapon、sysctl）"
 cat > "$WORK/bin/systemctl" << 'SH'
 #!/usr/bin/env bash
-# 演练用的 systemctl 替身：单元文件在 /etc/systemd/system，启用 / 运行状态记在 $FAKE_SD
+# 演练用的 systemctl 替身：单元文件在 /etc/systemd/system 和 $FAKE_SD/lib（代替系统自带单元的 /usr/lib/systemd/system，
+# 不碰本机真正的系统目录），启用 / 运行状态记在 $FAKE_SD
 U=/etc/systemd/system
 S=${FAKE_SD:?}
-mkdir -p "$S/enabled" "$S/active"
+L=$S/lib
+mkdir -p "$S/enabled" "$S/active" "$L"
+has() { [ -f "$U/$1" ] || [ -f "$L/$1" ]; }
 cmd=$1; shift
 now=0 quiet=0 type="" state="" prop="" units=()
 while [ $# -gt 0 ]; do
@@ -106,7 +111,7 @@ rc=0
 case $cmd in
   enable | disable)
     for u in "${units[@]}"; do
-      [ -f "$U/$u" ] || { echo "Failed to $cmd unit: Unit file $u does not exist." >&2; rc=1; continue; }
+      has "$u" || { echo "Failed to $cmd unit: Unit file $u does not exist." >&2; rc=1; continue; }
       if [ "$cmd" = enable ]; then touch "$S/enabled/$u"; [ $now = 1 ] && touch "$S/active/$u"
       else rm -f "$S/enabled/$u"; [ $now = 1 ] && rm -f "$S/active/$u"; fi
     done ;;
@@ -114,7 +119,7 @@ case $cmd in
   stop) for u in "${units[@]}"; do rm -f "$S/active/$u"; done ;;
   is-enabled)
     for u in "${units[@]}"; do
-      if [ ! -f "$U/$u" ]; then st=not-found; elif [ -f "$S/enabled/$u" ]; then st=enabled; else st=disabled; fi
+      if ! has "$u"; then st=not-found; elif [ -f "$S/enabled/$u" ]; then st=enabled; else st=disabled; fi
       [ $quiet = 1 ] || echo "$st"; [ "$st" = enabled ] || rc=1
     done ;;
   is-active)
@@ -123,7 +128,7 @@ case $cmd in
       [ $quiet = 1 ] || echo "$st"; [ "$st" = active ] || rc=3
     done ;;
   list-unit-files)
-    for f in "$U"/*; do
+    for f in "$U"/* "$L"/*; do
       [ -f "$f" ] || continue; n=$(basename "$f")
       [ -z "$type" ] || [[ $n == *."$type" ]] || continue
       match "$n" || continue
@@ -143,7 +148,7 @@ case $cmd in
     for f in "$S"/active/*.timer; do [ -f "$f" ] || continue; n=$(basename "$f"); match "$n" && echo "- - - - $n ${n%.timer}.service"; done ;;
   show)
     for u in "${units[@]}"; do
-      x=$(sed -n "s/^$prop=//p" "$U/$u" 2> /dev/null | head -1)
+      x=$(sed -n "s/^$prop=//p" "$U/$u" "$L/$u" 2> /dev/null | head -1)
       [ -z "$x" ] || echo "{ path=${x%% *} ; argv[]=$x ; }"
     done ;;
   daemon-reload | restart | reload | reset-failed) ;;
@@ -238,6 +243,17 @@ for u in deploy backup; do
   printf '[Service]\nType=oneshot\nExecStart=/opt/oldproj/%s.sh\n' "$u" > "/etc/systemd/system/oldproj-$u.service"
 done
 systemctl enable --now oldproj-deploy.timer oldproj-backup.timer
+# 系统自带的定时器（名字以 -backup.timer 结尾，但没有 dpkg-db-deploy.timer，不是别的项目）
+say "准备系统自带的 dpkg-db-backup.timer（启用着，没有对应的 deploy 定时器）"
+mkdir -p "$FAKE_SD/lib"
+printf '[Timer]\nOnCalendar=daily\n[Install]\nWantedBy=timers.target\n' > "$FAKE_SD/lib/dpkg-db-backup.timer"
+printf '[Service]\nType=oneshot\nExecStart=/usr/libexec/dpkg/dpkg-db-backup\n' > "$FAKE_SD/lib/dpkg-db-backup.service"
+systemctl enable --now dpkg-db-backup.timer
+# 系统定时器没被动过：还启用着、还在运行；这次的屏幕输出里没有提到它
+sys_timer_untouched() { # $1 输出文件
+  enabled dpkg-db-backup.timer && systemctl is-active -q dpkg-db-backup.timer || bad "系统自带的 dpkg-db-backup.timer 被停了"
+  ! grep -q 'dpkg-db-backup' "$1" || bad "$(basename "$1") 里提到了系统自带的 dpkg-db-backup.timer（不应该把它当成别的项目）"
+}
 (. /opt/oldproj/lib.sh && compose up -d --quiet-pull) > /dev/null 2>&1 || die "oldproj 启动失败"
 for _ in $(seq 1 30); do curl -sf --noproxy '*' http://127.0.0.1:8080/api/health > /dev/null && break; sleep 1; done
 
@@ -289,6 +305,8 @@ if [ -z "${E2E_ONECLICK_CLEAN:-}" ]; then
 fi
 run_oneclick 3-first-ok || bad "首次运行（或修好后再运行）没有成功"
 grep -q '✓ 第 9 步' "$OUT/3-first-ok.txt" || bad "没有走到第 9 步"
+grep -q '✓ 第 6 步' "$OUT/3-first-ok.txt" || bad "第 6 步（preflight）没有通过"
+sys_timer_untouched "$OUT/3-first-ok.txt"
 if [ -z "${E2E_ONECLICK_CLEAN:-}" ]; then
   grep -q '✓ 第 3 步：停掉 oldproj——已经停了' "$OUT/3-first-ok.txt" || bad "再运行时第 3 步应该跳过"
   grep -q '✓ 第 5 步：生成 .env——已经有了' "$OUT/3-first-ok.txt" || bad "再运行时 .env 应该不覆盖"
@@ -305,7 +323,7 @@ for k in MYSQL_ROOT_PASSWORD FC_DB_PASSWORD FC_REDIS_PASSWORD FC_ADMIN_INIT_PASS
   [ -n "$v" ] || bad "$k 没有生成"
   ! grep -rqF "$v" "$OUT" /opt/forecast/logs || bad "$k 的值出现在了输出或日志里"
 done
-pass "首次运行成功：4 个容器、版本 ${REV:0:12}、两个定时器、fc 命令、日志；生成的密码没有出现在任何输出里"
+pass "首次运行成功：4 个容器、版本 ${REV:0:12}、两个定时器、fc 命令、日志；生成的密码没有出现在任何输出里；系统自带的 dpkg-db-backup.timer 没有被报、没有被动"
 
 # ---------- ③ 再运行一次：全部跳过 ----------
 say "③ 再运行一次"
@@ -336,7 +354,8 @@ enabled forecast-deploy.timer || bad "forecast 的定时器应该打开"
 [ "$(ls /opt/oldproj/backup/*-before-switch.txt | wc -l)" -ge 1 ] || bad "停 oldproj 时没有备份"
 curl -sf --noproxy '*' http://127.0.0.1:8080/api/health | grep -q "\"version\":\"$REV\"" || bad "forecast 的健康检查不对"
 fcx status > /dev/null
-pass "切回 forecast：oldproj 先停定时器、备份、停容器，forecast 用原来的版本和数据启动"
+sys_timer_untouched "$OUT/fc.txt"
+pass "切回 forecast：oldproj 先停定时器、备份、停容器，forecast 用原来的版本和数据启动；系统自带的 dpkg-db-backup.timer 没有被停或启动"
 
 # ---------- ⑤ fc keys、fc set-key ----------
 say "⑤ fc keys、fc set-key"
@@ -375,6 +394,7 @@ enabled oldproj-deploy.timer && enabled oldproj-backup.timer || bad "备份失�
 rm -f /opt/oldproj/FAIL_BACKUP
 fcx to-forecast > /dev/null || bad "修好后 fc to-forecast 应该成功"
 [ "$(running forecast)" = 4 ] || bad "forecast 应该在运行"
+sys_timer_untouched "$OUT/fc.txt"
 pass "备份失败：没有停 oldproj 的容器、定时器恢复；修好后再切换成功"
 no_secret_anywhere
 say "演练全部通过"
