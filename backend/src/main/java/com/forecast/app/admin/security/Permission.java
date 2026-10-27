@@ -91,6 +91,11 @@ public enum Permission {
   FEE_EDIT("fee:edit", "params", true),
   /** 改下注限额、截止提前量、争议窗口、KYC 阈值、单笔提现最小金额等参数（S2 的遗留：单笔最小提现从 config:edit 改到这里） */
   BETTING_PARAMS_EDIT("betting_params:edit", "params", true),
+  /**
+   * 告警邮件（S12b，Amos 2026-10-27："告警邮件要能控制是否发送"）：查看和修改参数设置页"告警邮件"一组（总开关、不发邮件的告警项），高危、原因必填、写审计。
+   * 超管自动拥有（SQ-19）
+   */
+  ALERT_PARAMS_EDIT("alert_params:edit", "params", true),
   /** 风控告警（S10） */
   RISK_ALERT_VIEW("risk_alert:view", "risk", false),
   RISK_ALERT_HANDLE("risk_alert:handle", "risk", false),

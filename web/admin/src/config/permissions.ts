@@ -63,6 +63,8 @@ export const PERMISSIONS = [
   { code: 'report:view', module: 'settle', highRisk: false },
   { code: 'fee:edit', module: 'params', highRisk: true },
   { code: 'betting_params:edit', module: 'params', highRisk: true },
+  // forecast S12b：告警邮件的总开关和不发邮件的告警项（Amos 2026-10-27："告警邮件要能控制是否发送"）
+  { code: 'alert_params:edit', module: 'params', highRisk: true },
   { code: 'risk_alert:view', module: 'risk', highRisk: false },
   { code: 'risk_alert:handle', module: 'risk', highRisk: false },
   // forecast S13：来源统计（MF-1、MF-10；导出写审计）

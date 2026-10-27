@@ -563,19 +563,34 @@ export interface AuditQuery extends PageQuery {
   keyword?: string;
 }
 
-/** 参数设置的一组（forecast S3）：fee 品类默认费率（fee:edit）；betting 下注限额、争议窗口、KYC 阈值、单笔最小提现等（betting_params:edit） */
-export type ParamSection = 'fee' | 'betting';
+/**
+ * 参数设置的一组（forecast S3）：fee 品类默认费率（fee:edit）；betting 下注限额、争议窗口、KYC 阈值、单笔最小提现等（betting_params:edit）；
+ * alert 告警邮件的总开关和不发邮件的告警项（alert_params:edit，S12b）
+ */
+export type ParamSection = 'fee' | 'betting' | 'alert';
 
 /** 参数设置的一项（后端 SystemService.ParamView，GET /api/admin/params/{section}）；页面在原型确认后做 */
 export interface ParamItem {
   key: string;
   value: string;
-  /** S10 加了 count（个数、天数）、multiple（倍数，风控） */
-  unit: 'usdt' | 'percent' | 'minutes' | 'seconds' | 'count' | 'multiple';
+  /** S10 加了 count（个数、天数）、multiple（倍数，风控）；S12b 加了 bool（告警邮件总开关）、text（不发邮件的告警项，逗号分隔） */
+  unit: 'usdt' | 'percent' | 'minutes' | 'seconds' | 'count' | 'multiple' | 'bool' | 'text';
   group: string;
   section: ParamSection;
   /** 从没改过时为空 */
   updatedAt: string | null;
+}
+
+/**
+ * 告警项（S12b，GET /api/admin/params/alert/items，后端 SystemService.AlertItemView）：参数设置"不发邮件的告警项"的选项。
+ * status：UP 正常 / DOWN 出错（发邮件）/ NOT_CONFIGURED 未开通（不发邮件）；已经静音、现在不检查的项 status、说明为空
+ */
+export interface AlertItem {
+  name: string;
+  titleZh: string | null;
+  titleEn: string | null;
+  status: 'UP' | 'DOWN' | 'NOT_CONFIGURED' | null;
+  muted: boolean;
 }
 
 export interface SystemConfig {

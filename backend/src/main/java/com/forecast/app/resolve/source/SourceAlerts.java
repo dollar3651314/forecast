@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
  * <ul>
  *   <li>加密：只列出打开了的数据源。</li>
  *   <li>体育（S8）：打开了但没有配置 key 的显示 DOWN"未开通"（Amos 要求：没配 key 时这个来源未开通，健康检查只放进 alerts）；
- *       配置里关掉（{@code enabled: false}）的不列。</li>
+ *       配置里关掉（{@code enabled: false}）的不列。"未开通"是 {@link AlertCheck.Status#NOT_CONFIGURED}（S12b：不发告警邮件），配了 key 以后熔断打开才发。</li>
  * </ul>
  */
 @Component
@@ -46,7 +46,7 @@ class SourceAlerts implements AlertCheck {
       if (!cfg.isEnabled()) continue;
       String name = "source." + s.key().replace('-', '_');
       if (!cfg.usable()) {
-        out.add(new Item(name, "数据源 " + s.label() + " 未开通", "Data source " + s.label() + " not configured", false,
+        out.add(Item.notConfigured(name, "数据源 " + s.label() + " 未开通", "Data source " + s.label() + " not configured",
             cfg.unusableReason() + "：赛程同步和体育自动裁决不用这个来源，用到它的市场转人工"));
         continue;
       }

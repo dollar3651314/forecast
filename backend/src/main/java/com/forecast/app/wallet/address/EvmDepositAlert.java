@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
  * 而缺配置换版本解决不了，要 Amos 部署合约、填 {@code .env}。
  * <p>只在"以太坊或 BSC 配置了 USDT 合约（要扫块），或者填了任何一个合约地址"时出现（{@link AlertCheck}：只检查配置了的东西），
  * 本机开发什么都没配时不出现。
+ * <p>S12b：四个合约地址一个都没填是"未开通"（{@link AlertCheck.Status#NOT_CONFIGURED}，不发告警邮件）；填了一部分、格式不对、和链上对不上是 DOWN，发告警邮件。
  */
 @Component
 class EvmDepositAlert implements AlertCheck {
@@ -44,9 +45,12 @@ class EvmDepositAlert implements AlertCheck {
   public List<Item> evaluate() {
     if (!configured()) return List.of();
     boolean ok = schemes.current().isPresent();
+    // 四个合约地址一个都没填：还没部署合约，是"未开通"（S12b：健康检查照样是 DOWN，不发告警邮件）；填了一部分或检查不通过是配错了，发邮件
+    boolean notConfigured = !ok && sweep.contractFieldsSet() == 0 && schemes.problem().isEmpty();
     String detail = ok ? "正常（第 " + schemes.current().get().ver() + " 套合约地址参数）"
         : "ERC20、BEP20 充值暂未开通：" + schemes.problem().orElse("没有配置归集合约地址（FC_SWEEP_EVM_FACTORY / IMPLEMENTATION / PARENT / BATCHER）")
             + "。以太坊体系只用合约地址，不退回 xpub。请按 部署方案/v1-归集合约部署.md 部署合约后填进服务器 .env 并重启";
+    if (notConfigured) return List.of(Item.notConfigured(NAME, "ERC20、BEP20 充值暂未开通", "ERC20 / BEP20 deposits not open", detail));
     return List.of(new Item(NAME, "ERC20、BEP20 充值暂未开通", "ERC20 / BEP20 deposits not open", ok, detail));
   }
 }

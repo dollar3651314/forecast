@@ -787,7 +787,8 @@
     "growth_view": "View acquisition stats (incl. export)",
     "content_view": "View the content center (including the Telegram bot and posting log)",
     "content_edit": "Generate and edit content drafts",
-    "content_publish": "Publish externally: publish content, change content settings, Telegram channels and template approval, emergency stop, launch email (high risk)"
+    "content_publish": "Publish externally: publish content, change content settings, Telegram channels and template approval, emergency stop, launch email (high risk)",
+    "alert_params_edit": "Edit alert email settings (master switch, muted alerts)"
   },
   "permModule": {
     "customer": "Customers",
@@ -1936,7 +1937,7 @@
   },
   "pm": {
     "title": "Parameters",
-    "sub": "Category fees, bet limits, dispute windows, KYC threshold, minimum withdrawal, risk alert thresholds",
+    "sub": "Category fees, bet limits, dispute windows, KYC threshold, minimum withdrawal, risk alert thresholds, alert emails",
     "hint": "Changes are high-risk: a reason is required and before → after is audited. Default fees only apply to markets created afterwards.",
     "group": {
       "fee": "Default fee by category",
@@ -1948,7 +1949,8 @@
       "resolve": "Resolution deadlines (platform)",
       "sports": "Sports fixtures",
       "risk": "Risk alerts",
-      "slate": "Slate"
+      "slate": "Slate",
+      "alertMail": "Alert emails"
     },
     "key": {
       "market_fee_FOOTBALL": "Football",
@@ -1991,7 +1993,9 @@
       "risk_longshot_minAmount": "Long shot: single bet at least",
       "risk_longshot_minOdds": "Long shot: odds at least",
       "risk_link_maxUsersPerKey": "Linked accounts: max customers per device / IP / address",
-      "market_maxOpen": "Max markets open at once"
+      "market_maxOpen": "Max markets open at once",
+      "alert_mail_enabled": "Alert emails (master switch)",
+      "alert_mail_muted": "Alerts without email"
     },
     "hours": "{{n}} h",
     "minutes": "{{n}} min",
@@ -2020,7 +2024,23 @@
     "usdtUnit": "USDT",
     "multUnit": "x",
     "riskNote": "Odds are after the fee (as customers see them); a value shared by more customers than the limit (public networks, exchange addresses) no longer links them.",
-    "slateNote": "When listing would exceed this number, the admin must also tick \"List anyway\" (not a hard block; audited). 0 = no limit. Suggested 1–3 (section 4.2)"
+    "slateNote": "When listing would exceed this number, the admin must also tick \"List anyway\" (not a hard block; audited). 0 = no limit. Suggested 1–3 (section 4.2)",
+    "on": "On (send emails)",
+    "off": "Off (log only)",
+    "mutedNone": "None",
+    "mutedCount": "{{n}} item(s)",
+    "mutedEntry": "{{title}} ({{name}})",
+    "listSep": ", ",
+    "mutedPick": "Checked items send no email",
+    "mutedHint": "All current alerts are listed. \"Not configured\" items never send email, no need to check them. Health check still shows every item.",
+    "alertSwitchHint": "When off, alerts are only logged and no email is sent; /api/health is not affected.",
+    "alertItemAbsent": "Not checked now",
+    "alertStatus": {
+      "UP": "OK",
+      "DOWN": "Failing",
+      "NOT_CONFIGURED": "Not configured"
+    },
+    "alertNote": "Recipients: FC_ALERT_EMAILS. One email per incident and one on recovery; a reminder every 24 hours while it stays down. \"Not configured\" optional features send no email."
   },
   "dash": {
     "sub": "Today / last 7 days in UTC; open an item to handle it",

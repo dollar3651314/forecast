@@ -11,13 +11,16 @@ forecast:
   id:
     node: ${FC_ID_NODE:1}
   # 监控告警（common/health/AlertCheck）：扫块停滞、链节点连不上、邮件连续发送失败。
-  # 健康检查 /api/health 的 alerts 里显示每一项（不影响 status 和 HTTP 状态码，部署脚本不会因此回滚）；异常和恢复时给告警邮箱发邮件。
+  # 健康检查 /api/health 的 alerts 里显示每一项（不影响 status 和 HTTP 状态码，部署脚本不会因此回滚）；异常和恢复时给告警邮箱发邮件（"未开通"的项不发，S12b）。
   # 告警邮箱 FC_ALERT_EMAILS 逗号分隔，代码里没有默认值（默认值在部署配置 deploy/kit/docker-compose.yml），为空时只记日志
   alert:
     enabled: true
     emails: ${FC_ALERT_EMAILS:}
-    # 同一项告警多长时间内不重复发邮件
+    # 同一项告警多长时间内不重复发邮件（反复断开又恢复时不刷屏）
     throttle: 30m
+    # 一直没恢复的告警多久再提醒一次（S12b：一次故障发一封、恢复发一封，中间每隔这么久提醒一次；0 = 不提醒）。
+    # "未开通"（没配 key 的可选功能）不发邮件；总开关和不发邮件的告警项在后台"参数设置 → 告警邮件"（common_config 的 alert.mail.*）
+    remind-every: 24h
     # 扫块多长时间没推进（或者落后的区块折合超过这个时间）算"停滞"
     scan-stall: 10m
     # 连续几次连不上节点算"节点不通"（扫块每 15 秒一次）

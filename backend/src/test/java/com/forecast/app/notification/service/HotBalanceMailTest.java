@@ -3,6 +3,7 @@ package com.forecast.app.notification.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.forecast.app.common.health.AlertCheck;
+import com.forecast.app.common.health.AlertMailSwitch;
 import com.forecast.app.common.health.AlertProperties;
 import com.forecast.app.notification.api.MailApi;
 import com.forecast.app.support.MutableClock;
@@ -55,8 +56,8 @@ class HotBalanceMailTest extends NotifyTestSupport {
           (c, gas) -> gas ? new BigDecimal("0.02") : new BigDecimal("1000"), clock, new ObjectMapper());
       String ops = "ops" + System.nanoTime() + "@example.com";
       AlertProperties d = AlertProperties.defaults();
-      AlertProperties props = new AlertProperties(true, List.of(ops), d.throttle(), d.scanStall(), d.nodeFailures(), d.mailFailures());
-      AlertMonitor monitor = new AlertMonitor(List.<AlertCheck>of(hot), props, mailApi, clock);
+      AlertProperties props = d.with(true, List.of(ops));
+      AlertMonitor monitor = new AlertMonitor(List.<AlertCheck>of(hot), props, mailApi, AlertMailSwitch.ALL, clock);
 
       hot.refresh();
       monitor.check();

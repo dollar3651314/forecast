@@ -85,6 +85,25 @@ class Create2Test {
     assertThat(s.problem()).get().asString().contains("不能等于");
   }
 
+  /** S12b：deposit.evm 四个合约地址一个都没填是"未开通"（不发告警邮件）；填了一部分、格式不对是出错（发告警邮件） */
+  @Test
+  void S12b_告警项deposit_evm_一个都没填是未开通_填了一部分是出错() {
+    WalletProperties w = wallet("0xdAC17F958D2ee523a2206206994597C13D831ec7");
+    SweepEvmProperties none = props(null, "", null, null);
+    var item = new EvmDepositAlert(new ForwarderSchemes(mock(AddressMapper.class), none, w, "", null), w, none).evaluate();
+    assertThat(item).singleElement().satisfies(i -> {
+      assertThat(i.name()).isEqualTo("deposit.evm");
+      assertThat(i.status()).isEqualTo(com.forecast.app.common.health.AlertCheck.Status.NOT_CONFIGURED);
+      assertThat(i.ok()).as("健康检查里照样是 DOWN").isFalse();
+    });
+    SweepEvmProperties partial = props(F, I, null, null);
+    item = new EvmDepositAlert(new ForwarderSchemes(mock(AddressMapper.class), partial, w, "", null), w, partial).evaluate();
+    assertThat(item).singleElement().satisfies(i -> {
+      assertThat(i.status()).isEqualTo(com.forecast.app.common.health.AlertCheck.Status.DOWN);
+      assertThat(i.detail()).contains("只配了 2 个");
+    });
+  }
+
   @Test
   void parent不能是USDT合约_热钱包_我们的充值地址() {
     AddressMapper m = mock(AddressMapper.class);

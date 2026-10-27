@@ -787,7 +787,8 @@
     "growth_view": "查看来源统计（含导出）",
     "content_view": "查看内容中心（含 Telegram 机器人和发布日志）",
     "content_edit": "生成和编辑内容草稿",
-    "content_publish": "对外发布：发布内容、改内容设置、Telegram 频道和模板审定、紧急停止、上线通知（高危）"
+    "content_publish": "对外发布：发布内容、改内容设置、Telegram 频道和模板审定、紧急停止、上线通知（高危）",
+    "alert_params_edit": "修改告警邮件设置（总开关、不发邮件的告警项）"
   },
   "permModule": {
     "customer": "客户",
@@ -1936,7 +1937,7 @@
   },
   "pm": {
     "title": "参数设置",
-    "sub": "品类默认费率、下注限额、争议窗口、KYC 阈值、单笔最小提现、风控告警阈值",
+    "sub": "品类默认费率、下注限额、争议窗口、KYC 阈值、单笔最小提现、风控告警阈值、告警邮件",
     "hint": "修改是高危操作：原因必填、显示前 → 后、写审计。改品类默认费率只影响之后新建的市场。",
     "group": {
       "fee": "品类默认费率",
@@ -1948,7 +1949,8 @@
       "resolve": "裁决时限（平台裁决）",
       "sports": "体育赛程",
       "risk": "风控告警",
-      "slate": "场次"
+      "slate": "场次",
+      "alertMail": "告警邮件"
     },
     "key": {
       "market_fee_FOOTBALL": "足球",
@@ -1991,7 +1993,9 @@
       "risk_longshot_minAmount": "押中冷门：单笔不少于",
       "risk_longshot_minOdds": "押中冷门：赔率不低于",
       "risk_link_maxUsersPerKey": "关联账户：同一设备 / IP / 地址最多几个客户",
-      "market_maxOpen": "同时开放的市场数上限"
+      "market_maxOpen": "同时开放的市场数上限",
+      "alert_mail_enabled": "告警邮件总开关",
+      "alert_mail_muted": "不发邮件的告警项"
     },
     "hours": "{{n}} 小时",
     "minutes": "{{n}} 分钟",
@@ -2020,7 +2024,23 @@
     "usdtUnit": "USDT",
     "multUnit": "倍",
     "riskNote": "赔率是扣抽成后的（和客户看到的一样）；同一个值的客户超过上限时（公共网络、交易所地址）不再按它关联。",
-    "slateNote": "上架后会超过这个数时，上架要再勾\"仍要上架\"（不硬拦，审计里记下）；0 = 不限。建议 1～3（需求第 4.2 节）"
+    "slateNote": "上架后会超过这个数时，上架要再勾\"仍要上架\"（不硬拦，审计里记下）；0 = 不限。建议 1～3（需求第 4.2 节）",
+    "on": "开（发邮件）",
+    "off": "关（只写日志）",
+    "mutedNone": "没有",
+    "mutedCount": "{{n}} 项",
+    "mutedEntry": "{{title}}（{{name}}）",
+    "listSep": "、",
+    "mutedPick": "勾上的项不发邮件",
+    "mutedHint": "列出的是现在所有的告警项；\"未开通\"的项本来就不发邮件，不用勾。健康检查里照样显示。",
+    "alertSwitchHint": "关掉以后只写日志、不发告警邮件；健康检查 /api/health 不受影响。",
+    "alertItemAbsent": "现在不检查",
+    "alertStatus": {
+      "UP": "正常",
+      "DOWN": "出错",
+      "NOT_CONFIGURED": "未开通"
+    },
+    "alertNote": "收件人是 FC_ALERT_EMAILS。一次故障发一封告警、恢复发一封；一直没恢复每 24 小时提醒一次。\"未开通\"（没配 key 的可选功能）不发邮件。"
   },
   "dash": {
     "sub": "今日 / 近 7 天按 UTC；待处理事项点进去处理",

@@ -3,6 +3,7 @@ package com.forecast.app.notification.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.forecast.app.common.health.AlertCheck;
+import com.forecast.app.common.health.AlertMailSwitch;
 import com.forecast.app.common.health.AlertProperties;
 import com.forecast.app.notification.api.MailApi;
 import com.forecast.app.support.MutableClock;
@@ -53,13 +54,13 @@ class AlertMonitorTest {
 
   static AlertProperties props(String... emails) {
     AlertProperties d = AlertProperties.defaults();
-    return new AlertProperties(true, List.of(emails), d.throttle(), d.scanStall(), d.nodeFailures(), d.mailFailures());
+    return d.with(true, List.of(emails));
   }
 
   @Test
   void 异常时发一次告警_持续异常不重复_恢复时发恢复邮件_每个收件人一封() {
     Switch market = new Switch("market");
-    AlertMonitor m = new AlertMonitor(List.of(market), props("ops@example.com", " ", "cto@example.com"), outbox, clock);
+    AlertMonitor m = new AlertMonitor(List.of(market), props("ops@example.com", " ", "cto@example.com"), outbox, AlertMailSwitch.ALL, clock);
     m.check();
     assertThat(outbox.sent).as("正常时不发").isEmpty();
     market.ok = false;
@@ -78,7 +79,7 @@ class AlertMonitorTest {
   @Test
   void 同一项30分钟内反复断开不重复发_过了30分钟还在异常再发一封() {
     Switch node = new Switch("node.TRC20");
-    AlertMonitor m = new AlertMonitor(List.of(node), props("ops@example.com"), outbox, clock);
+    AlertMonitor m = new AlertMonitor(List.of(node), props("ops@example.com"), outbox, AlertMailSwitch.ALL, clock);
     node.ok = false;
     m.check();
     node.ok = true;
@@ -110,7 +111,7 @@ class AlertMonitorTest {
     AlertCheck broken = () -> {
       throw new IllegalStateException("检查出错");
     };
-    AlertMonitor m = new AlertMonitor(List.of(broken, market, mail), props("ops@example.com"), outbox, clock);
+    AlertMonitor m = new AlertMonitor(List.of(broken, market, mail), props("ops@example.com"), outbox, AlertMailSwitch.ALL, clock);
     market.ok = false;
     m.check();
     mail.ok = false;
@@ -121,7 +122,7 @@ class AlertMonitorTest {
   @Test
   void 没有配置告警邮箱时只记日志() {
     Switch market = new Switch("market");
-    AlertMonitor m = new AlertMonitor(List.of(market), props(), outbox, clock);
+    AlertMonitor m = new AlertMonitor(List.of(market), props(), outbox, AlertMailSwitch.ALL, clock);
     market.ok = false;
     m.check();
     market.ok = true;
@@ -133,11 +134,11 @@ class AlertMonitorTest {
   void 关闭时定时任务不运行() {
     Switch market = new Switch("market");
     AlertProperties d = AlertProperties.defaults();
-    AlertProperties off = new AlertProperties(false, List.of("ops@example.com"), d.throttle(), d.scanStall(), d.nodeFailures(), d.mailFailures());
+    AlertProperties off = d.with(false, List.of("ops@example.com"));
     market.ok = false;
-    new AlertMonitor(List.of(market), off, outbox, clock).tick();
+    new AlertMonitor(List.of(market), off, outbox, AlertMailSwitch.ALL, clock).tick();
     assertThat(outbox.sent).isEmpty();
-    new AlertMonitor(List.of(market), props("ops@example.com"), outbox, clock).tick();
+    new AlertMonitor(List.of(market), props("ops@example.com"), outbox, AlertMailSwitch.ALL, clock).tick();
     assertThat(outbox.sent).hasSize(1);
   }
 
@@ -173,7 +174,7 @@ class AlertMonitorTest {
   @Test
   void 不再检查的项_清掉状态不发恢复邮件_重新启用后按新的一次异常处理() {
     Toggle hot = new Toggle("hot.ERC20.usdt");
-    AlertMonitor m = new AlertMonitor(List.of(hot), props("ops@example.com"), outbox, clock);
+    AlertMonitor m = new AlertMonitor(List.of(hot), props("ops@example.com"), outbox, AlertMailSwitch.ALL, clock);
     hot.ok = false;
     m.check();
     assertThat(outbox.sent).containsExactly("ops@example.com OPS_ALERT 项目hot.ERC20.usdt hot.ERC20.usdt 坏了");
@@ -200,7 +201,7 @@ class AlertMonitorTest {
       if (fail.get()) return bad.evaluate();
       return List.of();
     };
-    AlertMonitor m = new AlertMonitor(List.of(flaky, hot), props("ops@example.com"), outbox, clock);
+    AlertMonitor m = new AlertMonitor(List.of(flaky, hot), props("ops@example.com"), outbox, AlertMailSwitch.ALL, clock);
     hot.ok = false;
     m.check();
     fail.set(true);

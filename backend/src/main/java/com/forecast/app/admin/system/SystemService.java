@@ -5,10 +5,12 @@ import com.forecast.app.admin.security.Audit;
 import com.forecast.app.admin.security.IpRanges;
 import com.forecast.app.admin.security.Menus;
 import com.forecast.app.admin.security.Permission;
+import com.forecast.app.common.config.AlertMailConfig;
 import com.forecast.app.common.config.ConfigKey;
 import com.forecast.app.common.config.SystemConfig;
 import com.forecast.app.common.error.BizException;
 import com.forecast.app.common.error.ValidationException;
+import com.forecast.app.common.health.AlertCheck;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -34,19 +36,27 @@ class SystemService {
   /** 字段和原型 SystemConfig 一致 */
   record ConfigView(String key, String value, String unit, String group, String updatedAt) {}
 
-  /** 参数设置页的一项（forecast S3）：section 是 fee（fee:edit）或 betting（betting_params:edit） */
+  /** 参数设置页的一项（forecast S3）：section 是 fee（fee:edit）、betting（betting_params:edit）或 alert（alert_params:edit，S12b） */
   record ParamView(String key, String value, String unit, String group, String section, String updatedAt) {}
+
+  /**
+   * 一个告警项（S12b，参数设置"不发邮件的告警项"的选项）：status 是 UP / DOWN / NOT_CONFIGURED（未开通，不发邮件），
+   * 已经静音、现在不检查（不出现）的项 status 为空、说明为空；muted 表示在"不发邮件的告警项"里
+   */
+  record AlertItemView(String name, String titleZh, String titleEn, String status, boolean muted) {}
 
   private final SystemMapper mapper;
   private final SystemConfig config;
   private final Audit audit;
   private final Clock clock;
+  private final List<AlertCheck> alertChecks;
 
-  SystemService(SystemMapper mapper, SystemConfig config, Audit audit, Clock clock) {
+  SystemService(SystemMapper mapper, SystemConfig config, Audit audit, Clock clock, List<AlertCheck> alertChecks) {
     this.mapper = mapper;
     this.config = config;
     this.audit = audit;
     this.clock = clock;
+    this.alertChecks = alertChecks;
   }
 
   // ---------- 菜单 ----------
@@ -191,6 +201,26 @@ class SystemService {
       ParamView view = params(section).stream().filter(c -> c.key().equals(k.key)).findFirst().orElseThrow();
       return Audit.Change.of(view, Map.of("value", old == null ? "" : old), Map.of("value", v));
     });
+  }
+
+  /**
+   * 现在所有的告警项（S12b）：逐个调用告警检查（只读内存，和健康检查一样），按名字排序；已经静音、现在不出现的项（例如那条链没配了）也列出来，
+   * 方便取消静音。某个检查出错时跳过它（和健康检查一样）。
+   */
+  List<AlertItemView> alertItems() {
+    java.util.Set<String> muted = AlertMailConfig.parseMuted(config.text(ConfigKey.ALERT_MAIL_MUTED, ""));
+    Map<String, AlertItemView> out = new java.util.TreeMap<>();
+    for (AlertCheck c : alertChecks) {
+      List<AlertCheck.Item> items;
+      try {
+        items = c.evaluate();
+      } catch (RuntimeException e) {
+        continue;
+      }
+      for (AlertCheck.Item i : items) out.put(i.name(), new AlertItemView(i.name(), i.titleZh(), i.titleEn(), i.status().name(), muted.contains(i.name())));
+    }
+    for (String m : muted) out.putIfAbsent(m, new AlertItemView(m, null, null, null, true));
+    return List.copyOf(out.values());
   }
 
   /** 数值按大小比（"100" 和 "100.00" 相同），文字按原样比 */

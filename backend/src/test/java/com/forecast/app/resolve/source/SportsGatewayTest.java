@@ -102,6 +102,17 @@ class SportsGatewayTest {
     assertThat(last.requestUrl()).contains("/api/v1/json/{key}/lookupevent.php?id=2494072").doesNotContain("tsdb-secret-key");
   }
 
+  /** S12b：告警项里没配 key 的体育数据源是"未开通"（健康检查照样 DOWN，不发告警邮件）；配了 key 的正常时是 UP */
+  @Test
+  void S12b_告警项_没配key是未开通_配了是正常() {
+    List<com.forecast.app.common.health.AlertCheck.Item> items = new SourceAlerts(gateway, List.of(), List.of(fd, ts, bdl), props).evaluate();
+    java.util.Map<String, com.forecast.app.common.health.AlertCheck.Status> st = new java.util.TreeMap<>();
+    for (var i : items) st.put(i.name(), i.status());
+    assertThat(st).containsEntry("source.balldontlie", com.forecast.app.common.health.AlertCheck.Status.NOT_CONFIGURED)
+        .containsEntry("source.football_data", com.forecast.app.common.health.AlertCheck.Status.UP)
+        .containsEntry("source.thesportsdb", com.forecast.app.common.health.AlertCheck.Status.UP);
+  }
+
   @Test
   void 没配key_未开通_不调用() {
     SourceReply<ScoreFixture> r = gateway.call(bdl.fixture(gateway.config("balldontlie"), "NBA", "1"), List.of(1L), null);
