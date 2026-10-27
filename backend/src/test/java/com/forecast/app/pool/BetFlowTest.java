@@ -272,7 +272,9 @@ class BetFlowTest extends PoolTestSupport {
     JsonNode page = getJson("/api/ledger/entries?type=bet&range=all", u.cookie());
     assertThat(page.get("total").asLong()).isEqualTo(1);
     JsonNode e = page.get("items").get(0);
-    assertThat(keys(e)).containsExactly("id", "type", "amount", "ref", "time", "market");
+    // S17B 加 category（人工调整的类别，别的类型为 null）
+    assertThat(keys(e)).containsExactly("id", "type", "amount", "ref", "time", "market", "category");
+    assertThat(e.get("category").isNull()).isTrue();
     assertThat(e.get("type").asString()).isEqualTo("bet");
     assertThat(e.get("amount").asString()).isEqualTo("-12.34");
     assertThat(e.get("market").get("publicNo").asString()).isEqualTo(m.no());
