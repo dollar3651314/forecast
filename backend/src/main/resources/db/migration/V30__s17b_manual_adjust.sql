@@ -56,8 +56,7 @@ CREATE TABLE `ledger_adjust` (
 INSERT INTO `common_config` (`config_key`, `value`, `updated_by`) VALUES ('adjust.manualMax', '10000', NULL);
 INSERT INTO `common_config` (`config_key`, `value`, `updated_by`) VALUES ('risk.manualCredit.dayAmount', '10000', NULL);
 
-INSERT INTO `notify_template` (`code`, `audience`, `req_no`, `kind`, `name_zh`, `name_en`, `title_zh`, `title_en`, `body_zh`, `body_en`, `title_tw`, `body_tw`, `variables`, `channels`, `built_in`, `enabled`)
-VALUES ('BALANCE_ADJUSTED', 'USER', '#24', 'system', '余额人工调整', 'Balance adjusted',
+INSERT INTO `notify_template` (`code`, `audience`, `req_no`, `kind`, `name_zh`, `name_en`, `title_zh`, `title_en`, `body_zh`, `body_en`, `title_tw`, `body_tw`, `variables`, `channels`, `built_in`, `enabled`) VALUES ('BALANCE_ADJUSTED', 'USER', '#24', 'system', '余额人工调整', 'Balance adjusted',
   '你的余额已调整：{dir} {amount} USDT',
   'Your balance was adjusted: {dirEn} {amount} USDT',
   '平台对你的账户做了一笔人工调整：{dir} {amount} USDT，类别：{category}。调整后可用余额 {available} USDT。明细见"资产 → 资金流水"。如有疑问请联系客服。',

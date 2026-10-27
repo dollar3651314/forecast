@@ -122,9 +122,11 @@ export function AdjustmentsPage() {
             dataIndex: 'customerId',
             render: (v: number, r) => (
               <div className="user-cell">
-                <Link to={`/customers/${v}`}>
-                  {r.customerName ?? v} <span className="muted">#{v}</span>
-                </Link>
+                <b>
+                  <Link to={`/customers/${v}`}>
+                    {r.customerName ?? v} <span className="muted">#{v}</span>
+                  </Link>
+                </b>
                 {r.customerEmail ? <small className="ellipsis">{r.customerEmail}</small> : null}
               </div>
             ),
@@ -155,11 +157,11 @@ export function AdjustmentsPage() {
             dataIndex: 'reason',
             render: (v: string, r) => (
               <div className="user-cell">
-                <span className="ellipsis" style={{ maxWidth: 260 }} title={v}>
+                <b className="ellipsis" style={{ maxWidth: 260, fontWeight: 400 }} title={v}>
                   {v}
-                </span>
+                </b>
                 {r.refNo ? (
-                  <small className="ellipsis" style={{ maxWidth: 260 }} title={r.refNo}>
+                  <small className="ellipsis" style={{ display: 'block', maxWidth: 260 }} title={r.refNo}>
                     {t('adjust.refNo')}：<Num>{r.refNo}</Num>
                   </small>
                 ) : null}
