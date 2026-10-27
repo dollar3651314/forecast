@@ -49,6 +49,8 @@ done
 for p in 80 443 8080; do
   if (exec 3<> "/dev/tcp/127.0.0.1/$p") 2> /dev/null; then die "本机端口 $p 已被占用"; fi
 done
+# 一键部署第 1 步会拒绝不认识的运行中容器（服务器上就该这样），演练前本机不能有别的容器在运行（CI 里先 docker buildx stop）
+[ -z "$(docker ps -q)" ] || die "本机有别的容器在运行（$(docker ps --format '{{.Names}}' | tr '\n' ' ')），一键部署第 1 步会拒绝；先停掉它们（本脚本不停别人的容器）"
 
 WORK=$(mktemp -d)
 chmod 700 "$WORK"

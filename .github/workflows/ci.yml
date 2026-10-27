@@ -334,8 +334,11 @@ jobs:
         env:
           E2E_BUILDX_CACHE: gha
         run: bash e2e/run-deployed.sh
+      # 一键部署会拒绝"不属于 forecast、也不属于另一个项目"的运行中容器（服务器上就该这样），所以先停掉 buildx 的构建容器（收尾步骤照常删除它）
       - name: 一键部署和切换命令的演练（oneclick.sh、fc；用上一步构建的镜像，要 root）
-        run: sudo -E env "PATH=$PATH" bash e2e/oneclick-drill.sh
+        run: |
+          docker buildx stop
+          sudo -E env "PATH=$PATH" bash e2e/oneclick-drill.sh
       - name: 上传失败记录（trace、截图、录像、各容器日志）
         if: failure()
         uses: actions/upload-artifact@v4
