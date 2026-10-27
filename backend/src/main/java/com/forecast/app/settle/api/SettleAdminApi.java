@@ -111,11 +111,13 @@ public interface SettleAdminApi {
    * @param revenue 平台收入 = 抽成 + 尾差（不扣补偿）
    * @param compensation 补偿支出（单列）
    * @param testCredit 测试入金（forecast S17A，只在测试环境有；单列，不是平台收入、不是真实充值、不是补偿）
+   * @param manualCredit 人工加款、{@code manualDebit} 人工扣款（forecast S17B；单列，不进平台收入、不冲减补偿）
    */
-  record ReportDay(String date, String feeIncome, String dust, String revenue, String compensation, int compensations, String testCredit, int testCredits) {}
+  record ReportDay(String date, String feeIncome, String dust, String revenue, String compensation, int compensations, String testCredit, int testCredits,
+      String manualCredit, int manualCredits, String manualDebit, int manualDebits) {}
 
   record Report(String from, String to, String feeIncome, String dust, String revenue, String compensationExpense, int compensations, String testCredit,
-      int testCredits, List<ReportDay> days) {}
+      int testCredits, String manualCredit, int manualCredits, String manualDebit, int manualDebits, List<ReportDay> days) {}
 
   /** from、to：UTC 日期 YYYY-MM-DD（含两头），最多 366 天 */
   Report report(String from, String to);

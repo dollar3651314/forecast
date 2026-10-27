@@ -130,8 +130,10 @@ export interface DepositRecord {
 }
 
 /** 流水类型（GET /api/ledger/entries）。S4 加下注；派彩、抽成、退款、补偿在 S5、S7 加 */
-/** 流水类型（S5 加派彩 payout、抽成 fee、下注退回 refund；S7 加补偿 compensation，AC-39；S17A 加测试入金 testCredit（只在测试环境有）） */
-export type LedgerType = 'deposit' | 'withdraw' | 'withdrawRefund' | 'bet' | 'payout' | 'fee' | 'refund' | 'compensation' | 'testCredit';
+/** 流水类型（S5 加派彩 payout、抽成 fee、下注退回 refund；S7 加补偿 compensation，AC-39；S17A 加测试入金 testCredit（只在测试环境有）；S17B 加人工调整 adjustCredit / adjustDebit） */
+export type LedgerType = 'deposit' | 'withdraw' | 'withdrawRefund' | 'bet' | 'payout' | 'fee' | 'refund' | 'compensation' | 'testCredit' | 'adjustCredit' | 'adjustDebit';
+/** 人工调整的类别（S17B）：充值未到账补入、误入账扣回、其他 */
+export type AdjustCategory = 'deposit_missing' | 'wrong_credit' | 'other';
 
 /** 流水相关的市场（下注等，AC-39：每条能点到对应市场）：对外编号和三种语言的题目 */
 export interface LedgerMarket {
@@ -148,6 +150,8 @@ export interface LedgerItem {
   time: string;
   /** 相关的市场（下注）；充值、提现没有 */
   market?: LedgerMarket | null;
+  /** 人工调整的类别（S17B）；别的类型为空 */
+  category?: AdjustCategory | null;
 }
 
 export interface LedgerQuery {

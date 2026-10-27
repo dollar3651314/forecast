@@ -49,6 +49,7 @@ public final class Menus {
           leaf("deposits", "menu.deposits", "/funds/deposits", Permission.DEPOSIT_VIEW),
           leaf("withdrawals", "menu.withdrawals", "/funds/withdrawals", Permission.WITHDRAWAL_VIEW),
           leaf("reconciliation", "menu.reconciliation", "/funds/reconciliation", Permission.RECON_VIEW),
+          leaf("adjustments", "menu.adjustments", "/funds/adjustments", Permission.RECON_VIEW),
           leaf("pool-recon", "menu.poolRecon", "/funds/pool-recon", Permission.POOL_RECON_VIEW),
           leaf("tasks", "menu.tasks", "/funds/tasks", Permission.TASK_VIEW)),
       // forecast S10：风控告警（需求第 6.1 节；迁移 V19 写默认顺序）

@@ -615,6 +615,9 @@ export const params: ParamItem[] = [
   { key: 'market.maxOpen', value: '2', unit: 'count', group: 'slate', section: 'betting', updatedAt: null },
   // S17A（迁移 V29）：测试入金的单笔上限（只在测试环境生效），betting_params:edit
   { key: 'adjust.testCreditMax', value: '10000', unit: 'usdt', group: 'adjust', section: 'betting', updatedAt: null },
+  // S17B（迁移 V30）：人工调账单笔上限（超过要再勾确认）、风控"24 小时人工加款累计"阈值
+  { key: 'adjust.manualMax', value: '10000', unit: 'usdt', group: 'adjust', section: 'betting', updatedAt: null },
+  { key: 'risk.manualCredit.dayAmount', value: '10000', unit: 'usdt', group: 'risk', section: 'betting', updatedAt: null },
   // S12b（迁移 V28）：告警邮件总开关（默认开）、不发邮件的告警项（默认空），alert_params:edit
   { key: 'alert.mail.enabled', value: 'true', unit: 'bool', group: 'alertMail', section: 'alert', updatedAt: null },
   { key: 'alert.mail.muted', value: '', unit: 'text', group: 'alertMail', section: 'alert', updatedAt: null },

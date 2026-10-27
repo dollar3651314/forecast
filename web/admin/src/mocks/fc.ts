@@ -69,6 +69,9 @@ import type {
   WaitlistPage,
   WaitlistQuery,
   PlatformAccount,
+  Adjustment,
+  AdjustInput,
+  AdjustQuery,
 } from '../api/fcTypes';
 import type { CustomerDetail, TestCreditResult } from '../api/types';
 import { getCustomer as mockGetCustomer } from './handlers';
@@ -1087,6 +1090,8 @@ export function getReport(from: string, to: string): Promise<Report> {
       let dust = 0n;
       let comp = 0n;
       let test = 0n;
+      let mcr = 0n;
+      let mdb = 0n;
       for (let t = Date.parse(`${to}T00:00:00Z`); t >= Date.parse(`${from}T00:00:00Z`); t -= DAY) {
         const k = Math.round((BASE - t) / DAY);
         const f = BigInt(4000 + ((k * 731) % 9000));
@@ -1098,11 +1103,16 @@ export function getReport(from: string, to: string): Promise<Report> {
         // S17A：原型里第 1 天有两笔测试入金（只在测试环境有）
         const tc = k === 1 ? 1500000n : 0n;
         test += tc;
-        days.push({ date: new Date(t).toISOString().slice(0, 10), feeIncome: money(f), dust: money(d), revenue: money(f + d), compensation: money(c), compensations: c > 0n ? 1 : 0, testCredit: money(tc), testCredits: tc > 0n ? 2 : 0 });
+        // S17B：原型里第 2 天一笔人工加款、第 3 天一笔人工扣款
+        const mc = k === 2 ? 80000n : 0n;
+        const md = k === 3 ? 12050n : 0n;
+        mcr += mc;
+        mdb += md;
+        days.push({ date: new Date(t).toISOString().slice(0, 10), feeIncome: money(f), dust: money(d), revenue: money(f + d), compensation: money(c), compensations: c > 0n ? 1 : 0, testCredit: money(tc), testCredits: tc > 0n ? 2 : 0, manualCredit: money(mc), manualCredits: mc > 0n ? 1 : 0, manualDebit: money(md), manualDebits: md > 0n ? 1 : 0 });
       }
-      return { from, to, feeIncome: money(fee), dust: money(dust), revenue: money(fee + dust), compensationExpense: money(comp), compensations: days.filter((d) => d.compensations).length, testCredit: money(test), testCredits: days.reduce((n, d) => n + d.testCredits, 0), days };
+      return { from, to, feeIncome: money(fee), dust: money(dust), revenue: money(fee + dust), compensationExpense: money(comp), compensations: days.filter((d) => d.compensations).length, testCredit: money(test), testCredits: days.reduce((n, d) => n + d.testCredits, 0), manualCredit: money(mcr), manualCredits: days.reduce((n, d) => n + d.manualCredits, 0), manualDebit: money(mdb), manualDebits: days.reduce((n, d) => n + d.manualDebits, 0), days };
     },
-    { empty: () => ({ from, to, feeIncome: '0.00', dust: '0.00', revenue: '0.00', compensationExpense: '0.00', compensations: 0, testCredit: '0.00', testCredits: 0, days: [] }) },
+    { empty: () => ({ from, to, feeIncome: '0.00', dust: '0.00', revenue: '0.00', compensationExpense: '0.00', compensations: 0, testCredit: '0.00', testCredits: 0, manualCredit: '0.00', manualCredits: 0, manualDebit: '0.00', manualDebits: 0, days: [] }) },
   );
 }
 
@@ -1384,6 +1394,8 @@ export function resetFcMocks(): void {
   runs = seedRuns();
   seedComp();
   riskAlerts = seedRisk();
+  adjustSeed = seedAdjust();
+  adjustments.length = 0;
   seedS16();
 }
 
@@ -1394,6 +1406,8 @@ const RISK_DETAIL: Record<RiskAlertKind, (i: number) => Record<string, string>> 
   linked_opposite: (i) => ({ linkedUsers: String(100489 + (i % 3) * 7), options: '1', linkedOptions: `${100489 + (i % 3) * 7}:2` }),
   new_account_longshot: () => ({ betNo: '204899', odds: '6.82', limitOdds: '5', limitAmount: '1000.00', accountDays: '2', limitDays: '7' }),
   deposit_no_bet: (i) => ({ withdrawalNo: `30${7700 + i}`, deposit: '2000.00', stake: `${120 + i}.00`, multiple: '1' }),
+  // S17B：24 小时人工加款累计过大（原型的种子数据里没有这一类，只用于类型完整）
+  manual_credit_large: (i) => ({ adjustNo: `108${9000 + i}`, total: '12000.00', limit: '10000.00' }),
 };
 const RISK_STATUSES: RiskAlertStatus[] = ['new', 'new', 'seen', 'new', 'handled', 'false_positive'];
 
@@ -1442,6 +1456,7 @@ export function getRiskAlertCounts(): Promise<RiskAlertCounts> {
         linked_opposite: openList.filter((a) => a.kind === 'linked_opposite').length,
         new_account_longshot: openList.filter((a) => a.kind === 'new_account_longshot').length,
         deposit_no_bet: openList.filter((a) => a.kind === 'deposit_no_bet').length,
+        manual_credit_large: openList.filter((a) => a.kind === 'manual_credit_large').length,
       },
       byStatus: {
         new: list.filter((a) => a.status === 'new').length,
@@ -1531,10 +1546,94 @@ export function listPlatformAccounts(): Promise<PlatformAccount[]> {
         { kind: 'revenue', balance: '18342.17', ledgerTotal: '18342.17', entries: 412, matches: true },
         { kind: 'compensation', balance: '-436.5', ledgerTotal: '-436.5', entries: 3, matches: true },
         { kind: 'test_credit', balance: test, ledgerTotal: test, entries: 2 + testCreditRequests.size, matches: true },
+        { kind: 'manual_adjust', balance: manualBalance(), ledgerTotal: manualBalance(), entries: 2 + adjustments.length, matches: true },
       ];
     },
     { empty: () => [] },
   );
+}
+
+// ---------------------------------------------------------------- S17B 人工调账（原型数据）
+
+const adjustments: Adjustment[] = [];
+const adjustRequests = new Map<string, string>();
+
+function manualBalance(): string {
+  let v = -(toScaled('800', 8) ?? 0n) + (toScaled('120.5', 8) ?? 0n);
+  for (const a of adjustments) v += (a.direction === 'credit' ? -1n : 1n) * (toScaled(a.amount, 8) ?? 0n);
+  return fromScaled(v, 8).replace(/\.?0+$/, '');
+}
+
+const seedAdjust = (): Adjustment[] => [
+  { adjustNo: '1089000000000002', customerId: mockCustomers[1].id, customerEmail: mockCustomers[1].email, customerName: mockCustomers[1].name, direction: 'debit', category: 'wrong_credit', amount: '120.5', availableBefore: '520.5', availableAfter: '400', refNo: 'TK-20261026-07', reason: '同一笔充值入账两次，扣回多入的一笔', overLimit: false, operator: 'amos', createdAt: iso(BASE - 3 * DAY) },
+  { adjustNo: '1089000000000001', customerId: mockCustomers[0].id, customerEmail: mockCustomers[0].email, customerName: mockCustomers[0].name, direction: 'credit', category: 'deposit_missing', amount: '800', availableBefore: '6020.4', availableAfter: '6820.4', refNo: '0x9f3c5a1be21a77d0c4e8b2f6a1d3c7e9b5f2a8d4c6e1b3a5f7d9c2e4b6a8f0d1', reason: 'BEP20 充值到了旧地址，链上已核对', overLimit: false, operator: 'amos', createdAt: iso(BASE - 2 * DAY) },
+];
+let adjustSeed = seedAdjust();
+
+export function adjustBalance(id: number, input: AdjustInput): Promise<{ customer: CustomerDetail; adjustment: Adjustment; duplicate: boolean }> {
+  return mutate(() => {
+    needReason(input.reason);
+    const c = mockCustomers.find((x) => x.id === id);
+    if (!c) throw new ApiError('errors.notFound', undefined, { status: 404, code: 'NOT_FOUND' });
+    const dup = adjustRequests.get(input.requestId);
+    if (dup) return { id, adjustment: adjustments.find((a) => a.adjustNo === dup)!, duplicate: true };
+    const amt = toScaled(input.amount, 8) ?? 0n;
+    const max = mockParams.find((p) => p.key === 'adjust.manualMax')?.value ?? '10000';
+    const over = amt > (toScaled(max, 8) ?? 0n);
+    if (over && !input.overLimitConfirmed) {
+      throw new ApiError('errors.unknown', { detail: `超过人工调账的单笔上限 ${max} USDT：要在确认框里再勾"我确认超过单笔上限"` }, { status: 409, code: 'ADJUST_OVER_LIMIT_UNCONFIRMED' });
+    }
+    const before = toScaled(c.balance, 8) ?? 0n;
+    if (input.direction === 'debit' && amt > before) {
+      throw new ApiError('errors.unknown', { detail: `扣款不能超过可用余额（现在可用 ${c.balance} USDT；下注中、提现冻结的钱不能扣）` }, { status: 409, code: 'ADJUST_INSUFFICIENT' });
+    }
+    const after = input.direction === 'credit' ? before + amt : before - amt;
+    c.balance = fromScaled(after / 1000000n, 2);
+    const a: Adjustment = {
+      adjustNo: `1089${Date.now()}`,
+      customerId: id,
+      customerEmail: c.email,
+      customerName: c.name,
+      direction: input.direction,
+      category: input.category,
+      amount: fromScaled(amt, 8).replace(/\.?0+$/, ''),
+      availableBefore: fromScaled(before, 8).replace(/\.?0+$/, ''),
+      availableAfter: fromScaled(after, 8).replace(/\.?0+$/, ''),
+      refNo: input.refNo.trim() || null,
+      reason: input.reason,
+      overLimit: over,
+      operator: 'amos',
+      createdAt: iso(Date.now()),
+    };
+    adjustments.unshift(a);
+    adjustRequests.set(input.requestId, a.adjustNo);
+    return { id, adjustment: a, duplicate: false };
+  }).then(async (r) => ({ customer: await mockGetCustomer(r.id), adjustment: r.adjustment, duplicate: r.duplicate }));
+}
+
+function adjustFiltered(q: Omit<AdjustQuery, 'page' | 'pageSize'>): Adjustment[] {
+  return [...adjustments, ...adjustSeed].filter(
+    (a) =>
+      (!q.customerId || String(a.customerId) === q.customerId.trim()) &&
+      (!q.direction || a.direction === q.direction) &&
+      (!q.category || a.category === q.category) &&
+      (!q.from || a.createdAt.slice(0, 10) >= q.from) &&
+      (!q.to || a.createdAt.slice(0, 10) <= q.to),
+  );
+}
+
+export function listAdjustments(q: AdjustQuery): Promise<Page<Adjustment>> {
+  return respond(() => paginate(adjustFiltered(q), q.page, q.pageSize), { empty: () => emptyPage<Adjustment>(q.page, q.pageSize) });
+}
+
+export function exportAdjustments(q: Omit<AdjustQuery, 'page' | 'pageSize'>, lang: string): Promise<void> {
+  return respond(() => {
+    const zh = lang !== 'en';
+    downloadCsv('balance-adjustments.csv', [
+      zh ? ['调账编号', '时间（UTC）', '客户编号', '方向', '类别', '金额（USDT）', '参考号', '原因', '操作人'] : ['Adjustment no', 'Time (UTC)', 'Customer ID', 'Direction', 'Category', 'Amount (USDT)', 'Reference', 'Reason', 'Operator'],
+      ...adjustFiltered(q).map((a) => [a.adjustNo, a.createdAt, String(a.customerId), a.direction, a.category, a.amount, a.refNo ?? '', a.reason, a.operator]),
+    ]);
+  });
 }
 
 // ---------------------------------------------------------------- S13 来源统计（原型数据）

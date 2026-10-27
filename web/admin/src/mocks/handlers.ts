@@ -290,6 +290,8 @@ export function getCustomer(id: number): Promise<CustomerDetail> {
       ledger: ledgerFor(c, false),
       // S17A 测试入金：原型当成测试环境（显示按钮）；真实接口在生产返回 null
       testCredit: db.mockEnv.testCredit ? { maxAmount: db.params.find((p) => p.key === 'adjust.testCreditMax')?.value ?? '10000' } : null,
+      // S17B 人工调账的单笔上限（生产也有）
+      adjustMax: db.params.find((p) => p.key === 'adjust.manualMax')?.value ?? '10000',
     };
   });
 }

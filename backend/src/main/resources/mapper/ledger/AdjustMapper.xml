@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<!-- 余额调整（forecast S17）：测试入金单 ledger_test_credit（S17A）。只增不改：这里没有 UPDATE、DELETE 语句（LedgerAppendOnlyTest 检查）。 -->
+<!-- 余额调整（forecast S17）：测试入金单 ledger_test_credit（S17A）、人工调账单 ledger_adjust（S17B）。只增不改：这里没有 UPDATE、DELETE 语句（LedgerAppendOnlyTest 检查）。 -->
 <mapper namespace="com.forecast.app.ledger.adjust.AdjustMapper">
 
   <sql id="testCreditCols">id, public_no, user_id, amount, available_before, available_after, reason, request_id, created_by, created_at</sql>
@@ -22,5 +22,54 @@
     SELECT DATE(created_at) AS day, SUM(amount) AS amount, COUNT(*) AS n FROM ledger_test_credit
     WHERE created_at &gt;= #{start} AND created_at &lt; #{end}
     GROUP BY DATE(created_at) ORDER BY day
+  </select>
+
+  <!-- ========== 人工调账（S17B） ========== -->
+  <sql id="adjustCols">id, public_no, user_id, direction, category, amount, available_before, available_after, ref_no, reason, over_limit, request_id, created_by, created_at</sql>
+
+  <insert id="insertAdjust" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO ledger_adjust (public_no, user_id, direction, category, amount, available_before, available_after, ref_no, reason, over_limit, request_id,
+      created_by, created_at)
+    VALUES (#{publicNo}, #{userId}, #{direction}, #{category}, #{amount}, #{availableBefore}, #{availableAfter}, #{refNo}, #{reason}, #{overLimit},
+      #{requestId}, #{createdBy}, #{createdAt})
+  </insert>
+
+  <select id="adjustByRequest" resultType="com.forecast.app.ledger.adjust.AdjustMapper$AdjustRow">
+    SELECT <include refid="adjustCols"/> FROM ledger_adjust WHERE request_id = #{requestId}
+  </select>
+
+  <sql id="adjustWhere">
+    <where>
+      <if test="userId != null">AND user_id = #{userId}</if>
+      <if test="direction != null">AND direction = #{direction}</if>
+      <if test="category != null">AND category = #{category}</if>
+      <if test="from != null">AND created_at &gt;= #{from}</if>
+      <if test="to != null">AND created_at &lt; #{to}</if>
+    </where>
+  </sql>
+
+  <select id="listAdjusts" resultType="com.forecast.app.ledger.adjust.AdjustMapper$AdjustRow">
+    SELECT <include refid="adjustCols"/> FROM ledger_adjust <include refid="adjustWhere"/> ORDER BY id DESC LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="countAdjusts" resultType="long">
+    SELECT COUNT(*) FROM ledger_adjust <include refid="adjustWhere"/>
+  </select>
+
+  <select id="adjustByDay" resultType="com.forecast.app.ledger.adjust.AdjustMapper$AdjustDayRow">
+    SELECT DATE(created_at) AS day,
+      COALESCE(SUM(CASE WHEN direction = 'CREDIT' THEN amount END), 0) AS credit, COUNT(CASE WHEN direction = 'CREDIT' THEN 1 END) AS credits,
+      COALESCE(SUM(CASE WHEN direction = 'DEBIT' THEN amount END), 0) AS debit, COUNT(CASE WHEN direction = 'DEBIT' THEN 1 END) AS debits
+    FROM ledger_adjust WHERE created_at &gt;= #{start} AND created_at &lt; #{end}
+    GROUP BY DATE(created_at) ORDER BY day
+  </select>
+
+  <select id="creditsAfter" resultType="com.forecast.app.ledger.adjust.AdjustMapper$AdjustRow">
+    SELECT <include refid="adjustCols"/> FROM ledger_adjust WHERE id &gt; #{afterId} AND direction = 'CREDIT' ORDER BY id LIMIT #{limit}
+  </select>
+
+  <select id="creditedBetween" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(amount), 0) FROM ledger_adjust
+    WHERE user_id = #{userId} AND direction = 'CREDIT' AND created_at &gt;= #{from} AND created_at &lt;= #{to} AND id &lt;= #{upToId}
   </select>
 </mapper>

@@ -40,7 +40,8 @@ public class AlertBook implements RiskAlertApi, RiskAlertAdminApi {
       "LATE_LARGE_BET", new String[] {"尾盘大额", "Large late bet"},
       "LINKED_OPPOSITE", new String[] {"关联账户对押", "Linked accounts on opposite options"},
       "NEW_ACCOUNT_LONGSHOT", new String[] {"新账户押中冷门", "New account won a long shot"},
-      "DEPOSIT_NO_BET", new String[] {"充了不玩就提", "Withdrawal after depositing without betting"});
+      "DEPOSIT_NO_BET", new String[] {"充了不玩就提", "Withdrawal after depositing without betting"},
+      "MANUAL_CREDIT_LARGE", new String[] {"24 小时人工加款累计过大", "Large manual credits within 24 hours"});
 
   private final RiskMapper mapper;
   private final MarketApi markets;

@@ -104,6 +104,9 @@ public class GlobalExceptionHandler {
       Map.entry("TELEGRAM_TEMPLATE_CHANGED", HttpStatus.CONFLICT),
       // S17 余额调整：同一个请求号换了客户或金额（后台每次打开确认框生成新的请求号）
       Map.entry("ADJUST_REQUEST_REUSED", HttpStatus.CONFLICT),
+      // S17B 人工调账：扣款超过可用余额、超过单笔上限但没有再确认
+      Map.entry("ADJUST_INSUFFICIENT", HttpStatus.CONFLICT),
+      Map.entry("ADJUST_OVER_LIMIT_UNCONFIRMED", HttpStatus.CONFLICT),
       Map.entry("NOT_FOUND", HttpStatus.NOT_FOUND));
 
   @ExceptionHandler(BizException.class)

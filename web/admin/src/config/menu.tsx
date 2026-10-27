@@ -100,6 +100,8 @@ export const MENU: MenuItemDef[] = [
       { key: 'deposits', labelKey: 'menu.deposits', path: '/funds/deposits', permission: 'deposit:view' },
       { key: 'withdrawals', labelKey: 'menu.withdrawals', path: '/funds/withdrawals', permission: 'withdrawal:view', badge: 'withdrawals' },
       { key: 'reconciliation', labelKey: 'menu.reconciliation', path: '/funds/reconciliation', permission: 'recon:view' },
+      // forecast S17B：人工调账记录（筛选、导出 CSV）
+      { key: 'adjustments', labelKey: 'menu.adjustments', path: '/funds/adjustments', permission: 'recon:view' },
       { key: 'pool-recon', labelKey: 'menu.poolRecon', path: '/funds/pool-recon', permission: 'pool_recon:view' },
       { key: 'tasks', labelKey: 'menu.tasks', path: '/funds/tasks', permission: 'task:view' },
     ],

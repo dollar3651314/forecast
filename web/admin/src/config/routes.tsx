@@ -13,6 +13,7 @@ import { DepositsPage } from '../pages/funds/DepositsPage';
 import { WithdrawalsPage } from '../pages/funds/WithdrawalsPage';
 import { AutoApprovePage } from '../pages/funds/AutoApprovePage';
 import { ReconPage } from '../pages/funds/ReconPage';
+import { AdjustmentsPage } from '../pages/funds/AdjustmentsPage';
 import { SweepRecordsPage } from '../pages/funds/sweep/SweepRecordsPage';
 import { SweepNewPage } from '../pages/funds/sweep/SweepNewPage';
 import { SweepBatchPage } from '../pages/funds/sweep/SweepBatchPage';
@@ -92,6 +93,7 @@ export const APP_ROUTES: RouteDef[] = [
   // v2 自动审批规则（原型；真实接口模式下显示"未上线"），从出金审核页进入，归在出金审核菜单下
   { path: '/funds/withdrawals/auto-rules', menuKey: 'withdrawals', element: <AutoApprovePage /> },
   { path: '/funds/reconciliation', menuKey: 'reconciliation', element: <ReconPage /> },
+  { path: '/funds/adjustments', menuKey: 'adjustments', element: <AdjustmentsPage /> },
   // v2 资金归集（原型；真实接口模式下显示"未上线"），从对账页进入，归在入金对账菜单下
   { path: '/funds/reconciliation/sweep', menuKey: 'reconciliation', element: <SweepRecordsPage /> },
   { path: '/funds/reconciliation/sweep/new', menuKey: 'reconciliation', element: <SweepNewPage /> },

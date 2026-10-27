@@ -8,13 +8,17 @@
  *   关联账户（同设备、同 IP、同充值来源地址、同提现地址，后端 riskalert 扫描生成，需求第 8.1 节）。
  * forecast S17A：测试入金（balance:test_credit，高危）：只在测试环境显示——后端详情的 testCredit 不为空才显示按钮（生产为 null，接口也是 404）；
  *   金额、原因必填、勾选确认；每次打开确认框生成一个请求号，重复点击只入一次。
+ * forecast S17B：人工加款 / 人工扣款（balance:adjust，高危，生产可用；需求说明书第 21 节）：金额、类别、原因必填，参考号选填；
+ *   扣款不能超过可用余额；超过单笔上限（详情的 adjustMax）时要再勾"我确认超过单笔上限"；请求号防重复点击。
  */
 import { useCallback } from 'react';
-import { Alert, App, Button, Descriptions, Form, Input, Skeleton, Space } from 'antd';
-import { ArrowLeftOutlined, LockOutlined, UnlockOutlined, EditOutlined, SafetyOutlined, ExperimentOutlined } from '@ant-design/icons';
+import { Alert, App, Button, Checkbox, Descriptions, Form, Input, Radio, Skeleton, Space } from 'antd';
+import { ArrowLeftOutlined, LockOutlined, UnlockOutlined, EditOutlined, SafetyOutlined, ExperimentOutlined, PlusCircleOutlined, MinusCircleOutlined } from '@ant-design/icons';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { getCustomer, getCustomerLinks, setCustomerFrozen, setCustomerStaff, testCredit, updateCustomerProfile } from '../../api';
+import { adjustBalance, getCustomer, getCustomerLinks, setCustomerFrozen, setCustomerStaff, testCredit, updateCustomerProfile } from '../../api';
+import { ADJUST_CATEGORIES, type AdjustCategory, type AdjustDirection } from '../../api/fcTypes';
+import { compareAmounts } from '../../utils/money';
 import type { CustomerLink } from '../../api/fcTypes';
 import type { LedgerEntry } from '../../api/types';
 import { useApi } from '../../hooks/useApi';
@@ -106,6 +110,92 @@ export function CustomerDetailPage() {
           cr.duplicate
             ? t('customers.testCreditDuplicate')
             : t('customers.testCreditDone', { amount: formatAmount(cr.amount), before: formatAmount(cr.availableBefore), after: formatAmount(cr.availableAfter) }),
+        );
+      },
+      onDone: reload,
+    });
+  };
+
+  /** forecast S17B：人工加款 / 扣款 */
+  const askAdjust = (direction: AdjustDirection) => {
+    if (!c) return;
+    const max = c.adjustMax ?? '10000';
+    const available = c.account.available;
+    const requestId = newRequestId();
+    const credit = direction === 'credit';
+    const cats = ADJUST_CATEGORIES[direction];
+    hr.ask({
+      title: credit ? t('customers.adjustCredit') : t('customers.adjustDebit'),
+      description: (
+        <>
+          <div>{t('customers.targetLine', { name: c.name, id: c.id, email: c.email })}</div>
+          <div>{credit ? t('customers.adjustCreditImpact') : t('customers.adjustDebitImpact', { available: formatAmount(available) })}</div>
+        </>
+      ),
+      initialValues: { category: cats[0], overLimitConfirmed: false },
+      extra: (
+        <>
+          <Form.Item
+            name="amount"
+            label={t('customers.adjustAmount')}
+            extra={t('customers.adjustMax', { max: formatAmount(max) })}
+            required
+            rules={[
+              {
+                validator: (_r: unknown, value: string | undefined) => {
+                  const p = amountProblem(value);
+                  if (p === 'required') return Promise.reject(new Error(t('customers.adjustAmountRequired')));
+                  if (p) return Promise.reject(new Error(t('customers.adjustAmountInvalid')));
+                  if (!credit && compareAmounts(String(value).trim(), available, 8) > 0) {
+                    return Promise.reject(new Error(t('customers.adjustOverAvailable', { available: formatAmount(available) })));
+                  }
+                  return Promise.resolve();
+                },
+              },
+            ]}
+          >
+            <Input inputMode="decimal" autoComplete="off" suffix="USDT" style={{ width: 240 }} />
+          </Form.Item>
+          <Form.Item name="category" label={t('customers.adjustCategory')} required rules={[{ required: true, message: t('customers.adjustCategoryRequired') }]}>
+            <Radio.Group options={cats.map((k: AdjustCategory) => ({ value: k, label: t(`adjust.cat.${k}`) }))} />
+          </Form.Item>
+          <Form.Item name="refNo" label={t('customers.adjustRefNo')} extra={t('customers.adjustRefNoHint')} rules={[{ max: 128 }]}>
+            <Input autoComplete="off" maxLength={128} />
+          </Form.Item>
+          <Form.Item noStyle shouldUpdate={(a, b) => a.amount !== b.amount}>
+            {({ getFieldValue }) =>
+              amountProblem(getFieldValue('amount')) === null && compareAmounts(String(getFieldValue('amount')).trim(), max, 8) > 0 ? (
+                <Form.Item
+                  name="overLimitConfirmed"
+                  valuePropName="checked"
+                  extra={t('customers.adjustOverLimitHint')}
+                  rules={[{ validator: (_r, v) => (v ? Promise.resolve() : Promise.reject(new Error(t('customers.adjustOverLimitRequired')))) }]}
+                >
+                  <Checkbox data-testid="adjust-over-limit">{t('customers.adjustOverLimit', { max: formatAmount(max) })}</Checkbox>
+                </Form.Item>
+              ) : null
+            }
+          </Form.Item>
+        </>
+      ),
+      confirmText: credit ? t('customers.confirmAdjustCredit') : t('customers.confirmAdjustDebit'),
+      successText: '',
+      onConfirm: async (v) => {
+        const amount = String(v.amount ?? '').trim();
+        const r = await adjustBalance(c.id, {
+          direction,
+          category: v.category as AdjustCategory,
+          amount,
+          refNo: String(v.refNo ?? ''),
+          reason: v.reason,
+          requestId,
+          overLimitConfirmed: compareAmounts(amount, max, 8) > 0 && v.overLimitConfirmed === true,
+        });
+        const a = r.adjustment;
+        void message.success(
+          r.duplicate
+            ? t('customers.adjustDuplicate')
+            : t('customers.adjustDone', { dir: t(`adjust.dir.${a.direction}`), amount: formatAmount(a.amount), before: formatAmount(a.availableBefore), after: formatAmount(a.availableAfter) }),
         );
       },
       onDone: reload,
@@ -223,6 +313,12 @@ export function CustomerDetailPage() {
               </PermButton>
               <PermButton perm="customer:edit" icon={<SafetyOutlined />} onClick={askStaff}>
                 {c.staff ? t('customers.staffOff') : t('customers.staffOn')}
+              </PermButton>
+              <PermButton perm="balance:adjust" icon={<PlusCircleOutlined />} onClick={() => askAdjust('credit')} data-testid="adjust-credit">
+                {t('customers.adjustCredit')}
+              </PermButton>
+              <PermButton perm="balance:adjust" icon={<MinusCircleOutlined />} onClick={() => askAdjust('debit')} data-testid="adjust-debit">
+                {t('customers.adjustDebit')}
               </PermButton>
               {c.testCredit ? (
                 <PermButton perm="balance:test_credit" icon={<ExperimentOutlined />} onClick={askTestCredit} data-testid="test-credit">

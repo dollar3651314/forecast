@@ -162,7 +162,9 @@
       "fee": "抽成",
       "refund": "下注退回",
       "compensation": "补偿",
-      "testCredit": "测试入金"
+      "testCredit": "测试入金",
+      "adjustCredit": "人工调整（加款）",
+      "adjustDebit": "人工调整（扣款）"
     },
     "icon": {
       "deposit": "入",
@@ -173,7 +175,9 @@
       "fee": "费",
       "refund": "还",
       "compensation": "补",
-      "testCredit": "测"
+      "testCredit": "测",
+      "adjustCredit": "调",
+      "adjustDebit": "调"
     },
     "range": {
       "7d": "近 7 天",
@@ -185,7 +189,12 @@
     "emptyHint": "充值到账后会在这里显示",
     "emptyFiltered": "没有符合条件的流水",
     "emptyFilteredHint": "换个类型或时间范围试试",
-    "total": "共 {{total}} 条"
+    "total": "共 {{total}} 条",
+    "category": {
+      "deposit_missing": "充值未到账补入",
+      "wrong_credit": "误入账扣回",
+      "other": "其他"
+    }
   },
   "withdraw": {
     "title": "提现 USDT",

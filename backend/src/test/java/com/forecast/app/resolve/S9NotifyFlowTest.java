@@ -51,6 +51,8 @@ class S9NotifyFlowTest extends PlatformTestSupport {
     row("#18", "MARKET_CLARIFIED", "INBOX");
     row("#22", "FEE_CHANGED", "INBOX");
     row("#23", "MATCH_REMINDER", "EMAIL");
+    // v1.5（S17B，需求第 21 节）：余额被人工调整，站内信 + 邮件
+    row("#24", "BALANCE_ADJUSTED", "INBOX,EMAIL");
   }
 
   static void row(String no, String code, String channels) {
@@ -87,8 +89,8 @@ class S9NotifyFlowTest extends PlatformTestSupport {
       }
     }
     assertThat(problems).isEmpty();
-    // 需求第 7 节写"不发"的四类没有模板；客户模板一共 20 个；S16 加了等候页的两封（按邮箱发给订阅的人，不一定是客户，SQ-22：确认订阅、正式上线了）
-    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM notify_template WHERE audience IN ('USER', 'ANY')", Integer.class)).isEqualTo(22);
+    // 需求第 7 节写"不发"的四类没有模板；客户模板一共 20 个（S17B 加 #24 以后 21 个）；S16 加了等候页的两封（按邮箱发给订阅的人，不一定是客户，SQ-22：确认订阅、正式上线了）
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM notify_template WHERE audience IN ('USER', 'ANY')", Integer.class)).isEqualTo(23);
     assertThat(jdbc.queryForList("SELECT code FROM notify_template WHERE audience = 'ANY' AND req_no IS NULL AND code LIKE 'WAITLIST%' ORDER BY code", String.class))
         .containsExactly("WAITLIST_CONFIRM", "WAITLIST_LAUNCH");
     // 员工模板都配了按角色的收件人或者明确发告警邮箱（复用的）
@@ -204,13 +206,15 @@ class S9NotifyFlowTest extends PlatformTestSupport {
     String v17;
     try (var in = getClass().getResourceAsStream("/db/migration/V17__s9_admin_notify.sql"); var in19 = getClass().getResourceAsStream("/db/migration/V19__s10_riskalert.sql");
         var in21 = getClass().getResourceAsStream("/db/migration/V21__s13_growth.sql"); var in24 = getClass().getResourceAsStream("/db/migration/V24__s15_content.sql");
-        var in26 = getClass().getResourceAsStream("/db/migration/V26__s16_waitlist.sql"); var in27 = getClass().getResourceAsStream("/db/migration/V27__s16_telegram.sql")) {
+        var in26 = getClass().getResourceAsStream("/db/migration/V26__s16_waitlist.sql"); var in27 = getClass().getResourceAsStream("/db/migration/V27__s16_telegram.sql");
+        var in30 = getClass().getResourceAsStream("/db/migration/V30__s17b_manual_adjust.sql")) {
       v17 = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8) + new String(in19.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
           + new String(in21.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8) + new String(in24.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
-          + new String(in26.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8) + new String(in27.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+          + new String(in26.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8) + new String(in27.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
+          + new String(in30.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
     }
-    // S16 的等候页订阅、Telegram 机器人在 V26、V27（S16 分支上原编号 V41、V42，整合 4 改号）
-    for (String k : keys) assertThat(v17).as("V17 / V19 / V21 / V24 / V26 / V27 里的菜单 " + k).contains("('" + k + "', ");
+    // S16 的等候页订阅、Telegram 机器人在 V26、V27（S16 分支上原编号 V41、V42，整合 4 改号）；S17B 的人工调账记录在 V30
+    for (String k : keys) assertThat(v17).as("V17 / V19 / V21 / V24 / V26 / V27 / V30 里的菜单 " + k).contains("('" + k + "', ");
     List<String> saved = jdbc.queryForList("SELECT menu_key FROM admin_menu", String.class);
     assertThat(saved).containsAll(keys.stream().filter(k -> !k.equals("audit")).toList());
     // 一级菜单的默认顺序：仪表盘、市场管理、裁决、结算与补偿、报表、来源统计（S13）、等候页订阅（S16）、内容中心（S15，含 S16 的 Telegram 机器人）、

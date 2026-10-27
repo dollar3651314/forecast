@@ -181,6 +181,10 @@ class SettleAdmin implements SettleAdminApi, SettleApi {
     BigDecimal testTotal = BigDecimal.ZERO;
     int comps = 0;
     int tests = 0;
+    BigDecimal mcTotal = BigDecimal.ZERO;
+    BigDecimal mdTotal = BigDecimal.ZERO;
+    int mcs = 0;
+    int mds = 0;
     // 一天一行：结算和补偿（settle 自己的表）+ 余额调整（ledger 的 AdjustReportApi，S17）；只有调整没有结算的日子也列出来
     Map<LocalDate, CompensationService.Day> settleDays = new java.util.TreeMap<>();
     for (CompensationService.Day d : comp.report(f, t)) settleDays.put(d.day(), d);
@@ -191,17 +195,21 @@ class SettleAdmin implements SettleAdminApi, SettleApi {
     List<ReportDay> days = new ArrayList<>();
     for (LocalDate day : all) {
       CompensationService.Day d = settleDays.getOrDefault(day, new CompensationService.Day(day, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, 0));
-      AdjustReportApi.Day a = adjustDays.getOrDefault(day, new AdjustReportApi.Day(day, BigDecimal.ZERO, 0));
+      AdjustReportApi.Day a = adjustDays.getOrDefault(day, AdjustReportApi.Day.empty(day));
       fee = fee.add(d.fee());
       dust = dust.add(d.dust());
       compTotal = compTotal.add(d.compensation());
       comps += d.compensations();
       testTotal = testTotal.add(a.testCredit());
       tests += a.testCredits();
+      mcTotal = mcTotal.add(a.manualCredit());
+      mdTotal = mdTotal.add(a.manualDebit());
+      mcs += a.manualCredits();
+      mds += a.manualDebits();
       days.add(new ReportDay(day.toString(), money(d.fee()), money(d.dust()), money(d.fee().add(d.dust())), money(d.compensation()), d.compensations(),
-          money(a.testCredit()), a.testCredits()));
+          money(a.testCredit()), a.testCredits(), money(a.manualCredit()), a.manualCredits(), money(a.manualDebit()), a.manualDebits()));
     }
-    return new Report(f.toString(), t.toString(), money(fee), money(dust), money(fee.add(dust)), money(compTotal), comps, money(testTotal), tests, days);
+    return new Report(f.toString(), t.toString(), money(fee), money(dust), money(fee.add(dust)), money(compTotal), comps, money(testTotal), tests, money(mcTotal), mcs, money(mdTotal), mds, days);
   }
 
   private static LocalDate date(String v, String field, ValidationException.Collector errs) {

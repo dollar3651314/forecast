@@ -50,7 +50,7 @@
     "channel": "渠道",
     "channels": "渠道",
     "code": "编码",
-    "customerId": "客户",
+    "customerId": "客户编号",
     "date": "日期",
     "description": "说明",
     "displayName": "姓名",
@@ -112,7 +112,10 @@
     "options_winCondition": "选项的判定条件",
     "plays_line": "分界线",
     "chatId": "频道编号",
-    "requestId": "请求号"
+    "requestId": "请求号",
+    "direction": "方向",
+    "category": "类别",
+    "refNo": "参考号"
   },
   "apiFieldCode": {
     "ageUnder18": "未满 18 周岁",
@@ -454,7 +457,27 @@
     "testCreditOverLimit": "超过单笔上限 {{max}} USDT",
     "confirmTestCredit": "确认入金",
     "testCreditDone": "已入金 {{amount}} USDT，可用余额 {{before}} → {{after}}",
-    "testCreditDuplicate": "这一笔刚才已经入过（重复提交），没有再入"
+    "testCreditDuplicate": "这一笔刚才已经入过（重复提交），没有再入",
+    "adjustCredit": "人工加款",
+    "adjustDebit": "人工扣款",
+    "adjustCreditImpact": "给这个客户的可用余额加钱。对手方是平台\"人工调账\"账户，账本保持平衡；客户会收到站内信和邮件（写明金额和类别，不写原因）。只能再做一笔反方向的调整来纠正。",
+    "adjustDebitImpact": "从这个客户的可用余额扣钱，只能扣可用余额（现在 {{available}} USDT），下注中、提现冻结的钱不动。客户会收到站内信和邮件。",
+    "adjustAmount": "金额（USDT）",
+    "adjustCategory": "类别",
+    "adjustRefNo": "参考号（选填）",
+    "adjustRefNoHint": "链上交易哈希或工单号",
+    "adjustMax": "单笔上限 {{max}} USDT（参数设置 → 余额调整）",
+    "adjustAmountRequired": "请填写金额",
+    "adjustAmountInvalid": "请输入大于 0 的金额，最多 8 位小数",
+    "adjustOverAvailable": "不能超过可用余额 {{available}} USDT",
+    "adjustCategoryRequired": "请选择类别",
+    "adjustOverLimit": "我确认超过单笔上限（{{max}} USDT）",
+    "adjustOverLimitRequired": "金额超过单笔上限，要勾选这一项",
+    "adjustOverLimitHint": "金额超过单笔上限：记录和审计里会标出",
+    "confirmAdjustCredit": "确认加款",
+    "confirmAdjustDebit": "确认扣款",
+    "adjustDone": "已{{dir}} {{amount}} USDT，可用余额 {{before}} → {{after}}",
+    "adjustDuplicate": "这一笔刚才已经调过（重复提交），没有再调"
   },
   "dashboard": {
     "failedTasks": "失败任务",
@@ -612,7 +635,9 @@
       "TELEGRAM_TEMPLATE_CHANGED": "预览以后模板文字改过了，请重新打开预览再审定。",
       "TELEGRAM_NO_PREVIEW": "还没有结束的市场，暂时没法生成预览。",
       "ADJUST_OVER_LIMIT": "{{detail}}",
-      "ADJUST_REQUEST_REUSED": "这次提交和刚才的一笔请求号相同但内容不同，请关闭确认框重新操作。"
+      "ADJUST_REQUEST_REUSED": "这次提交和刚才的一笔请求号相同但内容不同，请关闭确认框重新操作。",
+      "ADJUST_INSUFFICIENT": "{{detail}}",
+      "ADJUST_OVER_LIMIT_UNCONFIRMED": "{{detail}}"
     }
   },
   "funds": {
@@ -684,7 +709,9 @@
     "payout": "派彩",
     "refund": "退款",
     "withdraw": "出金",
-    "testCredit": "测试入金"
+    "testCredit": "测试入金",
+    "adjustCredit": "人工调整（加款）",
+    "adjustDebit": "人工调整（扣款）"
   },
   "menu": {
     "admins": "管理员",
@@ -735,7 +762,8 @@
     "contentLogs": "日志",
     "contentSettings": "用量和设置",
     "waitlist": "等候页订阅",
-    "telegram": "Telegram 机器人"
+    "telegram": "Telegram 机器人",
+    "adjustments": "人工调账记录"
   },
   "menus": {
     "group": "分组",
@@ -811,7 +839,8 @@
     "content_edit": "生成和编辑内容草稿",
     "content_publish": "对外发布：发布内容、改内容设置、Telegram 频道和模板审定、紧急停止、上线通知（高危）",
     "alert_params_edit": "修改告警邮件设置（总开关、不发邮件的告警项）",
-    "balance_test_credit": "测试入金（只在测试环境有，高危）"
+    "balance_test_credit": "测试入金（只在测试环境有，高危）",
+    "balance_adjust": "人工调账：给客户人工加款、扣款（高危）"
   },
   "permModule": {
     "customer": "客户",
@@ -877,7 +906,7 @@
     "type": "差异类型",
     "unknownCustomer": "未匹配到客户",
     "platformTitle": "平台账户",
-    "platformHint": "平台账户的余额应该等于账本合计。补偿支出、测试入金是平台付出去的钱，余额是负数。",
+    "platformHint": "平台账户的余额应该等于账本合计。补偿支出、测试入金是平台付出去的钱，余额是负数；人工调账 = 累计扣款 − 累计加款，可正可负。",
     "platformKind": "账户",
     "platformBalance": "余额",
     "platformLedger": "账本合计",
@@ -888,7 +917,8 @@
     "platformKinds": {
       "revenue": "平台收入（抽成 + 尾差）",
       "compensation": "平台补偿支出",
-      "test_credit": "测试入金"
+      "test_credit": "测试入金",
+      "manual_adjust": "人工调账"
     }
   },
   "reconStatus": {
@@ -2034,7 +2064,9 @@
       "market_maxOpen": "同时开放的市场数上限",
       "alert_mail_enabled": "告警邮件总开关",
       "alert_mail_muted": "不发邮件的告警项",
-      "adjust_testCreditMax": "测试入金单笔上限（只在测试环境生效）"
+      "adjust_testCreditMax": "测试入金单笔上限（只在测试环境生效）",
+      "adjust_manualMax": "人工调账单笔上限（超过要再勾确认）",
+      "risk_manualCredit_dayAmount": "人工加款：同一客户 24 小时累计超过"
     },
     "hours": "{{n}} 小时",
     "minutes": "{{n}} 分钟",
@@ -2080,7 +2112,7 @@
       "NOT_CONFIGURED": "未开通"
     },
     "alertNote": "收件人是 FC_ALERT_EMAILS。一次故障发一封告警、恢复发一封；一直没恢复每 24 小时提醒一次。\"未开通\"（没配 key 的可选功能）不发邮件。",
-    "adjustNote": "测试入金只在测试环境（FC_ENV_LABEL=test）能用，生产上这一项不起作用。"
+    "adjustNote": "测试入金只在测试环境（FC_ENV_LABEL=test）能用，生产上这一项不起作用。人工调账超过单笔上限时，确认框里要再勾一次\"我确认超过单笔上限\"。"
   },
   "dash": {
     "sub": "今日 / 近 7 天按 UTC；待处理事项点进去处理",
@@ -2503,7 +2535,10 @@
     "noRuns": "还没有完成的结算单",
     "testCredit": "测试入金",
     "testCreditN": "测试入金笔数",
-    "testCreditHint": "只在测试环境有；不是平台收入，也不是真实充值"
+    "testCreditHint": "只在测试环境有；不是平台收入，也不是真实充值",
+    "manualCredit": "人工加款",
+    "manualDebit": "人工扣款",
+    "manualHint": "后台人工调账；不是平台收入，也不冲减补偿"
   },
   "ra": {
     "title": "风控告警",
@@ -2514,7 +2549,8 @@
       "late_large_bet": "尾盘大额",
       "linked_opposite": "关联账户对押",
       "new_account_longshot": "新账户押中冷门",
-      "deposit_no_bet": "充了不玩就提"
+      "deposit_no_bet": "充了不玩就提",
+      "manual_credit_large": "24 小时人工加款过大"
     },
     "status": {
       "new": "新",
@@ -2549,7 +2585,8 @@
       "late_large_bet": "截止前 {{sec}} 秒下注，占下注后奖池 {{pct}}%（奖池 {{pool}}；阈值：截止前 {{limitMinutes}} 分钟内、≥ {{limitPct}}%、单笔 ≥ {{limitAmount}}）",
       "linked_opposite": "关联账户 {{users}} 在同一市场押了不同的选项",
       "new_account_longshot": "注册第 {{days}} 天押中 {{odds}} 倍的结果（阈值：注册 {{limitDays}} 天内）",
-      "deposit_no_bet": "近 30 天充值 {{deposit}}，之后有效下注 {{stake}}（要求 {{multiple}} 倍）就申请提现 {{no}}"
+      "deposit_no_bet": "近 30 天充值 {{deposit}}，之后有效下注 {{stake}}（要求 {{multiple}} 倍）就申请提现 {{no}}",
+      "manual_credit_large": "24 小时内人工加款累计 {{total}}，超过阈值 {{limit}}（调账编号 {{no}}）"
     }
   },
   "gr": {
@@ -3115,5 +3152,34 @@
       "skipped": "没发",
       "stopped": "已停止"
     }
+  },
+  "adjust": {
+    "dir": {
+      "credit": "加款",
+      "debit": "扣款"
+    },
+    "cat": {
+      "deposit_missing": "充值未到账补入",
+      "wrong_credit": "误入账扣回",
+      "other": "其他"
+    },
+    "title": "人工调账记录",
+    "sub": "后台在客户详情里做的人工加款、扣款；改错了只能再做一笔反方向的",
+    "customerId": "客户编号",
+    "direction": "方向",
+    "category": "类别",
+    "dates": "日期（UTC）",
+    "csv": "导出 CSV",
+    "csvHint": "按当前筛选导出（最多 1 万行），导出会写审计",
+    "empty": "没有人工调账记录",
+    "no": "编号",
+    "time": "时间（UTC）",
+    "customer": "客户",
+    "amount": "金额",
+    "balance": "可用余额（前 → 后）",
+    "refNo": "参考号",
+    "reason": "原因",
+    "operator": "操作人",
+    "overLimit": "超过上限"
   }
 }

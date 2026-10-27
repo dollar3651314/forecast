@@ -34,6 +34,8 @@ export function riskSummary(t: (k: string, o?: Record<string, unknown>) => strin
       return t('ra.detail.new_account_longshot', { odds: d.odds, days: d.accountDays, limitDays: d.limitDays });
     case 'deposit_no_bet':
       return t('ra.detail.deposit_no_bet', { deposit: formatAmount(d.deposit ?? '0'), stake: formatAmount(d.stake ?? '0'), multiple: d.multiple, no: d.withdrawalNo });
+    case 'manual_credit_large':
+      return t('ra.detail.manual_credit_large', { total: formatAmount(d.total ?? '0'), limit: formatAmount(d.limit ?? '0'), no: d.adjustNo });
     default:
       return '';
   }

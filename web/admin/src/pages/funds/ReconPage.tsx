@@ -2,7 +2,7 @@
  * 对账：列出钱包记录、账本、链上三方不一致的问题，标记已处理（必填说明）。修复 fxsystem F5。
  * 页面上方是热钱包余额（HotWalletCard，2026-10-17 热钱包余额告警）。
  * v2 资金归集：右上角"资金归集"入口（有 sweep:view 权限时显示；config/sweep.ts 的 SWEEP_UI 是总开关）。
- * forecast S17A：热钱包下面是"平台账户"（平台收入、补偿支出、测试入金，余额和账本合计应该相等）；测试入金单独一行。
+ * forecast S17A：热钱包下面是"平台账户"（平台收入、补偿支出、测试入金，余额和账本合计应该相等）；测试入金单独一行。S17B 加"人工调账"一行。
  * 问题类型和字段按后端（后台方案第 8 节）：7 种类型，字段 type、ref、expected、actual、diff、detail；后端只支持按状态筛选。
  */
 import { useState } from 'react';

@@ -12,10 +12,14 @@ public enum AccountKind {
    * 测试入金（forecast S17A，只在测试环境用）：测试入金的对手方，可用余额允许为负（= −累计测试入金）。
    * 生产上这一行也存在（迁移 V29 建），但测试入金的接口不存在，余额永远是 0。
    */
-  PLATFORM_TEST_CREDIT;
+  PLATFORM_TEST_CREDIT,
+  /**
+   * 人工调账（forecast S17B，需求说明书第 21 节）：人工加款、扣款的对手方。加款时 −x、扣款时 +x，余额可正可负（= 累计扣款 − 累计加款）。
+   */
+  PLATFORM_MANUAL_ADJUST;
 
-  /** 可用余额能不能为负（这几个账户的余额 = −平台付出的累计金额） */
+  /** 可用余额能不能为负（补偿支出、测试入金的余额 = −平台付出的累计金额；人工调账可正可负） */
   public boolean mayGoNegative() {
-    return this == PLATFORM_COMPENSATION || this == PLATFORM_TEST_CREDIT;
+    return this == PLATFORM_COMPENSATION || this == PLATFORM_TEST_CREDIT || this == PLATFORM_MANUAL_ADJUST;
   }
 }

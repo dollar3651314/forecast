@@ -158,6 +158,8 @@ export interface CustomerDetail extends CustomerSummary {
    * maxAmount 是单笔上限（参数设置"余额调整"）
    */
   testCredit?: { maxAmount: string } | null;
+  /** forecast S17B 人工调账的单笔上限（参数 adjust.manualMax）：超过时确认框里要再勾一次 */
+  adjustMax?: string;
 }
 
 /** 测试入金的结果（S17A）：duplicate = 同一个请求号之前已经入过，这次没有再入 */

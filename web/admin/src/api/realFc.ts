@@ -62,6 +62,9 @@ import type {
   RiskAlertStatus,
   StaffRefund,
   PlatformAccount,
+  Adjustment,
+  AdjustInput,
+  AdjustQuery,
 } from './fcTypes';
 import type { CustomerDetail, TestCreditResult } from './types';
 
@@ -245,6 +248,42 @@ export const testCredit = (id: number, amount: string, reason: string, requestId
   request(`/customers/${id}/test-credit`, { method: 'POST', body: { amount, reason, requestId, checked: true } });
 /** 对账页"平台账户"（recon:view）：平台收入、补偿支出、测试入金的余额和账本合计 */
 export const listPlatformAccounts = (): Promise<PlatformAccount[]> => request('/recon/platform-accounts');
+
+// ---- S17B 人工调账（加款、扣款 balance:adjust ★；记录和导出 recon:view） ----
+export const adjustBalance = (id: number, input: AdjustInput): Promise<{ customer: CustomerDetail; adjustment: Adjustment; duplicate: boolean }> =>
+  request(`/customers/${id}/adjust`, { method: 'POST', body: { ...input, refNo: input.refNo.trim() || null, checked: true } });
+export const listAdjustments = (q: AdjustQuery): Promise<Page<Adjustment>> =>
+  request('/balance-adjustments', { query: { customerId: q.customerId, direction: q.direction, category: q.category, from: q.from, to: q.to, page: q.page, pageSize: q.pageSize } });
+/** 导出 CSV（后端生成、写审计 adjust.export；和来源统计的导出同一个做法：出错按普通错误提示） */
+export async function exportAdjustments(q: Omit<AdjustQuery, 'page' | 'pageSize'>, lang: string): Promise<void> {
+  const p = new URLSearchParams({ lang });
+  for (const [k, v] of Object.entries(q)) if (v) p.set(k, String(v));
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/balance-adjustments/export?${p.toString()}`, { credentials: 'same-origin', headers: { Accept: 'text/csv, application/json' } });
+  } catch {
+    throw new ApiError('errors.network');
+  }
+  if (!res.ok) {
+    let body = null;
+    try {
+      body = await res.json();
+    } catch {
+      body = null;
+    }
+    throw toApiError(res.status, body);
+  }
+  const blob = await res.blob();
+  const name = /filename="?([^";]+)"?/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? 'balance-adjustments.csv';
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 // ---- S16 等候页订阅（growth:view；发送上线通知 content:publish ★） ----
 export const listWaitlist = (q: WaitlistQuery): Promise<WaitlistPage> =>

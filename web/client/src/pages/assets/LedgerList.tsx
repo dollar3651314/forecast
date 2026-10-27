@@ -12,6 +12,8 @@ const ICON_TONE: Record<LedgerItem['type'], string> = {
   refund: 'in',
   compensation: 'in',
   testCredit: 'in',
+  adjustCredit: 'in',
+  adjustDebit: 'out',
 };
 
 /** 市场题目按当前语言取（取不到用英文，RQ-18） */
@@ -33,7 +35,13 @@ export function LedgerList({ items }: { items: LedgerItem[] }) {
           <div className="lg-t">
             <b>
               {t(`ledger.type.${l.type}`)}
-              {l.market ? <span> · {marketTitle(l.market, i18n.language)}</span> : l.ref && <span className="num"> · {l.ref}</span>}
+              {l.market ? (
+                <span> · {marketTitle(l.market, i18n.language)}</span>
+              ) : l.category ? (
+                <span> · {t(`ledger.category.${l.category}`)}</span>
+              ) : (
+                l.ref && <span className="num"> · {l.ref}</span>
+              )}
             </b>
             <small className="num">{formatDateTime(l.time)}</small>
           </div>
