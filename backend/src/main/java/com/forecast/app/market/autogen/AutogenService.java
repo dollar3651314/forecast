@@ -18,7 +18,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -28,6 +27,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
@@ -327,16 +328,21 @@ public class AutogenService implements MarketAutogenAdminApi {
     if (rawSlots.size() > 96) errs.add("slots", "tooMany");
     Set<String> seen = new HashSet<>();
     for (int i = 0; i < rawSlots.size(); i++) {
-      AutogenWindows.Slot sl = slot(rawSlots.get(i));
-      if (sl == null) {
-        errs.add("slots[" + i + "]", "invalid");
+      // S12c：输入宽松（1:00、1:0、1、全角冒号、两边空格都规范成 HH:mm），错误码说清楚错在哪（后台按"场次第 n 行：…"显示）。
+      // 后台前端 utils/market.ts 的 slotProblems 是同一套规则，只是提前提示；以这里为准。
+      SlotParse p = parseSlot(rawSlots.get(i));
+      String field = "slots[" + i + "]";
+      if (p.slot() == null) {
+        errs.add(field, p.code());
         continue;
       }
+      AutogenWindows.Slot sl = p.slot();
       LocalTime t = sl.time();
       // 窗口按周期对齐：1 小时是整点，15 分钟是 00 / 15 / 30 / 45
-      if (period.equals("1H") && t.getMinute() != 0 || period.equals("15M") && t.getMinute() % 15 != 0) errs.add("slots[" + i + "]", "notAligned");
+      if (period.equals("1H") && t.getMinute() != 0) errs.add(field, "hourOnly");
+      else if (period.equals("15M") && t.getMinute() % 15 != 0) errs.add(field, "quarterOnly");
       // 同一个时刻只能写一项（不同星期在同一项里选）
-      if (!seen.add(SLOT.format(t))) errs.add("slots[" + i + "]", "duplicate");
+      else if (!seen.add(SLOT.format(t))) errs.add(field, "duplicate");
       slots.add(format(sl));
     }
     if (mode.equals("SCHEDULE") && rawSlots.isEmpty()) errs.add("slots", "required");
@@ -386,23 +392,43 @@ public class AutogenService implements MarketAutogenAdminApi {
    * 格式不对返回 null。
    */
   static AutogenWindows.Slot slot(String s) {
-    if (s == null) return null;
-    String v = s.strip();
-    if (!v.matches("\\d{2}:\\d{2}(@[1-7](,[1-7]){0,6})?")) return null;
-    LocalTime t;
-    try {
-      t = LocalTime.parse(v.substring(0, 5), SLOT);
-    } catch (DateTimeParseException e) {
-      return null;
-    }
+    return parseSlot(s).slot();
+  }
+
+  /** 场次一项的解析结果：slot 不为空 = 能用；否则 code 是字段错误码（required / timeFormat / outOfRange / invalidDays） */
+  record SlotParse(AutogenWindows.Slot slot, String code) {}
+
+  /**
+   * 时刻部分：时 1～2 位，分可省（= 00）或 1～2 位；冒号可以是半角或全角，冒号两边、整项两边可以有空格（含全角空格、不换行空格）。
+   * 空白字符集和后台前端 utils/market.ts 的 SLOT_WS 一致（不用 \\s / strip，两种语言对 Unicode 空白的理解不一样）。
+   */
+  private static final String SLOT_WS = "[ \\t\\r\\n\\u00A0\\u3000]*";
+  private static final Pattern SLOT_TIME = Pattern.compile(SLOT_WS + "([0-9]{1,2})(?:" + SLOT_WS + "[:：]" + SLOT_WS + "([0-9]{1,2}))?" + SLOT_WS);
+  private static final Pattern SLOT_DAYS = Pattern.compile(SLOT_WS + "[1-7](?:" + SLOT_WS + "," + SLOT_WS + "[1-7]){0,6}" + SLOT_WS);
+  private static final Pattern SLOT_BLANK = Pattern.compile(SLOT_WS);
+
+  /**
+   * 场次表的一项，宽松读入（S12c 测试环境反馈：填 "1:00" 被拒）："13:00"、"1:00"、"1:0"、"1"、" 01:00 " 都是 01:00 / 13:00；
+   * 可以带星期 "13:00@1,6,7"。时 0～23、分 0～59，超出是 outOfRange。保存时一律写成 format 的标准写法。
+   */
+  static SlotParse parseSlot(String s) {
+    if (s == null || SLOT_BLANK.matcher(s).matches()) return new SlotParse(null, "required");
+    int at = s.indexOf('@');
+    Matcher m = SLOT_TIME.matcher(at < 0 ? s : s.substring(0, at));
+    if (!m.matches()) return new SlotParse(null, "timeFormat");
+    int h = Integer.parseInt(m.group(1));
+    int min = m.group(2) == null ? 0 : Integer.parseInt(m.group(2));
+    if (h > 23 || min > 59) return new SlotParse(null, "outOfRange");
     java.util.EnumSet<java.time.DayOfWeek> days = java.util.EnumSet.noneOf(java.time.DayOfWeek.class);
-    if (v.length() > 5) {
-      for (String d : v.substring(6).split(",")) {
-        if (!days.add(java.time.DayOfWeek.of(Integer.parseInt(d)))) return null; // 同一天写了两次
+    if (at >= 0) {
+      String d = s.substring(at + 1);
+      if (!SLOT_DAYS.matcher(d).matches()) return new SlotParse(null, "invalidDays");
+      for (char c : d.toCharArray()) {
+        if (c >= '1' && c <= '7' && !days.add(java.time.DayOfWeek.of(c - '0'))) return new SlotParse(null, "invalidDays"); // 同一天写了两次
       }
       if (days.size() == 7) days.clear(); // 七天都选 = 每天
     }
-    return new AutogenWindows.Slot(t, days);
+    return new SlotParse(new AutogenWindows.Slot(LocalTime.of(h, min), days), null);
   }
 
   /** 场次表一项的标准写法（星期从小到大；每天的不带 @） */

@@ -117,7 +117,30 @@ class CryptoAutogenTest extends CryptoTestSupport {
         .allMatch(w -> java.time.LocalDate.parse(w.substring(0, 10)).getDayOfWeek() == java.time.DayOfWeek.SATURDAY);
     assertThatThrownBy(() -> api.update(DEFAULT_NO, new MarketAutogenAdminApi.AutogenInput("BTCUSDT", "1H", "schedule", java.util.List.of("13:00@8", "13:00@6"),
         null, 1440, null, null), 1)).isInstanceOfSatisfying(ValidationException.class,
-            e -> assertThat(e.fields()).extracting(f -> f.field() + ":" + f.code()).containsExactlyInAnyOrder("slots[0]:invalid"));
+            e -> assertThat(e.fields()).extracting(f -> f.field() + ":" + f.code()).containsExactlyInAnyOrder("slots[0]:invalidDays"));
+  }
+
+  @Test
+  void 场次宽松写法_1点写成1冒号00也能保存_逐行报错_S12c() {
+    // 测试环境反馈（S12c）：BTCUSDT 1H 场次加一行 "1:00"，页面显示北京 09:00，保存报"场次格式不正确"
+    MarketAutogenAdminApi.AutogenInput loose = new MarketAutogenAdminApi.AutogenInput("BTCUSDT", "1H", "schedule",
+        List.of("13:00", "1:00", " 2 ", "3：0@ 7 , 6 "), null, 1440, null, null);
+    MarketAutogenAdminApi.Autogen a = api.update(DEFAULT_NO, loose, 1);
+    assertThat(a.slots()).as("保存成标准写法、按时间排").containsExactly("01:00", "02:00", "03:00@6,7", "13:00");
+    assertThat(jdbc.queryForObject("SELECT slots FROM market_autogen WHERE public_no = ?", String.class, DEFAULT_NO))
+        .as("库里存的也是标准写法（JSON 列，MySQL 输出带空格）").isEqualTo("[\"01:00\", \"02:00\", \"03:00@6,7\", \"13:00\"]");
+    assertThat(a.upcoming()).extracting(MarketAutogenAdminApi.Window::windowStart).isNotEmpty()
+        .allMatch(w -> w.matches(".*T(01|02|03|13):00:00Z"));
+    // 逐行报错：第几行（下标）、错在哪（错误码），一次列全
+    MarketAutogenAdminApi.AutogenInput bad = new MarketAutogenAdminApi.AutogenInput("BTCUSDT", "1H", "schedule",
+        List.of("13:00", "1:30", "abc", "24:00", "01", "", "13:00@9"), null, 1440, null, null);
+    assertThatThrownBy(() -> api.update(DEFAULT_NO, bad, 1)).isInstanceOfSatisfying(ValidationException.class,
+        e -> assertThat(e.fields()).extracting(f -> f.field() + ":" + f.code()).containsExactly("slots[1]:hourOnly", "slots[2]:timeFormat",
+            "slots[3]:outOfRange", "slots[5]:required", "slots[6]:invalidDays"));
+    MarketAutogenAdminApi.AutogenInput dup = new MarketAutogenAdminApi.AutogenInput("BTCUSDT", "1H", "schedule", List.of("1:00", "01:00@6"), null, 1440, null,
+        null);
+    assertThatThrownBy(() -> api.update(DEFAULT_NO, dup, 1)).isInstanceOfSatisfying(ValidationException.class,
+        e -> assertThat(e.fields()).extracting(f -> f.field() + ":" + f.code()).containsExactly("slots[1]:duplicate"));
   }
 
   @Test
@@ -278,12 +301,12 @@ class CryptoAutogenTest extends CryptoTestSupport {
   void 输入校验一次列出全部_同一币种周期只能一个() {
     MarketAutogenAdminApi.AutogenInput bad = new MarketAutogenAdminApi.AutogenInput("DOGEUSDT", "5M", "weekly", List.of("13:07", "25:00"), 0, -1, "123", "0");
     assertThatThrownBy(() -> api.create(bad, 1)).isInstanceOfSatisfying(ValidationException.class, e -> assertThat(e.fields()).extracting(f -> f.field() + ":" + f.code())
-        .contains("symbol:invalid", "period:invalid", "mode:invalid", "slots[1]:invalid", "rollingCount:invalid", "generateAheadMinutes:invalid",
+        .contains("symbol:invalid", "period:invalid", "mode:invalid", "slots[1]:outOfRange", "rollingCount:invalid", "generateAheadMinutes:invalid",
             "templateNo:invalid", "userCap:invalid"));
     MarketAutogenAdminApi.AutogenInput misaligned = new MarketAutogenAdminApi.AutogenInput("ETHUSDT", "15M", "schedule", List.of("13:07", "13:15", "13:15"), null,
         null, null, "999999");
     assertThatThrownBy(() -> api.create(misaligned, 1)).isInstanceOfSatisfying(ValidationException.class, e -> assertThat(e.fields())
-        .extracting(f -> f.field() + ":" + f.code()).containsExactlyInAnyOrder("slots[0]:notAligned", "slots[2]:duplicate", "userCap:aboveDefault"));
+        .extracting(f -> f.field() + ":" + f.code()).containsExactlyInAnyOrder("slots[0]:quarterOnly", "slots[2]:duplicate", "userCap:aboveDefault"));
     MarketAutogenAdminApi.AutogenInput noSlots = new MarketAutogenAdminApi.AutogenInput("ETHUSDT", "1H", "schedule", List.of(), null, null, null, null);
     assertThatThrownBy(() -> api.create(noSlots, 1)).isInstanceOfSatisfying(ValidationException.class,
         e -> assertThat(e.fields()).extracting(ValidationException.Field::field).containsExactly("slots"));

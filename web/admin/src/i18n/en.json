@@ -135,7 +135,13 @@
     "sameAsResult": "cannot equal the original result",
     "notCandidate": "is not a candidate",
     "tooLarge": "is too large",
-    "passed": "has passed"
+    "passed": "has passed",
+    "timeFormat": "is not a time we can read (use HH:mm, e.g. 01:00, or just the hour, e.g. 1)",
+    "outOfRange": "is out of range (00:00–23:59 only)",
+    "invalidDays": "has invalid weekdays",
+    "hourOnly": "must be on the hour for 1-hour markets (e.g. 01:00)",
+    "quarterOnly": "must be at :00, :15, :30 or :45 for 15-minute markets (e.g. 01:15)",
+    "duplicate": "duplicates an earlier slot"
   },
   "app": {
     "adminConsole": "Admin"
@@ -489,6 +495,7 @@
     "cannotEditOwnRoles": "You cannot change your own roles.",
     "currentPasswordWrong": "The current (or temporary) password is incorrect.",
     "fieldProblem": "{{field}} {{problem}}",
+    "fieldRowProblem": "{{field}} row {{row}}: {{problem}}",
     "forbidden": "Your account is not allowed to do this.",
     "forbiddenPage": "Your identity cannot view this page. Switch the prototype identity at the top right.",
     "forbiddenPageReal": "Your account cannot view this page. Ask a super admin if you need access.",
@@ -2203,6 +2210,7 @@
     "tplName": "Name",
     "slotsHint2": "One UTC time per row (hourly: on the hour; 15-min: multiples of 15). Weekdays follow the UTC date; none ticked = every day. Schedule-generated markets join today's slate automatically",
     "slotTime": "Time (UTC)",
+    "slotRowProblem": "Row {{row}}: {{problem}}",
     "addSlot": "Add a time",
     "everyDay": "every day",
     "nextDay": " (+1 day)",

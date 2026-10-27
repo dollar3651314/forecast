@@ -82,6 +82,34 @@ class AutogenWindowsTest {
   }
 
   @Test
+  void 场次写法宽松_都规范成HHmm_S12c() {
+    // 测试环境反馈：填 "1:00" 后台显示北京 09:00，保存却报"场次格式不正确"。下面这些写法都要能用，保存成标准写法
+    for (String in : List.of("1:00", "1:0", "01:00", "1", "01", " 1:00 ", "\t01:00\u3000", "1：00", "1 : 00", "\u00A01:00")) {
+      AutogenService.SlotParse p = AutogenService.parseSlot(in);
+      assertThat(p.code()).as(in).isNull();
+      assertThat(AutogenService.format(p.slot())).as(in).isEqualTo("01:00");
+    }
+    assertThat(AutogenService.format(AutogenService.slot("0"))).isEqualTo("00:00");
+    assertThat(AutogenService.format(AutogenService.slot("23:59"))).isEqualTo("23:59");
+    assertThat(AutogenService.format(AutogenService.slot("9:5"))).as("分一位 = 那个数，9:5 是 09:05").isEqualTo("09:05");
+    assertThat(AutogenService.format(AutogenService.slot(" 13:00 @ 7 , 6 "))).isEqualTo("13:00@6,7");
+    assertThat(AutogenService.format(AutogenService.slot("1@6"))).isEqualTo("01:00@6");
+    // 不合法：说清楚错在哪
+    assertThat(AutogenService.parseSlot("").code()).isEqualTo("required");
+    assertThat(AutogenService.parseSlot("   ").code()).isEqualTo("required");
+    assertThat(AutogenService.parseSlot(null).code()).isEqualTo("required");
+    for (String bad : List.of("abc", "1:", ":00", "1:000", "100", "01-00", "1.00", "1:00pm", "-1:00", "1 00", "１:00")) {
+      assertThat(AutogenService.parseSlot(bad).code()).as(bad).isEqualTo("timeFormat");
+    }
+    for (String bad : List.of("24:00", "25:00", "12:60", "99:99")) {
+      assertThat(AutogenService.parseSlot(bad).code()).as(bad).isEqualTo("outOfRange");
+    }
+    for (String bad : List.of("13:00@", "13:00@8", "13:00@0", "13:00@6,6", "13:00@6,", "13:00@a")) {
+      assertThat(AutogenService.parseSlot(bad).code()).as(bad).isEqualTo("invalidDays");
+    }
+  }
+
+  @Test
   void 滚动_任何时刻未来至少N个窗口可下注或待开放_AC28() {
     // 15 分钟 × 4：每分钟检查一次，跑一整天
     for (Instant t = at("2026-11-01T00:00:00Z"); t.isBefore(at("2026-11-02T00:00:00Z")); t = t.plusSeconds(37)) {

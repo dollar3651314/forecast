@@ -6,6 +6,8 @@
  * 下面是规则文本模板（加密涨跌），有启用中的自动生成用它时不能改（先关闭）。
  * S13（MF-3）：场次表的每个时刻可以只选星期几（按 UTC 日期；"13:00@1,6,7" = 周一、周六、周日的 13:00 UTC），不选 = 每天；
  * 场次表生成的市场自动列入今日场次。
+ * S12c（测试环境反馈）：场次输入宽松，"1:00"、"1"、" 01:00 " 失焦时规范成 HH:mm；不合法的行当场标红并写明错在哪，
+ * 保存前再按同一套规则（utils/market.ts slotProblems，和后端 AutogenService.parseSlot 一致）检查一次，错误和后端的逐行报错长得一样。
  */
 import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -13,6 +15,7 @@ import { Alert, Button, Card, Checkbox, Col, Drawer, Empty, Form, Input, InputNu
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { createAutogen, disableAutogen, enableAutogen, listAutogens, listRuleTemplates, updateAutogen, updateRuleTemplate } from '../../api';
+import { ApiError } from '../../api/types';
 import type { Autogen, AutogenInput, RuleTemplate } from '../../api/fcTypes';
 import { ErrorState } from '../../components/ErrorState';
 import { I18nInputs, I18nView } from '../../components/I18nInputs';
@@ -22,7 +25,7 @@ import { PermButton } from '../../components/PermButton';
 import { Pill } from '../../components/Pill';
 import { useApi } from '../../hooks/useApi';
 import { useHighRisk } from '../../hooks/useConfirmDialogs';
-import { beijing, beijingNextDay, formatSlot, parseSlot, textOf, utc } from '../../utils/market';
+import { beijing, beijingNextDay, formatSlot, normalizeSlot, parseSlot, slotProblems, textOf, utc } from '../../utils/market';
 
 const toInput = (a?: Autogen): AutogenInput => ({
   symbol: a?.symbol ?? 'BTCUSDT',
@@ -34,6 +37,19 @@ const toInput = (a?: Autogen): AutogenInput => ({
   templateNo: a?.templateNo ?? null,
   userCap: a?.userCap ?? null,
 });
+
+/**
+ * 保存前：场次规范成标准写法；按后端同一套规则逐行检查，有错就不提交，抛出和后端一样的字段错误（弹窗里显示"场次第 n 行：…"）。
+ * 后端保存时还会再规范化、再检查一次（后端为准）。
+ */
+function readyInput(v: AutogenInput): AutogenInput {
+  if (v.mode !== 'schedule') return v;
+  const slots = v.slots.map(normalizeSlot);
+  const fields = slotProblems(slots, v.period).flatMap((code, i) => (code ? [{ field: `slots[${i}]`, code }] : []));
+  if (!slots.length) fields.push({ field: 'slots', code: 'required' });
+  if (fields.length) throw new ApiError('errors.validationFailed', undefined, { status: 400, code: 'VALIDATION_FAILED', fields });
+  return { ...v, slots };
+}
 
 /** 新建 / 修改的表单（放在高危确认弹窗里，值通过回调交出去） */
 function AutogenForm({ init, onChange }: { init: AutogenInput; onChange: (v: AutogenInput) => void }) {
@@ -56,7 +72,7 @@ function AutogenForm({ init, onChange }: { init: AutogenInput; onChange: (v: Aut
       </Radio.Group>
       {v.mode === 'schedule' ? (
         <Form.Item label={t('ag.slots')} extra={t('ag.slotsHint2')} style={{ marginTop: 8 }}>
-          <SlotEditor slots={v.slots} onChange={(x) => set({ slots: x })} />
+          <SlotEditor slots={v.slots} period={v.period} onChange={(x) => set({ slots: x })} />
         </Form.Item>
       ) : (
         <Form.Item label={t('ag.rollingCount')} style={{ marginTop: 8 }}>
@@ -84,22 +100,44 @@ function slotText(s: string, t: (k: string, o?: Record<string, unknown>) => stri
   return `${p.time} UTC · ${t('ag.bj')} ${beijing(p.time)}${beijingNextDay(p.time) ? t('ag.nextDay') : ''} · ${days}`;
 }
 
-/** 场次表编辑：每行一个 UTC 时刻 + 星期（不选 = 每天） */
-function SlotEditor({ slots, onChange }: { slots: string[]; onChange: (v: string[]) => void }) {
+/** 场次表编辑：每行一个 UTC 时刻 + 星期（不选 = 每天）；失焦时规范成 HH:mm，有问题的行标红并写明错在哪 */
+function SlotEditor({ slots, period, onChange }: { slots: string[]; period: string; onChange: (v: string[]) => void }) {
   const { t } = useTranslation();
   const rows = slots.map(parseSlot);
+  const problems = slotProblems(slots, period);
   const put = (i: number, p: Partial<ReturnType<typeof parseSlot>>) => onChange(rows.map((r, j) => formatSlot(j === i ? { ...r, ...p } : r)));
+  const blur = (i: number) => {
+    const n = normalizeSlot(slots[i]);
+    if (n !== slots[i]) onChange(slots.map((s, j) => (j === i ? n : s)));
+  };
   return (
     <div className="ag-slots" data-testid="slot-editor">
       {rows.map((r, i) => (
-        <div key={i} className="ag-slot">
-          <Input value={r.time} style={{ width: 110 }} suffix="UTC" placeholder="13:00" aria-label={t('ag.slotTime')} onChange={(e) => put(i, { time: e.target.value })} />
-          <span className="muted">
-            {t('ag.bj')} {beijing(r.time)}
-            {beijingNextDay(r.time) ? t('ag.nextDay') : ''}
-          </span>
-          <Checkbox.Group value={r.days} onChange={(d) => put(i, { days: d as number[] })} options={WEEKDAYS.map((d) => ({ value: d, label: t(`ag.wdShort.${d}`) }))} />
-          <Button type="text" icon={<DeleteOutlined />} aria-label={t('common.delete')} onClick={() => onChange(slots.filter((_, j) => j !== i))} />
+        <div key={i}>
+          <div className="ag-slot">
+            <Input
+              value={r.time}
+              style={{ width: 110 }}
+              suffix="UTC"
+              placeholder="13:00"
+              status={problems[i] ? 'error' : undefined}
+              aria-label={t('ag.slotTime')}
+              aria-invalid={problems[i] ? true : undefined}
+              onChange={(e) => put(i, { time: e.target.value })}
+              onBlur={() => blur(i)}
+            />
+            <span className="muted">
+              {t('ag.bj')} {beijing(r.time)}
+              {beijingNextDay(r.time) ? t('ag.nextDay') : ''}
+            </span>
+            <Checkbox.Group value={r.days} onChange={(d) => put(i, { days: d as number[] })} options={WEEKDAYS.map((d) => ({ value: d, label: t(`ag.wdShort.${d}`) }))} />
+            <Button type="text" icon={<DeleteOutlined />} aria-label={t('common.delete')} onClick={() => onChange(slots.filter((_, j) => j !== i))} />
+          </div>
+          {problems[i] ? (
+            <div className="ag-slot-err" role="alert">
+              {t('ag.slotRowProblem', { row: i + 1, problem: t(`apiFieldCode.${problems[i]}`) })}
+            </div>
+          ) : null}
         </div>
       ))}
       <Button size="small" icon={<PlusOutlined />} onClick={() => onChange([...slots, '13:00'])}>
@@ -117,7 +155,7 @@ function AutogenCard({ a, onDone }: { a: Autogen; onDone: () => void }) {
     hr.ask({
       title: t('ag.editTitle', { name: `${a.symbol} ${a.period}` }),
       extra: <AutogenForm init={input} onChange={(v) => (input = v)} />,
-      onConfirm: (v) => updateAutogen(a.autogenNo, input, v.reason),
+      onConfirm: async (v) => updateAutogen(a.autogenNo, readyInput(input), v.reason),
       onDone,
     });
   };
@@ -297,7 +335,7 @@ export function AutogenPage() {
   const [editing, setEditing] = useState<RuleTemplate | null>(null);
   const create = () => {
     let input = toInput();
-    hr.ask({ title: t('ag.create'), extra: <AutogenForm init={input} onChange={(v) => (input = v)} />, onConfirm: (v) => createAutogen(input, v.reason), onDone: list.reload });
+    hr.ask({ title: t('ag.create'), extra: <AutogenForm init={input} onChange={(v) => (input = v)} />, onConfirm: async (v) => createAutogen(readyInput(input), v.reason), onDone: list.reload });
   };
   return (
     <>

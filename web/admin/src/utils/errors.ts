@@ -14,12 +14,20 @@ export function errorText(t: TFunction, err: unknown): string {
   }
   const base = t(err.reasonKey, err.params ?? {});
   if (!err.fields?.length || err.reasonKey !== 'errors.validationFailed') return base;
-  const details = err.fields.map((f) =>
-    t('errors.fieldProblem', {
+  const details = err.fields.map((f) => {
+    // S12c：列表里的某一行（slots[1]、evidenceUrls[0]）说清楚是第几行："场次第 2 行：1 小时的场次只能是整点（例如 01:00）"
+    const row = /^([A-Za-z]+)\[(\d+)\]$/.exec(f.field);
+    if (row)
+      return t('errors.fieldRowProblem', {
+        field: t(`apiField.${row[1]}`, { defaultValue: row[1] }),
+        row: Number(row[2]) + 1,
+        problem: t(`apiFieldCode.${f.code}`, { defaultValue: f.code }),
+      });
+    return t('errors.fieldProblem', {
       // forecast S9：嵌套字段（title.zhTW、options[0].label）去掉序号、点换成下划线再查翻译（i18next 的键用点分层级）
       field: t(`apiField.${f.field.replace(/\[\d+\]/g, '').replace(/\./g, '_')}`, { defaultValue: f.field }),
       problem: t(`apiFieldCode.${f.code}`, { defaultValue: f.code }),
-    }),
-  );
+    });
+  });
   return `${base}${details.join('；')}`;
 }
