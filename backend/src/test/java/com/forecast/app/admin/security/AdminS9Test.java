@@ -69,7 +69,8 @@ class AdminS9Test extends AdminTestSupport {
     assertThat(r.getStatus()).as(r.getContentAsString()).isEqualTo(200);
     for (JsonNode m : body(r).get("items")) {
       assertThat(m.get("status").asString()).isIn("listed", "paused");
-      assertThat(m.get("origin").asString()).isIn("manual", "autogen", "sports");
+      // S15 起还有经济日历生成的 econ（MarketService.origin）；库里有没有这种市场取决于测试类的执行顺序
+      assertThat(m.get("origin").asString()).isIn("manual", "autogen", "sports", "econ");
       assertThat(m.get("pool").asString()).matches("\\d+\\.\\d{2}");
       assertThat(m.get("bettors").isNumber()).isTrue();
     }

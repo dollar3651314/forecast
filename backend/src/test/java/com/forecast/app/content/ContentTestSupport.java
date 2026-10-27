@@ -74,6 +74,23 @@ public abstract class ContentTestSupport extends SettleTestSupport {
     setting(Settings.AI_DRAFTS, "1");
     setting(Settings.PACK, "1");
     jdbc.update("DELETE FROM content_ai_day");
+    ensureSuperAdmin();
+  }
+
+  /**
+   * 员工邮件（CONTENT_ALERT、CONTENT_DIGEST、MARKET_SUBMITTED）发给有对应权限点的在职管理员，没有人时发告警邮箱（测试里没配）。
+   * 这几个用例数邮件条数，原来靠别的测试类先建过超管：CI 上测试类的顺序一变（S17A 新加了测试类），内容测试先跑、库里还没有管理员，就一封也不发。
+   * 这里自己保证有一个在职的超管，不依赖执行顺序。
+   */
+  void ensureSuperAdmin() {
+    String username = "content_su";
+    if (jdbc.queryForObject("SELECT COUNT(*) FROM admin_user WHERE username = ?", Integer.class, username) == 0) {
+      jdbc.update("INSERT IGNORE INTO admin_user (username, display_name, email, password_hash, status, must_change_password, created_at) "
+          + "VALUES (?, ?, ?, 'x', 'ACTIVE', 0, UTC_TIMESTAMP(3))", username, username, username + "@staff.test");
+      jdbc.update("INSERT IGNORE INTO admin_user_role (admin_id, role_id) SELECT u.id, r.id FROM admin_user u, admin_role r WHERE u.username = ? AND r.code = 'super_admin'",
+          username);
+    }
+    jdbc.update("UPDATE admin_user SET status = 'ACTIVE' WHERE username = ?", username);
   }
 
   @AfterEach
