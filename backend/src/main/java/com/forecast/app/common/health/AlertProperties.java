@@ -16,6 +16,7 @@ import org.springframework.context.annotation.Configuration;
  * @param scanStall 扫块：多长时间没推进（或者落后的区块折合超过这个时间）算"停滞"
  * @param nodeFailures 链节点：连续几次连不上算"节点不通"（扫块每 15 秒一次）
  * @param mailFailures 邮件：连续几封发送失败算"邮件发送失败"
+ * @param remindEvery 一直没恢复的告警多久再提醒一次（S12b，默认 24 小时；0 = 不提醒，只在发生和恢复时各发一封）
  */
 @ConfigurationProperties("forecast.alert")
 public record AlertProperties(
@@ -24,7 +25,8 @@ public record AlertProperties(
     @DefaultValue("30m") Duration throttle,
     @DefaultValue("10m") Duration scanStall,
     @DefaultValue("3") int nodeFailures,
-    @DefaultValue("5") int mailFailures) {
+    @DefaultValue("5") int mailFailures,
+    @DefaultValue("24h") Duration remindEvery) {
 
   /** 去掉空白后的收件人 */
   public List<String> recipients() {
@@ -33,7 +35,12 @@ public record AlertProperties(
 
   /** 默认值（测试里手动构造检查时用） */
   public static AlertProperties defaults() {
-    return new AlertProperties(true, List.of(), Duration.ofMinutes(30), Duration.ofMinutes(10), 3, 5);
+    return new AlertProperties(true, List.of(), Duration.ofMinutes(30), Duration.ofMinutes(10), 3, 5, Duration.ofHours(24));
+  }
+
+  /** 换开关和收件人，其他用这一份的值（测试用） */
+  public AlertProperties with(boolean enabled, List<String> emails) {
+    return new AlertProperties(enabled, emails, throttle, scanStall, nodeFailures, mailFailures, remindEvery);
   }
 
   @Configuration

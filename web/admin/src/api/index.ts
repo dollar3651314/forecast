@@ -175,6 +175,8 @@ export const updateSystemConfig: typeof real.updateSystemConfig = IS_MOCK ? mock
 export const listParams: typeof real.listParams = IS_MOCK ? mock.listParams : real.listParams;
 /** PUT /api/admin/params/{fee|betting}/{key}（高危；expected 不对 409 CONFIG_CHANGED） */
 export const updateParam: typeof real.updateParam = IS_MOCK ? mock.updateParam : real.updateParam;
+/** GET /api/admin/params/alert/items（S12b：告警项，alert_params:edit） */
+export const listAlertItems: typeof real.listAlertItems = IS_MOCK ? mock.listAlertItems : real.listAlertItems;
 
 // ---- forecast S9：仪表盘彩池部分、市场管理、自动生成、体育、裁决台、争议、结算、对账、补偿、报表（字段和后端一致：api/fcTypes.ts；真实接口 api/realFc.ts） ----
 export const getMarketDashboard: typeof rf.getMarketDashboard = IS_MOCK ? fm.getMarketDashboard : rf.getMarketDashboard;

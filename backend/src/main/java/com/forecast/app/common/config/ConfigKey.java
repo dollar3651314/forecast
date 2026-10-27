@@ -163,7 +163,15 @@ public enum ConfigKey {
    * forecast S13（MF-3，需求第 4.2 节）：同时开放的市场数上限，默认 2（迁移 V21），0 = 不限。"同时开放" = 已上架或已暂停、还没到截止时间的市场
    * （包括还没到开放下注时间的）。人工上架超过时提示、勾选"仍要上架"才能上；加密模板自动生成的计入数量但不受阻止。参数设置页"场次"一组
    */
-  MARKET_MAX_OPEN("market.maxOpen", Unit.COUNT, "slate", BigDecimal.ZERO, BigDecimal.valueOf(1000), 0, Params.BETTING);
+  MARKET_MAX_OPEN("market.maxOpen", Unit.COUNT, "slate", BigDecimal.ZERO, BigDecimal.valueOf(1000), 0, Params.BETTING),
+  /*
+   * ---------- forecast S12b：告警邮件（Amos 2026-10-27："告警邮件，我可以在什么地方控制 是否发送"；迁移 V28；参数设置页"告警邮件"一组，alert_params:edit） ----------
+   * 只管监控告警邮件（通知模块 AlertMonitor，收件人 FC_ALERT_EMAILS）；健康检查 /api/health 的 alerts 不受影响。读取见 common.config.AlertMailConfig
+   */
+  /** 告警邮件总开关（默认 true）：false 时只写日志、不发邮件 */
+  ALERT_MAIL_ENABLED("alert.mail.enabled", Unit.BOOL, "alertMail", null, false, null, null, Params.ALERT),
+  /** 不发邮件的告警项：健康检查 alerts 里的名字，逗号分隔（默认空）；保存时规范化（去重、排序），见 AlertMailConfig#normalizeMuted */
+  ALERT_MAIL_MUTED("alert.mail.muted", Unit.TEXT, "alertMail", null, false, null, null, Params.ALERT);
 
   /**
    * 参数设置页的哪一组（决定改它要哪个权限点）；{@link #NONE} 不在参数设置页。
@@ -173,7 +181,9 @@ public enum ConfigKey {
     /** 品类默认费率：fee:edit */
     FEE,
     /** 下注限额、截止提前量、争议窗口、KYC 阈值、单笔最小提现：betting_params:edit */
-    BETTING
+    BETTING,
+    /** 告警邮件的总开关和不发邮件的告警项（S12b）：alert_params:edit */
+    ALERT
   }
 
   /** 单位，和原型一致 */
@@ -242,6 +252,7 @@ public enum ConfigKey {
   public Optional<String> normalize(String value) {
     if (value == null) return Optional.empty();
     String v = value.strip();
+    if (this == ALERT_MAIL_MUTED) return AlertMailConfig.normalizeMuted(v);
     if (unit == Unit.TEXT) return v.length() <= 1000 ? Optional.of(v) : Optional.empty();
     if (unit == Unit.BOOL) return "true".equals(v) || "false".equals(v) ? Optional.of(v) : Optional.empty();
     try {

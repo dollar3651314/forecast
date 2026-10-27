@@ -20,6 +20,7 @@ class TelegramAlertTest {
     assertThat(items.get(0).name()).isEqualTo("telegram.bot");
     assertThat(items.get(0).ok()).isFalse();
     assertThat(items.get(0).detail()).contains("未配置 FC_TELEGRAM_BOT_TOKEN");
+    assertThat(items.get(0).status()).as("S12b：没配 token 是未开通，不发告警邮件").isEqualTo(AlertCheck.Status.NOT_CONFIGURED);
     props.setToken("ci_only_unit");
     assertThat(new TelegramAlert(props, client, true).evaluate().get(0).ok()).isTrue();
     assertThat(new TelegramAlert(props, client, false).evaluate()).isEmpty();

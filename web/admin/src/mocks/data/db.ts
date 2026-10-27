@@ -14,6 +14,7 @@ import type {
   ReconItem,
   Role,
   ParamItem,
+  AlertItem,
   SystemConfig,
   HotWalletBalance,
   TaskItem,
@@ -609,6 +610,22 @@ export const params: ParamItem[] = [
   { key: 'risk.link.maxUsersPerKey', value: '10', unit: 'count', group: 'risk', section: 'betting', updatedAt: null },
   // S13（迁移 V21）：同时开放的市场上限（超过时上架要勾"仍要上架"，0 = 不限）
   { key: 'market.maxOpen', value: '2', unit: 'count', group: 'slate', section: 'betting', updatedAt: null },
+  // S12b（迁移 V28）：告警邮件总开关（默认开）、不发邮件的告警项（默认空），alert_params:edit
+  { key: 'alert.mail.enabled', value: 'true', unit: 'bool', group: 'alertMail', section: 'alert', updatedAt: null },
+  { key: 'alert.mail.muted', value: '', unit: 'text', group: 'alertMail', section: 'alert', updatedAt: null },
+];
+
+/** 告警项（S12b，原型数据）：和测试环境一样，四项故意没配 key 是"未开通" */
+export const alertItems: AlertItem[] = [
+  { name: 'cards.font', titleZh: '分享卡片缺中文字体', titleEn: 'Share cards: CJK font missing', status: 'UP', muted: false },
+  { name: 'deposit.evm', titleZh: 'ERC20、BEP20 充值暂未开通', titleEn: 'ERC20 / BEP20 deposits not open', status: 'UP', muted: false },
+  { name: 'mail', titleZh: '邮件连续发送失败', titleEn: 'Email delivery failing', status: 'UP', muted: false },
+  { name: 'node.TRC20', titleZh: 'TRC20 链节点连不上', titleEn: 'TRC20 node unreachable', status: 'DOWN', muted: false },
+  { name: 'scan.TRC20', titleZh: 'TRC20 扫块停滞', titleEn: 'TRC20 block scanning stalled', status: 'UP', muted: false },
+  { name: 'source.balldontlie', titleZh: '数据源 balldontlie 未开通', titleEn: 'Data source balldontlie not configured', status: 'NOT_CONFIGURED', muted: false },
+  { name: 'source.football_data', titleZh: '数据源 football-data.org 未开通', titleEn: 'Data source football-data.org not configured', status: 'NOT_CONFIGURED', muted: false },
+  { name: 'source.thesportsdb', titleZh: '数据源 TheSportsDB 未开通', titleEn: 'Data source TheSportsDB not configured', status: 'NOT_CONFIGURED', muted: false },
+  { name: 'telegram.bot', titleZh: 'Telegram 机器人', titleEn: 'Telegram bot', status: 'NOT_CONFIGURED', muted: false },
 ];
 
 /** 热钱包余额（原型数据；地址是公开的测试地址，不是密钥）。下限在 systemConfigs 里 */

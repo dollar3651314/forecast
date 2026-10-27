@@ -178,3 +178,6 @@
 .gr-reasons { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .gr-reasons li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; }
 @media (min-width: 1101px) { .kpis.gr-kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+/* S12b：参数设置"告警邮件"里静音的项，整行显示在下面 */
+.pm-list li:has(.pm-muted-list) { flex-wrap: wrap; }
+.pm-muted-list { flex-basis: 100%; font-size: 12px; overflow-wrap: anywhere; }

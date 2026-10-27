@@ -42,6 +42,7 @@ import type {
   SystemConfig,
   ParamItem,
   ParamSection,
+  AlertItem,
   SweepBatch,
   SweepBatchDetail,
   SweepBatchQuery,
@@ -448,6 +449,11 @@ export function listParams(section: ParamSection): Promise<ParamItem[]> {
  */
 export async function updateParam(section: ParamSection, key: string, value: string, reason: string, expected?: string): Promise<void> {
   await request(`/params/${section}/${enc(key)}`, { method: 'PUT', body: { value, reason, expected } });
+}
+
+/** 告警项（S12b）：参数设置"不发邮件的告警项"的选项（alert_params:edit） */
+export function listAlertItems(): Promise<AlertItem[]> {
+  return request('/params/alert/items');
 }
 
 // ================= S18b：仪表盘、交易监控、风控、品种与行情、交易参数（后台方案第 9 节） =================

@@ -201,4 +201,27 @@ class SystemController {
     return system.updateParam(AdminContext.current(), com.forecast.app.common.config.ConfigKey.Params.BETTING, key, body == null ? null : body.value(),
         body == null ? null : body.reason(), body == null ? null : body.expected());
   }
+
+  // ---------- 告警邮件（forecast S12b） ----------
+
+  /** 告警邮件的总开关（alert.mail.enabled）、不发邮件的告警项（alert.mail.muted） */
+  @RequiresPermission(Permission.ALERT_PARAMS_EDIT)
+  @GetMapping("/api/admin/params/alert")
+  List<SystemService.ParamView> alertParams() {
+    return system.params(com.forecast.app.common.config.ConfigKey.Params.ALERT);
+  }
+
+  @RequiresPermission(Permission.ALERT_PARAMS_EDIT)
+  @PutMapping("/api/admin/params/alert/{key}")
+  SystemService.ParamView updateAlertParam(@PathVariable String key, @RequestBody(required = false) ParamBody body) {
+    return system.updateParam(AdminContext.current(), com.forecast.app.common.config.ConfigKey.Params.ALERT, key, body == null ? null : body.value(),
+        body == null ? null : body.reason(), body == null ? null : body.expected());
+  }
+
+  /** "不发邮件的告警项"的选项：现在所有的告警项（名字、中英文说明、状态），加上已经静音、现在不出现的项 */
+  @RequiresPermission(Permission.ALERT_PARAMS_EDIT)
+  @GetMapping("/api/admin/params/alert/items")
+  List<SystemService.AlertItemView> alertItems() {
+    return system.alertItems();
+  }
 }

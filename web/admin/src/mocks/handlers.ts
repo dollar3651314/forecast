@@ -6,6 +6,7 @@ import {
   ApiError,
   type ParamItem,
   type ParamSection,
+  type AlertItem,
   type AdminInput,
   type AdminSession,
   type AdminUser,
@@ -928,7 +929,27 @@ export function updateSystemConfig(key: string, value: string, reason: string): 
 }
 
 /** 参数设置（forecast S3）：和后端一样按组要权限点（fee:edit / betting_params:edit） */
-const PARAM_PERM: Record<ParamSection, string> = { fee: 'fee:edit', betting: 'betting_params:edit' };
+const PARAM_PERM: Record<ParamSection, string> = { fee: 'fee:edit', betting: 'betting_params:edit', alert: 'alert_params:edit' };
+
+/** 告警项（S12b）：和后端一样，现在的各项加上已静音、现在不出现的项，按名字排序 */
+export function listAlertItems(): Promise<AlertItem[]> {
+  return respond(
+    () => {
+      requirePerm('alert_params:edit');
+      const muted = mutedNames(db.params.find((p) => p.key === 'alert.mail.muted')?.value ?? '');
+      const out = new Map<string, AlertItem>();
+      for (const a of db.alertItems) out.set(a.name, { ...a, muted: muted.includes(a.name) });
+      for (const m of muted) if (!out.has(m)) out.set(m, { name: m, titleZh: null, titleEn: null, status: null, muted: true });
+      return [...out.values()].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    },
+    { empty: () => [] as AlertItem[] },
+  );
+}
+
+/** 不发邮件的告警项：逗号分隔 → 名字（去空白、去重、排序），和后端 AlertMailConfig.normalizeMuted 一致 */
+function mutedNames(v: string): string[] {
+  return [...new Set(v.split(',').map((s) => s.trim()).filter((s) => s))].sort();
+}
 
 export function listParams(section: ParamSection): Promise<ParamItem[]> {
   return respond(
@@ -946,8 +967,15 @@ export function updateParam(section: ParamSection, key: string, value: string, r
     const r = requireReason(reason);
     const p = db.params.find((x) => x.key === key && x.section === section);
     if (!p) throw new ApiError('errors.notFound');
-    if (expected !== undefined && compareAmounts(expected, p.value) !== 0) {
+    const textual = p.unit === 'bool' || p.unit === 'text';
+    if (expected !== undefined && (textual ? expected.trim() !== p.value.trim() : compareAmounts(expected, p.value) !== 0)) {
       throw new ApiError('errors.configChanged', undefined, { status: 409, code: 'CONFIG_CHANGED' });
+    }
+    if (p.unit === 'bool' && value !== 'true' && value !== 'false') throw fieldError([{ field: 'value', code: 'invalid' }]);
+    if (key === 'alert.mail.muted') {
+      const names = mutedNames(value);
+      if (names.some((n) => !/^[A-Za-z0-9._-]{1,100}$/.test(n))) throw fieldError([{ field: 'value', code: 'invalid' }]);
+      value = names.join(',');
     }
     checkMinAboveFees(key, value);
     const before = p.value;
