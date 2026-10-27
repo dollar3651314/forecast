@@ -85,6 +85,7 @@ jobs:
               - '.dockerignore'
               - 'e2e/run-deployed.sh'
               - 'e2e/compose.deployed.yml'
+              - 'e2e/oneclick-drill.sh'
             sweep:
               - 'contracts/**'
               - '.gitmodules'
@@ -289,12 +290,13 @@ jobs:
   # 部署形态的端到端测试（复制源的端到端测试方案第 9 节）：构建 jar、两个前端、两个镜像（deploy/*.Dockerfile），
   # 用 deploy/kit/docker-compose.yml + e2e/compose.deployed.yml 起 Nginx、后端（profile e2e）、MySQL、Redis，浏览器经 HTTPS 和两个假域名跑主流程，
   # 另外检查 Nginx 路由、Service Worker、登录 Cookie 的 Secure、测试环境标识条。密码由脚本随机生成，用完删除。
-  # 重检查：PR 上只在改了 deploy/、.dockerignore、e2e/run-deployed.sh、e2e/compose.deployed.yml 时跑；staging 上每次都跑。
+  # 之后用同一组镜像演练一键部署和切换命令（e2e/oneclick-drill.sh，S12 一键部署）：真实路径 /opt/forecast，假的另一个项目，systemctl、certbot 用替身。
+  # 重检查：PR 上只在改了 deploy/、.dockerignore、e2e/run-deployed.sh、e2e/compose.deployed.yml、e2e/oneclick-drill.sh 时跑；staging 上每次都跑。
   e2e-deployed:
     needs: changes
     if: needs.changes.outputs.deployed == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-java@v5
@@ -332,6 +334,8 @@ jobs:
         env:
           E2E_BUILDX_CACHE: gha
         run: bash e2e/run-deployed.sh
+      - name: 一键部署和切换命令的演练（oneclick.sh、fc；用上一步构建的镜像，要 root）
+        run: sudo -E env "PATH=$PATH" bash e2e/oneclick-drill.sh
       - name: 上传失败记录（trace、截图、录像、各容器日志）
         if: failure()
         uses: actions/upload-artifact@v4
@@ -341,6 +345,7 @@ jobs:
             e2e/playwright-report/
             e2e/test-results/
             e2e/logs/deployed/
+            e2e/logs/oneclick/
           retention-days: 14
   # 资金归集合约（contracts/，复制源的半自动归集方案第 4.14 节"不审计的替代措施"）
   contracts:

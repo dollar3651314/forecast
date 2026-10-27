@@ -74,6 +74,8 @@ switch_to() {
 # 本机只保留最近 5 个版本的镜像（GitHub 镜像仓库保留 10 个），正在用的和上一个版本不删
 prune_images() {
   local keep cur prev
+  # 开发机、CI 上演练（FC_OFFLINE_TEST=1，镜像是本机构建的）不清理：不能删同一台机器上别人的镜像（S12 一键部署演练）
+  [ -n "${FC_OFFLINE_TEST:-}" ] && return 0
   cur=$(current_tag)
   prev=$(cat "$FC_DIR/state/previous" 2>/dev/null || true)
   for repo in "$REG-app" "$REG-web"; do

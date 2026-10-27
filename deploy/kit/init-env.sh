@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # 在服务器上生成 .env 里不需要 Amos 提供的值（S20，部署方案 v1.3 第 6 节）。用 root 运行：
 #   sudo bash /opt/forecast/init-env.sh <客户端域名> <后台域名> <证书提醒邮箱> [官网域名]
+#   证书提醒邮箱可以给空字符串 ""（一键部署 oneclick.sh 默认这样）：不留邮箱申请证书，浏览器推送的联系方式用 https://<客户端域名>。
 # 生成：MYSQL_ROOT_PASSWORD、FC_DB_PASSWORD、FC_REDIS_PASSWORD、浏览器推送密钥对（VAPID）、第一个超级管理员（用户名 admin、随机初始密码）。
 # - 只填**空着的**变量，已经有值的不动，可以重复运行。
 # - 生成的值直接写进 /opt/forecast/.env（权限 600），**屏幕上不显示**；超管初始密码要看时由 Amos 自己运行：
@@ -16,6 +17,7 @@ chmod 600 .env
 # 把 KEY 设成 VALUE（只在现在为空时）；值只含字母、数字、-、_、.、@、:，不会破坏 .env
 set_if_empty() {
   local key=$1 val=$2 cur
+  [ -n "$val" ] || return 0
   cur=$(sed -n "s/^$key=//p" .env | tail -1)
   [ -n "$cur" ] && { echo "  $key：已有值，不改"; return; }
   if grep -q "^$key=" .env; then
@@ -58,7 +60,13 @@ else
   echo "  FC_PUSH_VAPID_*：已有值，不改"
 fi
 cert=$(sed -n 's/^CERT_EMAIL=//p' .env | tail -1)
-[ -n "$cert" ] && set_if_empty FC_PUSH_VAPID_SUBJECT "mailto:$cert"
+app=$(sed -n 's/^APP_DOMAIN=//p' .env | tail -1)
+if [ -n "$cert" ]; then
+  set_if_empty FC_PUSH_VAPID_SUBJECT "mailto:$cert"
+elif [ -n "$app" ]; then
+  # 没有邮箱时用网站地址（Web Push 允许 mailto: 或 https://，后端 WebPush 检查）
+  set_if_empty FC_PUSH_VAPID_SUBJECT "https://$app"
+fi
 
 echo
 echo "完成。值都在 /opt/forecast/.env（只有 root 能读），这里不显示。"
