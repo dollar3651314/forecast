@@ -2,6 +2,7 @@ package com.forecast.app.ledger.api;
 
 import static com.forecast.app.ledger.api.AccountKind.PLATFORM_COMPENSATION;
 import static com.forecast.app.ledger.api.AccountKind.PLATFORM_REVENUE;
+import static com.forecast.app.ledger.api.AccountKind.PLATFORM_TEST_CREDIT;
 import static com.forecast.app.ledger.api.AccountKind.USER;
 import static com.forecast.app.ledger.api.Bucket.AVAILABLE;
 import static com.forecast.app.ledger.api.Bucket.BET_LOCKED;
@@ -45,13 +46,19 @@ public enum LedgerEntryType {
   /** 补偿（E13，已结算后发现裁错）：可用 +x，和平台的 COMPENSATION_EXPENSE 对应 */
   COMPENSATION(USER, Map.of(AVAILABLE, 1)),
 
+  // ---------- 测试入金（forecast S17A，只在测试环境 FC_ENV_LABEL=test 存在；不是真实充值） ----------
+  /** 测试入金：可用 +x（幂等键 TEST_CREDIT : 测试入金单 id），和平台的 TEST_CREDIT_EXPENSE 对应 */
+  TEST_CREDIT(USER, Map.of(AVAILABLE, 1)),
+
   // ---------- 平台账户 ----------
   /** 平台收入·抽成：平台收入账户 + */
   FEE_INCOME(PLATFORM_REVENUE, Map.of(AVAILABLE, 1)),
   /** 平台收入·结算尾差 D（需求 3.5、RQ-7）：平台收入账户 + */
   SETTLE_DUST(PLATFORM_REVENUE, Map.of(AVAILABLE, 1)),
   /** 平台补偿支出：补偿支出账户 −（可以为负） */
-  COMPENSATION_EXPENSE(PLATFORM_COMPENSATION, Map.of(AVAILABLE, -1));
+  COMPENSATION_EXPENSE(PLATFORM_COMPENSATION, Map.of(AVAILABLE, -1)),
+  /** 测试入金的对手方：测试入金账户 −（可以为负，余额 = −累计测试入金；S17A） */
+  TEST_CREDIT_EXPENSE(PLATFORM_TEST_CREDIT, Map.of(AVAILABLE, -1));
 
   /** 用在哪种账户 */
   public final AccountKind accountKind;

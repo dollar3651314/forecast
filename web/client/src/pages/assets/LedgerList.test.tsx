@@ -28,3 +28,28 @@ describe('资金流水：结算和退款（S5）', () => {
     expect(rows[1].querySelector('.lg-amt')?.textContent).toBe('-3.33');
   });
 });
+
+// forecast S17A：测试入金（只在测试环境有）单独一类，不显示成"充值"；三种语言
+describe('资金流水：测试入金（S17A）', () => {
+  const credit: LedgerItem[] = [{ id: '9', type: 'testCredit', amount: '1000', ref: '', time: '2026-10-27T10:00:00Z', market: null }];
+
+  it('简体：测试入金、收入方向', () => {
+    renderPage(<LedgerList items={credit} />, '/assets/ledger');
+    const row = screen.getByRole('listitem');
+    expect(row.querySelector('b')?.textContent).toBe('测试入金');
+    expect(row.querySelector('.lg-ic')?.className).toBe('lg-ic in');
+    expect(row.querySelector('.lg-amt')?.textContent).toBe('+1,000.00');
+  });
+
+  it('繁体、英文', async () => {
+    const { default: i18n } = await import('../../i18n');
+    await i18n.changeLanguage('zh-TW');
+    const { unmount } = renderPage(<LedgerList items={credit} />, '/assets/ledger');
+    expect(screen.getByRole('listitem').querySelector('b')?.textContent).toBe('測試入金');
+    unmount();
+    await i18n.changeLanguage('en');
+    renderPage(<LedgerList items={credit} />, '/assets/ledger');
+    expect(screen.getByRole('listitem').querySelector('b')?.textContent).toBe('Test credit');
+    await i18n.changeLanguage('zh-CN');
+  });
+});

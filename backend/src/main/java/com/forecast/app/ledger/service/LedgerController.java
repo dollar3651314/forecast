@@ -62,6 +62,8 @@ class LedgerController {
     LEDGER_TYPES.put("refund", List.of("REFUND"));
     // S7：补偿（E13，平台出钱补本应多得的人，AC-39）
     LEDGER_TYPES.put("compensation", List.of("COMPENSATION"));
+    // S17A：测试入金（只在测试环境有，不是真实充值，单独一类）
+    LEDGER_TYPES.put("testCredit", List.of("TEST_CREDIT"));
   }
 
   private final LedgerApi ledger;
@@ -82,7 +84,7 @@ class LedgerController {
     return new AccountView("USDT", money(a.balance()), money(a.available()), money(a.betLocked()), money(a.withdrawFrozen()));
   }
 
-  /** 资金流水：可用余额的变动，最新在前。type：{@link #LEDGER_TYPES} 的键（deposit / withdraw / withdrawRefund / bet / payout / fee / refund / compensation），不传或 all 表示全部；range：7d / 30d / 90d / all */
+  /** 资金流水：可用余额的变动，最新在前。type：{@link #LEDGER_TYPES} 的键（deposit / withdraw / withdrawRefund / bet / payout / fee / refund / compensation / testCredit），不传或 all 表示全部；range：7d / 30d / 90d / all */
   @GetMapping("/api/ledger/entries")
   Page<LedgerView> entries(@RequestParam(required = false) String type, @RequestParam(defaultValue = "30d") String range,
       @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize) {

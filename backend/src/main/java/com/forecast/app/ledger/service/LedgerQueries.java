@@ -92,4 +92,17 @@ class LedgerQueries implements FundsApi, CustomerFlowApi, LedgerAdminApi {
     for (LedgerMapper.UserAmount u : mapper.balances(userIds)) m.put(u.userId, u.amount);
     return m;
   }
+
+  @Override
+  @Transactional(readOnly = true)
+  public List<PlatformAccount> platformAccounts() {
+    Map<String, LedgerMapper.PlatformRow> rows = new HashMap<>();
+    for (LedgerMapper.PlatformRow r : mapper.platformAccounts()) rows.put(r.kind, r);
+    List<PlatformAccount> out = new java.util.ArrayList<>();
+    for (com.forecast.app.ledger.api.AccountKind k : com.forecast.app.ledger.api.AccountKind.values()) {
+      LedgerMapper.PlatformRow r = rows.get(k.name());
+      if (r != null) out.add(new PlatformAccount(k, zero(r.available), zero(r.ledgerTotal), r.entries));
+    }
+    return out;
+  }
 }

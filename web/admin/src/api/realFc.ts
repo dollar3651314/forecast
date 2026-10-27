@@ -61,7 +61,9 @@ import type {
   RiskAlertQuery,
   RiskAlertStatus,
   StaffRefund,
+  PlatformAccount,
 } from './fcTypes';
+import type { CustomerDetail, TestCreditResult } from './types';
 
 const enc = encodeURIComponent;
 
@@ -236,6 +238,13 @@ export const getCustomerLinks = (id: number): Promise<CustomerLink[]> => request
 /** 登记 / 取消登记员工账户（customer:edit，高危，原因必填）；登记时退回已有下注（E15），返回退回的结果 */
 export const setCustomerStaff = async (id: number, staff: boolean, reason: string): Promise<StaffRefund> =>
   (await request<{ refunded: StaffRefund }>(`/customers/${id}/staff`, { method: 'POST', body: { staff, reason } })).refunded;
+
+// ---- S17A 测试入金（balance:test_credit ★，只在测试环境有接口；生产 404） ----
+/** 给客户入一笔测试金：requestId 每次打开确认框生成一个，重复点击只入一次（后端返回 duplicate） */
+export const testCredit = (id: number, amount: string, reason: string, requestId: string): Promise<{ customer: CustomerDetail; credit: TestCreditResult }> =>
+  request(`/customers/${id}/test-credit`, { method: 'POST', body: { amount, reason, requestId, checked: true } });
+/** 对账页"平台账户"（recon:view）：平台收入、补偿支出、测试入金的余额和账本合计 */
+export const listPlatformAccounts = (): Promise<PlatformAccount[]> => request('/recon/platform-accounts');
 
 // ---- S16 等候页订阅（growth:view；发送上线通知 content:publish ★） ----
 export const listWaitlist = (q: WaitlistQuery): Promise<WaitlistPage> =>

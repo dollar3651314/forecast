@@ -104,11 +104,12 @@
     SELECT entry_type, bucket, SUM(amount) AS amount FROM ledger_entry WHERE ref_market_id = #{marketId} GROUP BY entry_type, bucket
   </select>
 
-  <!-- 充值 − 冲正（冲正在账本里是负数），以及最早一笔充值的入账时间（提现自动审批 R8、R9、R10） -->
+  <!-- 充值 − 冲正（冲正在账本里是负数），以及最早一笔充值的入账时间（提现自动审批 R8、R9、R10）。
+       forecast S17A：测试入金 TEST_CREDIT 也当充值算（KYC 阈值、R8、"充了不玩就提"），测试环境才能走到这些风控；生产没有测试入金 -->
   <select id="depositsSince" resultType="com.forecast.app.ledger.service.LedgerMapper$DepositRow">
-    SELECT COALESCE(SUM(l.amount), 0) AS net, MIN(CASE WHEN l.entry_type = 'DEPOSIT' THEN l.created_at END) AS first_at
+    SELECT COALESCE(SUM(l.amount), 0) AS net, MIN(CASE WHEN l.entry_type IN ('DEPOSIT', 'TEST_CREDIT') THEN l.created_at END) AS first_at
     FROM ledger_entry l JOIN ledger_account a ON a.id = l.account_id
-    WHERE a.user_id = #{userId} AND l.bucket = 'AVAILABLE' AND l.entry_type IN ('DEPOSIT', 'DEPOSIT_REVERSAL')
+    WHERE a.user_id = #{userId} AND l.bucket = 'AVAILABLE' AND l.entry_type IN ('DEPOSIT', 'DEPOSIT_REVERSAL', 'TEST_CREDIT')
     <if test="since != null">AND l.created_at &gt;= #{since}</if>
   </select>
 
@@ -170,5 +171,13 @@
   <select id="balances" resultType="com.forecast.app.ledger.service.LedgerMapper$UserAmount">
     SELECT user_id, available + bet_locked AS amount FROM ledger_account
     WHERE user_id IN <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
+  </select>
+
+  <!-- 平台账户（forecast S17A，对账页"平台账户"）：余额和账本合计 -->
+  <select id="platformAccounts" resultType="com.forecast.app.ledger.service.LedgerMapper$PlatformRow">
+    SELECT a.kind, a.available, COALESCE(SUM(l.amount), 0) AS ledger_total, COUNT(l.id) AS entries
+    FROM ledger_account a LEFT JOIN ledger_entry l ON l.account_id = a.id
+    WHERE a.user_id IS NULL
+    GROUP BY a.id, a.kind, a.available
   </select>
 </mapper>

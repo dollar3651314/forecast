@@ -10,6 +10,8 @@ export const PERMISSIONS = [
   { code: 'customer:view', module: 'customer', highRisk: false },
   { code: 'customer:edit', module: 'customer', highRisk: true },
   { code: 'customer:freeze', module: 'customer', highRisk: true },
+  // forecast S17A：测试入金（只在测试环境有接口和按钮；生产 404、不显示）
+  { code: 'balance:test_credit', module: 'customer', highRisk: true },
 
   { code: 'kyc:view', module: 'kyc', highRisk: false },
   { code: 'kyc:review', module: 'kyc', highRisk: false },

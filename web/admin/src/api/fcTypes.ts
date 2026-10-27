@@ -591,6 +591,9 @@ export interface ReportDay {
   revenue: string;
   compensation: string;
   compensations: number;
+  /** S17A 测试入金（只在测试环境有；单列，不是平台收入、不是真实充值、不是补偿） */
+  testCredit: string;
+  testCredits: number;
 }
 
 export interface Report {
@@ -601,7 +604,18 @@ export interface Report {
   revenue: string;
   compensationExpense: string;
   compensations: number;
+  testCredit: string;
+  testCredits: number;
   days: ReportDay[];
+}
+
+/** 对账页"平台账户"（S17A）：balance 余额、ledgerTotal 账本合计，matches = 两者相等 */
+export interface PlatformAccount {
+  kind: 'revenue' | 'compensation' | 'test_credit' | string;
+  balance: string;
+  ledgerTotal: string;
+  entries: number;
+  matches: boolean;
 }
 
 // ---------------------------------------------------------------- 仪表盘（MarketDashboardOps）

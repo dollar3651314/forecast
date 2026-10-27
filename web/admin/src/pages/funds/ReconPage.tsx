@@ -2,6 +2,7 @@
  * 对账：列出钱包记录、账本、链上三方不一致的问题，标记已处理（必填说明）。修复 fxsystem F5。
  * 页面上方是热钱包余额（HotWalletCard，2026-10-17 热钱包余额告警）。
  * v2 资金归集：右上角"资金归集"入口（有 sweep:view 权限时显示；config/sweep.ts 的 SWEEP_UI 是总开关）。
+ * forecast S17A：热钱包下面是"平台账户"（平台收入、补偿支出、测试入金，余额和账本合计应该相等）；测试入金单独一行。
  * 问题类型和字段按后端（后台方案第 8 节）：7 种类型，字段 type、ref、expected、actual、diff、detail；后端只支持按状态筛选。
  */
 import { useState } from 'react';
@@ -9,7 +10,9 @@ import { Alert, Button, Select } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { SWEEP_BASE, SWEEP_PERM, SWEEP_UI } from '../../config/sweep';
 import { useTranslation } from 'react-i18next';
-import { listRecon, resolveRecon } from '../../api';
+import { listPlatformAccounts, listRecon, resolveRecon } from '../../api';
+import type { PlatformAccount } from '../../api/fcTypes';
+import { useApi } from '../../hooks/useApi';
 import type { ReconItem, ReconQuery } from '../../api/types';
 import { usePagedList } from '../../hooks/usePagedList';
 import { useNoteDialog } from '../../hooks/useConfirmDialogs';
@@ -43,6 +46,7 @@ export function ReconPage() {
         extra={SWEEP_UI && can(SWEEP_PERM.view) ? <Button onClick={() => navigate(SWEEP_BASE)}>{t('sweep.entry')}</Button> : undefined}
       />
       <HotWalletCard />
+      <PlatformAccounts />
       <Alert type="info" showIcon message={t('recon.hint')} />
       <FilterBar onSearch={() => list.setFilters(draft)} onReset={() => { setDraft(INITIAL); list.setFilters(INITIAL); }}>
         <FilterItem label={t('recon.status')}>
@@ -118,5 +122,37 @@ export function ReconPage() {
       />
       {note.element}
     </>
+  );
+}
+
+/** 平台账户（S17A）：每个平台账户的余额和账本合计 */
+function PlatformAccounts() {
+  const { t } = useTranslation();
+  const { data, loading, error, reload } = useApi(listPlatformAccounts);
+  return (
+    <div className="card card-pad">
+      <h2 className="card-title">{t('recon.platformTitle')}</h2>
+      <p className="muted">{t('recon.platformHint')}</p>
+      <DataTable<PlatformAccount>
+        bare
+        rowKey="kind"
+        loading={loading}
+        error={error}
+        onRetry={reload}
+        dataSource={data ?? undefined}
+        emptyText={t('recon.empty')}
+        columns={[
+          { title: t('recon.platformKind'), dataIndex: 'kind', render: (v: string) => t(`recon.platformKinds.${v}`, { defaultValue: v }) },
+          { title: t('recon.platformBalance'), dataIndex: 'balance', align: 'right', render: (v: string) => <Amount value={v} /> },
+          { title: t('recon.platformLedger'), dataIndex: 'ledgerTotal', align: 'right', render: (v: string) => <Amount value={v} /> },
+          { title: t('recon.platformEntries'), dataIndex: 'entries', align: 'right', render: (v: number) => <Num>{v}</Num> },
+          {
+            title: t('recon.platformMatch'),
+            dataIndex: 'matches',
+            render: (v: boolean) => <Pill tone={v ? 'ok' : 'danger'}>{v ? t('recon.platformOk') : t('recon.platformBad')}</Pill>,
+          },
+        ]}
+      />
+    </div>
   );
 }

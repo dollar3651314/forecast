@@ -79,6 +79,9 @@ customers.slice(-6).forEach((c, i) => {
 
 export const customerById = (id: number) => customers.find((c) => c.id === id);
 
+/** S17A：原型当成测试环境（客户详情有测试入金）；单元测试把 testCredit 设成 false 模拟生产（后端返回 testCredit: null） */
+export const mockEnv = { testCredit: true };
+
 /**
  * 后台编辑过的客户资料（v2 E1）：没编辑过的客户按姓名拆出名和姓（getCustomer 里），编辑后以这里为准。
  */
@@ -610,6 +613,8 @@ export const params: ParamItem[] = [
   { key: 'risk.link.maxUsersPerKey', value: '10', unit: 'count', group: 'risk', section: 'betting', updatedAt: null },
   // S13（迁移 V21）：同时开放的市场上限（超过时上架要勾"仍要上架"，0 = 不限）
   { key: 'market.maxOpen', value: '2', unit: 'count', group: 'slate', section: 'betting', updatedAt: null },
+  // S17A（迁移 V29）：测试入金的单笔上限（只在测试环境生效），betting_params:edit
+  { key: 'adjust.testCreditMax', value: '10000', unit: 'usdt', group: 'adjust', section: 'betting', updatedAt: null },
   // S12b（迁移 V28）：告警邮件总开关（默认开）、不发邮件的告警项（默认空），alert_params:edit
   { key: 'alert.mail.enabled', value: 'true', unit: 'bool', group: 'alertMail', section: 'alert', updatedAt: null },
   { key: 'alert.mail.muted', value: '', unit: 'text', group: 'alertMail', section: 'alert', updatedAt: null },

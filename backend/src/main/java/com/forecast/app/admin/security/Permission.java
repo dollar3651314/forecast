@@ -16,6 +16,11 @@ public enum Permission {
   /** v2（E1）：编辑客户资料（姓名、出生日期、国籍） */
   CUSTOMER_EDIT("customer:edit", "customer", true),
   CUSTOMER_FREEZE("customer:freeze", "customer", true),
+  /**
+   * 测试入金（forecast S17A，Amos 2026-10-27："我需要给客户调整资金"）：只在测试环境（FC_ENV_LABEL=test）有接口，生产上接口 404、按钮不显示。
+   * 高危、原因必填、勾选确认、写审计；超管自动拥有（SQ-19）
+   */
+  BALANCE_TEST_CREDIT("balance:test_credit", "customer", true),
 
   KYC_VIEW("kyc:view", "kyc", false),
   KYC_REVIEW("kyc:review", "kyc", false),

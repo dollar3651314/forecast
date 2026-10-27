@@ -153,6 +153,20 @@ export interface CustomerDetail extends CustomerSummary {
     frozenWithdraw: string;
   };
   ledger: LedgerEntry[];
+  /**
+   * forecast S17A 测试入金：只在测试环境（后端 FC_ENV_LABEL=test）有值，后台据此显示"测试入金"按钮；生产是 null，按钮不显示（接口也是 404）。
+   * maxAmount 是单笔上限（参数设置"余额调整"）
+   */
+  testCredit?: { maxAmount: string } | null;
+}
+
+/** 测试入金的结果（S17A）：duplicate = 同一个请求号之前已经入过，这次没有再入 */
+export interface TestCreditResult {
+  creditNo: string;
+  amount: string;
+  availableBefore: string;
+  availableAfter: string;
+  duplicate: boolean;
 }
 
 /** 后台编辑客户资料（v2 E1）：只有这 5 项；邮箱不能改，状态只能用冻结 / 解冻改 */

@@ -18,6 +18,7 @@ export interface HighRiskRequest {
   extra?: ReactNode;
   initialValues?: Record<string, unknown>;
   confirmText?: string;
+  /** 成功提示；空串 = 不提示（onConfirm 自己提示） */
   successText?: string;
   onConfirm: (values: HighRiskValues) => Promise<unknown>;
   onDone?: () => void;
@@ -41,7 +42,8 @@ export function useHighRisk() {
       onConfirm={async (v) => {
         if (!req) return;
         await req.onConfirm(v);
-        void message.success(req.successText ?? t('common.success'));
+        // successText 为空串：onConfirm 自己按结果提示（S17 测试入金、人工调账显示前后余额）
+        if (req.successText !== '') void message.success(req.successText ?? t('common.success'));
         setReq(null);
         req.onDone?.();
       }}

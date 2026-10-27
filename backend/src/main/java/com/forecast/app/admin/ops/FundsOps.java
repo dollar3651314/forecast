@@ -108,6 +108,28 @@ class FundsOps {
     return LocalDateTime.now(clock);
   }
 
+  /**
+   * 平台账户的一行（forecast S17A）：kind 是 revenue / compensation / test_credit（S17B 加 manual_adjust）；balance 账户余额、ledgerTotal 账本合计、
+   * matches 两者是否相等（不相等说明账本坏了，和 LedgerQueryApi.mismatches 同一个口径）
+   */
+  record PlatformAccountView(String kind, String balance, String ledgerTotal, long entries, boolean matches) {}
+
+  List<PlatformAccountView> platformAccounts() {
+    return ledger.platformAccounts().stream()
+        .map(a -> new PlatformAccountView(platformKind(a.kind()), Ops.money(a.balance()), Ops.money(a.ledgerTotal()), a.entries(),
+            a.balance().compareTo(a.ledgerTotal()) == 0))
+        .toList();
+  }
+
+  static String platformKind(com.forecast.app.ledger.api.AccountKind k) {
+    return switch (k) {
+      case PLATFORM_REVENUE -> "revenue";
+      case PLATFORM_COMPENSATION -> "compensation";
+      case PLATFORM_TEST_CREDIT -> "test_credit";
+      case USER -> "user";
+    };
+  }
+
   /** 按客户搜索：关键词为空返回 null（不筛选），否则返回匹配的客户号（可能为空） */
   private List<Long> userFilter(String keyword) {
     String kw = Ops.blank(keyword);

@@ -288,6 +288,8 @@ export function getCustomer(id: number): Promise<CustomerDetail> {
       // 原型的客户还没有下注（S4 起），下注中为 0
       account: { balance: c.balance, available: compareAmounts(avail, '0') < 0 ? '0.00' : avail, betLocked: '0.00', frozenWithdraw: frozenWd },
       ledger: ledgerFor(c, false),
+      // S17A 测试入金：原型当成测试环境（显示按钮）；真实接口在生产返回 null
+      testCredit: db.mockEnv.testCredit ? { maxAmount: db.params.find((p) => p.key === 'adjust.testCreditMax')?.value ?? '10000' } : null,
     };
   });
 }

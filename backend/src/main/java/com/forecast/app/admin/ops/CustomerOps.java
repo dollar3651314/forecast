@@ -11,6 +11,7 @@ import com.forecast.app.ledger.api.FundsApi;
 import com.forecast.app.ledger.api.LedgerAdminApi;
 import com.forecast.app.ledger.api.LedgerApi;
 import com.forecast.app.ledger.api.LedgerEntryType;
+import com.forecast.app.ledger.api.TestCreditApi;
 import com.forecast.app.settle.api.SettleAdminApi;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -40,7 +41,22 @@ class CustomerOps {
   /** 字段和原型 CustomerDetail 一致；lastLoginIp、lastLoginIpAt 是 v2 E6 加的（最近一个登录会话的 IP 和时间） */
   record Detail(long id, String name, String email, String nationality, String status, String kycStatus, String balance,
       String registeredAt, String lastLoginAt, String lastLoginIp, String lastLoginIpAt, String firstName, String middleName, String lastName,
-      String birthDate, String frozenReason, Kyc kyc, Account account, List<LedgerView> ledger, boolean staff) {}
+      String birthDate, String frozenReason, Kyc kyc, Account account, List<LedgerView> ledger, boolean staff, TestCreditInfo testCredit) {}
+
+  /**
+   * 测试入金（forecast S17A）：只在测试环境（FC_ENV_LABEL=test）有值，后台据此显示"测试入金"按钮；生产是 null，按钮不显示。
+   *
+   * @param maxAmount 单笔上限（参数设置 adjust.testCreditMax）
+   */
+  record TestCreditInfo(String maxAmount) {}
+
+  /** 测试入金的请求体：金额、原因、请求号（后台每次打开确认框生成）、勾选确认 */
+  record TestCreditBody(String amount, String reason, String requestId, Boolean checked) {}
+
+  /** 一笔测试入金：duplicate = 这个请求号之前已经入过，这次没有再入 */
+  record TestCreditView(String creditNo, String amount, String availableBefore, String availableAfter, boolean duplicate) {}
+
+  record TestCreditResult(Detail customer, TestCreditView credit) {}
 
   /** 登记 / 取消登记员工账户（forecast S10）：{"staff": true, "reason": "…"} */
   record StaffBody(Boolean staff, String reason) {}
@@ -60,8 +76,10 @@ class CustomerOps {
   private final FundsApi funds;
   private final Audit audit;
   private final SettleAdminApi settle;
+  private final TestCreditApi testCredit;
 
-  CustomerOps(CustomerAdminApi customers, LedgerAdminApi ledgerAdmin, LedgerApi ledger, FundsApi funds, Audit audit, SettleAdminApi settle) {
+  CustomerOps(CustomerAdminApi customers, LedgerAdminApi ledgerAdmin, LedgerApi ledger, FundsApi funds, Audit audit, SettleAdminApi settle, TestCreditApi testCredit) {
+    this.testCredit = testCredit;
     this.settle = settle;
     this.customers = customers;
     this.ledgerAdmin = ledgerAdmin;
@@ -110,7 +128,8 @@ class CustomerOps {
     LocalDate birth = d.birthDate();
     return new Detail(c.id(), c.name(), c.email(), c.nationality(), apiStatus(c.status()), apiStatus(c.kycStatus()), Ops.money(a.balance()),
         Ops.time(c.registeredAt()), Ops.time(c.lastLoginAt()), d.lastLoginIp(), Ops.time(d.lastLoginIpAt()), d.firstName(), d.middleName(), d.lastName(),
-        birth == null ? null : birth.toString(), d.frozenReason(), kyc, account, lines, c.staff());
+        birth == null ? null : birth.toString(), d.frozenReason(), kyc, account, lines, c.staff(),
+        testCredit.enabled() ? new TestCreditInfo(Ops.money(testCredit.maxAmount())) : null);
   }
 
   /**
@@ -176,7 +195,8 @@ class CustomerOps {
       case FEE -> "fee";
       case REFUND -> "betRefund";
       case COMPENSATION -> "compensation";
-      case FEE_INCOME, SETTLE_DUST, COMPENSATION_EXPENSE -> t.name().toLowerCase();
+      case TEST_CREDIT -> "testCredit";
+      case FEE_INCOME, SETTLE_DUST, COMPENSATION_EXPENSE, TEST_CREDIT_EXPENSE -> t.name().toLowerCase();
     };
   }
 
@@ -213,5 +233,53 @@ class CustomerOps {
       customers.setFrozen(id, frozen, frozen ? r : null);
       return Audit.Change.of(null, Map.of("status", apiStatus(d.customer().status())), Map.of("status", frozen ? "frozen" : "active"));
     });
+  }
+
+  /**
+   * 测试入金（forecast S17A；高危：原因必填、勾选确认、写审计，记下入金前后的可用余额）。接口只在测试环境注册（{@link TestCreditAdminController}），
+   * 这里和账本里再各挡一次（不是测试环境 404）。同一个请求号重复提交只入一次，审计照样记一条（duplicate = true）。
+   */
+  TestCreditResult testCredit(AdminContext actor, long id, TestCreditBody b) {
+    if (!testCredit.enabled()) throw new BizException("NOT_FOUND", "测试入金只在测试环境可用");
+    TestCreditBody body = b == null ? new TestCreditBody(null, null, null, null) : b;
+    String r = Audit.requireReason(body.reason());
+    ValidationException.Collector bad = new ValidationException.Collector();
+    if (!Boolean.TRUE.equals(body.checked())) bad.add("checked", "required");
+    BigDecimal amount = parseAmount(body.amount(), bad);
+    bad.throwIfAny();
+    customers.customer(id).orElseThrow(() -> new BizException("NOT_FOUND", "客户不存在"));
+    TestCreditView view = audit.run("customer.test_credit", String.valueOf(id), true, r, () -> {
+      TestCreditApi.Result res = testCredit.credit(id, amount, r, body.requestId(), actor.adminId());
+      Map<String, Object> before = new java.util.LinkedHashMap<>();
+      before.put("available", Ops.money(res.availableBefore()));
+      Map<String, Object> after = new java.util.LinkedHashMap<>();
+      after.put("available", Ops.money(res.availableAfter()));
+      after.put("amount", Ops.money(res.amount()));
+      after.put("creditNo", String.valueOf(res.creditNo()));
+      after.put("requestId", body.requestId());
+      after.put("duplicate", res.duplicate());
+      return Audit.Change.of(new TestCreditView(String.valueOf(res.creditNo()), Ops.money(res.amount()), Ops.money(res.availableBefore()),
+          Ops.money(res.availableAfter()), res.duplicate()), before, after);
+    });
+    return new TestCreditResult(detail(id), view);
+  }
+
+  /** 金额：正数、最多 8 位小数（不合法记字段错误，返回 null） */
+  static BigDecimal parseAmount(String v, ValidationException.Collector bad) {
+    if (v == null || v.isBlank()) {
+      bad.add("amount", "required");
+      return null;
+    }
+    try {
+      BigDecimal d = new BigDecimal(v.strip());
+      if (d.signum() <= 0 || d.stripTrailingZeros().scale() > 8 || d.compareTo(new BigDecimal("1000000000")) > 0) {
+        bad.add("amount", "invalid");
+        return null;
+      }
+      return d;
+    } catch (NumberFormatException e) {
+      bad.add("amount", "invalid");
+      return null;
+    }
   }
 }

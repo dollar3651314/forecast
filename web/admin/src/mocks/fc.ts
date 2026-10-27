@@ -68,7 +68,10 @@ import type {
   WaitlistLaunch,
   WaitlistPage,
   WaitlistQuery,
+  PlatformAccount,
 } from '../api/fcTypes';
+import type { CustomerDetail, TestCreditResult } from '../api/types';
+import { getCustomer as mockGetCustomer } from './handlers';
 import { MARKET_STATUSES } from '../api/fcTypes';
 import { fromScaled, toScaled } from '../utils/money';
 import { downloadCsv } from '../utils/csv';
@@ -1083,6 +1086,7 @@ export function getReport(from: string, to: string): Promise<Report> {
       let fee = 0n;
       let dust = 0n;
       let comp = 0n;
+      let test = 0n;
       for (let t = Date.parse(`${to}T00:00:00Z`); t >= Date.parse(`${from}T00:00:00Z`); t -= DAY) {
         const k = Math.round((BASE - t) / DAY);
         const f = BigInt(4000 + ((k * 731) % 9000));
@@ -1091,11 +1095,14 @@ export function getReport(from: string, to: string): Promise<Report> {
         fee += f;
         dust += d;
         comp += c;
-        days.push({ date: new Date(t).toISOString().slice(0, 10), feeIncome: money(f), dust: money(d), revenue: money(f + d), compensation: money(c), compensations: c > 0n ? 1 : 0 });
+        // S17A：原型里第 1 天有两笔测试入金（只在测试环境有）
+        const tc = k === 1 ? 1500000n : 0n;
+        test += tc;
+        days.push({ date: new Date(t).toISOString().slice(0, 10), feeIncome: money(f), dust: money(d), revenue: money(f + d), compensation: money(c), compensations: c > 0n ? 1 : 0, testCredit: money(tc), testCredits: tc > 0n ? 2 : 0 });
       }
-      return { from, to, feeIncome: money(fee), dust: money(dust), revenue: money(fee + dust), compensationExpense: money(comp), compensations: days.filter((d) => d.compensations).length, days };
+      return { from, to, feeIncome: money(fee), dust: money(dust), revenue: money(fee + dust), compensationExpense: money(comp), compensations: days.filter((d) => d.compensations).length, testCredit: money(test), testCredits: days.reduce((n, d) => n + d.testCredits, 0), days };
     },
-    { empty: () => ({ from, to, feeIncome: '0.00', dust: '0.00', revenue: '0.00', compensationExpense: '0.00', compensations: 0, days: [] }) },
+    { empty: () => ({ from, to, feeIncome: '0.00', dust: '0.00', revenue: '0.00', compensationExpense: '0.00', compensations: 0, testCredit: '0.00', testCredits: 0, days: [] }) },
   );
 }
 
@@ -1484,6 +1491,50 @@ export function setCustomerStaff(id: number, staff: boolean, reason: string): Pr
     c.staff = staff;
     return staff && !was ? { markets: 2, bets: 3, amount: '450.00' } : { markets: 0, bets: 0, amount: '0.00' };
   });
+}
+
+// ---------------------------------------------------------------- S17A 测试入金（原型数据：原型当成测试环境，按钮显示）
+
+const testCreditRequests = new Map<string, { id: number; amount: string; result: TestCreditResult }>();
+let testCreditTotal = 0n;
+
+export function testCredit(id: number, amount: string, reason: string, requestId: string): Promise<{ customer: CustomerDetail; credit: TestCreditResult }> {
+  return mutate(() => {
+    needReason(reason);
+    const c = mockCustomers.find((x) => x.id === id);
+    if (!c) throw new ApiError('errors.notFound', undefined, { status: 404, code: 'NOT_FOUND' });
+    const max = mockParams.find((p) => p.key === 'adjust.testCreditMax')?.value ?? '10000';
+    const amt = toScaled(amount, 8);
+    if (amt === null || amt <= 0n) throw new ApiError('errors.validationFailed', undefined, { status: 400, code: 'VALIDATION_FAILED', fields: [{ field: 'amount', code: 'invalid' }] });
+    if (amt > (toScaled(max, 8) ?? 0n)) {
+      throw new ApiError('errors.unknown', { detail: `超过测试入金的单笔上限 ${max} USDT（参数设置可改）` }, { status: 400, code: 'ADJUST_OVER_LIMIT' });
+    }
+    const old = testCreditRequests.get(requestId);
+    if (old) {
+      if (old.id !== id || toScaled(old.amount, 8) !== amt) throw new ApiError('errors.unknown', undefined, { status: 409, code: 'ADJUST_REQUEST_REUSED' });
+      return { id, credit: { ...old.result, duplicate: true } };
+    }
+    const before = c.balance;
+    c.balance = fromScaled(((toScaled(c.balance, 8) ?? 0n) + amt) / 1000000n, 2);
+    testCreditTotal += amt;
+    const result: TestCreditResult = { creditNo: `1079${Date.now()}`, amount: fromScaled(amt, 8).replace(/\.?0+$/, ''), availableBefore: before, availableAfter: c.balance, duplicate: false };
+    testCreditRequests.set(requestId, { id, amount, result });
+    return { id, credit: result };
+  }).then(async (r) => ({ customer: await mockGetCustomer(r.id), credit: r.credit }));
+}
+
+export function listPlatformAccounts(): Promise<PlatformAccount[]> {
+  return respond(
+    (): PlatformAccount[] => {
+      const test = fromScaled(-(toScaled('15000', 8) ?? 0n) - testCreditTotal, 8).replace(/\.?0+$/, '');
+      return [
+        { kind: 'revenue', balance: '18342.17', ledgerTotal: '18342.17', entries: 412, matches: true },
+        { kind: 'compensation', balance: '-436.5', ledgerTotal: '-436.5', entries: 3, matches: true },
+        { kind: 'test_credit', balance: test, ledgerTotal: test, entries: 2 + testCreditRequests.size, matches: true },
+      ];
+    },
+    { empty: () => [] },
+  );
 }
 
 // ---------------------------------------------------------------- S13 来源统计（原型数据）

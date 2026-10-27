@@ -305,6 +305,9 @@ export const getRiskAlertCounts: typeof rf.getRiskAlertCounts = IS_MOCK ? fm.get
 export const setRiskAlertStatus: typeof rf.setRiskAlertStatus = IS_MOCK ? fm.setRiskAlertStatus : rf.setRiskAlertStatus;
 export const getCustomerLinks: typeof rf.getCustomerLinks = IS_MOCK ? fm.getCustomerLinks : rf.getCustomerLinks;
 export const setCustomerStaff: typeof rf.setCustomerStaff = IS_MOCK ? fm.setCustomerStaff : rf.setCustomerStaff;
+// forecast S17A：测试入金（只在测试环境）、对账页"平台账户"
+export const testCredit: typeof rf.testCredit = IS_MOCK ? fm.testCredit : rf.testCredit;
+export const listPlatformAccounts: typeof rf.listPlatformAccounts = IS_MOCK ? fm.listPlatformAccounts : rf.listPlatformAccounts;
 
 // ---- 原型场景（只在 mock 模式下有界面入口） ----
 // 真实接口模式下恒为"正常数据"、版本号恒为 0；按编译期常量选，real 构建不打包模拟层（vite.config.ts 的 mockFree）
