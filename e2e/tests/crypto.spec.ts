@@ -46,6 +46,16 @@ test('加密：自动生成 → 下注 → 窗口结束 → 自动裁决（收�
       expect(btc, '默认模板').toBeTruthy();
       expect(btc!.mode).toBe('schedule');
       autogenNo = btc!.autogenNo;
+      // S12c 测试环境反馈：场次填 "1:00" 被拒（"场次格式不正确"）。现在宽松读入、保存成 01:00；不整点的行逐行报错
+      const body = { symbol: 'BTCUSDT', period: '1H', mode: 'schedule', generateAheadMinutes: 1440, reason: '端到端：场次宽松写法' };
+      const loose = await json<Autogen & { slots: string[] }>(await a.put(`/api/admin/market-autogens/${autogenNo}`, { data: { ...body, slots: ['13:00', '1:00'] } }), '场次填 1:00');
+      expect(loose.slots).toEqual(['01:00', '13:00']);
+      const misaligned = await a.put(`/api/admin/market-autogens/${autogenNo}`, { data: { ...body, slots: ['13:00', '1:30'] } });
+      expect(misaligned.status(), '1 小时不整点').toBe(400);
+      expect((await misaligned.json()).fields).toEqual([{ field: 'slots[1]', code: 'hourOnly' }]);
+      // 改回只有 13:00（下面的主线只看这一场）
+      const back = await json<Autogen & { slots: string[] }>(await a.put(`/api/admin/market-autogens/${autogenNo}`, { data: { ...body, slots: [' 13 '] } }), '改回 13:00');
+      expect(back.slots).toEqual(['13:00']);
       const bad = await a.post(`/api/admin/market-autogens/${autogenNo}/enable`, { data: {} });
       expect(bad.status(), '不勾选不能启用').toBe(400);
       const on = await json<Autogen>(await a.post(`/api/admin/market-autogens/${autogenNo}/enable`, { data: { checked: true } }), '启用');

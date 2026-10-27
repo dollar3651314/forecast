@@ -172,6 +172,7 @@
 .mke-limit .ant-checkbox-wrapper { margin-inline-start: 0; }
 .ag-slots { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 .ag-slot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ag-slot-err { color: var(--danger); font-size: 12px; margin-top: 2px; }
 .gr-note { margin-bottom: 12px; }
 .gr-card { margin-top: 12px; }
 .gr-grid { margin-top: 12px; }

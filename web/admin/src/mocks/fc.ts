@@ -72,6 +72,7 @@ import type {
 import { MARKET_STATUSES } from '../api/fcTypes';
 import { fromScaled, toScaled } from '../utils/money';
 import { downloadCsv } from '../utils/csv';
+import { normalizeSlot, slotProblems } from '../utils/market';
 import { emptyPage, matches, mutate, paginate, respond } from './runtime';
 import { customers as mockCustomers, params as mockParams } from './data/db';
 
@@ -1166,10 +1167,9 @@ function checkAutogen(i: AutogenInput) {
   if (!['BTCUSDT', 'ETHUSDT'].includes(i.symbol)) fields.push({ field: 'symbol', code: 'invalid' });
   if (i.mode === 'schedule') {
     if (!i.slots.length) fields.push({ field: 'slots', code: 'required' });
-    i.slots.forEach((s, k) => {
-      // S13：可以带星期（"13:00@1,6,7"）
-      const ok = /^\d{2}:\d{2}(@[1-7](,[1-7]){0,6})?$/.test(s) && (i.period === '1H' ? s.slice(3, 5) === '00' : Number(s.slice(3, 5)) % 15 === 0);
-      if (!ok) fields.push({ field: `slots[${k}]`, code: 'invalid' });
+    // S12c：和后端同一套规则（宽松读入、逐行错误码），保存成标准写法
+    slotProblems(i.slots, i.period).forEach((code, k) => {
+      if (code) fields.push({ field: `slots[${k}]`, code });
     });
   }
   if (fields.length) throw new ApiError('errors.validationFailed', undefined, { status: 400, code: 'VALIDATION_FAILED', fields });
@@ -1179,6 +1179,7 @@ export function createAutogen(i: AutogenInput, reason: string): Promise<Autogen>
   return mutate(() => {
     needReason(reason);
     checkAutogen(i);
+    i = { ...i, slots: i.slots.map(normalizeSlot).sort() };
     if (autogens.some((a) => a.symbol === i.symbol && a.period === i.period)) throw new ApiError('errors.fc.AUTOGEN_EXISTS', undefined, { status: 409, code: 'AUTOGEN_EXISTS' });
     const a: Autogen = { ...autogens[0], ...i, autogenNo: String(1000000000000000010n + BigInt(autogens.length)), category: i.period === '1H' ? 'CRYPTO_1H' : 'CRYPTO_15M', rollingCount: i.rollingCount ?? 3, generateAheadMinutes: i.generateAheadMinutes ?? 1440, templateNo: i.templateNo ?? '1000000000000000001', enabled: false, checkedBy: null, checkedAt: null, checkedTemplateVersion: null, version: 0, upcoming: windows(i.slots, i.period, false) };
     autogens = [...autogens, a];
@@ -1193,6 +1194,7 @@ export function updateAutogen(no: string, i: AutogenInput, reason: string): Prom
     if (!a) throw new ApiError('errors.notFound', undefined, { status: 404, code: 'NOT_FOUND' });
     if (a.enabled) throw new ApiError('errors.fc.AUTOGEN_ENABLED', undefined, { status: 409, code: 'AUTOGEN_ENABLED' });
     checkAutogen(i);
+    i = { ...i, slots: i.slots.map(normalizeSlot).sort() };
     Object.assign(a, i, { rollingCount: i.rollingCount ?? a.rollingCount, generateAheadMinutes: i.generateAheadMinutes ?? a.generateAheadMinutes, version: a.version + 1, upcoming: windows(i.slots, i.period, false) });
     return a;
   });

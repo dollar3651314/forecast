@@ -17,16 +17,42 @@ export function utc(iso: string | null | undefined, withYear = false): string {
   return `${withYear ? `${d.getUTCFullYear()}-` : ''}${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`;
 }
 
-/** UTC 的 "HH:mm" 换成北京时间（需求第 6.2 节：场次表页面同时显示北京时间） */
+/**
+ * 场次时刻的宽松读入（S12c 测试环境反馈："1:00" 页面显示北京 09:00、后端却报"场次格式不正确"）。
+ * 和后端 AutogenService.parseSlot 是同一套规则（后端为准，这里只是提前提示）：时 1～2 位，分可省（= 00）或 1～2 位，冒号半角或全角，
+ * 两边和冒号两边可以有空格；"1:00"、"1:0"、"1"、" 01:00 " 都是 01:00。时 0～23、分 0～59。
+ * 空白字符集固定成下面这几个（后端 SLOT_WS 同一组），不用 \s / trim，两种语言对 Unicode 空白的理解不一样。
+ */
+const SLOT_WS = '[ \\t\\r\\n\\u00A0\\u3000]*';
+const SLOT_TIME = new RegExp(`^${SLOT_WS}([0-9]{1,2})(?:${SLOT_WS}[:：]${SLOT_WS}([0-9]{1,2}))?${SLOT_WS}$`);
+const SLOT_DAYS = new RegExp(`^${SLOT_WS}[1-7](?:${SLOT_WS},${SLOT_WS}[1-7]){0,6}${SLOT_WS}$`);
+const SLOT_BLANK = new RegExp(`^${SLOT_WS}$`);
+
+/** 场次的字段错误码，和后端一致；后台翻译在 apiFieldCode 下 */
+export type SlotProblem = 'required' | 'timeFormat' | 'outOfRange' | 'invalidDays' | 'hourOnly' | 'quarterOnly' | 'duplicate';
+
+/** 时刻部分 → 标准 "HH:mm"；不合法给错误码 */
+export function normalizeSlotTime(raw: string): { time: string; problem?: undefined } | { time?: undefined; problem: SlotProblem } {
+  if (SLOT_BLANK.test(raw ?? '')) return { problem: 'required' };
+  const m = SLOT_TIME.exec(raw);
+  if (!m) return { problem: 'timeFormat' };
+  const h = Number(m[1]);
+  const min = m[2] === undefined ? 0 : Number(m[2]);
+  if (h > 23 || min > 59) return { problem: 'outOfRange' };
+  return { time: `${pad(h)}:${pad(min)}` };
+}
+
+/** UTC 的时刻换成北京时间（需求第 6.2 节：场次表页面同时显示北京时间）。看不懂的时刻显示 "—"，不会出现"页面显示正常、后端却拒绝" */
 export function beijing(hhmm: string): string {
-  const [h, m] = hhmm.slice(0, 5).split(':').map(Number);
-  if (Number.isNaN(h) || Number.isNaN(m)) return '—';
+  const n = normalizeSlotTime(hhmm);
+  if (!n.time) return '—';
+  const [h, m] = n.time.split(':').map(Number);
   return `${pad((h + 8) % 24)}:${pad(m)}`;
 }
 
 /**
  * 场次表的一项（S13，MF-3）："HH:mm" 每天，"HH:mm@1,6,7" 只在这几天（ISO 星期 1 = 周一 … 7 = 周日，按 UTC 日期）；
- * 后端 AutogenService.slot / format 同一个格式。days 为空 = 每天。
+ * 后端 AutogenService.parseSlot / format 同一个格式。days 为空 = 每天。time 是输入框里的原样文字（失焦或保存时才规范化）。
  */
 export interface SlotSpec {
   time: string;
@@ -34,8 +60,10 @@ export interface SlotSpec {
 }
 
 export function parseSlot(s: string): SlotSpec {
-  const [time, d] = s.split('@');
-  const days = d ? [...new Set(d.split(',').map(Number).filter((x) => x >= 1 && x <= 7))].sort() : [];
+  const at = s.indexOf('@');
+  const time = at < 0 ? s : s.slice(0, at);
+  const d = at < 0 ? '' : s.slice(at + 1);
+  const days = d ? [...new Set(d.split(',').map((x) => Number(x.trim())).filter((x) => x >= 1 && x <= 7))].sort() : [];
   return { time: time.trim(), days: days.length === 7 ? [] : days };
 }
 
@@ -44,10 +72,41 @@ export function formatSlot(s: SlotSpec): string {
   return days.length === 0 || days.length === 7 ? s.time.trim() : `${s.time.trim()}@${days.join(',')}`;
 }
 
+/** 一项场次规范成后端保存的标准写法（"1:00@7,6" → "01:00@6,7"）；时刻不合法时原样返回（留给校验报错） */
+export function normalizeSlot(s: string): string {
+  const p = parseSlot(s);
+  const n = normalizeSlotTime(p.time);
+  return n.time ? formatSlot({ time: n.time, days: p.days }) : s;
+}
+
+/**
+ * 场次表逐行检查，返回每行的错误码（null = 没问题），和后端 AutogenService.parse 的循环一样：
+ * 先看时刻能不能读、在不在范围，再看 1 小时是不是整点、15 分钟是不是 15 的倍数，最后看和前面的行有没有重复。
+ */
+export function slotProblems(slots: string[], period: string): (SlotProblem | null)[] {
+  const seen = new Set<string>();
+  return slots.map((s) => {
+    const at = s.indexOf('@');
+    const n = normalizeSlotTime(at < 0 ? s : s.slice(0, at));
+    if (n.time === undefined) return n.problem;
+    if (at >= 0) {
+      const d = s.slice(at + 1);
+      const list = d.match(/[1-7]/g) ?? [];
+      if (!SLOT_DAYS.test(d) || new Set(list).size !== list.length) return 'invalidDays';
+    }
+    const min = Number(n.time.slice(3));
+    if (period === '1H' && min !== 0) return 'hourOnly';
+    if (period === '15M' && min % 15 !== 0) return 'quarterOnly';
+    if (seen.has(n.time)) return 'duplicate';
+    seen.add(n.time);
+    return null;
+  });
+}
+
 /** 北京时间比 UTC 早 8 小时：UTC 16:00 以后的场次在北京是第二天（星期要 +1） */
 export function beijingNextDay(hhmm: string): boolean {
-  const h = Number(hhmm.slice(0, 2));
-  return !Number.isNaN(h) && h >= 16;
+  const n = normalizeSlotTime(hhmm);
+  return !!n.time && Number(n.time.slice(0, 2)) >= 16;
 }
 
 /** ISO → 后台日期时间输入框里的 "YYYY-MM-DDTHH:mm"（UTC） */
