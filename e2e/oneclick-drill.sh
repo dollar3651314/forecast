@@ -426,7 +426,7 @@ page=$(curl -s --noproxy '*' --resolve "$PRELAUNCH:443:127.0.0.1" "https://$PREL
 case "$page" in *'name="fc-site-mode" content="prelaunch"'*) ;; *) bad "预热域名的根路径不是等候页" ;; esac
 curl -s --noproxy '*' --resolve "$PRELAUNCH:443:127.0.0.1" "https://$PRELAUNCH/api/health" | grep -q '"env"' && bad "预热域名的健康检查不应该有 env"
 for d in $DOMAINS; do
-  [ "$(curl -s --noproxy '*' -o /dev/null -w '%{http_code}' --resolve "$d:443:127.0.0.1" "https://$d/")" = 200 ] || bad "测试环境的 $d 打不开了"
+  [ "$(curl -sL --max-redirs 3 --noproxy '*' -o /dev/null -w '%{http_code}' --resolve "$d:443:127.0.0.1" "https://$d/")" = 200 ] || bad "测试环境的 $d 打不开了"
 done
 read -r APPD _ <<< "$DOMAINS"
 curl -s --noproxy '*' --resolve "$APPD:443:127.0.0.1" "https://$APPD/api/health" | grep -q '"env":"test"' || bad "客户端域名应该照旧有测试环境标识"

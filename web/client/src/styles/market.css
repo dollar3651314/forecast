@@ -613,7 +613,7 @@
 .pre-main .page-data { margin: 0 auto; }
 .pre-hero { padding: 8px 16px 0; }
 .pre-hero h1 { font-size: 24px; line-height: 1.3; margin: 0 0 6px; overflow-wrap: anywhere; }
-.pre-hero p { margin: 0; color: var(--muted); line-height: 1.6; }
+.pre-hero p { margin: 0 0 12px; color: var(--muted); line-height: 1.6; font-size: 15px; }
 .pre-foot { max-width: 960px; margin: 0 auto; padding: 0 16px calc(var(--safe-b) + 16px); }
 @media (min-width: 1024px) {
   .pre-top { padding: 18px 24px; }
@@ -628,5 +628,5 @@
 .data-tw details[open] summary::after { content: '▴'; }
 .data-tw summary h2 { margin: 0; }
 .data-tw summary .muted { font-size: 13px; }
-.data-tw ol { margin: 10px 0 0; padding-left: 20px; line-height: 1.7; font-size: 14px; }
+.data-tw ol { list-style: none; margin: 10px 0 0; padding-left: 0; line-height: 1.7; font-size: 14px; }
 .data-tw li + li { margin-top: 4px; }
