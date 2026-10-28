@@ -6,6 +6,13 @@
  */
 export type SiteMode = 'app' | 'prelaunch';
 
+/**
+ * 公开版构建（forecast S19，P11）：vite.public.config.ts 把 VITE_PUBLIC_BUILD 定成 'true'，构建时就是常量 true，
+ * 页面里"不是预热形态才显示"的分支（注册、市场链接等）在打包时整段去掉，产物里没有这些入口（cf/scripts/check-dist.mjs 检查）。
+ * 平常的客户端构建、测试里它是 false，仍按页面里的 fc-site-mode 判断。
+ */
+export const PUBLIC_BUILD = import.meta.env.VITE_PUBLIC_BUILD === 'true';
+
 const PLACEHOLDER = '__FC_SITE_MODE__';
 
 export function resolveSiteMode(metaValue: string | null | undefined): SiteMode {
@@ -23,7 +30,7 @@ export function siteMode(): SiteMode {
 }
 
 export function isPrelaunch(): boolean {
-  return siteMode() === 'prelaunch';
+  return PUBLIC_BUILD || siteMode() === 'prelaunch';
 }
 
 /** 测试用：清掉缓存 */

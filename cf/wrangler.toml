@@ -1,0 +1,72 @@
+# forecast S19：公开部分（等候页兼看板、官网 /about/）的 Cloudflare Worker（Workers 静态资源 + D1 + Cron）。开发记录/S19-公开部分上Cloudflare.md。
+# 顶层是正式版（forecast-public），[env.staging] 是测试版（forecast-public-staging）。环境里的绑定、变量、Cron 不会继承顶层，每个环境都写全（Cloudflare 规范 K5）。
+# - 密钥不写在这里：RESEND_API_KEY、ACCESS_TEAM_DOMAIN、ACCESS_AUD 由 Amos 在控制台 Settings → Variables and Secrets 填（K2）。
+#   keep_vars = true：部署时不删控制台里填的变量。WAITLIST_OPEN（等候页是否还收邮箱，默认收）故意不写在这里：开放交易时 Amos 在控制台加 WAITLIST_OPEN = false
+#   就关掉（写在这里的变量每次部署都会盖掉控制台的值）。
+# - D1 的 database_id 不写在这里：CI 部署前由 scripts/ensure-d1.mjs 按名字查（没有就建），写进本次部署用的临时配置；本机 wrangler dev 用本地 D1，不需要编号。
+# - 自定义域名（www.quickcome.online）不写在这里：Amos 验收 staging 以后在控制台绑（D-276），部署令牌因此不需要域名权限。
+# - 账户：CI 用 GitHub Secret CLOUDFLARE_ACCOUNT_ID；套餐 Free（Amos 2026-10-28 确认偏离 K0）。
+name = "forecast-public"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+keep_vars = true
+workers_dev = false
+preview_urls = false
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "forecast-public"
+database_id = "local-only"
+migrations_dir = "migrations"
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[observability]
+enabled = true
+
+[vars]
+ENVIRONMENT = "production"
+PUBLIC_BASE_URL = "https://www.quickcome.online"
+MAIL_FROM = "Quick Come <noreply@fc-email.quickcome.online>"
+TG_CHANNEL_ZH = ""
+TG_CHANNEL_EN = ""
+TG_BOT = ""
+
+[env.staging]
+name = "forecast-public-staging"
+workers_dev = true
+preview_urls = false
+
+[env.staging.assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "forecast-public-staging"
+database_id = "local-only"
+migrations_dir = "migrations"
+
+[env.staging.triggers]
+crons = ["*/5 * * * *"]
+
+[env.staging.observability]
+enabled = true
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+# 测试版用请求自己的地址（workers.dev）拼确认、退订链接
+PUBLIC_BASE_URL = ""
+MAIL_FROM = "Quick Come <noreply@fc-email.quickcome.online>"
+TG_CHANNEL_ZH = ""
+TG_CHANNEL_EN = ""
+TG_BOT = ""

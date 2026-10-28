@@ -6,6 +6,7 @@
   "common": {
     "login": "登入",
     "register": "免費註冊",
+    "waitlist": "加入等候名單",
     "registerNow": "立即註冊",
     "menu": "選單",
     "close": "關閉",
@@ -102,7 +103,9 @@
   },
   "final": {
     "title": "現在註冊",
-    "sub": "註冊免費，充值最小 1 USDT"
+    "sub": "註冊免費，充值最小 1 USDT",
+    "titleWaitlist": "正式上線時通知你",
+    "subWaitlist": "留個電子信箱，上線時只發一封通知，隨時可以退訂"
   },
   "footer": {
     "terms": "服務條款",

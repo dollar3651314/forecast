@@ -4,7 +4,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { fetchEnvLabel } from '../api/envLabel';
 import { Link } from '../app/router';
-import { clientLink } from '../config';
+import { clientLink, PUBLIC_SITE, SIGNUP_KEY, signupLink } from '../config';
 import { BRAND_NAME, CONTACT_EMAIL } from '../lib/brand';
 import { useI18n, type Lang } from '../i18n';
 import { Icon } from './Icon';
@@ -164,11 +164,13 @@ export function HeaderDesktop() {
         </nav>
         <div className="right">
           <LangSwitch />
-          <a className="btn sec sm" href={clientLink('login', lang)} data-testid="nav-login">
-            {t('common.login')}
-          </a>
-          <a className="btn pri sm" href={clientLink('register', lang)} data-testid="nav-register">
-            {t('common.register')}
+          {!PUBLIC_SITE && (
+            <a className="btn sec sm" href={clientLink('login', lang)} data-testid="nav-login">
+              {t('common.login')}
+            </a>
+          )}
+          <a className="btn pri sm" href={signupLink(lang)} data-testid="nav-register">
+            {t(SIGNUP_KEY)}
           </a>
         </div>
       </div>
@@ -198,9 +200,15 @@ export function HeaderMobile() {
                 {t(key)}
               </Link>
             ))}
-            <a className="btn sec" href={clientLink('login', lang)}>
-              {t('common.login')}
-            </a>
+            {PUBLIC_SITE ? (
+              <a className="btn pri" href={signupLink(lang)} data-testid="menu-waitlist">
+                {t(SIGNUP_KEY)}
+              </a>
+            ) : (
+              <a className="btn sec" href={clientLink('login', lang)}>
+                {t('common.login')}
+              </a>
+            )}
           </div>
         </div>
       )}
@@ -246,11 +254,13 @@ export function StickyCta() {
   const { t, lang } = useI18n();
   return (
     <div className="sticky-cta" data-testid="sticky-cta">
-      <a className="btn sec" href={clientLink('login', lang)} data-testid="sticky-login">
-        {t('common.login')}
-      </a>
-      <a className="btn pri" href={clientLink('register', lang)} data-testid="sticky-register">
-        {t('common.register')}
+      {!PUBLIC_SITE && (
+        <a className="btn sec" href={clientLink('login', lang)} data-testid="sticky-login">
+          {t('common.login')}
+        </a>
+      )}
+      <a className="btn pri" href={signupLink(lang)} data-testid="sticky-register">
+        {t(SIGNUP_KEY)}
       </a>
     </div>
   );

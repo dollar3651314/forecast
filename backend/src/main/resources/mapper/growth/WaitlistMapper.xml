@@ -41,6 +41,18 @@
     WHERE id = #{id} AND status = 'UNSUBSCRIBED'
   </update>
 
+  <!-- forecast S19（P15）：从 Cloudflare 导入。INSERT IGNORE：邮箱、随机串的唯一键兜底，重复导入不会多一行 -->
+  <insert id="insertImported">
+    INSERT IGNORE INTO growth_waitlist (email, lang, status, confirm_token, confirm_sent_at, confirm_sends, unsub_token, src, cmp, ref, start_param, ip_hash,
+      created_at, confirmed_at, updated_at)
+    VALUES (#{email}, #{lang}, 'CONFIRMED', #{confirmToken}, #{createdAt}, 1, #{unsubToken}, #{src}, #{cmp}, #{ref}, #{start}, #{ipHash}, #{createdAt},
+      #{confirmedAt}, #{now})
+  </insert>
+
+  <update id="confirmImported">
+    UPDATE growth_waitlist SET status = 'CONFIRMED', confirmed_at = #{confirmedAt}, updated_at = #{now} WHERE id = #{id} AND status = 'PENDING'
+  </update>
+
   <update id="confirm">
     UPDATE growth_waitlist SET status = 'CONFIRMED', confirmed_at = #{now}, updated_at = #{now} WHERE id = #{id} AND status = 'PENDING'
   </update>

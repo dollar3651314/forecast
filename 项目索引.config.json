@@ -1,5 +1,5 @@
 {
-  "_说明": "项目地图和项目索引的检查配置（agents 规则 C53）。由 scripts/check-project-index.mjs 读取（脚本从 agents/工具/ 原样复制，不在本项目修改），CI 的 checks 每次运行。v0.7（开发 S1）：按《架构方案》第 12.3 节加入代码——各前端根目录配置、接口层 src/api、翻译 src/i18n、品牌常量 src/lib/brand.ts、官网法律页正文；后端根目录文件和 src/main/resources；端到端测试根目录和 tests；部署 deploy；合约的根目录、src、script、test 和 lib/SHA256SUMS（lib/ 下原样复制的 BitGo、OpenZeppelin 源码和 forge-std 子模块不逐个列出）。业务代码按模块和包写在索引里，不放进 include（C53 v0.9）。",
+  "_说明": "项目地图和项目索引的检查配置（agents 规则 C53）。由 scripts/check-project-index.mjs 读取（脚本从 agents/工具/ 原样复制，不在本项目修改），CI 的 checks 每次运行。v0.7（开发 S1）：按《架构方案》第 12.3 节加入代码——各前端根目录配置、接口层 src/api、翻译 src/i18n、品牌常量 src/lib/brand.ts、官网法律页正文；后端根目录文件和 src/main/resources；端到端测试根目录和 tests；部署 deploy；合约的根目录、src、script、test 和 lib/SHA256SUMS（lib/ 下原样复制的 BitGo、OpenZeppelin 源码和 forge-std 子模块不逐个列出）。业务代码按模块和包写在索引里，不放进 include（C53 v0.9）。 S19：加入 Cloudflare 上的公开部分 cf/（根目录、src、scripts、migrations、test）。",
   "map": "项目地图.md",
   "index": "项目索引.md",
   "entry": [
@@ -33,6 +33,11 @@
       "e2e/*",
       "e2e/tests/**",
       "deploy/**",
+      "cf/*",
+      "cf/src/**",
+      "cf/scripts/**",
+      "cf/migrations/**",
+      "cf/test/**",
       "contracts/*",
       "contracts/src/**",
       "contracts/script/**",

@@ -27,7 +27,7 @@ import { useTitle } from '../../hooks/useTitle';
 import { readAttribution } from '../../lib/attribution';
 import { BRAND_NAME } from '../../lib/brand';
 import { formatAmount, formatDateTime } from '../../lib/format';
-import { isPrelaunch } from '../../lib/siteMode';
+import { isPrelaunch, PUBLIC_BUILD } from '../../lib/siteMode';
 import { pickText } from '../../lib/market';
 import { validateEmail } from '../../lib/validators';
 
@@ -64,7 +64,12 @@ function BtcBlock({ b }: { b: Board }) {
             </div>
           </div>
           <p className="data-note">{t('data.btcRule')}</p>
-          <p className="data-note muted">{t('data.btcSource', { time: formatDateTime(btc.updatedAt) })}</p>
+          {/* S19：Cloudflare 上可能换源（OKX / 币安），接口带 source 时照实写；测试服务器的后端不带，仍写币安 */}
+          <p className="data-note muted" data-testid="btc-source">
+            {btc.source
+              ? t('data.btcSourceBy', { source: btc.source, time: formatDateTime(btc.updatedAt) })
+              : t('data.btcSource', { time: formatDateTime(btc.updatedAt) })}
+          </p>
         </>
       )}
     </section>
@@ -77,7 +82,7 @@ function SlateItem({ m }: { m: BoardItem }) {
   const time = m.eventStartAt ?? m.closeAt;
   return (
     <li className="data-slate-item">
-      {isPrelaunch() ? (
+      {PUBLIC_BUILD || isPrelaunch() ? (
         <span className="data-slate-title">
           <span className="num muted">{formatDateTime(time, { short: true })}</span> {pickText(m.title, lang)}
         </span>
@@ -197,7 +202,8 @@ export default function DataPage() {
   const { t } = useTranslation();
   const { session } = useAuth();
   const lang = useLang();
-  const pre = isPrelaunch();
+  // 公开版构建时 PUBLIC_BUILD 是常量 true，下面 !pre 的分支打包时整段去掉（S19，P11）
+  const pre = PUBLIC_BUILD || isPrelaunch();
   useTitle(pre ? t('data.launchTitle') : t('data.title'));
   const s = useAsync(() => getBoard(), 'board');
   const b = s.data;

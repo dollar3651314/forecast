@@ -66,6 +66,8 @@ import type {
   TelegramTemplate,
   WaitlistItem,
   WaitlistLaunch,
+  CfImportFile,
+  CfImportResult,
   WaitlistPage,
   WaitlistQuery,
   PlatformAccount,
@@ -1831,6 +1833,42 @@ export function launchWaitlist(reason: string): Promise<WaitlistLaunch> {
     confirmed.forEach((w) => Object.assign(w, { status: 'notified', notifiedAt: now }));
     launch = { status: 'done', at: now, adminId: 1, reason: reason.trim(), recipients: confirmed.length, sent: confirmed.length, finishedAt: now };
     return launch;
+  });
+}
+
+/** S19（P15）：和后端 WaitlistService.importFromCloudflare 同样的规则（模拟层按打码后的邮箱比较） */
+export function importWaitlist(reason: string, file: CfImportFile): Promise<CfImportResult> {
+  return mutate(() => {
+    requireReason(reason);
+    const r: CfImportResult = { total: file.items.length, added: 0, confirmed: 0, unsubscribed: 0, unchanged: 0, notAdded: 0, invalid: 0, afterLaunch: 0, problems: [], launch };
+    file.items.forEach((it, i) => {
+      const bad = !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test((it.email ?? '').trim()) ? 'email' : it.status !== 'confirmed' && it.status !== 'unsubscribed' ? 'status' : null;
+      if (bad) {
+        r.problems.push({ row: i + 1, field: bad, code: bad === 'email' ? 'emailInvalid' : 'statusInvalid' });
+        r.invalid++;
+        return;
+      }
+      const masked = `${it.email.trim()[0]}***${it.email.trim().slice(it.email.trim().indexOf('@'))}`.toLowerCase();
+      const w = waitlist.find((x) => x.email === masked);
+      if (it.status === 'unsubscribed') {
+        if (!w) r.notAdded++;
+        else if (w.status !== 'unsubscribed') {
+          Object.assign(w, { status: 'unsubscribed', unsubscribedAt: iso(BASE) });
+          r.unsubscribed++;
+        } else r.unchanged++;
+        return;
+      }
+      if (!w) {
+        waitlist.push({ id: waitlist.length + 1, email: masked, lang: (it.lang as WaitlistItem['lang']) ?? 'en', status: 'confirmed', src: it.src, cmp: it.cmp, ref: it.ref, start: it.start, createdAt: it.createdAt ?? iso(BASE), confirmedAt: it.confirmedAt ?? iso(BASE), notifiedAt: null, unsubscribedAt: null });
+        r.added++;
+        if (launch.status === 'done') r.afterLaunch++;
+      } else if (w.status === 'pending') {
+        Object.assign(w, { status: 'confirmed', confirmedAt: it.confirmedAt ?? iso(BASE) });
+        r.confirmed++;
+        if (launch.status === 'done') r.afterLaunch++;
+      } else r.unchanged++;
+    });
+    return r;
   });
 }
 

@@ -6,6 +6,7 @@
   "common": {
     "login": "Log in",
     "register": "Sign up free",
+    "waitlist": "Join the waitlist",
     "registerNow": "Sign up now",
     "menu": "Menu",
     "close": "Close",
@@ -102,7 +103,9 @@
   },
   "final": {
     "title": "Sign up now",
-    "sub": "Free to join; deposit from 1 USDT"
+    "sub": "Free to join; deposit from 1 USDT",
+    "titleWaitlist": "Get notified at launch",
+    "subWaitlist": "Leave your email: one launch email only, unsubscribe any time"
   },
   "footer": {
     "terms": "Terms of Service",

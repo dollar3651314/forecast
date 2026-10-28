@@ -1,0 +1,9 @@
+# 只给测试用（forecast S19，test/helpers.ts 的 getPlatformProxy）：一个本地 D1，不持久化，每个测试文件一个新库。
+name = "forecast-public-test"
+main = "../src/index.ts"
+compatibility_date = "2026-10-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "forecast-public-test"
+database_id = "local-only"

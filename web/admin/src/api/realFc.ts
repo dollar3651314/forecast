@@ -42,6 +42,8 @@ import type {
   TelegramTargetKey,
   TelegramTemplate,
   WaitlistLaunch,
+  CfImportFile,
+  CfImportResult,
   WaitlistPage,
   WaitlistQuery,
   PlayInput,
@@ -290,6 +292,9 @@ export const listWaitlist = (q: WaitlistQuery): Promise<WaitlistPage> =>
   request('/waitlist', { query: { status: q.status, page: q.page, pageSize: q.pageSize } });
 /** 发送上线通知（只能一次；第二次 409 LAUNCH_ALREADY_SENT） */
 export const launchWaitlist = (reason: string): Promise<WaitlistLaunch> => request('/waitlist/launch', { method: 'POST', body: { checked: true, reason } });
+/** S19（P15）：从 Cloudflare 导入名单（content:publish ★；不发任何邮件，可以重复导入） */
+export const importWaitlist = (reason: string, file: CfImportFile): Promise<CfImportResult> =>
+  request('/waitlist/import', { method: 'POST', body: { checked: true, reason, file: { format: file.format, items: file.items } } });
 
 // ---- S16 Telegram 机器人（content:view；改动 content:publish ★） ----
 export const getTelegram = (): Promise<TelegramOverview> => request('/telegram');

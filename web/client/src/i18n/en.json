@@ -1033,7 +1033,7 @@
   },
   "data": {
     "title": "Data",
-    "intro": "Real numbers only: BTC hourly up/down (Binance public data) and our own real-money pools. How it works: you stake USDT on an outcome, winners share the losing side's pool in proportion to their stakes, and the platform only takes a fee (5% by default) from winners' profit. We never bet against you.",
+    "intro": "Real numbers only: BTC hourly up/down (exchange public data) and our own real-money pools. How it works: you stake USDT on an outcome, winners share the losing side's pool in proportion to their stakes, and the platform only takes a fee (5% by default) from winners' profit. We never bet against you.",
     "btcTitle": "BTC price and hourly up/down",
     "btcPrice": "BTC price",
     "btcHours": "Last {{hours}} hours",
@@ -1042,6 +1042,7 @@
     "barLabel": "{{up}}% up, {{down}}% down",
     "btcRule": "An hour counts as up when its close is greater than or equal to its open, the same rule as our BTC markets.",
     "btcSource": "Data: Binance public market data, updated {{time}}",
+    "btcSourceBy": "Data: {{source}} public market data, updated {{time}}",
     "btcNone": "BTC data is temporarily unavailable. Please check back later.",
     "slateTitle": "Our markets today",
     "slateNone": "No markets today.",
