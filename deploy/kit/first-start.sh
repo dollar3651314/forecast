@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 第一次启动（复制源 S20；forecast 的步骤见 `部署方案/v1-测试环境与切换.md` 第 5.2 节）。用 root 运行：sudo bash /opt/forecast/first-start.sh
 # 前提：同一台服务器上的另一个项目已经停掉（部署方案第 4 节）；server-setup.sh 已运行；.env 已填好；三个域名（客户端、后台、官网 WWW_DOMAIN）已经解析到这台服务器；防火墙已开 80、443。
-# 证书里缺某个域名（例如改了域名）时不用重跑本脚本，按部署方案第 8 节"证书里缺域名"扩展证书。
+# 证书里缺某个域名（例如改了域名）时不用重跑本脚本，按部署方案第 8 节"证书里缺域名"扩展证书；S18 的对外预热域名用 sudo fc add-domain。
 # 做的事：检查 .env → 申请 HTTPS 证书 → 启动 staging 最新版本 → 证书改为自动续期 → 打开自动更新和每天备份。
 # 可以重复运行（S12 一键部署 oneclick.sh 用它做第 7 步）：证书已有就不再申请；版本已经记录过（上次中途失败）时确保容器在运行、健康检查通过；
 # 证书已经改成自动续期的不再改。CERT_EMAIL 可以空着：申请证书时不留邮箱（续期是自动的，只是收不到到期提醒）。
@@ -25,15 +25,19 @@ APP_DOMAIN=$(sed -n 's/^APP_DOMAIN=//p' .env | tail -1)
 ADMIN_DOMAIN=$(sed -n 's/^ADMIN_DOMAIN=//p' .env | tail -1)
 WWW_DOMAIN=$(sed -n 's/^WWW_DOMAIN=//p' .env | tail -1)
 CERT_EMAIL=$(sed -n 's/^CERT_EMAIL=//p' .env | tail -1)
-echo "  .env 齐全；域名：$APP_DOMAIN、$ADMIN_DOMAIN、$WWW_DOMAIN"
+# S18：对外预热域名（可选；已经部署好的服务器用 sudo fc add-domain 加，这里只管第一次申请证书时 .env 里已经有的情况）
+PRELAUNCH_DOMAIN=$(sed -n 's/^PRELAUNCH_DOMAIN=//p' .env | tail -1)
+extra=()
+[ -z "$PRELAUNCH_DOMAIN" ] || extra=(-d "$PRELAUNCH_DOMAIN")
+echo "  .env 齐全；域名：$APP_DOMAIN、$ADMIN_DOMAIN、$WWW_DOMAIN${PRELAUNCH_DOMAIN:+、$PRELAUNCH_DOMAIN}"
 
 echo "== 2/5 申请 HTTPS 证书（Let's Encrypt）"
 if [ ! -f /etc/letsencrypt/live/forecast/fullchain.pem ]; then
   # 一张证书包含三个域名。没有证书提醒邮箱时不留邮箱（续期照常自动进行）
   if [ -n "$CERT_EMAIL" ]; then contact=(-m "$CERT_EMAIL"); else contact=(--register-unsafely-without-email); fi
-  certbot certonly --standalone -n --agree-tos "${contact[@]}" --cert-name forecast -d "$APP_DOMAIN" -d "$ADMIN_DOMAIN" -d "$WWW_DOMAIN"
+  certbot certonly --standalone -n --agree-tos "${contact[@]}" --cert-name forecast -d "$APP_DOMAIN" -d "$ADMIN_DOMAIN" -d "$WWW_DOMAIN" "${extra[@]}"
 else
-  echo "  已有证书，跳过（证书里缺域名时按部署方案 部署方案/v1-测试环境与切换.md 第 8 节扩展）"
+  echo "  已有证书，跳过（证书里缺域名时按部署方案 部署方案/v1-测试环境与切换.md 第 8 节扩展；对外预热域名用 sudo fc add-domain）"
 fi
 
 echo "== 3/5 启动 staging 最新版本（第一次要下载镜像，约 2–5 分钟）"

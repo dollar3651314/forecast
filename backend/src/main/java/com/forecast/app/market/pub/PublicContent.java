@@ -114,14 +114,22 @@ public class PublicContent {
 
   public record Section(String id, String heading, List<String> items) {}
 
+  private Section section(JsonNode s) {
+    List<String> items = new ArrayList<>();
+    for (JsonNode i : s.path("items")) items.add(fill(i.asString(), Map.of()));
+    return new Section(s.path("id").asString(), fill(s.path("heading").asString(), Map.of()), items);
+  }
+
   public HowTo howTo(String rawLang) {
     String lang = lang(rawLang);
     JsonNode h = root.path(lang).path("howto");
     List<Section> sections = new ArrayList<>();
     for (JsonNode s : h.path("sections")) {
-      List<String> items = new ArrayList<>();
-      for (JsonNode i : s.path("items")) items.add(fill(i.asString(), Map.of()));
-      sections.add(new Section(s.path("id").asString(), fill(s.path("heading").asString(), Map.of()), items));
+      sections.add(section(s));
+      // S18（P2）：只在这种语言显示的段落（例如繁中的台湾入金教程）插在 after 指的那一段后面
+      for (JsonNode x : root.path("local").path(lang).path("howto").path("sections")) {
+        if (s.path("id").asString().equals(x.path("after").asString())) sections.add(section(x));
+      }
     }
     return new HowTo(lang, text(lang, "howto.title"), text(lang, "howto.description"), text(lang, "howto.h1"), text(lang, "howto.intro"), sections, facts());
   }

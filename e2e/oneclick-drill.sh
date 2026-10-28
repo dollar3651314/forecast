@@ -12,6 +12,8 @@
 #   ③再运行一次：全部跳过、容器没有重启 ④fc to-oldproj、fc to-forecast 来回切换（各自备份、定时器原样恢复）
 #   ⑤fc keys、fc set-key（隐藏输入、写进 .env、reload-env 生效、值不出现在任何输出和日志里；变量名打错有提示）
 #   ⑥另一个项目的备份失败 → fc to-forecast 停下，不停它的容器、定时器恢复。
+#   ⑦（S18）sudo fc add-domain 对外预热域名：DNS 没指向本机 → 第 1 步停下、什么都没改；指好以后 → 扩展证书（webroot，Nginx 不停）、写进 .env、
+#     重新加载、自己验证（根路径是等候页、没有测试环境标识）；再运行一次 → 全部跳过、证书不重新申请；测试环境三个域名照旧。
 # 用法：sudo bash e2e/oneclick-drill.sh
 #   需要 root、Docker（含 compose 插件）、script（util-linux）、openssl；本机已有 ghcr.io/dollar3651314/forecast-{web,app}:${E2E_IMAGE_TAG:-e2e-local}
 #   （例如刚跑完 e2e/run-deployed.sh）；80、443、8080 空着；/opt/forecast、/opt/oldproj 等不存在（不碰已有的东西）。
@@ -26,6 +28,7 @@ REG=ghcr.io/dollar3651314/forecast
 TAG=${E2E_IMAGE_TAG:-e2e-local}
 OUT=$ROOT/e2e/logs/oneclick
 DOMAINS="fc-test.oneclick.test fc-test-admin.oneclick.test fc-test-www.oneclick.test"
+PRELAUNCH=www.oneclick.test
 SECRET_VALUE="ci_only_drill_gemini_value_$(openssl rand -hex 6)"
 die() { echo "错误：$*" >&2; exit 2; }
 pass() { echo "  ✔ $*"; }
@@ -161,15 +164,18 @@ cat > "$WORK/bin/certbot" << 'SH'
 # 演练用的 certbot 替身：用本次演练的 CA 签一张包含 -d 各域名的证书，路径和 Let's Encrypt 一样
 LE=/etc/letsencrypt
 cmd=$1; shift
-name="" doms=()
+name="" doms=() webroot=""
 while [ $# -gt 0 ]; do
-  case $1 in --cert-name) name=$2; shift ;; -d) doms+=("$2"); shift ;; esac
+  case $1 in --cert-name) name=$2; shift ;; -d) doms+=("$2"); shift ;; --webroot) webroot=1 ;; esac
   shift
 done
 case $cmd in
   certonly)
     if [ -f "$FAKE_SD/../certbot-fail" ]; then echo "Certbot failed to authenticate some domains (演练：模拟 DNS 还没生效)"; exit 1; fi
-    if (exec 3<> /dev/tcp/127.0.0.1/80) 2> /dev/null; then echo "Could not bind TCP port 80 because it is already in use"; exit 1; fi
+    # --standalone 要自己占 80 端口；--webroot（S18 fc add-domain 扩展证书）由正在运行的 Nginx 回答验证，要有验证目录
+    if [ -z "$webroot" ] && (exec 3<> /dev/tcp/127.0.0.1/80) 2> /dev/null; then echo "Could not bind TCP port 80 because it is already in use"; exit 1; fi
+    if [ -n "$webroot" ] && [ ! -d /var/www/certbot ]; then echo "webroot 目录不存在"; exit 1; fi
+    echo "${doms[*]}" >> "$FAKE_SD/../certbot-calls"
     d=$LE/live/$name; mkdir -p "$d" "$LE/renewal"
     san=$(printf 'DNS:%s,' "${doms[@]}"); san=${san%,}
     openssl req -newkey rsa:2048 -nodes -subj "/CN=${doms[0]}" -keyout "$d/privkey.pem" -out "$FAKE_SD/../leaf.csr" 2> /dev/null
@@ -177,7 +183,7 @@ case $cmd in
     openssl x509 -req -in "$FAKE_SD/../leaf.csr" -CA "$FAKE_SD/../ca.pem" -CAkey "$FAKE_SD/../ca.key" -CAcreateserial -days 90 \
       -extfile "$FAKE_SD/../leaf.ext" -out "$d/cert.pem" 2> /dev/null
     cat "$d/cert.pem" "$FAKE_SD/../ca.pem" > "$d/fullchain.pem"
-    printf 'authenticator = standalone\n' > "$LE/renewal/$name.conf"
+    if [ -n "$webroot" ]; then printf 'authenticator = webroot\n' > "$LE/renewal/$name.conf"; else printf 'authenticator = standalone\n' > "$LE/renewal/$name.conf"; fi
     echo "Successfully received certificate.（演练替身）" ;;
   reconfigure) sed -i 's/^authenticator = .*/authenticator = webroot/' "$LE/renewal/$name.conf"; echo "已改成 webroot（演练替身）" ;;
   certificates) for c in "$LE"/live/*/cert.pem; do echo "Certificate Name: $(basename "$(dirname "$c")")"; done ;;
@@ -397,4 +403,41 @@ fcx to-forecast > /dev/null || bad "修好后 fc to-forecast 应该成功"
 sys_timer_untouched "$OUT/fc.txt"
 pass "备份失败：没有停 oldproj 的容器、定时器恢复；修好后再切换成功"
 no_secret_anywhere
+# ---------- ⑦ fc add-domain（S18）----------
+say "⑦ fc add-domain $PRELAUNCH"
+: > "$WORK/certbot-calls"
+if fcx add-domain "$PRELAUNCH"; then bad "DNS 没指向本机时应该停下"; fi
+grep -q "✗ 第 1 步：$PRELAUNCH 查不到 IP" "$OUT/fc.txt" || bad "没有说出 DNS 的问题"
+grep -q "仅 DNS" "$OUT/fc.txt" || bad "没有提示 Cloudflare 选仅 DNS"
+[ -z "$(sed -n 's/^PRELAUNCH_DOMAIN=//p' /opt/forecast/.env)" ] || bad "第 1 步失败时不应该改 .env"
+[ ! -s "$WORK/certbot-calls" ] || bad "第 1 步失败时不应该申请证书"
+pass "DNS 没指好：停在第 1 步，什么都没改"
+echo "127.0.0.1 $PRELAUNCH # oneclick-drill" >> /etc/hosts
+before_app=$(docker inspect -f '{{.State.StartedAt}}' forecast-mysql-1)
+fcx add-domain "$PRELAUNCH" || { tail -30 "$OUT/fc.txt"; bad "fc add-domain 失败"; }
+for s in '✓ 第 1 步：DNS' '✓ 第 2 步：证书——已扩展' '✓ 第 3 步：配置——已写进 .env' '✓ 第 4 步：验证'; do grep -q "$s" "$OUT/fc.txt" || bad "没有：$s"; done
+[ "$(sed -n 's/^PRELAUNCH_DOMAIN=//p' /opt/forecast/.env)" = "$PRELAUNCH" ] || bad ".env 里没有 PRELAUNCH_DOMAIN"
+[ "$(stat -c %a /opt/forecast/.env)" = 600 ] || bad ".env 的权限不是 600"
+grep -q "$PRELAUNCH" "$WORK/certbot-calls" || bad "没有扩展证书"
+for d in $DOMAINS; do grep -q "$d" "$WORK/certbot-calls" || bad "扩展证书时丢了 $d"; done
+grep -q '^authenticator = webroot' /etc/letsencrypt/renewal/forecast.conf || bad "续期方式应该还是 webroot"
+[ "$before_app" = "$(docker inspect -f '{{.State.StartedAt}}' forecast-mysql-1)" ] || bad "数据库容器不应该重启"
+page=$(curl -s --noproxy '*' --resolve "$PRELAUNCH:443:127.0.0.1" "https://$PRELAUNCH/")
+case "$page" in *'name="fc-site-mode" content="prelaunch"'*) ;; *) bad "预热域名的根路径不是等候页" ;; esac
+curl -s --noproxy '*' --resolve "$PRELAUNCH:443:127.0.0.1" "https://$PRELAUNCH/api/health" | grep -q '"env"' && bad "预热域名的健康检查不应该有 env"
+for d in $DOMAINS; do
+  [ "$(curl -sL --max-redirs 3 --noproxy '*' -o /dev/null -w '%{http_code}' --resolve "$d:443:127.0.0.1" "https://$d/")" = 200 ] || bad "测试环境的 $d 打不开了"
+done
+read -r APPD _ <<< "$DOMAINS"
+curl -s --noproxy '*' --resolve "$APPD:443:127.0.0.1" "https://$APPD/api/health" | grep -q '"env":"test"' || bad "客户端域名应该照旧有测试环境标识"
+pass "加好：证书包含 4 个域名（webroot，续期方式不变）、.env、Nginx 和后端用上；预热域名是等候页、没有 env；测试环境三个域名照旧"
+: > "$WORK/certbot-calls"
+fcx add-domain "$PRELAUNCH" > /dev/null || bad "再运行一次应该成功"
+grep -q '✓ 第 2 步：证书——已经包含' "$OUT/fc.txt" || bad "再运行时证书应该跳过"
+grep -q '✓ 第 3 步：配置——.env 里已经是' "$OUT/fc.txt" || bad "再运行时配置应该跳过"
+[ ! -s "$WORK/certbot-calls" ] || bad "再运行时不应该重新申请证书"
+if fcx add-domain www2.oneclick.test; then bad "已经有预热域名时换另一个应该停下"; fi
+grep -q '已经配了预热域名' "$OUT/fc.txt" || bad "没有说明只能有一个预热域名"
+no_secret_anywhere
+pass "再运行：全部跳过、证书不重新申请；换别的域名会停下说明"
 say "演练全部通过"

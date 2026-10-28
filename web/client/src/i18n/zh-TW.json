@@ -44,7 +44,7 @@
       "slow": "介面很慢",
       "error": "介面出錯"
     },
-    "kyc": "身份認證狀態（模擬後臺稽覈）",
+    "kyc": "身分認證狀態（模擬後台審核）",
     "push": "模擬推送",
     "pushKinds": {
       "deposit": "充值到帳",
@@ -62,8 +62,8 @@
   "auth": {
     "loginTitle": "登入 {{brand}}",
     "loginSubtitle": "USDT 預測市場（彩池）",
-    "loginProtoHint": "原型：任意郵箱和 8 位以上密碼都能登入；密碼填 wrongpass1 可檢視\"密碼錯誤\"，郵箱含 locked 可檢視\"帳號已鎖定\"。",
-    "email": "郵箱",
+    "loginProtoHint": "原型：任意電子信箱和 8 位以上密碼都能登入；密碼填 wrongpass1 可檢視\"密碼錯誤\"，電子信箱含 locked 可檢視\"帳號已鎖定\"。",
+    "email": "電子信箱",
     "password": "密碼",
     "forgot": "忘記密碼",
     "login": "登入",
@@ -73,12 +73,12 @@
     "haveAccount": "已有帳號？",
     "goLogin": "登入",
     "registerTitle": "註冊帳號",
-    "registerSubtitle": "用郵箱驗證碼完成註冊，提現前再做身份認證",
+    "registerSubtitle": "用電子信箱驗證碼完成註冊，提現前再做身分認證",
     "sendCode": "傳送驗證碼",
     "sending": "傳送中…",
     "resend": "重新傳送",
     "resendIn": "{{s}} 秒後重發",
-    "code": "郵箱驗證碼",
+    "code": "電子信箱驗證碼",
     "codeProtoHint": "原型：驗證碼為 {{code}}",
     "codeSent": "驗證碼已傳送到 {{email}}（原型：驗證碼為 {{code}}）",
     "passwordRule": "8–64 位，至少包含字母和數字",
@@ -86,7 +86,7 @@
     "newPassword": "新密碼",
     "register": "註冊",
     "forgotTitle": "重置密碼",
-    "forgotSubtitle": "透過郵箱驗證碼設定新密碼，其他裝置上的登入將全部失效",
+    "forgotSubtitle": "透過電子信箱驗證碼設定新密碼，其他裝置上的登入將全部失效",
     "resetSubmit": "重置密碼",
     "resetDone": "密碼已重置",
     "resetDoneBody": "請用新密碼登入",
@@ -105,7 +105,7 @@
     "name": "姓名",
     "registeredAt": "註冊時間",
     "saved": "資料已儲存",
-    "kycNote": "身份認證透過後，姓名和出生日期需與證件一致。"
+    "kycNote": "身分認證通過後，姓名和出生日期需與證件一致。"
   },
   "assets": {
     "deposit": "充值",
@@ -126,8 +126,8 @@
       "TRC20": "波場 TRON",
       "BSC": "BNB Chain"
     },
-    "pickFirst": "請先選擇網路，再顯示對應的充值地址和二維碼。",
-    "qrLabel": "{{network}} 充值地址二維碼",
+    "pickFirst": "請先選擇網路，再顯示對應的充值地址和 QR Code。",
+    "qrLabel": "{{network}} 充值地址 QR Code",
     "copied": "地址已複製",
     "copyFailed": "複製失敗，請長按地址手動複製",
     "sameAddress": "ERC20 和 BSC 使用同一個地址，轉帳時請選對網路。",
@@ -198,14 +198,14 @@
   },
   "withdraw": {
     "title": "提現 USDT",
-    "kycApproved": "身份認證已透過",
+    "kycApproved": "身分認證已通過",
     "canWithdraw": "可以提現",
-    "kycNeedTitle": "提現前需要完成身份認證",
+    "kycNeedTitle": "提現前需要完成身分認證",
     "kycNeed": {
-      "none": "你還沒有提交身份認證。認證透過後才能提現，註冊和充值不受影響。",
-      "pending": "身份認證稽覈中，通常 1 個工作日內完成，透過後即可提現。",
+      "none": "你還沒有提交身分認證。認證通過後才能提現，註冊和充值不受影響。",
+      "pending": "身分認證審核中，通常 1 個工作日內完成，通過後即可提現。",
       "approved": "",
-      "rejected": "身份認證被駁回，請檢視原因後重新提交。"
+      "rejected": "身分認證被駁回，請檢視原因後重新提交。"
     },
     "goKyc": "去認證",
     "viewKyc": "檢視進度",
@@ -222,13 +222,13 @@
     "receive": "實際到帳",
     "limits": "單筆 {{min}} – {{max}} · 今日已用",
     "dailyUsed": "今日已用額度",
-    "largeNotice": "單筆 ≥{{amount}} USDT 稽覈透過後會再延遲 {{h}} 小時上鍊。",
+    "largeNotice": "單筆 ≥{{amount}} USDT 審核通過後會再延遲 {{h}} 小時上鍊。",
     "process": "提現流程",
     "step1": "提交",
     "step2": "{{h}} 小時冷靜期，可撤銷",
-    "step3": "人工稽覈",
+    "step3": "人工審核",
     "step4": "上鍊轉出",
-    "processNote": "單筆 ≥{{amount}} USDT 稽覈透過後再延遲 {{h}} 小時上鍊，延遲期內可聯絡客服緊急取消。上鍊失敗自動退回餘額。",
+    "processNote": "單筆 ≥{{amount}} USDT 審核通過後再延遲 {{h}} 小時上鍊，延遲期內可聯絡客服緊急取消。上鍊失敗自動退回餘額。",
     "submit": "提交提現",
     "confirmTitle": "確認提現",
     "confirm": "確認提交",
@@ -240,7 +240,7 @@
     "recordsEmpty": "暫無提現記錄",
     "status": {
       "cooling": "冷靜期中",
-      "reviewing": "待稽覈",
+      "reviewing": "待審核",
       "approved": "已批准",
       "delayed": "已批准 · 延遲上鍊",
       "broadcasting": "上鍊中",
@@ -250,9 +250,9 @@
       "cancelled": "已撤銷"
     },
     "rec": {
-      "coolingLeft": "{{time}} 後進入稽覈",
-      "coolingDone": "即將進入稽覈",
-      "reviewing": "等待人工稽覈",
+      "coolingLeft": "{{time}} 後進入審核",
+      "coolingDone": "即將進入審核",
+      "reviewing": "等待人工審核",
       "approved": "等待上鍊",
       "delayed": "預計 {{time}} 上鍊",
       "tx": "交易號 {{hash}}",
@@ -296,7 +296,7 @@
   "me": {
     "account": "帳戶",
     "profile": "個人資料",
-    "kyc": "身份認證",
+    "kyc": "身分認證",
     "notifications": "通知中心",
     "notifyPrefs": "通知偏好",
     "changePassword": "修改密碼",
@@ -320,22 +320,22 @@
     "risk": "風險揭露"
   },
   "kyc": {
-    "intro": "只在提現前需要身份認證；註冊和充值不受影響。",
+    "intro": "只在提現前需要身分認證；註冊和充值不受影響。",
     "status": {
       "none": "未提交",
-      "pending": "稽覈中",
-      "approved": "已透過",
+      "pending": "審核中",
+      "approved": "已通過",
       "rejected": "被駁回"
     },
     "statusDesc": {
       "none": "請提交證件資訊",
       "pending": "通常 1 個工作日內完成，結果會透過站內信、推送和郵件通知你。",
-      "approved": "你已完成身份認證，可以提現。",
+      "approved": "你已完成身分認證，可以提現。",
       "rejected": "請根據駁回原因重新提交。"
     },
     "rejectReason": "駁回原因：",
     "docType": "證件型別",
-    "idCard": "身份證",
+    "idCard": "身分證",
     "passport": "護照",
     "docNumber": "證件號",
     "idCardHint": "18 位，最後一位可以是 X",
@@ -346,11 +346,11 @@
       "selfie": "手持證件自拍"
     },
     "uploadHint": "點選上傳 JPG/PNG，≤2MB",
-    "privacy": "證件照片加密儲存在私有儲存中，只用於身份稽覈。",
-    "submit": "提交稽覈",
-    "submitted": "已提交，等待稽覈",
+    "privacy": "證件照片加密儲存在私有儲存中，只用於身分審核。",
+    "submit": "提交審核",
+    "submitted": "已提交，等待審核",
     "submittedAt": "提交時間",
-    "reviewedAt": "稽覈時間"
+    "reviewedAt": "審核時間"
   },
   "notifications": {
     "empty": "暫無通知",
@@ -371,7 +371,7 @@
     "push": "推送通知",
     "pushDesc": "結算、公示、退款、充值提現和認證結果推送到手機或瀏覽器（下注成功、補充說明只發站內信）",
     "email": "郵件通知",
-    "emailDesc": "充值提現、認證結果、退款、補償和你訂閱的開賽提醒發到你的郵箱（結算結果不發郵件）",
+    "emailDesc": "充值提現、認證結果、退款、補償和你訂閱的開賽提醒發到你的電子信箱（結算結果不發郵件）",
     "inbox": "站內信",
     "inboxDesc": "站內信始終開啟",
     "browserPerm": "瀏覽器通知許可權",
@@ -409,24 +409,24 @@
     "server": "服務暫時不可用，請稍後重試",
     "timeout": "請求超時，請重試",
     "unauthorized": "登入已失效，請重新登入",
-    "invalidCredentials": "郵箱或密碼錯誤",
+    "invalidCredentials": "電子信箱或密碼錯誤",
     "accountLocked": "登入失敗次數過多，帳號已臨時鎖定，請 15 分鐘後再試",
-    "emailTaken": "該郵箱已註冊，請直接登入",
+    "emailTaken": "該電子信箱已註冊，請直接登入",
     "codeInvalid": "驗證碼錯誤或已過期",
     "codeTooFrequent": "傳送太頻繁，請等倒計時結束後再試",
     "rateLimited": "操作太頻繁，請稍後再試",
     "passwordWrong": "原密碼錯誤",
-    "kycRequired": "請先完成身份認證",
+    "kycRequired": "請先完成身分認證",
     "whitelistFull": "白名單最多 10 個地址",
     "whitelistDuplicate": "該地址已在白名單中",
     "withdrawNotCancellable": "冷靜期已過，不能撤銷",
     "withdrawInvalid": "提現資訊不符合要求",
     "notFound": "記錄不存在或已變化，請重新整理",
     "accountFrozen": "帳戶已被凍結，請聯絡客服",
-    "kycPending": "身份認證正在稽覈中，請耐心等待",
-    "kycApproved": "身份認證已透過，不需要重複提交",
+    "kycPending": "身分認證正在審核中，請耐心等待",
+    "kycApproved": "身分認證已通過，不需要重複提交",
     "docNumberUsed": "該證件已被其他帳戶使用",
-    "profileLocked": "身份認證透過後不能修改資料",
+    "profileLocked": "身分認證通過後不能修改資料",
     "notWhitelisted": "請選擇白名單裡的地址",
     "whitelistNotActive": "該地址新增未滿 24 小時，暫不能使用",
     "withdrawBelowMin": "低於單筆最小提現金額",
@@ -456,13 +456,13 @@
     "reminderLoginRequired": "開賽提醒只對登入過的帳戶開放：登出後重新登入一次即可訂閱。",
     "reminderTooMany": "訂閱中的開賽提醒太多了（最多 100 個），請先在「通知偏好」裡退訂一些。",
     "cardNotAvailable": "這張卡片現在不能生成：挑戰卡只能為自己押過、還在下注期的選項生成，開獎卡只能為押中的已結算市場生成。",
-    "waitlistClosed": "已經正式上線，等候頁不再收郵箱，直接註冊即可。",
-    "waitlistLinkExpired": "確認連結已過期（7 天），請回資料頁重新留一次郵箱。"
+    "waitlistClosed": "已經正式上線，等候頁不再收電子信箱，直接註冊即可。",
+    "waitlistLinkExpired": "確認連結已過期（7 天），請回資料頁重新留一次電子信箱。"
   },
   "validation": {
     "fixAll": "請修改以上標紅的內容後再提交",
     "required": "必填",
-    "emailFormat": "郵箱格式不正確",
+    "emailFormat": "電子信箱格式不正確",
     "passwordLength": "密碼長度需要 8–64 位",
     "passwordMix": "密碼需要同時包含字母和數字",
     "passwordMismatch": "兩次輸入的密碼不一致",
@@ -477,7 +477,7 @@
     "ageUnder18": "需年滿 18 週歲",
     "mustAgree": "請閱讀並同意條款",
     "positiveNumber": "請輸入大於 0 的數字",
-    "kycRequired": "請先完成身份認證",
+    "kycRequired": "請先完成身分認證",
     "selectAddress": "請選擇白名單地址",
     "addressNotActive": "該地址新增未滿 24 小時，暫不能使用",
     "amountDigits": "金額最多 2 位小數",
@@ -490,7 +490,7 @@
     "addressDuplicate": "該地址已在白名單中",
     "labelTooLong": "備註最多 30 個字",
     "whitelistFull": "白名單已滿 10 個，請先刪除不用的地址",
-    "idCardFormat": "身份證號為 18 位，最後一位可以是 X",
+    "idCardFormat": "身分證號為 18 位，最後一位可以是 X",
     "passportFormat": "護照號為 6–12 位字母或數字",
     "fileType": "只支援 JPG 或 PNG",
     "fileSize": "檔案不能超過 2MB",
@@ -546,13 +546,13 @@
     "kycNow": "現在去認證",
     "depositNow": "現在去充值",
     "kyc": {
-      "title": "完成身份認證",
-      "body": "小額下注只要郵箱；累計充值超過認證門檻（預設 1,000 USDT）或提現前，需要證件 + 手持證件自拍，一般 1 個工作日內審核完。",
+      "title": "完成身分認證",
+      "body": "小額下注只要電子信箱；累計充值超過認證門檻（預設 1,000 USDT）或提現前，需要證件 + 手持證件自拍，一般 1 個工作日內審核完。",
       "items": [
-        "身份證正反面或護照資訊頁",
+        "身分證正反面或護照資訊頁",
         "手持證件的自拍"
       ],
-      "note": "認證透過後才能提現。"
+      "note": "認證通過後才能提現。"
     },
     "deposit": {
       "title": "充值 USDT 開始",
@@ -865,7 +865,7 @@
     "reason": "理由",
     "reasonPh": "寫明你的依據（必填，最多 1,000 字）",
     "link": "參考連結（選填）",
-    "rule": "每個市場每人只能提交一次，不收押金；結論和理由會公開在市場詳情（不顯示你的身份）。",
+    "rule": "每個市場每人只能提交一次，不收押金；結論和理由會公開在市場詳情（不顯示你的身分）。",
     "submit": "提交爭議",
     "done": "爭議已提交",
     "doneBody": "24 小時內給出結論，會通知你。",
@@ -889,7 +889,7 @@
   },
   "remind": {
     "title": "開賽提醒",
-    "desc": "在還沒開放下注的市場詳情裡點「開放時提醒我」，開放下注時會給你的帳戶郵箱發一封郵件（只發一次，郵件裡也能退訂）。",
+    "desc": "在還沒開放下注的市場詳情裡點「開放時提醒我」，開放下注時會給你的帳戶電子信箱發一封郵件（只發一次，郵件裡也能退訂）。",
     "emailOff": "你關閉了郵件通知，開賽提醒不會發出。要收提醒請打開上面的「郵件」。",
     "empty": "還沒有訂閱開賽提醒",
     "emptyHint": "在還沒開放下注的市場裡訂閱。",
@@ -899,7 +899,7 @@
     "active": "已訂閱開賽提醒，開放下注時發郵件給你。",
     "unsubscribe": "退訂",
     "unsubscribed": "已退訂開賽提醒",
-    "sent": "開賽提醒已發到你的郵箱。",
+    "sent": "開賽提醒已發到你的電子信箱。",
     "closed": "已經開放下注，不再需要提醒。",
     "missed": "這個市場在開放前已經結束，提醒沒有發出。",
     "needLogin": "開賽提醒只對登入過的帳戶開放：登出後重新登入一次即可訂閱。",
@@ -936,7 +936,7 @@
     "weekly": "週報",
     "howTo": "怎麼玩、怎麼充、怎麼提",
     "toMarkets": "去看市場",
-    "insights": "數據和文章",
+    "insights": "資料和文章",
     "data": "資料"
   },
   "res": {
@@ -1001,17 +1001,17 @@
     "refNote": "連結裡帶一個隨機分享碼（不是你的客戶編號），只用於統計來源，不發任何獎勵"
   },
   "ins": {
-    "title": "數據和文章",
+    "title": "資料和文章",
     "intro": "焦點戰的即時獎池、BTC 每小時漲跌統計和玩法文章。文字都經人工審核，數字來自本站獎池和公開行情。",
     "empty": "還沒有頁面",
     "updated": "更新於 {{at}}",
     "published": "發布於 {{at}}",
     "fallback": "這篇還沒有目前語言的版本，先顯示另一種語言。",
-    "disclaimer": "本頁只陳述數據，不預測結果，也不構成任何建議。",
+    "disclaimer": "本頁只陳述資料，不預測結果，也不構成任何建議。",
     "total": "獎池合計",
     "bettors": "下注人數",
     "closeAt": "截止下注",
-    "poolNote": "獎池隨下注變化，最終以截止時為準（數據時間 {{at}}）。",
+    "poolNote": "獎池隨下注變化，最終以截止時為準（資料時間 {{at}}）。",
     "toMarket": "去看這個市場",
     "kind": {
       "FOCUS": "焦點戰",
@@ -1028,7 +1028,7 @@
       "upDays": "收漲天數",
       "pct": "比例",
       "rule": "口徑和本站 BTC 市場一樣：一小時的收盤價 ≥ 開盤價算漲（相等也算漲），否則算跌。",
-      "source": "數據來源：{{source}}；{{from}} 到 {{to}}，共 {{bars}} 根 1 小時 K 線；取數時間 {{at}}。"
+      "source": "資料來源：{{source}}；{{from}} 到 {{to}}，共 {{bars}} 根 1 小時 K 線；取數時間 {{at}}。"
     }
   },
   "data": {
@@ -1051,8 +1051,8 @@
     "pool": "獎池 {{pool}} USDT · {{n}} 人下注",
     "upcoming": "還沒開放下注",
     "launchTitle": "即將上線",
-    "launchText": "正式上線後，這裡顯示每天的場次和兩邊的人數、機率。留下郵箱，上線時我們只發一封郵件通知你，不發其他郵件，隨時可以退訂。",
-    "wlEmail": "郵箱",
+    "launchText": "正式上線後，這裡顯示每天的場次和兩邊的人數、機率。留下電子信箱，上線時我們只發一封郵件通知你，不發其他郵件，隨時可以退訂。",
+    "wlEmail": "電子信箱",
     "wlHint": "提交後會收到一封確認郵件，點裡面的連結確認才算訂閱。",
     "wlSubmit": "上線時通知我",
     "wlDoneTitle": "請查收郵件",
@@ -1062,13 +1062,19 @@
     "tgChannelEn": "英文頻道",
     "tgBot": "機器人",
     "confirmTitle": "確認訂閱上線通知",
-    "confirmText": "點下面的按鈕確認：正式上線時我們給這個郵箱發一封通知，只發這一封。",
+    "confirmText": "點下面的按鈕確認：正式上線時我們給這個電子信箱發一封通知，只發這一封。",
     "confirmBtn": "確認訂閱",
     "confirmed": "已確認。正式上線時我們會發一封郵件通知你；不想收了，點郵件裡的退訂連結即可。",
-    "confirmUnsubscribed": "這個郵箱已經退訂了。想再訂閱，回資料頁重新留一次郵箱。",
+    "confirmUnsubscribed": "這個電子信箱已經退訂了。想再訂閱，回資料頁重新留一次電子信箱。",
     "linkInvalid": "連結無效，請確認是從郵件裡完整打開的。",
     "backToData": "回到資料頁",
     "unsubTitle": "退訂上線通知",
-    "unsubDone": "已退訂，之後不會再因為等候頁給這個郵箱發郵件。"
+    "unsubDone": "已退訂，之後不會再因為等候頁給這個電子信箱發郵件。"
+  },
+  "prelaunch": {
+    "title": "{{brand}} 即將上線",
+    "sub": "用 USDT 預測足球、NBA、加密貨幣漲跌和經濟時事的結果。上線前先看看 BTC 每小時的漲跌資料，留個電子信箱，上線時只通知你一次。",
+    "prepareTitle": "先準備 USDT",
+    "prepareNote": "正式上線後才會有你自己的充值地址（在「資產 → 充值」）；現在可以先在交易所準備好 USDT。"
   }
 }

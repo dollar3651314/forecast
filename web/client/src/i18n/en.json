@@ -1070,5 +1070,11 @@
     "backToData": "Back to the data page",
     "unsubTitle": "Unsubscribe from the launch notice",
     "unsubDone": "Unsubscribed. We will not email this address because of the waitlist again."
+  },
+  "prelaunch": {
+    "title": "{{brand}} is launching soon",
+    "sub": "Predict the outcome of football, NBA, crypto moves and economic events with USDT. Before launch, check the hourly BTC up/down data and leave your email: we will notify you once when we go live.",
+    "prepareTitle": "Get USDT ready",
+    "prepareNote": "Your own deposit address appears after launch (Assets → Deposit). You can get USDT ready on an exchange now."
   }
 }

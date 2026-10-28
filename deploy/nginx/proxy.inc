@@ -18,3 +18,6 @@ proxy_set_header X-Fc-Health-Alerts $fc_health_alerts;
 proxy_set_header Upgrade $http_upgrade;
 proxy_set_header Connection $connection_upgrade;
 # 超时在各 location 里单独设（普通接口 120 秒，WebSocket 1 小时）
+# S18：哪一个 server 块接的请求（site.conf.template 里的 map $server_name $fc_site）。只有对外预热域名是 prelaunch，其余为空 = 不发这个头，
+# 并且覆盖掉客户端自己带的同名头（不能伪造）。后端见 common/web/PrelaunchSite
+proxy_set_header X-Fc-Site $fc_site;

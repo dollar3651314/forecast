@@ -194,6 +194,10 @@ forecast:
   # 客户端的地址（forecast S11）：邮件里的链接（#23 开赛提醒的市场链接、退订链接）用它拼成完整地址，例如 https://fc-test.quickcome.online；
   # 部署时由 compose 按 APP_DOMAIN 填（deploy/kit/docker-compose.yml）。没填时链接只有路径（邮件里点不开），健康检查不受影响
   client-url: ${FC_CLIENT_URL:}
+  # 对外预热域名（forecast S18，P1）：例如 www.quickcome.online，根路径就是等候页（Nginx 的 prelaunch server 块）。只写域名，不带 https://。
+  # 填了时，等候页确认邮件、上线通知里的"确认""退订"链接用这个域名（订阅者在哪个域名留的邮箱都一样），不带测试环境标识；
+  # 没填时用 client-url（和 S16 一样）。部署时由 compose 按 .env 的 PRELAUNCH_DOMAIN 填（sudo fc add-domain 写进 .env）
+  prelaunch-domain: ${FC_PRELAUNCH_DOMAIN:}
   # 不登录也能看（forecast S13，MF-4，需求 v1.3 第 5.1 节虚线框、NF-14：需求要求打开）：市场列表、今日场次、详情、开奖记录、周报、说明页、
   # 奖池推送不要求登录（只返回公开数据）。关掉（false）时和 S12 以前一样要登录，robots.txt 禁止收录。下注、我的下注、资产等一直要登录
   public-browse:

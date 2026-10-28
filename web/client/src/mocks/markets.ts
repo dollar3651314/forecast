@@ -1105,6 +1105,12 @@ const HOWTO: Record<Lang, Omit<HowToPage, 'lang' | 'facts'>> = {
     sections: [
       { id: 'play', heading: '怎麼玩', items: ['每個選項有自己的獎池。', '開獎後，沒押中的選項的獎池按押注比例分給押中的人；平台只對贏家的盈利部分抽成（預設 5%）。', '截止時只有一個選項有人押，這個市場作廢，所有下注全額退回。'] },
       { id: 'deposit', heading: '怎麼充', items: ['只收 USDT，支援 TRC20、ERC20、BSC（BEP20）。', '每個帳戶有自己的充值地址，區塊確認後自動到帳。'] },
+      // S18（P2）：繁中多一段台湾入金教程（后端 public-pages.json 的 local，插在"怎么充"后面）
+      {
+        id: 'deposit-tw',
+        heading: '在台灣用新台幣買 USDT（MAX、BitoPro）',
+        items: ['還沒有 USDT 的話，可以在台灣的交易所用新台幣買，例如 MAX 或 BitoPro。', '在交易所買好 USDT 後，提領到「資產 → 充值」顯示的地址，網路要和地址一致。'],
+      },
       { id: 'withdraw', heading: '怎麼提', items: ['單筆最少提現 100 USDT。', '提現前要完成身分認證（證件 + 人臉）。', '新地址 24 小時後生效；每筆提現有 2 小時冷靜期。'] },
     ],
   },
