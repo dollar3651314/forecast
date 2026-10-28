@@ -105,11 +105,12 @@
   </select>
 
   <!-- 充值 − 冲正（冲正在账本里是负数），以及最早一笔充值的入账时间（提现自动审批 R8、R9、R10）。
-       forecast S17A：测试入金 TEST_CREDIT 也当充值算（KYC 阈值、R8、"充了不玩就提"），测试环境才能走到这些风控；生产没有测试入金 -->
+       forecast S17A：测试入金 TEST_CREDIT 也当充值算（KYC 阈值、R8、"充了不玩就提"），测试环境才能走到这些风控；生产没有测试入金。
+       forecast S17B：人工加款里"充值未到账补入"（biz_type = ADJUST_DEPOSIT）也当充值算；其他类别不算（SQ-58） -->
   <select id="depositsSince" resultType="com.forecast.app.ledger.service.LedgerMapper$DepositRow">
-    SELECT COALESCE(SUM(l.amount), 0) AS net, MIN(CASE WHEN l.entry_type IN ('DEPOSIT', 'TEST_CREDIT') THEN l.created_at END) AS first_at
+    SELECT COALESCE(SUM(l.amount), 0) AS net, MIN(CASE WHEN l.entry_type IN ('DEPOSIT', 'TEST_CREDIT', 'MANUAL_CREDIT') THEN l.created_at END) AS first_at
     FROM ledger_entry l JOIN ledger_account a ON a.id = l.account_id
-    WHERE a.user_id = #{userId} AND l.bucket = 'AVAILABLE' AND l.entry_type IN ('DEPOSIT', 'DEPOSIT_REVERSAL', 'TEST_CREDIT')
+    WHERE a.user_id = #{userId} AND l.bucket = 'AVAILABLE' AND (l.entry_type IN ('DEPOSIT', 'DEPOSIT_REVERSAL', 'TEST_CREDIT') OR (l.entry_type = 'MANUAL_CREDIT' AND l.biz_type = 'ADJUST_DEPOSIT'))
     <if test="since != null">AND l.created_at &gt;= #{since}</if>
   </select>
 
@@ -179,5 +180,11 @@
     FROM ledger_account a LEFT JOIN ledger_entry l ON l.account_id = a.id
     WHERE a.user_id IS NULL
     GROUP BY a.id, a.kind, a.available
+  </select>
+
+  <!-- 客户端流水里人工调账的类别（forecast S17B）：账本记录的 biz_id 是调账单 id -->
+  <select id="adjustCategories" resultType="com.forecast.app.ledger.service.LedgerMapper$CategoryRow">
+    SELECT CAST(id AS CHAR) AS id, category FROM ledger_adjust
+    WHERE id IN <foreach collection="ids" item="i" open="(" separator="," close=")">#{i}</foreach>
   </select>
 </mapper>

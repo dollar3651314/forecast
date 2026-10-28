@@ -169,6 +169,12 @@ public enum ConfigKey {
    * 测试入金只在测试环境（FC_ENV_LABEL=test）能用；生产上这一项照样能看能改，但没有任何作用
    */
   TEST_CREDIT_MAX("adjust.testCreditMax", Unit.USDT, "adjust", new BigDecimal("0.01"), new BigDecimal("1000000000"), 2, Params.BETTING),
+  /**
+   * forecast S17B：人工调账的单笔上限（默认 10,000 USDT，迁移 V30）。超过时确认框里要再勾一次"我确认超过单笔上限"（SQ-57）。参数设置"余额调整"一组
+   */
+  MANUAL_ADJUST_MAX("adjust.manualMax", Unit.USDT, "adjust", new BigDecimal("0.01"), new BigDecimal("1000000000"), 2, Params.BETTING),
+  /** forecast S17B：风控告警"同一客户 24 小时内人工加款累计超过"这个金额（默认 10,000 USDT，迁移 V30，SQ-59）。参数设置"风控"一组 */
+  RISK_MANUAL_CREDIT_DAY("risk.manualCredit.dayAmount", Unit.USDT, "risk", new BigDecimal("0.01"), new BigDecimal("1000000000"), 2, Params.BETTING),
   /*
    * ---------- forecast S12b：告警邮件（Amos 2026-10-27："告警邮件，我可以在什么地方控制 是否发送"；迁移 V28；参数设置页"告警邮件"一组，alert_params:edit） ----------
    * 只管监控告警邮件（通知模块 AlertMonitor，收件人 FC_ALERT_EMAILS）；健康检查 /api/health 的 alerts 不受影响。读取见 common.config.AlertMailConfig

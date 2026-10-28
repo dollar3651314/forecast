@@ -53,3 +53,31 @@ describe('资金流水：测试入金（S17A）', () => {
     await i18n.changeLanguage('zh-CN');
   });
 });
+
+// forecast S17B：人工调整（加款 / 扣款）带类别；三种语言
+describe('资金流水：人工调整（S17B）', () => {
+  const items: LedgerItem[] = [
+    { id: '11', type: 'adjustCredit', amount: '800', ref: '', time: '2026-10-27T10:00:00Z', market: null, category: 'deposit_missing' },
+    { id: '12', type: 'adjustDebit', amount: '-300', ref: '', time: '2026-10-27T11:00:00Z', market: null, category: 'wrong_credit' },
+  ];
+
+  it('简体：名字带类别，加款收入、扣款支出', () => {
+    renderPage(<LedgerList items={items} />, '/assets/ledger');
+    const rows = screen.getAllByRole('listitem');
+    expect(rows.map((r) => r.querySelector('b')?.textContent)).toEqual(['人工调整（加款） · 充值未到账补入', '人工调整（扣款） · 误入账扣回']);
+    expect(rows.map((r) => r.querySelector('.lg-ic')?.className)).toEqual(['lg-ic in', 'lg-ic out']);
+    expect(rows[1].querySelector('.lg-amt')?.textContent).toBe('-300.00');
+  });
+
+  it('繁体、英文', async () => {
+    const { default: i18n } = await import('../../i18n');
+    await i18n.changeLanguage('zh-TW');
+    const { unmount } = renderPage(<LedgerList items={items} />, '/assets/ledger');
+    expect(screen.getAllByRole('listitem')[0].querySelector('b')?.textContent).toBe('人工調整（加款） · 充值未到帳補入');
+    unmount();
+    await i18n.changeLanguage('en');
+    renderPage(<LedgerList items={items} />, '/assets/ledger');
+    expect(screen.getAllByRole('listitem')[1].querySelector('b')?.textContent).toBe('Manual adjustment (debit) · Erroneous credit reversed');
+    await i18n.changeLanguage('zh-CN');
+  });
+});

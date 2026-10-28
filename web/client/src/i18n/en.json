@@ -162,7 +162,9 @@
       "fee": "Fee",
       "refund": "Bet refund",
       "compensation": "Compensation",
-      "testCredit": "Test credit"
+      "testCredit": "Test credit",
+      "adjustCredit": "Manual adjustment (credit)",
+      "adjustDebit": "Manual adjustment (debit)"
     },
     "icon": {
       "deposit": "In",
@@ -173,7 +175,9 @@
       "fee": "Fee",
       "refund": "Back",
       "compensation": "Comp",
-      "testCredit": "Test"
+      "testCredit": "Test",
+      "adjustCredit": "Adj",
+      "adjustDebit": "Adj"
     },
     "range": {
       "7d": "7 days",
@@ -185,7 +189,12 @@
     "emptyHint": "Deposits will appear here once credited",
     "emptyFiltered": "No matching transactions",
     "emptyFilteredHint": "Try another type or date range",
-    "total": "{{total}} records"
+    "total": "{{total}} records",
+    "category": {
+      "deposit_missing": "Missing deposit credited",
+      "wrong_credit": "Erroneous credit reversed",
+      "other": "Other"
+    }
   },
   "withdraw": {
     "title": "Withdraw USDT",

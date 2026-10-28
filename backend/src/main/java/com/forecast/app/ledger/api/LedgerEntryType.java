@@ -1,6 +1,7 @@
 package com.forecast.app.ledger.api;
 
 import static com.forecast.app.ledger.api.AccountKind.PLATFORM_COMPENSATION;
+import static com.forecast.app.ledger.api.AccountKind.PLATFORM_MANUAL_ADJUST;
 import static com.forecast.app.ledger.api.AccountKind.PLATFORM_REVENUE;
 import static com.forecast.app.ledger.api.AccountKind.PLATFORM_TEST_CREDIT;
 import static com.forecast.app.ledger.api.AccountKind.USER;
@@ -50,6 +51,12 @@ public enum LedgerEntryType {
   /** 测试入金：可用 +x（幂等键 TEST_CREDIT : 测试入金单 id），和平台的 TEST_CREDIT_EXPENSE 对应 */
   TEST_CREDIT(USER, Map.of(AVAILABLE, 1)),
 
+  // ---------- 人工调账（forecast S17B，需求说明书第 21 节；生产可用） ----------
+  /** 人工加款：可用 +x（幂等键 MANUAL_ADJUST 或 MANUAL_ADJUST_DEP : 调账单 id），和平台的 MANUAL_ADJUST_OUT 对应 */
+  MANUAL_CREDIT(USER, Map.of(AVAILABLE, 1)),
+  /** 人工扣款：可用 −x（只扣可用余额，不动下注锁定、提现冻结；不够时拒绝），和平台的 MANUAL_ADJUST_IN 对应 */
+  MANUAL_DEBIT(USER, Map.of(AVAILABLE, -1)),
+
   // ---------- 平台账户 ----------
   /** 平台收入·抽成：平台收入账户 + */
   FEE_INCOME(PLATFORM_REVENUE, Map.of(AVAILABLE, 1)),
@@ -58,7 +65,11 @@ public enum LedgerEntryType {
   /** 平台补偿支出：补偿支出账户 −（可以为负） */
   COMPENSATION_EXPENSE(PLATFORM_COMPENSATION, Map.of(AVAILABLE, -1)),
   /** 测试入金的对手方：测试入金账户 −（可以为负，余额 = −累计测试入金；S17A） */
-  TEST_CREDIT_EXPENSE(PLATFORM_TEST_CREDIT, Map.of(AVAILABLE, -1));
+  TEST_CREDIT_EXPENSE(PLATFORM_TEST_CREDIT, Map.of(AVAILABLE, -1)),
+  /** 人工加款的对手方：人工调账账户 −x（S17B） */
+  MANUAL_ADJUST_OUT(PLATFORM_MANUAL_ADJUST, Map.of(AVAILABLE, -1)),
+  /** 人工扣款的对手方：人工调账账户 +x（S17B） */
+  MANUAL_ADJUST_IN(PLATFORM_MANUAL_ADJUST, Map.of(AVAILABLE, 1));
 
   /** 用在哪种账户 */
   public final AccountKind accountKind;

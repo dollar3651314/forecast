@@ -10,12 +10,12 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * 余额调整的单子只增不改（forecast S17）：测试入金单 ledger_test_credit（S17A）。全部 Mapper XML 里没有它们的 UPDATE、DELETE、TRUNCATE。
+ * 余额调整的单子只增不改（forecast S17）：测试入金单 ledger_test_credit（S17A）、人工调账单 ledger_adjust（S17B）。全部 Mapper XML 里没有它们的 UPDATE、DELETE、TRUNCATE。
  * 改错了只能再做一笔反方向的调整（和账本 ledger_entry 同一个规则，LedgerInvariantTest）。
  */
 class LedgerAdjustAppendOnlyTest {
 
-  static final List<String> TABLES = List.of("ledger_test_credit");
+  static final List<String> TABLES = List.of("ledger_test_credit", "ledger_adjust");
 
   @Test
   void 调整单只有INSERT() throws Exception {

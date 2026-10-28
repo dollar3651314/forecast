@@ -7,7 +7,7 @@
  *
  * High-risk confirmation dialog shared by every dangerous action.
  */
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Alert, Checkbox, Form, Input, Modal, Space, Typography } from 'antd';
 import { ExclamationCircleFilled } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
@@ -41,6 +41,14 @@ export function HighRiskModal({ open, title, description, extra, initialValues, 
   const [form] = Form.useForm();
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<unknown>(null);
+
+  // 每次打开都按这一次的初始值重置（同一个页面先后打开两种弹窗时，例如 S17B 先"人工加款"再"人工扣款"，
+  // Form 实例是同一个，只靠 initialValues 属性会留着上一次的初始值：扣款弹窗的类别没有选中）
+  useEffect(() => {
+    if (!open) return;
+    form.resetFields();
+    if (initialValues) form.setFieldsValue(initialValues);
+  }, [open, initialValues, form]);
 
   const handleOk = async () => {
     setSubmitError(null);

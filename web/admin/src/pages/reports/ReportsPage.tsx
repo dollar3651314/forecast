@@ -3,6 +3,7 @@
  * 选日期范围（最多 366 天），导出 CSV（在浏览器里生成，只含这张表的数字，不含客户信息）。
  * 下面按市场列出已完成的结算单（每个市场的平台收入），同样可以导出。
  * forecast S17A：测试入金单独一列（只在测试环境有），不进平台收入、不和补偿或真实充值混在一起。
+ * forecast S17B：人工加款、人工扣款各一张卡片、一列（单列，不进平台收入、不冲减补偿）。
  */
 import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -80,7 +81,7 @@ export function ReportsPage() {
             <Button
               icon={<DownloadOutlined />}
               disabled={!data?.days.length}
-              onClick={() => data && downloadCsv(`report-${from}_${to}.csv`, [[t('rp.date'), t('rp.fee'), t('rp.dust'), t('rp.revenue'), t('rp.comp'), t('rp.compN'), t('rp.testCredit'), t('rp.testCreditN')], ...data.days.map((d) => [d.date, d.feeIncome, d.dust, d.revenue, d.compensation, d.compensations, d.testCredit, d.testCredits])])}
+              onClick={() => data && downloadCsv(`report-${from}_${to}.csv`, [[t('rp.date'), t('rp.fee'), t('rp.dust'), t('rp.revenue'), t('rp.comp'), t('rp.compN'), t('rp.testCredit'), t('rp.testCreditN'), t('rp.manualCredit'), t('rp.manualDebit')], ...data.days.map((d) => [d.date, d.feeIncome, d.dust, d.revenue, d.compensation, d.compensations, d.testCredit, d.testCredits, d.manualCredit, d.manualDebit])])}
             >
               {t('rp.csv')}
             </Button>
@@ -125,6 +126,20 @@ export function ReportsPage() {
                 <span>{data ? t('rp.compCount', { n: data.testCredits }) : ''}</span>
               </div>
             </div>
+            <div className="card kpi" title={t('rp.manualHint')}>
+              <div className="k">{t('rp.manualCredit')}</div>
+              <div className="v">
+                <b>{data ? <Amount value={data.manualCredit} /> : '—'}</b>
+                <span>{data ? t('rp.compCount', { n: data.manualCredits }) : ''}</span>
+              </div>
+            </div>
+            <div className="card kpi" title={t('rp.manualHint')}>
+              <div className="k">{t('rp.manualDebit')}</div>
+              <div className="v">
+                <b>{data ? <Amount value={data.manualDebit} /> : '—'}</b>
+                <span>{data ? t('rp.compCount', { n: data.manualDebits }) : ''}</span>
+              </div>
+            </div>
           </section>
           <p className="muted rp-note">{t('rp.note')}</p>
           <Table<ReportDay>
@@ -143,6 +158,8 @@ export function ReportsPage() {
               { title: t('rp.revenue'), dataIndex: 'revenue', align: 'right', render: (v: string) => <Amount value={v} strong /> },
               { title: t('rp.comp'), dataIndex: 'compensation', align: 'right', render: (v: string) => <Amount value={v} /> },
               { title: t('rp.testCredit'), dataIndex: 'testCredit', align: 'right', render: (v: string) => <Amount value={v} /> },
+              { title: t('rp.manualCredit'), dataIndex: 'manualCredit', align: 'right', render: (v: string) => <Amount value={v} /> },
+              { title: t('rp.manualDebit'), dataIndex: 'manualDebit', align: 'right', render: (v: string) => <Amount value={v} /> },
             ]}
           />
         </>

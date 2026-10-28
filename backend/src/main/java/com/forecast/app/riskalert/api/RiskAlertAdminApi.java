@@ -10,8 +10,8 @@ import java.util.Optional;
 /** 后台的风控告警和关联账户（forecast S10，需求说明书第 6.2 节"风控告警"、"客户与 KYC"的关联账户）；权限和审计在 admin 模块。 */
 public interface RiskAlertAdminApi {
 
-  /** 告警类型：尾盘大额、关联账户对押、新账户押中冷门、充了不玩就提（需求第 8.1 节） */
-  List<String> KINDS = List.of("LATE_LARGE_BET", "LINKED_OPPOSITE", "NEW_ACCOUNT_LONGSHOT", "DEPOSIT_NO_BET");
+  /** 告警类型：尾盘大额、关联账户对押、新账户押中冷门、充了不玩就提（需求第 8.1 节）；24 小时人工加款累计超过阈值（S17B，需求第 21 节） */
+  List<String> KINDS = List.of("LATE_LARGE_BET", "LINKED_OPPOSITE", "NEW_ACCOUNT_LONGSHOT", "DEPOSIT_NO_BET", "MANUAL_CREDIT_LARGE");
 
   /** 处理状态：新、已查看、已处理、误报 */
   List<String> STATUSES = List.of("NEW", "SEEN", "HANDLED", "FALSE_POSITIVE");

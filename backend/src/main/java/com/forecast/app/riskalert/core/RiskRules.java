@@ -4,6 +4,7 @@ import com.forecast.app.account.api.AccountApi;
 import com.forecast.app.common.config.ConfigKey;
 import com.forecast.app.common.config.SystemConfig;
 import com.forecast.app.ledger.api.CustomerFlowApi;
+import com.forecast.app.ledger.api.ManualAdjustApi;
 import com.forecast.app.market.api.MarketApi;
 import com.forecast.app.pool.api.Odds;
 import com.forecast.app.pool.api.PoolApi;
@@ -42,6 +43,9 @@ import org.springframework.stereotype.Service;
  *       ≥ 倍数，且赢方里单笔 ≥ 金额、收到下注时注册不满 N 天的下注（默认 5 倍、1,000 USDT、7 天）。</li>
  *   <li><b>充了不玩就提</b> DEPOSIT_NO_BET：提现申请时，近 30 天的充值（扣冲正）以后的有效下注本金 &lt; 充值 × 提现自动审批 R8 的倍数（和 R8 同一个口径、同一个倍数；
  *       倍数是 0 时不检查）。R8 关着也照样告警。</li>
+ *   <li><b>24 小时人工加款累计过大</b> MANUAL_CREDIT_LARGE（forecast S17B，需求第 21 节，SQ-59）：一笔人工加款记账后，这个客户在
+ *       [这一笔的时间 − 24 小时, 这一笔的时间] 里的人工加款合计（含这一笔）超过阈值 {@code risk.manualCredit.dayAmount}（默认 10,000 USDT），
+ *       而不含这一笔时没超过——同一次越过只告警一次（ref = 这一笔调账单 id）；之后 24 小时内继续加款不再告警，直到窗口里的合计回落再越过。</li>
  * </ul>
  */
 @Service
@@ -61,8 +65,11 @@ public class RiskRules {
   private final PoolApi pool;
   private final AccountApi accounts;
   private final CustomerFlowApi flows;
+  private final ManualAdjustApi adjusts;
 
-  RiskRules(RiskMapper mapper, AlertBook alerts, SystemConfig config, MarketApi markets, PoolApi pool, AccountApi accounts, CustomerFlowApi flows) {
+  RiskRules(RiskMapper mapper, AlertBook alerts, SystemConfig config, MarketApi markets, PoolApi pool, AccountApi accounts, CustomerFlowApi flows,
+      ManualAdjustApi adjusts) {
+    this.adjusts = adjusts;
     this.mapper = mapper;
     this.alerts = alerts;
     this.config = config;
@@ -241,5 +248,25 @@ public class RiskRules {
         new String[] {"近 30 天充值 " + d.get("deposit") + "，之后有效下注只有 " + d.get("stake") + "（要求 " + d.get("multiple") + " 倍）就申请提现",
             "Requested a withdrawal after depositing " + d.get("deposit") + " in 30 days with only " + d.get("stake") + " in effective bets (required "
                 + d.get("multiple") + "x)"});
+  }
+
+  // =====================================================================
+  // 人工加款：24 小时累计过大（S17B）
+  // =====================================================================
+
+  static final Duration MANUAL_WINDOW = Duration.ofHours(24);
+
+  public void onManualCredit(ManualAdjustApi.CreditSignal c) {
+    BigDecimal limit = config.decimal(ConfigKey.RISK_MANUAL_CREDIT_DAY, new BigDecimal("10000"));
+    BigDecimal after = adjusts.creditedBetween(c.userId(), c.at().minus(MANUAL_WINDOW), c.at(), c.id());
+    BigDecimal before = after.subtract(c.amount());
+    if (after.compareTo(limit) <= 0 || before.compareTo(limit) > 0) return;
+    Map<String, String> d = new LinkedHashMap<>();
+    d.put("adjustNo", String.valueOf(c.adjustNo()));
+    d.put("total", AlertBook.money(after));
+    d.put("limit", AlertBook.money(limit));
+    alerts.raise("MANUAL_CREDIT_LARGE", c.userId(), null, "A:" + c.id(), after, d,
+        new String[] {"24 小时内人工加款累计 " + d.get("total") + "，超过阈值 " + d.get("limit"),
+            "Manual credits of " + d.get("total") + " within 24 hours exceed the threshold of " + d.get("limit")});
   }
 }

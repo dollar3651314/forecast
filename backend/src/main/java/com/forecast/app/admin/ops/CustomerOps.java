@@ -41,12 +41,14 @@ class CustomerOps {
   /** 字段和原型 CustomerDetail 一致；lastLoginIp、lastLoginIpAt 是 v2 E6 加的（最近一个登录会话的 IP 和时间） */
   record Detail(long id, String name, String email, String nationality, String status, String kycStatus, String balance,
       String registeredAt, String lastLoginAt, String lastLoginIp, String lastLoginIpAt, String firstName, String middleName, String lastName,
-      String birthDate, String frozenReason, Kyc kyc, Account account, List<LedgerView> ledger, boolean staff, TestCreditInfo testCredit) {}
+      String birthDate, String frozenReason, Kyc kyc, Account account, List<LedgerView> ledger, boolean staff, TestCreditInfo testCredit,
+      String adjustMax) {}
 
   /**
    * 测试入金（forecast S17A）：只在测试环境（FC_ENV_LABEL=test）有值，后台据此显示"测试入金"按钮；生产是 null，按钮不显示。
    *
    * @param maxAmount 单笔上限（参数设置 adjust.testCreditMax）
+   * 另：Detail.adjustMax 是人工调账的单笔上限（S17B，参数 adjust.manualMax；超过时确认框里要再勾一次）
    */
   record TestCreditInfo(String maxAmount) {}
 
@@ -77,8 +79,11 @@ class CustomerOps {
   private final Audit audit;
   private final SettleAdminApi settle;
   private final TestCreditApi testCredit;
+  private final com.forecast.app.ledger.api.ManualAdjustApi manualAdjust;
 
-  CustomerOps(CustomerAdminApi customers, LedgerAdminApi ledgerAdmin, LedgerApi ledger, FundsApi funds, Audit audit, SettleAdminApi settle, TestCreditApi testCredit) {
+  CustomerOps(CustomerAdminApi customers, LedgerAdminApi ledgerAdmin, LedgerApi ledger, FundsApi funds, Audit audit, SettleAdminApi settle, TestCreditApi testCredit,
+      com.forecast.app.ledger.api.ManualAdjustApi manualAdjust) {
+    this.manualAdjust = manualAdjust;
     this.testCredit = testCredit;
     this.settle = settle;
     this.customers = customers;
@@ -129,7 +134,7 @@ class CustomerOps {
     return new Detail(c.id(), c.name(), c.email(), c.nationality(), apiStatus(c.status()), apiStatus(c.kycStatus()), Ops.money(a.balance()),
         Ops.time(c.registeredAt()), Ops.time(c.lastLoginAt()), d.lastLoginIp(), Ops.time(d.lastLoginIpAt()), d.firstName(), d.middleName(), d.lastName(),
         birth == null ? null : birth.toString(), d.frozenReason(), kyc, account, lines, c.staff(),
-        testCredit.enabled() ? new TestCreditInfo(Ops.money(testCredit.maxAmount())) : null);
+        testCredit.enabled() ? new TestCreditInfo(Ops.money(testCredit.maxAmount())) : null, Ops.money(manualAdjust.maxAmount()));
   }
 
   /**
@@ -196,7 +201,9 @@ class CustomerOps {
       case REFUND -> "betRefund";
       case COMPENSATION -> "compensation";
       case TEST_CREDIT -> "testCredit";
-      case FEE_INCOME, SETTLE_DUST, COMPENSATION_EXPENSE, TEST_CREDIT_EXPENSE -> t.name().toLowerCase();
+      case MANUAL_CREDIT -> "adjustCredit";
+      case MANUAL_DEBIT -> "adjustDebit";
+      case FEE_INCOME, SETTLE_DUST, COMPENSATION_EXPENSE, TEST_CREDIT_EXPENSE, MANUAL_ADJUST_OUT, MANUAL_ADJUST_IN -> t.name().toLowerCase();
     };
   }
 

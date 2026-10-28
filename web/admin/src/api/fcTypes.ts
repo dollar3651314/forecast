@@ -594,6 +594,11 @@ export interface ReportDay {
   /** S17A 测试入金（只在测试环境有；单列，不是平台收入、不是真实充值、不是补偿） */
   testCredit: string;
   testCredits: number;
+  /** S17B 人工加款、人工扣款（单列，不进平台收入、不冲减补偿） */
+  manualCredit: string;
+  manualCredits: number;
+  manualDebit: string;
+  manualDebits: number;
 }
 
 export interface Report {
@@ -606,7 +611,56 @@ export interface Report {
   compensations: number;
   testCredit: string;
   testCredits: number;
+  manualCredit: string;
+  manualCredits: number;
+  manualDebit: string;
+  manualDebits: number;
   days: ReportDay[];
+}
+
+// ---------------------------------------------------------------- 人工调账（S17B，后端 admin/ops/AdjustOps）
+
+export type AdjustDirection = 'credit' | 'debit';
+export type AdjustCategory = 'deposit_missing' | 'wrong_credit' | 'other';
+/** 每个方向能选的类别（和后端 ManualAdjustApi.Category.allows 一致） */
+export const ADJUST_CATEGORIES: Record<AdjustDirection, AdjustCategory[]> = { credit: ['deposit_missing', 'other'], debit: ['wrong_credit', 'other'] };
+
+/** 一笔人工调整（列表和结果共用） */
+export interface Adjustment {
+  adjustNo: string;
+  customerId: number;
+  customerEmail: string | null;
+  customerName: string | null;
+  direction: AdjustDirection;
+  category: AdjustCategory;
+  amount: string;
+  availableBefore: string;
+  availableAfter: string;
+  refNo: string | null;
+  reason: string;
+  overLimit: boolean;
+  operator: string;
+  createdAt: string;
+}
+
+export interface AdjustInput {
+  direction: AdjustDirection;
+  category: AdjustCategory;
+  amount: string;
+  refNo: string;
+  reason: string;
+  requestId: string;
+  overLimitConfirmed: boolean;
+}
+
+export interface AdjustQuery {
+  customerId?: string;
+  direction?: AdjustDirection;
+  category?: AdjustCategory;
+  from?: string;
+  to?: string;
+  page: number;
+  pageSize: number;
 }
 
 /** 对账页"平台账户"（S17A）：balance 余额、ledgerTotal 账本合计，matches = 两者相等 */
@@ -713,8 +767,8 @@ export type GrowthExportKind = 'sources' | 'markets' | 'customers';
 // ---------------------------------------------------------------- 风控告警、员工账户（forecast S10，后端 admin/ops/RiskOps、CustomerOps）
 
 /** 告警类型：尾盘大额、关联账户对押、新账户押中冷门、充了不玩就提（需求第 8.1 节） */
-export type RiskAlertKind = 'late_large_bet' | 'linked_opposite' | 'new_account_longshot' | 'deposit_no_bet';
-export const RISK_ALERT_KINDS: RiskAlertKind[] = ['late_large_bet', 'linked_opposite', 'new_account_longshot', 'deposit_no_bet'];
+export type RiskAlertKind = 'late_large_bet' | 'linked_opposite' | 'new_account_longshot' | 'deposit_no_bet' | 'manual_credit_large';
+export const RISK_ALERT_KINDS: RiskAlertKind[] = ['late_large_bet', 'linked_opposite', 'new_account_longshot', 'deposit_no_bet', 'manual_credit_large'];
 /** 处理状态：新、已查看、已处理、误报 */
 export type RiskAlertStatus = 'new' | 'seen' | 'handled' | 'false_positive';
 

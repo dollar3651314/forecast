@@ -50,7 +50,7 @@
     "channel": "Channel",
     "channels": "Channels",
     "code": "Code",
-    "customerId": "Customer",
+    "customerId": "Customer ID",
     "date": "Date",
     "description": "Description",
     "displayName": "Name",
@@ -112,7 +112,10 @@
     "options_winCondition": "Option win condition",
     "plays_line": "Line",
     "chatId": "Channel id",
-    "requestId": "Request number"
+    "requestId": "Request number",
+    "direction": "Direction",
+    "category": "Category",
+    "refNo": "Reference"
   },
   "apiFieldCode": {
     "ageUnder18": "is under 18",
@@ -454,7 +457,27 @@
     "testCreditOverLimit": "Exceeds the limit of {{max}} USDT",
     "confirmTestCredit": "Credit",
     "testCreditDone": "Credited {{amount}} USDT; available balance {{before}} → {{after}}",
-    "testCreditDuplicate": "This credit was already made (repeated submission); nothing was added"
+    "testCreditDuplicate": "This credit was already made (repeated submission); nothing was added",
+    "adjustCredit": "Manual credit",
+    "adjustDebit": "Manual debit",
+    "adjustCreditImpact": "Adds money to this customer's available balance. The other side is the platform \"Manual adjustment\" account, so the ledger stays balanced. The customer gets an in-app message and an email (amount and category, not the reason). Corrections can only be made with another adjustment in the opposite direction.",
+    "adjustDebitImpact": "Takes money from this customer's available balance only (now {{available}} USDT); money in bets and frozen for withdrawals is not touched. The customer gets an in-app message and an email.",
+    "adjustAmount": "Amount (USDT)",
+    "adjustCategory": "Category",
+    "adjustRefNo": "Reference (optional)",
+    "adjustRefNoHint": "On-chain transaction hash or ticket number",
+    "adjustMax": "Limit per adjustment: {{max}} USDT (Parameters → Balance adjustments)",
+    "adjustAmountRequired": "Enter an amount",
+    "adjustAmountInvalid": "Enter an amount above 0 with at most 8 decimals",
+    "adjustOverAvailable": "Cannot exceed the available balance of {{available}} USDT",
+    "adjustCategoryRequired": "Choose a category",
+    "adjustOverLimit": "I confirm this exceeds the limit per adjustment ({{max}} USDT)",
+    "adjustOverLimitRequired": "The amount exceeds the limit; tick this box",
+    "adjustOverLimitHint": "Exceeds the limit per adjustment: marked in the record and the audit log",
+    "confirmAdjustCredit": "Credit",
+    "confirmAdjustDebit": "Debit",
+    "adjustDone": "{{dir}} {{amount}} USDT; available balance {{before}} → {{after}}",
+    "adjustDuplicate": "This adjustment was already made (repeated submission); nothing changed"
   },
   "dashboard": {
     "failedTasks": "Failed tasks",
@@ -612,7 +635,9 @@
       "TELEGRAM_TEMPLATE_CHANGED": "The template text changed after the preview. Open the preview again before approving.",
       "TELEGRAM_NO_PREVIEW": "No market has ended yet, so there is nothing to preview.",
       "ADJUST_OVER_LIMIT": "{{detail}}",
-      "ADJUST_REQUEST_REUSED": "This submission reuses a request number with different content. Close the dialog and try again."
+      "ADJUST_REQUEST_REUSED": "This submission reuses a request number with different content. Close the dialog and try again.",
+      "ADJUST_INSUFFICIENT": "{{detail}}",
+      "ADJUST_OVER_LIMIT_UNCONFIRMED": "{{detail}}"
     }
   },
   "funds": {
@@ -684,7 +709,9 @@
     "payout": "Payout",
     "refund": "Refund",
     "withdraw": "Withdrawal",
-    "testCredit": "Test credit"
+    "testCredit": "Test credit",
+    "adjustCredit": "Manual adjustment (credit)",
+    "adjustDebit": "Manual adjustment (debit)"
   },
   "menu": {
     "admins": "Administrators",
@@ -735,7 +762,8 @@
     "contentLogs": "Logs",
     "contentSettings": "Usage & settings",
     "waitlist": "Waitlist",
-    "telegram": "Telegram bot"
+    "telegram": "Telegram bot",
+    "adjustments": "Manual adjustments"
   },
   "menus": {
     "group": "Group",
@@ -811,7 +839,8 @@
     "content_edit": "Generate and edit content drafts",
     "content_publish": "Publish externally: publish content, change content settings, Telegram channels and template approval, emergency stop, launch email (high risk)",
     "alert_params_edit": "Edit alert email settings (master switch, muted alerts)",
-    "balance_test_credit": "Test credit (test environment only, high risk)"
+    "balance_test_credit": "Test credit (test environment only, high risk)",
+    "balance_adjust": "Manual balance adjustment: credit or debit a customer (high risk)"
   },
   "permModule": {
     "customer": "Customers",
@@ -877,7 +906,7 @@
     "type": "Type",
     "unknownCustomer": "No matching customer",
     "platformTitle": "Platform accounts",
-    "platformHint": "Each platform account balance should equal its ledger total. Compensation and test credit are money paid out by the platform, so their balances are negative.",
+    "platformHint": "Each platform account balance should equal its ledger total. Compensation and test credit are money paid out, so their balances are negative; manual adjustment = total debits − total credits and can be either sign.",
     "platformKind": "Account",
     "platformBalance": "Balance",
     "platformLedger": "Ledger total",
@@ -888,7 +917,8 @@
     "platformKinds": {
       "revenue": "Platform revenue (fees + dust)",
       "compensation": "Platform compensation",
-      "test_credit": "Test credit"
+      "test_credit": "Test credit",
+      "manual_adjust": "Manual adjustment"
     }
   },
   "reconStatus": {
@@ -2034,7 +2064,9 @@
       "market_maxOpen": "Max markets open at once",
       "alert_mail_enabled": "Alert emails (master switch)",
       "alert_mail_muted": "Alerts without email",
-      "adjust_testCreditMax": "Test credit limit per credit (test environment only)"
+      "adjust_testCreditMax": "Test credit limit per credit (test environment only)",
+      "adjust_manualMax": "Manual adjustment limit per adjustment (above it needs an extra confirmation)",
+      "risk_manualCredit_dayAmount": "Manual credits: alert when a customer's 24-hour total exceeds"
     },
     "hours": "{{n}} h",
     "minutes": "{{n}} min",
@@ -2080,7 +2112,7 @@
       "NOT_CONFIGURED": "Not configured"
     },
     "alertNote": "Recipients: FC_ALERT_EMAILS. One email per incident and one on recovery; a reminder every 24 hours while it stays down. \"Not configured\" optional features send no email.",
-    "adjustNote": "Test credit only works in the test environment (FC_ENV_LABEL=test); this value has no effect in production."
+    "adjustNote": "Test credit only works in the test environment (FC_ENV_LABEL=test); that value has no effect in production. Manual adjustments above the limit need an extra \"I confirm this exceeds the limit\" tick."
   },
   "dash": {
     "sub": "Today / last 7 days in UTC; open an item to handle it",
@@ -2503,7 +2535,10 @@
     "noRuns": "No completed runs yet",
     "testCredit": "Test credit",
     "testCreditN": "Test credits",
-    "testCreditHint": "Test environment only; not platform revenue and not a real deposit"
+    "testCreditHint": "Test environment only; not platform revenue and not a real deposit",
+    "manualCredit": "Manual credits",
+    "manualDebit": "Manual debits",
+    "manualHint": "Manual adjustments from the admin console; not platform revenue and not offset against compensation"
   },
   "ra": {
     "title": "Risk alerts",
@@ -2514,7 +2549,8 @@
       "late_large_bet": "Large late bet",
       "linked_opposite": "Linked accounts, opposite options",
       "new_account_longshot": "New account won a long shot",
-      "deposit_no_bet": "Withdrawal without betting"
+      "deposit_no_bet": "Withdrawal without betting",
+      "manual_credit_large": "Large manual credits in 24 hours"
     },
     "status": {
       "new": "New",
@@ -2549,7 +2585,8 @@
       "late_large_bet": "Bet {{sec}} s before close, {{pct}}% of the pool after the bet (pool {{pool}}; threshold: within {{limitMinutes}} min, ≥ {{limitPct}}%, single bet ≥ {{limitAmount}})",
       "linked_opposite": "Linked account(s) {{users}} bet on a different option in the same market",
       "new_account_longshot": "Won {{odds}}x on day {{days}} after sign-up (threshold: within {{limitDays}} days)",
-      "deposit_no_bet": "Deposited {{deposit}} in 30 days, effective bets only {{stake}} (required {{multiple}}x), then requested withdrawal {{no}}"
+      "deposit_no_bet": "Deposited {{deposit}} in 30 days, effective bets only {{stake}} (required {{multiple}}x), then requested withdrawal {{no}}",
+      "manual_credit_large": "Manual credits of {{total}} within 24 hours exceed the threshold of {{limit}} (adjustment {{no}})"
     }
   },
   "gr": {
@@ -3115,5 +3152,34 @@
       "skipped": "Not posted",
       "stopped": "Stopped"
     }
+  },
+  "adjust": {
+    "dir": {
+      "credit": "Credit",
+      "debit": "Debit"
+    },
+    "cat": {
+      "deposit_missing": "Missing deposit credited",
+      "wrong_credit": "Erroneous credit reversed",
+      "other": "Other"
+    },
+    "title": "Manual adjustments",
+    "sub": "Manual credits and debits made from customer details; corrections need another adjustment in the opposite direction",
+    "customerId": "Customer ID",
+    "direction": "Direction",
+    "category": "Category",
+    "dates": "Dates (UTC)",
+    "csv": "Export CSV",
+    "csvHint": "Exports the current filter (up to 10,000 rows); exports are audited",
+    "empty": "No manual adjustments",
+    "no": "No.",
+    "time": "Time (UTC)",
+    "customer": "Customer",
+    "amount": "Amount",
+    "balance": "Available (before → after)",
+    "refNo": "Reference",
+    "reason": "Reason",
+    "operator": "Operator",
+    "overLimit": "Over limit"
   }
 }

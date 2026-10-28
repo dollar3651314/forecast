@@ -120,9 +120,9 @@ class AdminRiskTest extends AdminTestSupport {
     JsonNode items = body(call(get("/api/admin/params/betting"), a.cookie(), null));
     List<String> risk = new java.util.ArrayList<>();
     for (JsonNode it : items) if ("risk".equals(it.get("group").asString())) risk.add(it.get("key").asString() + "=" + it.get("value").asString());
-    // S16（SQ-24）：尾盘大额加单笔最低金额，默认 100 USDT
+    // S16（SQ-24）：尾盘大额加单笔最低金额，默认 100 USDT；S17B（SQ-59）：24 小时人工加款累计阈值，默认 10,000 USDT
     assertThat(risk).containsExactly("risk.lateBet.minutes=5", "risk.lateBet.poolPct=30", "risk.lateBet.minAmount=100", "risk.longshot.accountDays=7", "risk.longshot.minAmount=1000",
-        "risk.longshot.minOdds=5", "risk.link.maxUsersPerKey=10");
+        "risk.longshot.minOdds=5", "risk.link.maxUsersPerKey=10", "risk.manualCredit.dayAmount=10000");
     try {
       assertThat(call(put("/api/admin/params/betting/risk.lateBet.poolPct"), a.cookie(), "{\"value\":\"35\"}").getStatus()).as("原因必填").isEqualTo(400);
       assertThat(call(put("/api/admin/params/betting/risk.lateBet.poolPct"), a.cookie(), "{\"value\":\"101\",\"reason\":\"x\"}").getStatus()).isEqualTo(400);

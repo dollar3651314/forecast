@@ -1,6 +1,7 @@
 package com.forecast.app.riskalert.scan;
 
 import com.forecast.app.account.api.AccountSignalsApi;
+import com.forecast.app.ledger.api.ManualAdjustApi;
 import com.forecast.app.pool.api.PoolApi;
 import com.forecast.app.riskalert.core.RiskMapper;
 import com.forecast.app.riskalert.core.RiskRules;
@@ -24,7 +25,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * 风控扫描（forecast S10）：从各模块的 api 按 id 往后读新数据，交给 {@link RiskRules}，进度记在 {@code riskalert_cursor}。
  * 派彩完成（"新账户押中冷门"）不在这里扫，由 {@link PayoutDoneListener} 在结算提交后处理。
  * <ul>
- *   <li>来源：设备号和 IP（account）、充值来源地址、提现白名单、提现申请（wallet）、下注（pool）。</li>
+ *   <li>来源：设备号和 IP（account）、充值来源地址、提现白名单、提现申请（wallet）、下注（pool）、人工加款（ledger，S17B）。</li>
  *   <li><b>一行一个事务</b>（处理 + 推进进度）：一行出错只记日志、跳过这一行（告警丢一条，扫描不会卡住）。</li>
  *   <li><b>等进行中的事务提交</b>：写入时间晚于"现在 − scan-lag"的行先不处理，这一轮到它为止；id 小但提交晚的行下一轮还会读到。
  *       写入时间比现在还晚 1 分钟以上的（端到端测试把时钟拨回去以后）直接处理，不让扫描停住。scan-lag = 0 时不等（后端测试、端到端测试）。</li>
@@ -43,12 +44,14 @@ public class RiskScanner {
   private final AccountSignalsApi accounts;
   private final WalletSignalsApi wallet;
   private final PoolApi pool;
+  private final ManualAdjustApi adjusts;
   private final RiskProperties props;
   private final TransactionTemplate tx;
   private final Clock clock;
 
-  RiskScanner(RiskMapper mapper, RiskRules rules, AccountSignalsApi accounts, WalletSignalsApi wallet, PoolApi pool, RiskProperties props,
-      PlatformTransactionManager tm, Clock clock) {
+  RiskScanner(RiskMapper mapper, RiskRules rules, AccountSignalsApi accounts, WalletSignalsApi wallet, PoolApi pool, ManualAdjustApi adjusts,
+      RiskProperties props, PlatformTransactionManager tm, Clock clock) {
+    this.adjusts = adjusts;
     this.mapper = mapper;
     this.rules = rules;
     this.accounts = accounts;
@@ -60,10 +63,10 @@ public class RiskScanner {
   }
 
   /** 一轮各来源处理了几行 */
-  public record Report(int devices, int deposits, int whitelist, int withdrawals, int bets) {
+  public record Report(int devices, int deposits, int whitelist, int withdrawals, int bets, int manualCredits) {
 
     public int total() {
-      return devices + deposits + whitelist + withdrawals + bets;
+      return devices + deposits + whitelist + withdrawals + bets + manualCredits;
     }
   }
 
@@ -84,8 +87,10 @@ public class RiskScanner {
     int withdrawals = byId("withdrawals", before, now, id -> wallet.withdrawalsAfter(id, n), WalletSignalsApi.WithdrawalRequest::id,
         WalletSignalsApi.WithdrawalRequest::at, rules::onWithdrawal);
     int bets = byId("bets", before, now, id -> pool.betsAfter(id, n), PoolApi.BetSignal::id, PoolApi.BetSignal::receivedAt, rules::onBet);
-    Report r = new Report(devices, deposits, whitelist, withdrawals, bets);
-    if (devices + deposits + whitelist + withdrawals + bets > 0) log.debug("风控扫描：{}", r);
+    int manual = byId("manualCredits", before, now, id -> adjusts.creditsAfter(id, n), ManualAdjustApi.CreditSignal::id, ManualAdjustApi.CreditSignal::at,
+        rules::onManualCredit);
+    Report r = new Report(devices, deposits, whitelist, withdrawals, bets, manual);
+    if (r.total() > 0) log.debug("风控扫描：{}", r);
     return r;
   }
 

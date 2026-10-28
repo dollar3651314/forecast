@@ -21,6 +21,11 @@ public enum Permission {
    * 高危、原因必填、勾选确认、写审计；超管自动拥有（SQ-19）
    */
   BALANCE_TEST_CREDIT("balance:test_credit", "customer", true),
+  /**
+   * 人工调账（forecast S17B，需求说明书 v1.5 第 21 节）：给客户人工加款、扣款，生产可用。高危、原因必填、勾选确认、写审计；超管自动拥有（SQ-19）。
+   * 查看"人工调账记录"用 recon:view
+   */
+  BALANCE_ADJUST("balance:adjust", "customer", true),
 
   KYC_VIEW("kyc:view", "kyc", false),
   KYC_REVIEW("kyc:review", "kyc", false),

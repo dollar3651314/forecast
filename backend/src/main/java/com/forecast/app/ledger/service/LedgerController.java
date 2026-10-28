@@ -34,9 +34,9 @@ class LedgerController {
 
   /**
    * 资金流水的一条；ref 是相关的网络（例如充值 TRC20），没有时为空字符串；market 是相关的市场（下注、以后的派彩、退款，AC-39），
-   * 没有时为 null。
+   * 没有时为 null。category 是人工调账的类别（forecast S17B：deposit_missing / wrong_credit / other），别的类型为 null。
    */
-  record LedgerView(String id, String type, String amount, String ref, String time, MarketRef market) {}
+  record LedgerView(String id, String type, String amount, String ref, String time, MarketRef market, String category) {}
 
   /** 流水里的市场：对外编号（客户端用它打开市场详情）和三种语言的题目 */
   record MarketRef(String publicNo, Title title) {}
@@ -64,6 +64,9 @@ class LedgerController {
     LEDGER_TYPES.put("compensation", List.of("COMPENSATION"));
     // S17A：测试入金（只在测试环境有，不是真实充值，单独一类）
     LEDGER_TYPES.put("testCredit", List.of("TEST_CREDIT"));
+    // S17B：人工调整（加款 / 扣款），带类别
+    LEDGER_TYPES.put("adjustCredit", List.of("MANUAL_CREDIT"));
+    LEDGER_TYPES.put("adjustDebit", List.of("MANUAL_DEBIT"));
   }
 
   private final LedgerApi ledger;
@@ -84,7 +87,7 @@ class LedgerController {
     return new AccountView("USDT", money(a.balance()), money(a.available()), money(a.betLocked()), money(a.withdrawFrozen()));
   }
 
-  /** 资金流水：可用余额的变动，最新在前。type：{@link #LEDGER_TYPES} 的键（deposit / withdraw / withdrawRefund / bet / payout / fee / refund / compensation / testCredit），不传或 all 表示全部；range：7d / 30d / 90d / all */
+  /** 资金流水：可用余额的变动，最新在前。type：{@link #LEDGER_TYPES} 的键（deposit / withdraw / withdrawRefund / bet / payout / fee / refund / compensation / testCredit / adjustCredit / adjustDebit），不传或 all 表示全部；range：7d / 30d / 90d / all */
   @GetMapping("/api/ledger/entries")
   Page<LedgerView> entries(@RequestParam(required = false) String type, @RequestParam(defaultValue = "30d") String range,
       @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int pageSize) {
@@ -106,10 +109,15 @@ class LedgerController {
     List<Long> marketIds = rows.stream().map(r -> r.refMarketId).filter(Objects::nonNull).distinct().toList();
     MarketLabels ml = marketIds.isEmpty() ? null : labels.getIfAvailable();
     Map<Long, MarketLabels.MarketLabel> found = ml == null ? Map.of() : ml.labels(marketIds);
+    List<Long> adjustIds = rows.stream().filter(r -> r.entryType.startsWith("MANUAL_")).map(r -> Long.valueOf(r.bizId)).distinct().toList();
+    Map<String, String> categories = new java.util.HashMap<>();
+    if (!adjustIds.isEmpty()) for (LedgerMapper.CategoryRow c : mapper.adjustCategories(adjustIds)) categories.put(c.id, c.category.toLowerCase());
     List<LedgerView> items = rows.stream().map(r -> {
       MarketLabels.MarketLabel l = r.refMarketId == null ? null : found.get(r.refMarketId);
       MarketRef market = l == null ? null : new MarketRef(l.publicNo(), new Title(l.titleEn(), l.titleZhCn(), l.titleZhTw()));
-      return new LedgerView(String.valueOf(r.id), ledgerType(r.entryType), money(r.amount), market == null ? ref(r.remark) : "", iso(r.createdAt), market);
+      String category = r.entryType.startsWith("MANUAL_") ? categories.get(r.bizId) : null;
+      return new LedgerView(String.valueOf(r.id), ledgerType(r.entryType), money(r.amount), market == null && category == null ? ref(r.remark) : "", iso(r.createdAt),
+          market, category);
     }).toList();
     return new Page<>(items, mapper.countUserLedger(uid, types, since), p, size);
   }

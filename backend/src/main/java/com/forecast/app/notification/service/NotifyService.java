@@ -608,6 +608,8 @@ class NotifyService implements NotifyApi, NotifyAdminApi {
   static String link(String kind, Map<String, String> params) {
     String no = params == null ? null : params.get("marketNo");
     if (no != null && no.matches("\\d{1,19}")) return "/markets/" + no;
+    // forecast S17B：人工调账（#24）点进资金流水
+    if (params != null && params.containsKey("adjustNo")) return "/assets/ledger";
     if (kind == null) return null;
     return switch (kind) {
       case "withdraw" -> "/assets/withdraw";

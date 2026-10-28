@@ -109,7 +109,7 @@ class FundsOps {
   }
 
   /**
-   * 平台账户的一行（forecast S17A）：kind 是 revenue / compensation / test_credit（S17B 加 manual_adjust）；balance 账户余额、ledgerTotal 账本合计、
+   * 平台账户的一行（forecast S17A）：kind 是 revenue / compensation / test_credit / manual_adjust（S17B）；balance 账户余额、ledgerTotal 账本合计、
    * matches 两者是否相等（不相等说明账本坏了，和 LedgerQueryApi.mismatches 同一个口径）
    */
   record PlatformAccountView(String kind, String balance, String ledgerTotal, long entries, boolean matches) {}
@@ -126,6 +126,7 @@ class FundsOps {
       case PLATFORM_REVENUE -> "revenue";
       case PLATFORM_COMPENSATION -> "compensation";
       case PLATFORM_TEST_CREDIT -> "test_credit";
+      case PLATFORM_MANUAL_ADJUST -> "manual_adjust";
       case USER -> "user";
     };
   }

@@ -159,7 +159,7 @@ class LedgerBucketsTest {
             assertThatThrownBy(() -> ledger.apply(cmd(u, b, sign > 0 ? "1" : "-1", t, "RULE", bizId, null)))
                 .as(t + " " + b + " " + sign).isInstanceOf(IllegalArgumentException.class);
           }
-          for (AccountKind k : List.of(AccountKind.PLATFORM_REVENUE, AccountKind.PLATFORM_COMPENSATION, AccountKind.PLATFORM_TEST_CREDIT)) {
+          for (AccountKind k : List.of(AccountKind.PLATFORM_REVENUE, AccountKind.PLATFORM_COMPENSATION, AccountKind.PLATFORM_TEST_CREDIT, AccountKind.PLATFORM_MANUAL_ADJUST)) {
             if (t.allows(k, b, sign)) continue;
             checked++;
             if (b != Bucket.AVAILABLE) continue; // 平台记账只改可用余额，其他项在接口上就没法传
@@ -200,6 +200,14 @@ class LedgerBucketsTest {
     assertThat(LedgerEntryType.TEST_CREDIT_EXPENSE.legs()).isEqualTo(Map.of(Bucket.AVAILABLE, -1));
     assertThat(LedgerEntryType.TEST_CREDIT_EXPENSE.accountKind).isEqualTo(AccountKind.PLATFORM_TEST_CREDIT);
     assertThat(AccountKind.PLATFORM_TEST_CREDIT.mayGoNegative()).isTrue();
+    // S17B 人工调账：客户可用 + / −，对手方是平台"人工调账"账户（反方向，可正可负）
+    assertThat(LedgerEntryType.MANUAL_CREDIT.legs()).isEqualTo(Map.of(Bucket.AVAILABLE, 1));
+    assertThat(LedgerEntryType.MANUAL_DEBIT.legs()).isEqualTo(Map.of(Bucket.AVAILABLE, -1));
+    assertThat(LedgerEntryType.MANUAL_ADJUST_OUT.legs()).isEqualTo(Map.of(Bucket.AVAILABLE, -1));
+    assertThat(LedgerEntryType.MANUAL_ADJUST_IN.legs()).isEqualTo(Map.of(Bucket.AVAILABLE, 1));
+    assertThat(LedgerEntryType.MANUAL_ADJUST_OUT.accountKind).isEqualTo(AccountKind.PLATFORM_MANUAL_ADJUST);
+    assertThat(LedgerEntryType.MANUAL_ADJUST_IN.accountKind).isEqualTo(AccountKind.PLATFORM_MANUAL_ADJUST);
+    assertThat(AccountKind.PLATFORM_MANUAL_ADJUST.mayGoNegative()).isTrue();
     assertThat(AccountKind.PLATFORM_REVENUE.mayGoNegative()).isFalse();
     // 客户的内部转移（不含充值、冲正、提现出账）在客户自己的三项之间是零和的
     for (LedgerEntryType t : List.of(LedgerEntryType.BET_LOCK, LedgerEntryType.REFUND, LedgerEntryType.WITHDRAW_FREEZE, LedgerEntryType.WITHDRAW_UNFREEZE)) {
@@ -317,6 +325,7 @@ class LedgerBucketsTest {
         .hasMessageContaining("ck_ledger_account_nonneg");
     // S17A（迁移 V29）：测试入金账户每种一行，可用余额可以为负，其他两项不行
     assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM ledger_account WHERE kind = 'PLATFORM_TEST_CREDIT'", Integer.class)).isEqualTo(1);
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM ledger_account WHERE kind = 'PLATFORM_MANUAL_ADJUST'", Integer.class)).as("S17B（迁移 V30）").isEqualTo(1);
     assertThatThrownBy(() -> jdbc.update("UPDATE ledger_account SET withdraw_frozen = -1 WHERE kind = 'PLATFORM_TEST_CREDIT'")).isInstanceOf(DataAccessException.class)
         .hasMessageContaining("ck_ledger_account_nonneg");
     assertThatThrownBy(() -> jdbc.update("INSERT INTO ledger_account (kind, user_id) VALUES ('PLATFORM_TEST_CREDIT', NULL)")).as("平台账户每种只有一行")

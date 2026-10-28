@@ -149,4 +149,12 @@ interface LedgerMapper {
   }
 
   List<PlatformRow> platformAccounts();
+
+  /** 人工调账单的类别（forecast S17B，客户端流水显示）：调账单 id → 类别 */
+  class CategoryRow {
+    String id;
+    String category;
+  }
+
+  List<CategoryRow> adjustCategories(@Param("ids") Collection<Long> ids);
 }
