@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
  * <ul>
  *   <li>{@code version}：部署时是镜像的 git 提交号（{@code FC_VERSION}），本地和测试里是 Maven 的 project.version。用来从外部确认新版本已经生效（部署方案第 8 节）。</li>
  *   <li>{@code env}：测试环境标识（{@code FC_ENV_LABEL}，测试环境是 {@code test}）。<b>没有设置时（生产）不返回这个字段</b>，生产的返回和以前一样。
- *       前端在真实接口模式下据此显示"测试环境"标识条。</li>
+ *       前端在真实接口模式下据此显示"测试环境"标识条。S18：从对外预热域名进来的请求（{@link PrelaunchSite}）也不返回。</li>
  *   <li>{@code alert}、{@code alerts}（E8 监控告警）：业务告警（{@link AlertCheck}：行情全部断流、扫块停滞、链节点连不上、邮件连续发送失败），
  *       每一项 UP / DOWN，汇总 OK / ALERT。<b>告警不影响 {@code status} 和 HTTP 状态码</b>：外部服务出问题时换版本解决不了，
  *       不能让部署脚本把新版本判为失败而回滚（部署脚本只看 {@code status} 和 {@code version}）。没有配置的项不出现。
@@ -78,15 +78,23 @@ public class HealthController {
 
   @GetMapping("/api/health")
   public ResponseEntity<Map<String, Object>> health(HttpServletRequest req) {
-    return health(showAlerts(req));
+    return health(showAlerts(req), !PrelaunchSite.is(req));
   }
 
   /** 测试用：detail 为 true 时带业务告警 */
   public ResponseEntity<Map<String, Object>> health() {
-    return health(true);
+    return health(true, true);
   }
 
   ResponseEntity<Map<String, Object>> health(boolean withAlerts) {
+    return health(withAlerts, true);
+  }
+
+  /**
+   * @param withEnv 是否返回测试环境标识 {@code env}。S18：对外预热域名（{@link PrelaunchSite}，Nginx 设的请求头）不返回，
+   *     客户端在那个域名上就和生产一样：不显示"测试环境"标识条，顶部也不留空白（web/client/src/lib/bannerSpace.ts）。其他域名照旧
+   */
+  ResponseEntity<Map<String, Object>> health(boolean withAlerts, boolean withEnv) {
     boolean db = check(() -> jdbc.queryForObject("SELECT 1", Integer.class));
     boolean cache = check(() -> {
       try (var conn = redis.getConnection()) {
@@ -97,7 +105,7 @@ public class HealthController {
     Map<String, Object> body = new LinkedHashMap<>();
     body.put("status", "UP");
     body.put("version", version);
-    if (!envLabel.isEmpty()) body.put("env", envLabel);
+    if (withEnv && !envLabel.isEmpty()) body.put("env", envLabel);
     body.put("db", db ? "UP" : "DOWN");
     body.put("redis", cache ? "UP" : "DOWN");
     for (HealthCheck c : checks) {

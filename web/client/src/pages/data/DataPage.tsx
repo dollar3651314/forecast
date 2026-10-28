@@ -4,11 +4,15 @@
  * - ② Polymarket 的概率：数据开关在 S15 做、默认关，这里不接（后端 polymarket.enabled 为 false 时不显示这一块）；
  * - ③ 我们今天的场次：正式上线以后显示两边的人数和概率（和市场详情同一份数字）；上线前显示"即将上线"和留邮箱（只发一封"正式上线了"，SQ-22）。
  * 照实写玩法（用 USDT 押注、赢家分输方奖池、平台只从赢家盈利里抽成，F-1、F-2）；不放 X 的数据。
+ * S18（P1、P2）：
+ * - 对外预热域名（lib/siteMode.ts）上它就是首页：标题换成"即将上线"，不放进入产品的链接（市场、注册、开奖记录等），由 app/PrelaunchApp 给页脚；
+ * - 上线前、繁中界面：多一块"先准备 USDT"，内容是说明页"怎么充"后面的台湾入金教程（后端 public-pages.json 的 local，SQ-62、SQ-63）。
  */
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { getBoard, joinWaitlist } from '../../api/board';
+import { getHowTo } from '../../api/public';
 import { errorKey, isApiError } from '../../api/errors';
 import type { Board, BoardItem } from '../../api/types';
 import { useAuth } from '../../app/contexts';
@@ -21,7 +25,9 @@ import { useAsync } from '../../hooks/useAsync';
 import { useLang } from '../../hooks/useLang';
 import { useTitle } from '../../hooks/useTitle';
 import { readAttribution } from '../../lib/attribution';
+import { BRAND_NAME } from '../../lib/brand';
 import { formatAmount, formatDateTime } from '../../lib/format';
+import { isPrelaunch } from '../../lib/siteMode';
 import { pickText } from '../../lib/market';
 import { validateEmail } from '../../lib/validators';
 
@@ -71,9 +77,15 @@ function SlateItem({ m }: { m: BoardItem }) {
   const time = m.eventStartAt ?? m.closeAt;
   return (
     <li className="data-slate-item">
-      <Link to={`/markets/${m.publicNo}`} className="data-slate-title">
-        <span className="num muted">{formatDateTime(time, { short: true })}</span> {pickText(m.title, lang)}
-      </Link>
+      {isPrelaunch() ? (
+        <span className="data-slate-title">
+          <span className="num muted">{formatDateTime(time, { short: true })}</span> {pickText(m.title, lang)}
+        </span>
+      ) : (
+        <Link to={`/markets/${m.publicNo}`} className="data-slate-title">
+          <span className="num muted">{formatDateTime(time, { short: true })}</span> {pickText(m.title, lang)}
+        </Link>
+      )}
       <div className="data-slate-status">
         {m.upcoming ? <span className="mk-status s-wait">{t('mk.status.upcoming')}</span> : <StatusTag status={m.status} />}
       </div>
@@ -157,15 +169,48 @@ function Waitlist() {
   );
 }
 
+/** 台湾入金教程（P2）：只在繁中、上线前显示；内容和说明页同一份（后端），取不到就不显示 */
+function TwDeposit() {
+  const { t } = useTranslation();
+  const s = useAsync(() => getHowTo('zh-TW'), 'howto|zh-TW|deposit-tw');
+  const sec = s.data?.sections.find((x) => x.id === 'deposit-tw');
+  if (!sec) return null;
+  return (
+    <section className="card data-tw" aria-labelledby="data-tw-h" data-testid="tw-deposit">
+      <details>
+        <summary>
+          <h2 id="data-tw-h">{t('prelaunch.prepareTitle')}</h2>
+          <span className="muted">{sec.heading}</span>
+        </summary>
+        <p className="data-note">{t('prelaunch.prepareNote')}</p>
+        <ol>
+          {sec.items.map((i) => (
+            <li key={i}>{i}</li>
+          ))}
+        </ol>
+      </details>
+    </section>
+  );
+}
+
 export default function DataPage() {
   const { t } = useTranslation();
   const { session } = useAuth();
-  useTitle(t('data.title'));
+  const lang = useLang();
+  const pre = isPrelaunch();
+  useTitle(pre ? t('data.launchTitle') : t('data.title'));
   const s = useAsync(() => getBoard(), 'board');
   const b = s.data;
   return (
-    <div className="page page-data">
-      <PageHeader title={t('data.title')} />
+    <div className={`page page-data${pre ? ' is-prelaunch' : ''}`}>
+      {pre ? (
+        <div className="pre-hero">
+          <h1>{t('prelaunch.title', { brand: BRAND_NAME })}</h1>
+          <p>{t('prelaunch.sub')}</p>
+        </div>
+      ) : (
+        <PageHeader title={t('data.title')} />
+      )}
       <p className="howto-intro">{t('data.intro')}</p>
       {s.error && !b ? (
         <section className="card">
@@ -196,7 +241,7 @@ export default function DataPage() {
                     ))}
                   </ul>
                 )}
-                {!session && (
+                {!session && !pre && (
                   <div className="howto-cta">
                     <Link to="/register" className="btn btn-primary">
                       {t('guest.register')}
@@ -235,7 +280,8 @@ export default function DataPage() {
           </section>
         </div>
       )}
-      <PublicLinks />
+      {b && !b.launched && lang === 'zh-TW' && <TwDeposit />}
+      {!pre && <PublicLinks />}
     </div>
   );
 }

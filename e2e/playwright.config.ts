@@ -6,12 +6,12 @@
  * 用例串行执行（同一个后端、同一个模拟行情），每一步都有自己的超时，失败时报出卡在哪一步，保留 trace、截图和录像。
  */
 import { defineConfig, devices } from '@playwright/test';
-import { ADMIN_URL, CLIENT_URL, DEPLOYED, SITE_URL } from './tests/targets';
+import { ADMIN_URL, CLIENT_URL, DEPLOYED, PRELAUNCH_URL, SITE_URL } from './tests/targets';
 
 const PORT = Number(process.env.E2E_PORT || 4173);
 
-/** 部署形态：三个假域名（客户端、后台、官网）都解析到本机；忽略自签名证书（--ignore-certificate-errors 也放行 Service Worker 脚本的证书检查） */
-const deployedHosts = [CLIENT_URL, ADMIN_URL, SITE_URL].map((u) => new URL(u).hostname);
+/** 部署形态：三个假域名（客户端、后台、官网）和 S18 的对外预热域名都解析到本机；忽略自签名证书（--ignore-certificate-errors 也放行 Service Worker 脚本的证书检查） */
+const deployedHosts = [CLIENT_URL, ADMIN_URL, SITE_URL, PRELAUNCH_URL].filter(Boolean).map((u) => new URL(u).hostname);
 const deployedBrowser = DEPLOYED
   ? {
       ignoreHTTPSErrors: true,

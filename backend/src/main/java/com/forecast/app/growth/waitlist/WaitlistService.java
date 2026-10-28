@@ -67,9 +67,11 @@ public class WaitlistService implements WaitlistAdminApi {
   private final Clock clock;
   private final TransactionTemplate tx;
   private final String clientUrl;
+  /** 确认、退订链接的地址：配了对外预热域名（S18）用它，否则用客户端地址 */
+  private final String linkBase;
 
   WaitlistService(WaitlistMapper mapper, MailApi mail, RateLimiter limiter, WaitlistProperties props, Clock clock, PlatformTransactionManager tm,
-      @Value("${forecast.client-url:}") String clientUrl) {
+      @Value("${forecast.client-url:}") String clientUrl, @Value("${forecast.prelaunch-domain:}") String prelaunchDomain) {
     this.mapper = mapper;
     this.mail = mail;
     this.limiter = limiter;
@@ -78,6 +80,14 @@ public class WaitlistService implements WaitlistAdminApi {
     this.tx = new TransactionTemplate(tm);
     this.tx.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
     this.clientUrl = clientUrl == null ? "" : clientUrl.strip().replaceAll("/+$", "");
+    this.linkBase = prelaunchBase(prelaunchDomain).orElse(this.clientUrl);
+  }
+
+  /** 对外预热域名（只认合法的域名写法，其他一律当没配，免得拼出奇怪的链接） */
+  public static java.util.Optional<String> prelaunchBase(String domain) {
+    String d = domain == null ? "" : domain.strip().toLowerCase(Locale.ROOT);
+    if (!d.matches("[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+")) return java.util.Optional.empty();
+    return java.util.Optional.of("https://" + d);
   }
 
   private LocalDateTime now() {
@@ -136,8 +146,8 @@ public class WaitlistService implements WaitlistAdminApi {
 
   private void sendConfirm(String email, String lang, String confirmToken, String unsubToken) {
     Map<String, String> p = new LinkedHashMap<>();
-    p.put("confirm", clientUrl + "/data/confirm?t=" + confirmToken);
-    p.put("unsubscribe", clientUrl + "/data/unsubscribe?t=" + unsubToken);
+    p.put("confirm", linkBase + "/data/confirm?t=" + confirmToken);
+    p.put("unsubscribe", linkBase + "/data/unsubscribe?t=" + unsubToken);
     mail.send(email, CONFIRM_TEMPLATE, p, lang);
   }
 
@@ -216,7 +226,7 @@ public class WaitlistService implements WaitlistAdminApi {
     if (mapper.markNotified(id, now()) != 1) return false;
     Map<String, String> p = new LinkedHashMap<>();
     p.put("link", clientUrl + "/markets?src=waitlist&cmp=launch");
-    p.put("unsubscribe", clientUrl + "/data/unsubscribe?t=" + r.unsubToken);
+    p.put("unsubscribe", linkBase + "/data/unsubscribe?t=" + r.unsubToken);
     mail.send(r.email, LAUNCH_TEMPLATE, p, r.lang);
     mapper.addSent(1);
     return true;

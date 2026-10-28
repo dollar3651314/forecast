@@ -14,10 +14,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.JsonNode;
 
 /**
  * 自动化程序的检查（forecast S15，不连数据库）：数字核对（AC-107）、词表匹配（AC-103、AC-108）、发给 Gemini 前的个人数据检查（AC-116）、
- * 繁体的固定规则转换（EX-9，和 OpenCC 的结果一致）、BTC 每小时涨跌统计（AC-96：和手算一致）。
+ * 繁体的固定规则转换（EX-9；S18 改成台湾用语 s2twp + 自定义词表）、BTC 每小时涨跌统计（AC-96：和手算一致）。
  */
 class ContentChecksTest {
 
@@ -64,13 +65,17 @@ class ContentChecksTest {
   }
 
   @Test
-  void 繁体按固定规则转换_和OpenCC一致() {
-    // 期望值由 opencc-js 1.0.5（cn → tw）生成
-    assertThat(Hant.convert("过去 7 天里，上涨的小时有 112 个，占 66.7%。")).isEqualTo("過去 7 天裡，上漲的小時有 112 個，佔 66.7%。");
-    assertThat(Hant.convert("本页数据来自币安现货 BTC/USDT 的 1 小时 K 线，查询时间 2026-10-25 12:00 UTC。"))
-        .isEqualTo("本頁數據來自幣安現貨 BTC/USDT 的 1 小時 K 線，查詢時間 2026-10-25 12:00 UTC。");
-    assertThat(Hant.convert("头发、面条、干杯、后来、里面")).isEqualTo("頭髮、麵條、乾杯、後來、裡面");
-    assertThat(Hant.convert("只摆数据，不建议押哪边。")).isEqualTo("只擺數據，不建議押哪邊。");
+  void 繁体按台湾用语转换_和Node脚本同一组用例_S18() throws Exception {
+    // 用例在 resources/content/tw-vectors.json，node scripts/tw-terms.mjs --test 跑同一组：没有命中自定义词表的和 opencc-js 1.0.5（cn → twp）一致，
+    // 命中的按 tw-terms.txt（美联储 → 聯準會、加息 25 个基点 → 升息 1 碼；通过、窗口、文件等保持原词）
+    JsonNode v;
+    try (java.io.InputStream in = ContentChecksTest.class.getResourceAsStream("/content/tw-vectors.json")) {
+      v = new tools.jackson.databind.ObjectMapper().readTree(in);
+    }
+    assertThat(v.path("convert").size()).isGreaterThan(10);
+    for (JsonNode c : v.path("convert")) assertThat(Hant.convert(c.path("in").asString())).as(c.path("in").asString()).isEqualTo(c.path("out").asString());
+    assertThat(Hant.convert("")).isEmpty();
+    assertThat(Hant.convert(null)).isNull();
   }
 
   @Test

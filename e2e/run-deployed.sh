@@ -14,6 +14,7 @@
 #   E2E_SKIP_BACKUP_DRILL=1  不做最后的备份恢复演练（S12）
 #   E2E_APP_DOMAIN、E2E_ADMIN_DOMAIN、E2E_WWW_DOMAIN  三个假域名（默认 test-app.e2e.test、test-admin.e2e.test、test-www.e2e.test（官网）；
 #                      .test 是保留的顶级域名，不会解析到外网）
+#   E2E_PRELAUNCH_DOMAIN  对外预热域名（S18，默认 www.e2e.test：根路径是等候页、没有测试环境标识）
 # 密码（数据库、Redis、第一个超管）每次随机生成，只写进临时目录的 .env，结束时连同临时目录一起删除，不进仓库、不打印。
 # 日志：e2e/logs/deployed/（各容器日志、内存、耗时；不进仓库）。Playwright 报告同默认形态：e2e/playwright-report/。
 # 用例全部通过后，再用服务器上真正用的 deploy/kit/backup.sh、restore.sh 做一次备份恢复演练（S12，部署方案第 13 节）：
@@ -27,6 +28,7 @@ TAG=${E2E_IMAGE_TAG:-e2e-local}
 APP_DOMAIN=${E2E_APP_DOMAIN:-test-app.e2e.test}
 ADMIN_DOMAIN=${E2E_ADMIN_DOMAIN:-test-admin.e2e.test}
 WWW_DOMAIN=${E2E_WWW_DOMAIN:-test-www.e2e.test}
+PRELAUNCH_DOMAIN=${E2E_PRELAUNCH_DOMAIN:-www.e2e.test}
 LOGS=$ROOT/e2e/logs/deployed
 START=$(date +%s)
 mkdir -p "$LOGS"
@@ -121,6 +123,7 @@ mkdir -p "$TMP/state" "$TMP/data/mysql" "$TMP/data/redis" "$TMP/data/storage" "$
 APP_DOMAIN=$APP_DOMAIN
 ADMIN_DOMAIN=$ADMIN_DOMAIN
 WWW_DOMAIN=$WWW_DOMAIN
+PRELAUNCH_DOMAIN=$PRELAUNCH_DOMAIN
 MYSQL_ROOT_PASSWORD=$(rnd)
 FC_DB_PASSWORD=$(rnd)
 FC_REDIS_PASSWORD=$(rnd)
@@ -132,9 +135,9 @@ EOF
 printf 'IMAGE_TAG=%s\n' "$TAG" > "$TMP/state/image.env"
 # 和 server-setup.sh 一样：后端容器用 uid 10001 运行，证件照片目录要能写
 chown 10001 "$TMP/data/storage" 2> /dev/null || sudo -n chown 10001 "$TMP/data/storage" 2> /dev/null || chmod 777 "$TMP/data/storage"
-# 一张证书同时包含三个域名，路径和 Let's Encrypt 的一样（live/forecast/），只给这次测试用
+# 一张证书同时包含四个域名（S18 加对外预热域名），路径和 Let's Encrypt 的一样（live/forecast/），只给这次测试用
 openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj "/CN=$APP_DOMAIN" \
-  -addext "subjectAltName=DNS:$APP_DOMAIN,DNS:$ADMIN_DOMAIN,DNS:$WWW_DOMAIN" \
+  -addext "subjectAltName=DNS:$APP_DOMAIN,DNS:$ADMIN_DOMAIN,DNS:$WWW_DOMAIN,DNS:$PRELAUNCH_DOMAIN" \
   -keyout "$TMP/certs/live/forecast/privkey.pem" -out "$TMP/certs/live/forecast/fullchain.pem" 2> /dev/null
 
 # ---------- 4. 启动（新库：每次都是新的数据目录） ----------
@@ -166,6 +169,7 @@ set +e
     E2E_CLIENT_URL="https://$APP_DOMAIN" \
     E2E_ADMIN_URL="https://$ADMIN_DOMAIN" \
     E2E_SITE_URL="https://$WWW_DOMAIN" \
+    E2E_PRELAUNCH_URL="https://$PRELAUNCH_DOMAIN" \
     E2E_STUB_URL=http://127.0.0.1:8080 \
     FC_ADMIN_INIT_USERNAME="$ADMIN_USER" \
     FC_ADMIN_INIT_PASSWORD="$ADMIN_INIT" \

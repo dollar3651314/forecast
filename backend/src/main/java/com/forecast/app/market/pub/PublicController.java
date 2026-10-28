@@ -1,5 +1,6 @@
 package com.forecast.app.market.pub;
 
+import com.forecast.app.common.web.PrelaunchSite;
 import com.forecast.app.market.core.ClientViews;
 import com.forecast.app.market.core.MarketPublicService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -77,11 +78,15 @@ class PublicController {
   @GetMapping(value = "/api/public/seo/head", produces = "text/html;charset=UTF-8")
   ResponseEntity<String> head(@RequestHeader(value = "X-Fc-Page", required = false) String pageHeader, @RequestParam(required = false) String page,
       HttpServletRequest req) {
+    // S18：对外预热域名（Nginx 设的 X-Fc-Site，common/web/PrelaunchSite）的根路径是数据页，地址都指向那个域名自己
+    if (PrelaunchSite.is(req)) return html(seo.prelaunchHead(pageOf(pageHeader, page), requestBase(req)));
     return html(seo.head(pageOf(pageHeader, page), base(req)));
   }
 
   @GetMapping(value = "/api/public/seo/body", produces = "text/html;charset=UTF-8")
-  ResponseEntity<String> body(@RequestHeader(value = "X-Fc-Page", required = false) String pageHeader, @RequestParam(required = false) String page) {
+  ResponseEntity<String> body(@RequestHeader(value = "X-Fc-Page", required = false) String pageHeader, @RequestParam(required = false) String page,
+      HttpServletRequest req) {
+    if (PrelaunchSite.is(req)) return html(seo.prelaunchBody(pageOf(pageHeader, page)));
     return html(seo.body(pageOf(pageHeader, page)));
   }
 
@@ -151,6 +156,11 @@ class PublicController {
   /** 客户端地址：配置了 forecast.client-url 用它，否则按请求（Nginx 传来的 Host 和协议）拼 */
   private String base(HttpServletRequest req) {
     if (!clientUrl.isEmpty()) return clientUrl;
+    return requestBase(req);
+  }
+
+  /** 按请求（Nginx 传来的 Host 和协议）拼地址 */
+  private static String requestBase(HttpServletRequest req) {
     String proto = req.getHeader("X-Forwarded-Proto");
     String scheme = proto == null || proto.isBlank() ? req.getScheme() : proto;
     String host = req.getHeader("Host");

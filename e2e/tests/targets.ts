@@ -15,6 +15,8 @@ export const CLIENT_URL = process.env.E2E_CLIENT_URL || LOCAL;
 export const ADMIN_URL = process.env.E2E_ADMIN_URL || LOCAL;
 /** 官网的地址（v2；默认是 server.mjs 的第二个端口，部署形态是官网假域名） */
 export const SITE_URL = process.env.E2E_SITE_URL || `http://127.0.0.1:${Number(process.env.E2E_SITE_PORT || 4174)}`;
+/** 对外预热域名（S18，只在部署形态：根路径是等候页、没有测试环境标识；默认形态没有这个域名） */
+export const PRELAUNCH_URL = process.env.E2E_PRELAUNCH_URL || '';
 /** 替身接口 /api/e2e/** 的地址（测试代码访问，不经过浏览器） */
 export const STUB_URL = process.env.E2E_STUB_URL || LOCAL;
 /** 后端设了 FC_ENV_LABEL 时，两个前端顶部应该显示"测试环境"标识条（部署形态默认检查） */
