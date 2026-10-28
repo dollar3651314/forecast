@@ -178,7 +178,7 @@ test('Nginx：对外预热域名（S18，P1）根路径是等候页、没有测�
     // robots.txt、sitemap.xml：预热域名自己的，允许收录根路径
     const robots = await (await page.request.get(`${PRELAUNCH_URL}/robots.txt`)).text();
     expect(robots).toContain(`Sitemap: ${PRELAUNCH_URL}/sitemap.xml`);
-    expect(robots).toContain('Allow: /$');
+    expect(robots).toContain('Allow: /\n');
     const sitemap = await (await page.request.get(`${PRELAUNCH_URL}/sitemap.xml`)).text();
     expect(sitemap).toContain(`<loc>${PRELAUNCH_URL}/</loc>`);
     expect(sitemap).toContain(`hreflang="zh-TW" href="${PRELAUNCH_URL}/?lang=zh-TW"`);
