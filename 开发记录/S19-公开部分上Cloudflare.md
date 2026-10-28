@@ -217,7 +217,8 @@ flowchart LR
 | 官网 | 同上 | **35 通过**（含新的 `publicSite.test.tsx` 2 个）；构建通过 | 实际执行 |
 | 后台 | 同上 | **283 通过**（33 个文件，含新的 `s19.test.tsx` 4 个）；构建通过 | 实际执行 |
 | 后端（相关的） | `mvn test -Dtest=S19ImportAdminTest,WaitlistEmailRuleTest,S16WaitlistTest,S16AdminTest` | **14 通过**（S19 导入 4 个：权限 / 原因 / 格式 / 审计不含邮箱；规则表 + 重复导入 + 不发邮件；逐行报错；导入和上线通知只发一次） | 实际执行 |
-| 后端全量 | 空库 `mvn -o -B -ntp verify` | 见下面"全量结果" | 实际执行 |
+| 后端全量 | 空库 `mvn -o -B -ntp verify` | **834 个，0 失败，5 个跳过**（第 5.1 节） | 实际执行 |
+| GitHub CI（PR #58，提交 `36c2164`） | 全部 job | 全绿（`ci-ok` 通过；`cloudflare (public)` 里的本机端到端在 GitHub 的机器上也取到了 OKX 行情；`deploy-cf` 在 PR 上跳过） | 实际执行 |
 | 页面截图 | 本机 wrangler dev + Playwright（手机 390、电脑 1440），`assets/v1/s19/` 4 张；另看过简中、英文、官网电脑、法律页、确认页 | 没有横向滚动；正式版没有测试标识条（staging 有）；看图改了一处：官网公开版最后一屏原来写"现在注册"（D-286） | 实际执行 |
 | 从 Cloudflare 出口访问 OKX / 币安 | 部署后看 `/api/health` 的 `checks.board.sources` | — | **未验证** |
 | D1 建库、迁移、部署、令牌权限够不够 | CI 的 `deploy-cf`（`ensure-d1.mjs`、`deploy.sh`） | 只测了不连 Cloudflare 的部分（改配置、解析列表）；`wrangler deploy` 不带自定义域名时不改已有的自定义域名【代码走查：wrangler 4.149.0 `triggersDeploy` 只在配置里有 `routes` 时才改路由和自定义域名；文档也这样写】 | **未验证** |
@@ -225,10 +226,8 @@ flowchart LR
 | Resend 发信 | 第 4.3 步 | 请求格式按 Resend 文档写，测试里是替身 | **未验证** |
 | Workers Logs、Cron 在 Free 上的实际运行 | 部署后看 | — | **未验证** |
 
-全量结果：（见第 5.1 节）
-
 ### 5.1 后端全量
-（运行中，结果写在 PR 说明里）
+空库（`forecast_test` 删掉重建、Redis 清空）`mvn -o -B -ntp verify`：**834 个测试，0 失败，5 个跳过**（真实数据源冒烟等默认跳过的），BUILD SUCCESS；含模块边界检查（ArchUnit）和旧品牌名检查【实际执行】。
 
 ## 6. 需要 Amos 决定的问题（SQ-67 起）
 | 编号 | 问题 | 建议（本 PR 已按建议做） |
