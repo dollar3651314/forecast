@@ -167,22 +167,22 @@ test('Nginx：对外预热域名（S18，P1）根路径是等候页、没有测�
       const r = await status(page, p);
       expect(r.status, `${p} 跳回根路径`).toBe(302);
     }
-    const plain = await page.request.get(`${PRELAUNCH_URL}/data?src=x`, { maxRedirects: 0 });
-    expect(plain.status()).toBe(301);
-    expect(plain.headers()['location']).toMatch(/\/\?src=x$/);
-    const login = await page.request.get(`${PRELAUNCH_URL}/login`, { maxRedirects: 0 });
-    expect(login.headers()['location']).toMatch(/\/$/);
+    // 跟随跳转以后落在哪里（浏览器里的同源请求；Playwright 的 page.request 不走浏览器的假域名解析）
+    const landed = (p: string) => page.evaluate(async (u) => (await fetch(u, { cache: 'no-store' })).url, p);
+    expect(await landed('/data?src=x'), '/data 回根路径，参数保留').toBe(`${PRELAUNCH_URL}/?src=x`);
+    expect(await landed('/login'), '/login 回根路径').toBe(`${PRELAUNCH_URL}/`);
     const confirm = await status(page, '/data/confirm?t=0123456789abcdef0123456789abcdef');
     expect(confirm.status).toBe(200);
     expect(confirm.type).toContain('text/html');
     // robots.txt、sitemap.xml：预热域名自己的，允许收录根路径
-    const robots = await (await page.request.get(`${PRELAUNCH_URL}/robots.txt`)).text();
+    const text = (p: string) => page.evaluate(async (u) => (await fetch(u, { cache: 'no-store' })).text(), p);
+    const robots = await text('/robots.txt');
     expect(robots).toContain(`Sitemap: ${PRELAUNCH_URL}/sitemap.xml`);
     expect(robots).toContain('Allow: /\n');
-    const sitemap = await (await page.request.get(`${PRELAUNCH_URL}/sitemap.xml`)).text();
+    const sitemap = await text('/sitemap.xml');
     expect(sitemap).toContain(`<loc>${PRELAUNCH_URL}/</loc>`);
     expect(sitemap).toContain(`hreflang="zh-TW" href="${PRELAUNCH_URL}/?lang=zh-TW"`);
-    expect((await page.request.get(`${PRELAUNCH_URL}/og-prelaunch.png`)).headers()['content-type']).toContain('image/png');
+    expect((await status(page, '/og-prelaunch.png')).type).toContain('image/png');
     expect((await status(page, '/assets/not-exist-0000.js')).status).toBe(404);
 
     // 其他三个测试域名照常显示测试环境标识（客户端域名）
