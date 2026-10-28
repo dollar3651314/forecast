@@ -4,7 +4,7 @@
  * 请求都从浏览器页面里发（同源 fetch），走的是浏览器的域名解析和 HTTPS，和真实用户一样。
  */
 import { expect, test, type Page } from '@playwright/test';
-import { ADMIN_URL, CLIENT_URL, DEPLOYED, SITE_URL } from './targets';
+import { ADMIN_URL, CLIENT_URL, DEPLOYED, PRELAUNCH_URL, SITE_URL } from './targets';
 
 test.skip(!DEPLOYED, '只在部署形态运行（e2e/run-deployed.sh）');
 
@@ -118,6 +118,77 @@ test('Nginx：官网域名只开放页面和健康检查', async ({ browser }) =
       expect(r.type).toContain('text/html');
     }
     expect((await status(page, '/assets/not-exist-0000.js')).status, '不存在的脚本').toBe(404);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test('Nginx：对外预热域名（S18，P1）根路径是等候页、没有测试环境标识、只开放等候页用到的接口', async ({ browser }) => {
+  test.skip(!PRELAUNCH_URL, '没有配对外预热域名（E2E_PRELAUNCH_URL）');
+  const ctx = await browser.newContext({ ignoreHTTPSErrors: true, serviceWorkers: 'block', locale: 'zh-TW' });
+  const page = await ctx.newPage();
+  try {
+    await page.goto(PRELAUNCH_URL.replace(/^https:/, 'http:') + '/');
+    expect(page.url(), '预热域名 http 跳到 https').toBe(`${PRELAUNCH_URL}/`);
+    const res = await page.goto(`${PRELAUNCH_URL}/?src=line&cmp=seed`);
+    const h = res!.headers();
+    expect(h['strict-transport-security'], 'HSTS').toContain('max-age=');
+    expect(h['x-frame-options']).toBe('DENY');
+    expect(h['x-content-type-options']).toBe('nosniff');
+    // 页面：服务器填的站点形态、SSI 的标题和 canonical（指向预热域名自己）、分享图；可以收录
+    expect(await page.locator('meta[name="fc-site-mode"]').getAttribute('content')).toBe('prelaunch');
+    expect(await page.locator('link[rel="canonical"]').getAttribute('href')).toBe(`${PRELAUNCH_URL}/`);
+    expect(await page.locator('meta[property="og:image"]').getAttribute('content')).toBe(`${PRELAUNCH_URL}/og-prelaunch.png`);
+    expect(await page.locator('meta[name="robots"]').count(), '根路径允许收录').toBe(0);
+    // 渲染：等候页（繁中），没有测试环境标识，也不留空白；没有注册、登录
+    await expect(page.getByTestId('prelaunch')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('即將上線');
+    await expect(page.getByTestId('wl-submit')).toBeVisible();
+    await expect(page.getByTestId('tw-deposit'), '繁中、上线前有台湾入金教程').toBeVisible();
+    await page.waitForTimeout(1500);
+    await expect(page.getByTestId('env-banner')).toHaveCount(0);
+    expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--banner-h').trim()), '顶部不留空白').toBe('0px');
+    await expect(page.getByTestId('guest-login')).toHaveCount(0);
+    const health = await page.evaluate(async () => (await fetch('/api/health', { cache: 'no-store' })).json());
+    expect(health.status).toBe('UP');
+    expect(health.env, '预热域名的健康检查不带 env').toBeUndefined();
+    expect(health.alerts).toBeUndefined();
+    // 来源参数照样记（P4：LINE 内测群的链接）
+    expect(await page.evaluate(() => localStorage.getItem('fc.attr') || '')).toContain('line');
+    // 接口：只放行等候页用到的
+    expect((await status(page, '/api/public/board')).status).toBe(200);
+    expect((await status(page, '/api/public/pages/how-to-play?lang=zh-TW')).status).toBe(200);
+    for (const p of ['/api/me/session', '/api/markets', '/api/auth/login', '/api/admin/me', '/api/e2e/mail/code?email=x%40example.com', '/api/health;x',
+      '/api/public/board;x', '/api/public/seo/head', '/actuator/health', '/api/ws/markets']) {
+      expect((await status(page, p)).status, `预热域名 ${p} 应为 404`).toBe(404);
+    }
+    // 页面路径：注册、登录、市场、资产、分享链接都跳回根路径；/data 301 回根路径（参数保留）；确认链接照常是页面
+    for (const p of ['/login', '/register', '/markets', '/markets/1', '/assets', '/me', '/m/1', '/how-to-play', '/admin/']) {
+      const r = await status(page, p);
+      expect(r.status, `${p} 跳回根路径`).toBe(302);
+    }
+    // 跟随跳转以后落在哪里（浏览器里的同源请求；Playwright 的 page.request 不走浏览器的假域名解析）
+    const landed = (p: string) => page.evaluate(async (u) => (await fetch(u, { cache: 'no-store' })).url, p);
+    expect(await landed('/data?src=x'), '/data 回根路径，参数保留').toBe(`${PRELAUNCH_URL}/?src=x`);
+    expect(await landed('/login'), '/login 回根路径').toBe(`${PRELAUNCH_URL}/`);
+    const confirm = await status(page, '/data/confirm?t=0123456789abcdef0123456789abcdef');
+    expect(confirm.status).toBe(200);
+    expect(confirm.type).toContain('text/html');
+    // robots.txt、sitemap.xml：预热域名自己的，允许收录根路径
+    const text = (p: string) => page.evaluate(async (u) => (await fetch(u, { cache: 'no-store' })).text(), p);
+    const robots = await text('/robots.txt');
+    expect(robots).toContain(`Sitemap: ${PRELAUNCH_URL}/sitemap.xml`);
+    expect(robots).toContain('Allow: /\n');
+    const sitemap = await text('/sitemap.xml');
+    expect(sitemap).toContain(`<loc>${PRELAUNCH_URL}/</loc>`);
+    expect(sitemap).toContain(`hreflang="zh-TW" href="${PRELAUNCH_URL}/?lang=zh-TW"`);
+    expect((await status(page, '/og-prelaunch.png')).type).toContain('image/png');
+    expect((await status(page, '/assets/not-exist-0000.js')).status).toBe(404);
+
+    // 其他三个测试域名照常显示测试环境标识（客户端域名）
+    await page.goto(`${CLIENT_URL}/data`);
+    await expect(page.getByTestId('env-banner')).toBeVisible();
+    expect(await page.locator('meta[name="fc-site-mode"]').getAttribute('content'), '客户端域名不填站点形态').toBe('__FC_SITE_MODE__');
   } finally {
     await ctx.close();
   }

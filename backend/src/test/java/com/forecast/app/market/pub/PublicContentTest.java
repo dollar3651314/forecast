@@ -62,6 +62,34 @@ class PublicContentTest {
   }
 
   @Test
+  void S18_只在某种语言显示的段落_插得到位置_没有诱导词_变量都认识() throws Exception {
+    JsonNode r = root();
+    JsonNode local = r.path("local");
+    assertThat(local.isObject()).isTrue();
+    local.properties().forEach(e -> {
+      assertThat(PublicContent.LANGS).as("local 的语言").contains(e.getKey());
+      List<String> ids = new ArrayList<>();
+      r.path(e.getKey()).path("howto").path("sections").forEach(s -> ids.add(s.path("id").asString()));
+      for (JsonNode s : e.getValue().path("howto").path("sections")) {
+        assertThat(ids).as("after 指的段落要存在：" + s.path("id").asString()).contains(s.path("after").asString());
+        assertThat(ids).as("id 不能和正常段落重复").doesNotContain(s.path("id").asString());
+        List<String> t = new ArrayList<>();
+        t.add(s.path("heading").asString());
+        s.path("items").forEach(i -> t.add(i.asString()));
+        for (String x : t) {
+          for (String b : BANNED) assertThat(x.toLowerCase(Locale.ROOT)).as(x).doesNotContain(b.toLowerCase(Locale.ROOT));
+          String rest = x;
+          for (String v : VARS) rest = rest.replace(v, "");
+          assertThat(rest).as("变量以外的大括号：" + x).doesNotContain("{").doesNotContain("}");
+          // 不点名比较台湾运彩；不写没核实的手续费、到账时间数字（C66）：教程里不出现数字（链名里的 20 除外）
+          assertThat(x).doesNotContain("運彩").doesNotContain("运彩");
+          assertThat(x.replaceAll("(TRC|ERC|BEP)20", "")).as("教程里不写数字：" + x).doesNotContainPattern("[0-9]");
+        }
+      }
+    });
+  }
+
+  @Test
   void 语言写法统一_转义_页面地址() {
     assertThat(PublicContent.lang("zh-hk")).isEqualTo("zh-TW");
     assertThat(PublicContent.lang("zh-Hant-TW")).isEqualTo("zh-TW");

@@ -1070,5 +1070,11 @@
     "backToData": "回到数据页",
     "unsubTitle": "退订上线通知",
     "unsubDone": "已退订，之后不会再因为等候页给这个邮箱发邮件。"
+  },
+  "prelaunch": {
+    "title": "{{brand}} 即将上线",
+    "sub": "用 USDT 预测足球、NBA、加密货币涨跌和经济时事的结果。上线前先看看 BTC 每小时的涨跌数据，留个邮箱，上线时只通知你一次。",
+    "prepareTitle": "先准备 USDT",
+    "prepareNote": "正式上线后才会有你自己的充值地址（在「资产 → 充值」）；现在可以先在交易所准备好 USDT。"
   }
 }

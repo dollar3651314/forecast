@@ -1,7 +1,15 @@
-# 测试环境站点（复制源 S20；forecast 部署方案 `部署方案/v1-测试环境与切换.md`）。${APP_DOMAIN}、${ADMIN_DOMAIN}、${WWW_DOMAIN} 在容器启动时由 .env 替换；
+# 测试环境站点（复制源 S20；forecast 部署方案 `部署方案/v1-测试环境与切换.md`）。${APP_DOMAIN}、${ADMIN_DOMAIN}、${WWW_DOMAIN}、${PRELAUNCH_DOMAIN}（S18）在容器启动时由 .env 替换；
 # Nginx 自己的变量（例如 $host）不受影响（只替换已定义的环境变量）。
 # 证书：一张 Let's Encrypt 证书同时包含三个域名（客户端、后台、官网），名字固定为 forecast（first-start.sh 申请，certbot 自动续期；
-# 证书里缺域名时按部署方案第 8 节扩展）。
+# 证书里缺域名时按部署方案第 8 节扩展）。S18：对外预热域名（例如 www.quickcome.online）用 sudo fc add-domain 加进同一张证书。
+
+# S18：哪一个 server 块接的请求（$server_name 是配置里的名字，不是客户端发来的 Host）。对外预热域名的 server 块给后端传 X-Fc-Site: prelaunch
+# （proxy.inc 的 proxy_set_header 总是覆盖，客户端自己带的同名头传不到后端）；后端据此不返回测试环境标识、搜索引擎版本把根路径当成数据页
+# （common/web/PrelaunchSite）。没配预热域名时是一个不会被访问到的占位域名，这一项永远不命中。
+map $server_name $fc_site {
+  default "";
+  "${PRELAUNCH_DOMAIN}" prelaunch;
+}
 
 # 限流（功能取舍对照表 P-05）：Nginx 是第一道防线，只防明显的洪水，阈值比后端（common/ratelimit：每 IP 每分钟 600 次接口、
 # 120 次 WebSocket 握手，每客户每分钟 60 次交易写操作）宽松；正常使用碰不到。按 Nginx 看到的来源 IP（$binary_remote_addr）计数。
@@ -245,5 +253,111 @@ server {
     sub_filter_once on;
     sub_filter '__FC_CLIENT_URL__' 'https://${APP_DOMAIN}';
     try_files $uri /index.html;
+  }
+}
+
+# ---- forecast S18（P1）：对外预热域名（例如 www.quickcome.online），根路径直接显示等候页兼公开概率看板（客户端的 /data） ----
+# 只是一个对外的预热页面：不开放注册、登录、下注、资产，也不跳到测试环境的客户端域名（开发记录/S18-台湾预热.md SQ-61）。
+# - 页面：只有根路径 / 和等候页邮件里的确认、退订链接（/data/confirm、/data/unsubscribe）；/data 跳回 /；其他页面路径（/login、/markets……）302 跳回 /。
+# - 接口：只放行等候页用到的几个（看板、留邮箱、确认、退订、来源统计、说明页文字、健康检查），其余 /api/ 一律 404。
+# - 页面里的 <meta name="fc-site-mode"> 由这里填成 prelaunch，客户端据此只渲染等候页（web/client/src/lib/siteMode.ts）；
+#   测试环境标识：后端看 X-Fc-Site（上面的 map）不返回 env，客户端就和生产一样不显示标识条、也不留空白。
+# - 希望被搜索引擎收录：robots.txt、sitemap.xml 在这里直接给（只有根路径的三种语言）；标题、描述、Open Graph 由后端 SSI 给（SeoPages.prelaunchHead）。
+# - 安全头和别的域名一样（security.inc）。
+# .env 里没有 PRELAUNCH_DOMAIN 时 compose 给一个不会被访问到的占位域名，这一段不生效、Nginx 照常启动。
+server {
+  listen 443 ssl;
+  http2 on;
+  server_name ${PRELAUNCH_DOMAIN};
+  ssl_certificate /etc/letsencrypt/live/forecast/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/forecast/privkey.pem;
+  ssl_protocols TLSv1.2 TLSv1.3;
+  include /etc/nginx/snippets/security.inc;
+
+  root /usr/share/nginx/client;
+
+  error_page 429 = @fc_rate_limited;
+  location @fc_rate_limited {
+    include /etc/nginx/snippets/security.inc;
+    add_header Retry-After 1 always;
+    add_header X-Request-Id $request_id always;
+    default_type application/json;
+    return 429 '{"code":"RATE_LIMITED","message":"too many requests","fields":[],"cooldownSeconds":1}';
+  }
+
+  # 接口：只放行等候页用到的（精确匹配，分号、多余的路径都进不来）
+  location = /api/health {
+    include /etc/nginx/snippets/proxy.inc;
+  }
+  location ~ "^/api/public/(board|waitlist|waitlist/confirm|waitlist/unsubscribe|pages/how-to-play)$" {
+    limit_req zone=fc_api burst=${FC_NGINX_API_BURST} nodelay;
+    limit_conn fc_api_conn ${FC_NGINX_API_CONN};
+    include /etc/nginx/snippets/proxy.inc;
+    proxy_read_timeout 30s;
+  }
+  # 来源统计（P4：LINE 内测群的链接带 ?src=line&cmp=seed，记到同一张统计表）
+  location = /api/attribution/visit {
+    limit_req zone=fc_api burst=${FC_NGINX_API_BURST} nodelay;
+    limit_conn fc_api_conn ${FC_NGINX_API_CONN};
+    include /etc/nginx/snippets/proxy.inc;
+    proxy_read_timeout 30s;
+  }
+  location /api/ { return 404; }
+  location /actuator { return 404; }
+
+  # 搜索引擎版本（和客户端域名同一个做法，后端看 X-Fc-Site 输出预热页的头部和正文）
+  location ^~ /__seo/ {
+    internal;
+    include /etc/nginx/snippets/proxy.inc;
+    rewrite ^/__seo/(.*)$ /api/public/seo/$1 break;
+    proxy_set_header X-Fc-Page $request_uri;
+    proxy_pass_request_body off;
+    proxy_set_header Content-Length "";
+    proxy_connect_timeout 2s;
+    proxy_read_timeout 3s;
+  }
+  location = /robots.txt {
+    default_type text/plain;
+    expires -1;
+    return 200 "User-agent: *\nDisallow: /data/\nDisallow: /api/\nAllow: /\n\nSitemap: https://${PRELAUNCH_DOMAIN}/sitemap.xml\n";
+  }
+  location = /sitemap.xml {
+    default_type application/xml;
+    expires -1;
+    return 200 '<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url><loc>https://${PRELAUNCH_DOMAIN}/</loc><xhtml:link rel="alternate" hreflang="en" href="https://${PRELAUNCH_DOMAIN}/?lang=en"/><xhtml:link rel="alternate" hreflang="zh-CN" href="https://${PRELAUNCH_DOMAIN}/?lang=zh-CN"/><xhtml:link rel="alternate" hreflang="zh-TW" href="https://${PRELAUNCH_DOMAIN}/?lang=zh-TW"/><xhtml:link rel="alternate" hreflang="x-default" href="https://${PRELAUNCH_DOMAIN}/"/></url>
+</urlset>
+';
+  }
+
+  # 构建出来的脚本、样式（和客户端域名一样长期缓存，找不到是 404）
+  location ~ ^/assets/[^/]+\.[A-Za-z0-9]+$ {
+    expires 30d;
+    try_files $uri =404;
+  }
+  # 根目录下的静态文件：图标、分享图、PWA 的清单和 Service Worker 脚本
+  location ~ "^/[A-Za-z0-9._-]+\.(png|svg|ico|js|webmanifest)$" {
+    expires -1;
+    try_files $uri =404;
+  }
+
+  # 页面：根路径、index.html（Service Worker 预缓存要取它）、确认 / 退订链接 → 客户端的 index.html（SSI + 两个占位符）
+  location ~ "^/(index\.html|data/confirm|data/unsubscribe)?$" {
+    expires -1;
+    ssi on;
+    ssi_silent_errors on;
+    sub_filter_once on;
+    sub_filter '__FC_SITE_URL__' 'https://${WWW_DOMAIN}';
+    sub_filter '__FC_SITE_MODE__' 'prelaunch';
+    try_files /index.html =404;
+  }
+  # 数据页的地址跳回根路径（同一个页面只留一个地址，参数保留：来源统计）
+  location ~ "^/data/?$" {
+    return 301 /$is_args$args;
+  }
+  # 其他页面路径（注册、登录、市场、资产、分享链接……）：这个域名上没有，跳回根路径
+  location / {
+    return 302 /;
   }
 }

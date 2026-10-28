@@ -117,7 +117,7 @@
       "slateItem": "{time} UTC · {title}",
       "slateOption": "{label} {pct}（{bettors} 人）",
       "launchTitle": "即將上線",
-      "launchText": "正式上線後，這裡顯示每天的場次和兩邊的人數、機率。留下郵箱，上線時我們只發一封郵件通知你。",
+      "launchText": "正式上線後，這裡顯示每天的場次和兩邊的人數、機率。留下電子信箱，上線時我們只發一封郵件通知你。",
       "closed": "已經正式上線，註冊即可參與。"
     },
     "telegram": {

@@ -606,3 +606,27 @@
 .data-tg { font-size: 13px; margin: 12px 0 0; color: var(--muted); }
 /* 防刷的隐藏字段：移出屏幕（不用 display:none，部分机器人会跳过 display:none 的字段） */
 .hp-field { position: absolute; left: -10000px; top: auto; width: 1px; height: 1px; overflow: hidden; }
+
+/* ---------- S18 对外预热域名（P1，app/PrelaunchApp）：只有等候页，没有底部导航；P2 台湾入金教程（繁中、上线前） ---------- */
+.prelaunch .main { padding-bottom: calc(var(--safe-b) + 8px); }
+.pre-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; max-width: 960px; margin: 0 auto; }
+.pre-main .page-data { margin: 0 auto; }
+.pre-hero { padding: 8px 16px 0; }
+.pre-hero h1 { font-size: 24px; line-height: 1.3; margin: 0 0 6px; overflow-wrap: anywhere; }
+.pre-hero p { margin: 0 0 12px; color: var(--muted); line-height: 1.6; font-size: 15px; }
+.pre-foot { max-width: 960px; margin: 0 auto; padding: 0 16px calc(var(--safe-b) + 16px); }
+@media (min-width: 1024px) {
+  .pre-top { padding: 18px 24px; }
+  .pre-hero { padding: 16px 0 0; }
+  .pre-hero h1 { font-size: 30px; }
+  .pre-foot { padding: 0 0 24px; }
+}
+.data-tw { margin-top: 12px; }
+.data-tw summary { cursor: pointer; display: flex; flex-direction: column; gap: 2px; list-style: none; }
+.data-tw summary::-webkit-details-marker { display: none; }
+.data-tw summary::after { content: '▾'; align-self: flex-end; margin-top: -20px; color: var(--muted); }
+.data-tw details[open] summary::after { content: '▴'; }
+.data-tw summary h2 { margin: 0; }
+.data-tw summary .muted { font-size: 13px; }
+.data-tw ol { list-style: none; margin: 10px 0 0; padding-left: 0; line-height: 1.7; font-size: 14px; }
+.data-tw li + li { margin-top: 4px; }

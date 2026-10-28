@@ -71,6 +71,27 @@ class HealthControllerUnitTest {
   }
 
   @Test
+  void 对外预热域名不返回env_其他域名照旧_S18() {
+    JdbcTemplate jdbc = mock(JdbcTemplate.class);
+    when(jdbc.queryForObject(anyString(), any(Class.class))).thenReturn(1);
+    RedisConnectionFactory redis = mock(RedisConnectionFactory.class);
+    when(redis.getConnection()).thenReturn(mock(RedisConnection.class));
+    var c = new HealthController(jdbc, redis, "v", "test", java.util.List.of());
+    var www = new org.springframework.mock.web.MockHttpServletRequest();
+    www.addHeader("X-Real-IP", "203.0.113.9");
+    www.addHeader(PrelaunchSite.HEADER, PrelaunchSite.PRELAUNCH);
+    assertThat(c.health(www).getBody()).as("预热域名（Nginx 设 X-Fc-Site: prelaunch）").doesNotContainKey("env").containsEntry("status", "UP")
+        .doesNotContainKey("alerts");
+    var app = new org.springframework.mock.web.MockHttpServletRequest();
+    app.addHeader("X-Real-IP", "203.0.113.9");
+    assertThat(c.health(app).getBody()).as("客户端域名照常有 env").containsEntry("env", "test");
+    var other = new org.springframework.mock.web.MockHttpServletRequest();
+    other.addHeader("X-Real-IP", "203.0.113.9");
+    other.addHeader(PrelaunchSite.HEADER, "something-else");
+    assertThat(c.health(other).getBody()).as("只认 prelaunch 这个值").containsEntry("env", "test");
+  }
+
+  @Test
   void 业务告警只出现在alerts里_status和HTTP状态码不变_部署脚本不会回滚_E8() {
     JdbcTemplate jdbc = mock(JdbcTemplate.class);
     when(jdbc.queryForObject(anyString(), any(Class.class))).thenReturn(1);

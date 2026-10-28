@@ -311,6 +311,69 @@ public class SeoPages {
     }
   }
 
+  // =====================================================================
+  // S18（P1）：对外预热域名（例如 www.quickcome.online）。根路径就是数据页兼等候页，这个域名上没有市场、登录等页面
+  // （Nginx 的 prelaunch server 块只放行根路径和等候页邮件里的确认、退订链接，其余跳回根路径）。
+  // =====================================================================
+
+  /** 预热域名的分享图（客户端 public/ 下的静态图片，1200 × 630；Nginx 的 prelaunch server 块放行） */
+  static final String PRELAUNCH_IMAGE = "/og-prelaunch.png";
+
+  /**
+   * 预热域名的头部：根路径用数据页的标题和描述，canonical、三种语言互相标注、og:url 都指向预热域名自己的根路径（{@code base} 由调用方按请求的 Host 给，
+   * 不用 client-url）；带分享图。别的路径（确认、退订链接）照常 noindex。
+   */
+  public String prelaunchHead(String uri, String base) {
+    Page p = Page.of(uri);
+    if (!p.path().equals("/")) return head(uri, base);
+    String l = p.lang();
+    Meta meta;
+    try {
+      meta = meta(new Page("/data", l, p.explicitLang()));
+    } catch (RuntimeException e) {
+      log.warn("预热域名的标题生成失败，用品牌标题", e);
+      meta = new Meta(content.brand(), content.text(l, "site.description"), true);
+    }
+    String b = base == null ? "" : base.replaceAll("/+$", "");
+    String self = b + "/" + (p.explicitLang() ? "?lang=" + l : "");
+    StringBuilder h = new StringBuilder();
+    h.append("<title>").append(esc(meta.title())).append("</title>\n");
+    h.append("<meta name=\"description\" content=\"").append(esc(meta.description())).append("\">\n");
+    h.append("<link rel=\"canonical\" href=\"").append(esc(self)).append("\">\n");
+    for (String x : PublicContent.LANGS) h.append("<link rel=\"alternate\" hreflang=\"").append(x).append("\" href=\"").append(esc(b + "/?lang=" + x)).append("\">\n");
+    h.append("<link rel=\"alternate\" hreflang=\"x-default\" href=\"").append(esc(b + "/")).append("\">\n");
+    h.append("<meta property=\"og:type\" content=\"website\">\n");
+    h.append("<meta property=\"og:site_name\" content=\"").append(esc(content.brand())).append("\">\n");
+    h.append("<meta property=\"og:title\" content=\"").append(esc(meta.title())).append("\">\n");
+    h.append("<meta property=\"og:description\" content=\"").append(esc(meta.description())).append("\">\n");
+    h.append("<meta property=\"og:url\" content=\"").append(esc(self)).append("\">\n");
+    h.append("<meta property=\"og:locale\" content=\"").append(l.replace('-', '_').replace("en", "en_US")).append("\">\n");
+    h.append("<meta property=\"og:image\" content=\"").append(esc(b + PRELAUNCH_IMAGE)).append("\">\n");
+    h.append("<meta property=\"og:image:type\" content=\"image/png\">\n");
+    h.append("<meta property=\"og:image:width\" content=\"").append(CardService.WIDTH).append("\">\n");
+    h.append("<meta property=\"og:image:height\" content=\"").append(CardService.HEIGHT).append("\">\n");
+    h.append("<meta property=\"og:image:alt\" content=\"").append(esc(meta.title())).append("\">\n");
+    h.append("<meta name=\"twitter:card\" content=\"summary_large_image\">\n");
+    h.append("<meta name=\"twitter:title\" content=\"").append(esc(meta.title())).append("\">\n");
+    h.append("<meta name=\"twitter:description\" content=\"").append(esc(meta.description())).append("\">\n");
+    h.append("<meta name=\"twitter:image\" content=\"").append(esc(b + PRELAUNCH_IMAGE)).append("\">\n");
+    return h.toString();
+  }
+
+  /** 预热域名的正文：根路径是数据页的正文，不带客户端的导航（这个域名上没有那些页面）；别的路径没有正文 */
+  public String prelaunchBody(String uri) {
+    Page p = Page.of(uri);
+    if (!p.path().equals("/")) return "";
+    try {
+      String main = main(new Page("/data", p.lang(), p.explicitLang()));
+      if (main == null) return "";
+      return "<div class=\"seo-static\" lang=\"" + p.lang() + "\">\n<main>\n" + main + "</main>\n</div>\n";
+    } catch (RuntimeException e) {
+      log.warn("预热域名的正文生成失败，不输出", e);
+      return "";
+    }
+  }
+
   private String main(Page p) {
     String l = p.lang();
     String path = p.path();

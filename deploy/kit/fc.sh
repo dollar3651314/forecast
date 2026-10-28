@@ -5,6 +5,7 @@
 #   sudo fc to-forecast         停另一个项目（先停定时器、备份、只停容器），启动 forecast（start.sh）
 #   sudo fc keys                可选密钥哪些已填、哪些没填（只显示名字）
 #   sudo fc set-key 变量名       粘贴一个可选密钥的值（屏幕上不显示），写进 .env，自动 reload-env.sh 生效
+#   sudo fc add-domain 域名      加对外预热域名（S18，例如 www.quickcome.online）：检查 DNS 指向本机 → 扩展证书 → 写进 .env → 重新加载 → 自己验证；可以重复运行
 # 另一个项目的名字、目录不写在这里，由 switch-lib.sh 从 systemd 找到（scripts/brand-check.json：部署脚本里不写它的名字）。
 # 输出同时写进 /opt/forecast/logs/fc-<时间>.log；任何时候都不显示密钥的值。
 # 一定要带 sudo：fc 也是 bash 的内建命令（历史命令编辑），不带 sudo 直接敲 fc 会运行那个内建命令；sudo 运行的是 /usr/local/bin/fc。
@@ -43,6 +44,7 @@ usage() {
   sudo fc to-forecast         停 $o（先停定时器、备份、只停容器），启动 forecast
   sudo fc keys                可选密钥哪些已填、哪些没填（只显示名字）
   sudo fc set-key 变量名       填一个可选密钥（粘贴时屏幕上不显示），自动生效
+  sudo fc add-domain 域名      加对外预热域名（例如 www.quickcome.online：根路径是等候页、不显示测试环境标识），可以重复运行
 可以填的变量：$SECRET_KEYS $RECIPIENT_KEYS
 EOF
 }
@@ -246,6 +248,111 @@ cmd_set_key() {
   [ "$key" != FC_GEMINI_API_KEY ] || say "  Gemini：后台'内容中心'不再显示'Gemini 未配置'就是好了。"
 }
 
+# ---------- add-domain（S18，P1）----------
+# 本机的公网 IP（和 oneclick.sh 第 1 步同一个查法；FC_PUBLIC_IP 只用于开发机演练）
+public_ip() {
+  local ip=${FC_PUBLIC_IP:-} u
+  if [ -z "$ip" ]; then
+    ip=$(curl -s -4 --max-time 3 http://100.100.100.200/latest/meta-data/eipv4 2> /dev/null | grep -E '^[0-9.]+$' || true)
+    for u in https://api.ipify.org https://ifconfig.me/ip https://checkip.amazonaws.com; do
+      [ -n "$ip" ] && break
+      ip=$(curl -s -4 --max-time 5 "$u" 2> /dev/null | tr -d '[:space:]' | grep -E '^[0-9]+(\.[0-9]+){3}$' || true)
+    done
+  fi
+  echo "$ip"
+}
+
+cert_sans() {
+  openssl x509 -noout -ext subjectAltName -in /etc/letsencrypt/live/forecast/fullchain.pem 2> /dev/null | tr ',' '\n' | sed -n 's/.*DNS:\(.*\)/\1/p' | tr -d ' ' | tr '\n' ' '
+}
+
+cmd_add_domain() {
+  local d=${1:-} cur pub resolved sans web args=() s code page body loc problems=()
+  d=$(printf '%s' "$d" | tr '[:upper:]' '[:lower:]')
+  [ -n "$d" ] || die "要写域名，例如：sudo fc add-domain www.quickcome.online"
+  printf '%s' "$d" | grep -Eq '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$' \
+    || die "域名写法不对：$d（只写域名，不要 https:// 和斜杠）" "例如 sudo fc add-domain www.quickcome.online"
+  [ -f "$FC/.env" ] || die "还没有 $FC/.env" "先粘贴一键部署的那条命令"
+  for k in APP_DOMAIN ADMIN_DOMAIN WWW_DOMAIN; do
+    [ "$(envval "$k")" != "$d" ] || die "$d 已经是 $k（测试环境自己的域名），不能当预热域名"
+  done
+  cur=$(envval PRELAUNCH_DOMAIN)
+  if [ -n "$cur" ] && [ "$cur" != "$d" ]; then
+    die "已经配了预热域名 $cur，只能有一个" "要换成 $d：先把 $FC/.env 里 PRELAUNCH_DOMAIN= 这一行改成空，再运行 sudo fc add-domain $d（截图发我确认再做）"
+  fi
+  say "加对外预热域名 $d（$(date '+%Y-%m-%d %H:%M:%S %Z')，日志 $LOG）"
+  forecast_running || die "forecast 现在没有在运行（服务器给了另一个项目）" "先 sudo fc to-forecast，再运行同一条命令"
+  web="$FC_LABEL-web-1"
+  docker exec "$web" grep -q PRELAUNCH_DOMAIN /etc/nginx/templates/site.conf.template 2>> "$LOG" \
+    || die "现在运行的版本还不支持预热域名（版本 $(sed -n 's/^IMAGE_TAG=//p' "$FC/state/image.env" | cut -c1-12)）" "等自动更新换上包含 S18 的版本（sudo fc status 看版本），再运行同一条命令"
+
+  # 第 1 步：DNS 指向本机
+  pub=$(public_ip)
+  resolved=$(getent ahostsv4 "$d" 2> /dev/null | awk '{print $1}' | sort -u | tr '\n' ' ' | sed 's/ $//')
+  [ -n "$resolved" ] || die "第 1 步：$d 查不到 IP（Cloudflare 里的记录还没加或还没生效）" "在 Cloudflare 加一条 A 记录：名称 ${d%%.*}，指向 ${pub:-这台服务器的公网 IP}，代理状态选'仅 DNS'（灰色云）；等 1～5 分钟再运行同一条命令"
+  if [ -n "$pub" ] && [ "$resolved" != "$pub" ]; then
+    die "第 1 步：$d 指向 $resolved，不是这台服务器（$pub）" "Cloudflare 里这条记录要指向 $pub，并且是灰色云（仅 DNS；橙色云会让证书申请失败）"
+  fi
+  say "✓ 第 1 步：DNS——$d → $resolved${pub:+（就是这台服务器）}"
+
+  # 第 2 步：把域名加进同一张证书（webroot：Nginx 照常运行，80 端口的 /.well-known/acme-challenge/ 由它回答；续期方式不变）
+  sans=$(cert_sans)
+  case " $sans " in
+    *" $d "*) say "✓ 第 2 步：证书——已经包含 $d，跳过" ;;
+    *)
+      [ -n "$sans" ] || die "第 2 步：没有找到证书 /etc/letsencrypt/live/forecast" "先粘贴一键部署的那条命令"
+      for s in $sans; do args+=(-d "$s"); done
+      if [ -n "$(envval CERT_EMAIL)" ]; then args+=(-m "$(envval CERT_EMAIL)"); else args+=(--register-unsafely-without-email); fi
+      say "  … 第 2 步：扩展证书（把 $d 加进去，约 30 秒）"
+      if ! certbot certonly -n --agree-tos --cert-name forecast --expand --webroot -w /var/www/certbot "${args[@]}" -d "$d" \
+        --deploy-hook "docker exec $web nginx -s reload" >> "$LOG" 2>&1; then
+        tail -5 "$LOG" | sed 's/^/    /'
+        die "第 2 步：证书没有扩展成功（多半是 DNS 刚改还没生效、是橙色云，或者云防火墙没开 80）" "确认 Cloudflare 里是灰色云、等几分钟再运行同一条命令"
+      fi
+      case " $(cert_sans) " in *" $d "*) ;; *) die "第 2 步：certbot 说成功了，但证书里还是没有 $d" "截图发我" ;; esac
+      say "✓ 第 2 步：证书——已扩展，现在包含：$(cert_sans)（自动续期照旧）"
+      ;;
+  esac
+
+  # 第 3 步：写进 .env，让 Nginx 和后端用上（只重建配置变了的容器，数据不动）
+  if [ "$cur" = "$d" ] && [ "$(docker exec "$web" printenv PRELAUNCH_DOMAIN 2> /dev/null)" = "$d" ]; then
+    docker exec "$web" nginx -s reload >> "$LOG" 2>&1 || true
+    say "✓ 第 3 步：配置——.env 里已经是 $d、正在使用，跳过（重新加载了一次 Nginx，用上最新的证书）"
+  else
+    [ "$cur" = "$d" ] || VAL="$d" env_write PRELAUNCH_DOMAIN
+    say "  … 第 3 步：写进 .env（PRELAUNCH_DOMAIN=$d）并重新加载（reload-env.sh，约 1～2 分钟）"
+    bash "$FC/reload-env.sh" >> "$LOG" 2>&1 < /dev/null || die "第 3 步：重新加载后 3 分钟内健康检查没有通过" "截图发我（日志 $LOG）"
+    say "✓ 第 3 步：配置——已写进 .env，Nginx 和后端已用上"
+  fi
+
+  # 第 4 步：在本机按这个域名访问一遍
+  for _ in $(seq 1 15); do
+    code=$(lcurl -s -o /dev/null -w '%{http_code}' --max-time 10 --resolve "$d:443:127.0.0.1" "https://$d/" 2>> "$LOG" || true)
+    [ "$code" = 200 ] && break
+    sleep 2
+  done
+  [ "$code" = 200 ] || problems+=("https://$d/ 返回 $code（000 = 连不上或证书不包含这个域名）")
+  page=$(lcurl -s --max-time 10 --resolve "$d:443:127.0.0.1" "https://$d/" 2>> "$LOG" || true)
+  case "$page" in *'name="fc-site-mode" content="prelaunch"'*) ;; *) problems+=("首页不是等候页（页面里没有 fc-site-mode=prelaunch）") ;; esac
+  body=$(lcurl -s --max-time 10 --resolve "$d:443:127.0.0.1" "https://$d/api/health" 2>> "$LOG" || true)
+  case "$body" in *'"status":"UP"'*) ;; *) problems+=("https://$d/api/health 不是 UP") ;; esac
+  case "$body" in *'"env"'*) problems+=("这个域名的健康检查还带测试环境标识 env（页面会显示标识条）") ;; esac
+  loc=$(lcurl -s -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 10 --resolve "$d:443:127.0.0.1" "https://$d/login" 2>> "$LOG" || true)
+  case "$loc" in 302\ https://"$d"/) ;; *) problems+=("https://$d/login 应该跳回首页（$loc）") ;; esac
+  code=$(lcurl -s -o /dev/null -w '%{http_code}' --max-time 10 --resolve "$d:443:127.0.0.1" "https://$d/api/me/session" 2>> "$LOG" || true)
+  [ "$code" = 404 ] || problems+=("https://$d/api/me/session 应该是 404（$code）")
+  loc=$(lcurl -s -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 10 --resolve "$d:80:127.0.0.1" "http://$d/" 2>> "$LOG" || true)
+  case "$loc" in 301\ https://"$d"/*) ;; *) problems+=("http://$d/ 没有跳转到 https（$loc）") ;; esac
+  if [ "${#problems[@]}" -gt 0 ]; then
+    say "✗ 第 4 步：在本机验证"
+    for s in "${problems[@]}"; do say "    ✗ $s"; done
+    say "    下一步：截图发我（日志 $LOG）"
+    exit 1
+  fi
+  say "✓ 第 4 步：验证——https://$d/ 是等候页、没有测试环境标识；/login 跳回首页、其他接口 404；http 跳 https"
+  say "完成。对外地址：https://$d/ （等候页兼公开概率看板；测试环境的三个域名照旧）"
+}
+
 [ "$(id -u)" = 0 ] || { echo "✗ 请用 sudo 运行，例如：sudo fc status"; exit 1; }
 mkdir -p "$FC/logs"
 : > "$LOG"
@@ -265,6 +372,7 @@ case "$cmd" in
     ;;
   keys) cmd_keys ;;
   set-key) cmd_set_key "${2:-}" ;;
+  add-domain) cmd_add_domain "${2:-}" ;;
   help | -h | --help) usage ;;
   *)
     echo "✗ 不认识 $cmd"
