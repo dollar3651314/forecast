@@ -1,0 +1,65 @@
+{
+  "_说明": "邮箱格式的共用例子（forecast S19，C108）：客户端 web/client/src/lib/emailRule.ts、Cloudflare 的等候页 cf/src/waitlist.ts、后端导入 WaitlistService.validEmail 三边跑同一组。ok 是去掉前后空白以后是否合法；改规则时三边一起改、这里一起加例子。",
+  "cases": [
+    {
+      "input": "amos@example.com",
+      "ok": true
+    },
+    {
+      "input": "  Amos@Example.COM  ",
+      "ok": true
+    },
+    {
+      "input": "a.b+tag@sub.example.co",
+      "ok": true
+    },
+    {
+      "input": "用户@例子.公司",
+      "ok": true
+    },
+    {
+      "input": "a@b.co",
+      "ok": true
+    },
+    {
+      "input": "",
+      "ok": false
+    },
+    {
+      "input": "   ",
+      "ok": false
+    },
+    {
+      "input": "a@b",
+      "ok": false
+    },
+    {
+      "input": "a@b.c",
+      "ok": false
+    },
+    {
+      "input": "a b@example.com",
+      "ok": false
+    },
+    {
+      "input": "a@@example.com",
+      "ok": false
+    },
+    {
+      "input": "@example.com",
+      "ok": false
+    },
+    {
+      "input": "amos.example.com",
+      "ok": false
+    },
+    {
+      "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@a.com",
+      "ok": false
+    },
+    {
+      "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@a.com",
+      "ok": true
+    }
+  ]
+}

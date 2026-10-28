@@ -261,6 +261,106 @@ public class WaitlistService implements WaitlistAdminApi {
   }
 
   // =====================================================================
+  // forecast S19（P15）：从 Cloudflare 导入名单
+  // =====================================================================
+
+  /**
+   * 邮箱格式（和客户端 web/client/src/lib/emailRule.ts、Cloudflare 的等候页同一条规则，C108；三边跑同一组例子
+   * backend/src/test/resources/email/vectors.json）。
+   */
+  static final Pattern EMAIL = Pattern.compile("[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}");
+  static final int EMAIL_MAX = 254;
+  private static final Pattern HEX64 = Pattern.compile("[0-9a-f]{64}");
+
+  static boolean validEmail(String e) {
+    if (e == null) return false;
+    String s = e.strip();
+    return !s.isEmpty() && s.length() <= EMAIL_MAX && EMAIL.matcher(s).matches();
+  }
+
+  /**
+   * 导入（规则见 {@link WaitlistAdminApi#importFromCloudflare}，开发记录 S19 第 2.9 节）：一项一个事务，全部用条件更新，重复导入结果一样；不发任何邮件。
+   * <ul>
+   *   <li>已确认：后台没有 → 新增为已确认；待确认 → 已确认；已确认 / 已通知 → 不动；已退订 → 不动（退订优先）。</li>
+   *   <li>已退订：后台没有 → 不新增；待确认 / 已确认 / 已通知 → 已退订；已退订 → 不动。</li>
+   * </ul>
+   */
+  @Override
+  public ImportResult importFromCloudflare(List<ImportItem> items) {
+    List<ImportProblem> problems = new java.util.ArrayList<>();
+    int[] n = new int[6]; // added, confirmed, unsubscribed, unchanged, notAdded, afterLaunch
+    WaitlistMapper.Launch l0 = mapper.launch();
+    boolean launchDone = l0 != null && "DONE".equals(l0.status);
+    for (int i = 0; i < items.size(); i++) {
+      ImportItem it = items.get(i);
+      int row = i + 1;
+      int before = problems.size();
+      if (it == null) {
+        problems.add(new ImportProblem(row, "item", "missing"));
+        continue;
+      }
+      if (!validEmail(it.email())) problems.add(new ImportProblem(row, "email", "emailInvalid"));
+      String st = it.status() == null ? "" : it.status().strip().toLowerCase(Locale.ROOT);
+      if (!st.equals("confirmed") && !st.equals("unsubscribed")) problems.add(new ImportProblem(row, "status", "statusInvalid"));
+      LocalDateTime now = now();
+      LocalDateTime created = time(it.createdAt(), now, row, "createdAt", problems);
+      LocalDateTime confirmedAt = time(it.confirmedAt(), created, row, "confirmedAt", problems);
+      if (problems.size() > before) continue;
+      String email = it.email().strip().toLowerCase(Locale.ROOT);
+      String result = tx.execute(s -> importOne(email, st, it, created, confirmedAt, now));
+      switch (result == null ? "unchanged" : result) {
+        case "added" -> {
+          n[0]++;
+          if (launchDone) n[5]++;
+        }
+        case "confirmed" -> {
+          n[1]++;
+          if (launchDone) n[5]++;
+        }
+        case "unsubscribed" -> n[2]++;
+        case "notAdded" -> n[4]++;
+        default -> n[3]++;
+      }
+    }
+    int invalid = (int) problems.stream().map(ImportProblem::row).distinct().count();
+    log.info("等候页：从 Cloudflare 导入 {} 项：新增 {}、改成已确认 {}、改成已退订 {}、不变 {}、不新增 {}、格式不对 {}", items.size(), n[0], n[1], n[2], n[3], n[4], invalid);
+    return new ImportResult(items.size(), n[0], n[1], n[2], n[3], n[4], invalid, n[5], List.copyOf(problems), launch());
+  }
+
+  private String importOne(String email, String status, ImportItem it, LocalDateTime created, LocalDateTime confirmedAt, LocalDateTime now) {
+    for (int attempt = 0; attempt < 2; attempt++) {
+      WaitlistMapper.Row r = mapper.byEmail(email);
+      if (status.equals("unsubscribed")) {
+        if (r == null) return "notAdded";
+        return !"UNSUBSCRIBED".equals(r.status) && mapper.unsubscribe(r.id, now) == 1 ? "unsubscribed" : "unchanged";
+      }
+      if (r != null) {
+        if ("PENDING".equals(r.status)) return mapper.confirmImported(r.id, confirmedAt, now) == 1 ? "confirmed" : "unchanged";
+        return "unchanged";
+      }
+      Attribution.Source a = Attribution.of(it.src(), it.cmp(), it.ref(), it.start());
+      String unsubRaw = it.unsubToken() == null ? "" : it.unsubToken().strip().toLowerCase(Locale.ROOT);
+      // 第一次沿用 Cloudflare 上的退订串；和别的订阅撞了（第二次）换一个新的
+      String unsub = attempt == 0 && TOKEN.matcher(unsubRaw).matches() ? unsubRaw : token();
+      String ipHash = it.ipHash() != null && HEX64.matcher(it.ipHash().strip().toLowerCase(Locale.ROOT)).matches() ? it.ipHash().strip().toLowerCase(Locale.ROOT) : "";
+      if (mapper.insertImported(email, lang(it.lang()), token(), unsub, a.src(), a.cmp(), a.ref(), a.start(), ipHash, created, confirmedAt, now) == 1) return "added";
+      // 没插进去：要么同时有人留了这个邮箱（下一轮按已有的处理），要么退订串撞了（下一轮换新的）
+    }
+    return "unchanged";
+  }
+
+  /** ISO 时间（UTC）；空的用 fallback；格式不对记一个问题 */
+  private static LocalDateTime time(String iso, LocalDateTime fallback, int row, String field, List<ImportProblem> problems) {
+    if (iso == null || iso.isBlank()) return fallback;
+    try {
+      return LocalDateTime.ofInstant(java.time.Instant.parse(iso.strip()), ZoneOffset.UTC).truncatedTo(ChronoUnit.MILLIS);
+    } catch (RuntimeException e) {
+      problems.add(new ImportProblem(row, field, "timeInvalid"));
+      return fallback;
+    }
+  }
+
+  // =====================================================================
 
   /** 邮箱打码：保留第一个字符和域名（a***@example.com） */
   static String mask(String email) {

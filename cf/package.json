@@ -1,0 +1,25 @@
+{
+  "name": "forecast-public-cf",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "forecast S19：Cloudflare 上的公开部分（等候页、看板、官网），Workers 静态资源 + D1",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "test": "vitest run",
+    "build": "node scripts/build.mjs",
+    "check-dist": "node scripts/check-dist.mjs",
+    "dry-run": "wrangler deploy --dry-run --outdir .wrangler/dry-run",
+    "dev": "wrangler dev --test-scheduled"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261006.1",
+    "@types/node": "22.20.5",
+    "typescript": "5.9.3",
+    "vitest": "3.2.7",
+    "wrangler": "4.149.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

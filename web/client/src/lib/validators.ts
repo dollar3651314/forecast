@@ -4,6 +4,7 @@
  */
 import { cmp, dec, isDecimalString, sub, add, ZERO, type Dec } from './decimal';
 import { splitDate } from './dateParts';
+import { validateEmail } from './emailRule';
 import type { Network, WithdrawInfo, WhitelistAddress } from '../api/types';
 
 export type FieldErrors<K extends string = string> = Partial<Record<K, string[]>>;
@@ -16,12 +17,8 @@ export function hasErrors(errs: FieldErrors): boolean {
   return Object.values(errs).some((v) => v && v.length > 0);
 }
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-
-export function validateEmail(email: string): string[] {
-  if (!email.trim()) return ['validation.required'];
-  return EMAIL_RE.test(email.trim()) ? [] : ['validation.emailFormat'];
-}
+// 邮箱规则在 emailRule.ts（S19：Cloudflare 上的等候页接口也用同一份，C108）
+export { validateEmail };
 
 /** 密码：8–64 位，至少包含字母和数字（和后端一致） */
 export function validatePassword(pw: string): string[] {

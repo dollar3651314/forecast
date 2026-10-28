@@ -1,7 +1,8 @@
 # 每个 PR 的自动检查（agents 规则 C54、C74；技术方案/v1-架构方案.md 第 12 节）。按复制源 ci.yml v0.10 改写（forecast S1）。
 # 原则：不需要任何密钥（外部服务用替身）；用到数据库的，用 GitHub 提供的 MySQL、Redis 服务容器在真实数据库上跑（C37）；
 #   测试里的假值用 ci_only_ 前缀，避免被 gitleaks 误报。
-# 结构（第 12.1 节）：changes 判断改动路径 → checks、web (client/admin/site)、backend、e2e、e2e-deployed、contracts、sweep-anvil → ci-ok 汇总。
+# 结构（第 12.1 节）：changes 判断改动路径 → checks、web (client/admin/site)、backend、e2e、e2e-deployed、contracts、sweep-anvil、cloudflare (public)（S19）→ ci-ok 汇总；
+#   push 到 staging 时 publish-staging 发布测试服务器的镜像，push 到 staging / main 时 deploy-cf 部署 Cloudflare 上的公开部分（S19）。
 #   - PR 上按改动路径决定跑哪些 job（dorny/paths-filter，固定提交号）；没跑的 job 显示"跳过"，检查名字照常上报。改到 .github/ 时全部都跑。
 #   - push 到 staging、main 和手动运行时不看路径，全部都跑。
 #   - ci-ok：任何一项 failure / cancelled 就失败，跳过算通过。分支保护只设它为必须通过（第一次运行变绿后由运维指导 Amos 设置）。
@@ -45,6 +46,8 @@ jobs:
       deployed: ${{ steps.all.outputs.full == 'true' || steps.f.outputs.deployed == 'true' }}
       contracts: ${{ steps.all.outputs.full == 'true' || steps.f.outputs.contracts == 'true' }}
       sweep: ${{ steps.all.outputs.full == 'true' || steps.f.outputs.sweep == 'true' }}
+      # S19：Cloudflare 上的公开部分（cf/）。它构建客户端、官网的公开版，所以改到 web/client、web/site 也要跑
+      cf: ${{ steps.all.outputs.full == 'true' || steps.f.outputs.cf == 'true' || steps.f.outputs.client == 'true' || steps.f.outputs.site == 'true' || steps.f.outputs.webshared == 'true' }}
     steps:
       - name: 改动路径（只在 PR 上判断；用 GitHub 接口取文件列表，不用 checkout）
         id: f
@@ -63,6 +66,8 @@ jobs:
               - 'vercel.json'
               # 客户端 lib/pool.test.ts 读后端的赔率测试向量（forecast S4，前后端共用一份）
               - 'backend/src/test/resources/pool/**'
+              # 邮箱规则的共用例子（forecast S19，C108：客户端、Cloudflare、后端三边一组）
+              - 'backend/src/test/resources/email/**'
             admin:
               - 'web/admin/**'
             site:
@@ -86,6 +91,12 @@ jobs:
               - 'e2e/run-deployed.sh'
               - 'e2e/compose.deployed.yml'
               - 'e2e/oneclick-drill.sh'
+            cf:
+              - 'cf/**'
+              # Worker 打包了后端的台湾入金教程文字；确认邮件的文字和后端模板逐字比对；邮箱规则的共用例子
+              - 'backend/src/main/resources/content/public-pages.json'
+              - 'backend/src/main/resources/db/migration/**'
+              - 'backend/src/test/resources/email/**'
             sweep:
               - 'contracts/**'
               - '.gitmodules'
@@ -350,6 +361,53 @@ jobs:
             e2e/logs/deployed/
             e2e/logs/oneclick/
           retention-days: 14
+  # Cloudflare 上的公开部分（forecast S19，cf/；开发记录/S19-公开部分上Cloudflare.md）：Worker 的类型检查和测试（本地 D1）、
+  # 客户端和官网公开版的构建、P11 底线检查（产物里没有交易入口）、两个环境的 wrangler 打包检查（不连 Cloudflare）、本机 wrangler dev 端到端。
+  # 不需要任何密钥。
+  cf:
+    name: cloudflare (public)
+    needs: changes
+    if: needs.changes.outputs.cf == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            cf/package-lock.json
+            web/client/package-lock.json
+            web/site/package-lock.json
+      - name: 安装依赖（cf、客户端、官网）
+        run: |
+          npm ci --prefix cf --no-audit --no-fund
+          npm ci --prefix web/client --no-audit --no-fund
+          npm ci --prefix web/site --no-audit --no-fund
+      - name: Worker 类型检查
+        working-directory: cf
+        run: npm run typecheck
+      - name: Worker 测试（vitest + 本地 D1；外部服务都是替身）
+        working-directory: cf
+        run: npm test
+      - name: 构建静态资源（客户端公开版 + 官网公开版 /about/）
+        run: node cf/scripts/build.mjs
+      - name: P11 底线：产物里没有交易入口
+        run: node cf/scripts/check-dist.mjs
+      - name: 产物里没有原型模拟层（客户端公开版）、没有旧品牌名
+        run: |
+          node scripts/check-no-mocks.mjs web/client/src/mocks web/client/dist-public
+          node scripts/check-brand.mjs cf/dist
+      - name: wrangler 打包检查（正式版、测试版；--dry-run 不连 Cloudflare）
+        working-directory: cf
+        run: |
+          npx wrangler deploy --dry-run --env="" --outdir .wrangler/dry-run
+          npx wrangler deploy --dry-run --env=staging --outdir .wrangler/dry-run-staging
+      - name: 本机端到端（wrangler dev：页面 → 留邮箱 → 确认 → 退订、陷阱字段、限次、定时任务）
+        run: bash cf/scripts/e2e-local.sh
   # 资金归集合约（contracts/，复制源的半自动归集方案第 4.14 节"不审计的替代措施"）
   contracts:
     needs: changes
@@ -430,7 +488,7 @@ jobs:
   # 汇总：分支保护只设这一个检查为必须通过。任何一项失败或取消就失败；被跳过（PR 上没改到对应路径）算通过。
   ci-ok:
     if: always()
-    needs: [changes, checks, web-client, web-admin, web-site, backend, e2e, e2e-deployed, contracts, sweep-anvil]
+    needs: [changes, checks, web-client, web-admin, web-site, backend, e2e, e2e-deployed, contracts, sweep-anvil, cf]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -537,3 +595,39 @@ jobs:
           done
           echo "15 分钟内测试环境没有换成 $SHA（当前：${v:-无法访问}）。服务器上看 /opt/forecast/logs/deploy.log" >&2
           exit 1
+  # 部署到 Cloudflare（forecast S19，平台规范 Cloudflare K3）：只在 push 到 staging / main、并且上面的检查全部通过时运行（任何一个失败、取消或跳过都不部署）；PR 上不运行。
+  #   staging → 测试版 forecast-public-staging（workers.dev，Access 保护）；main → 正式版 forecast-public（Amos 在控制台绑 www.quickcome.online 以后才对外）。
+  # D1 没有就建、迁移只执行没执行过的（cf/scripts/deploy.sh，可以重复运行）。需要仓库 Secrets：CLOUDFLARE_API_TOKEN、CLOUDFLARE_ACCOUNT_ID
+  # （令牌只要 Workers Scripts Edit、D1 Edit、Account Settings Read 三项，见 部署方案/v1-公开部分Cloudflare操作清单.md）；没填时打印"跳过"并成功（C103）。
+  deploy-cf:
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/staging' || github.ref == 'refs/heads/main')
+    needs: [checks, web-client, web-admin, web-site, backend, contracts, sweep-anvil, e2e, e2e-deployed, cf]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            cf/package-lock.json
+            web/client/package-lock.json
+            web/site/package-lock.json
+      - name: 安装依赖、构建静态资源、P11 检查
+        run: |
+          npm ci --prefix cf --no-audit --no-fund
+          npm ci --prefix web/client --no-audit --no-fund
+          npm ci --prefix web/site --no-audit --no-fund
+          node cf/scripts/build.mjs
+          node cf/scripts/check-dist.mjs
+      - name: 部署（staging → 测试版；main → 正式版）
+        env:
+          TARGET: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+        run: bash cf/scripts/deploy.sh "$TARGET"

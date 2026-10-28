@@ -3054,7 +3054,32 @@
       "sending": "Sending launch email ({{sent}} / {{n}})",
       "done": "Launch email sent ({{sent}})"
     },
-    "launchInfo": "Launch email sent at {{at}}: {{n}} confirmed, {{sent}} emails queued. Reason: {{reason}}"
+    "launchInfo": "Launch email sent at {{at}}: {{n}} confirmed, {{sent}} emails queued. Reason: {{reason}}",
+    "import": {
+      "btn": "Import from Cloudflare",
+      "title": "Import the waitlist from Cloudflare",
+      "desc": "When trading opens, import the confirmed subscribers from Cloudflare (language, source and confirmation time are kept); people who unsubscribed on Cloudflare are marked unsubscribed here too. Safe to run again: nothing is duplicated.",
+      "noMail": "Importing sends no email. The launch notice still goes out only via \"Send launch notice\" (once for the whole site); people imported after it finished will not get it.",
+      "file": "Export file",
+      "fileHint": "export.json downloaded from the Cloudflare waitlist page (/api/admin/). Delete the downloaded file afterwards (it contains full email addresses).",
+      "fileRequired": "Choose the export.json downloaded from Cloudflare",
+      "notJson": "This file is not JSON. Choose the export.json from the Cloudflare waitlist page",
+      "wrongFormat": "This is not a Cloudflare waitlist export (format should be fc-cf-waitlist-v1)",
+      "empty": "The file has no subscribers; nothing to import",
+      "summary": "{{n}} in total: {{c}} confirmed, {{u}} unsubscribed",
+      "hasNext": "There is more after this file (up to 2,000 each): after importing it, download the next one from the Cloudflare page (the next link in the file) and import that too.",
+      "confirm": "Import",
+      "result": "Imported {{total}}: {{added}} added, {{confirmed}} confirmed, {{unsubscribed}} unsubscribed, {{unchanged}} unchanged, {{notAdded}} unsubscribed and not added, {{invalid}} invalid",
+      "afterLaunch": "The launch notice has already been sent: {{n}} of them became confirmed afterwards and will not receive it (it is sent once only).",
+      "problem": "Item {{row}}: {{what}}",
+      "more": "{{n}} more not listed",
+      "code": {
+        "emailInvalid": "invalid email",
+        "statusInvalid": "status is not confirmed / unsubscribed",
+        "timeInvalid": "invalid time (use ISO, e.g. 2026-10-28T08:00:00.000Z)",
+        "missing": "empty item"
+      }
+    }
   },
   "tg": {
     "title": "Telegram bot",

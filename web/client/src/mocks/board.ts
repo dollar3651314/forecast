@@ -51,6 +51,12 @@ const SLATE: BoardItem[] = [
   },
 ];
 
+/** S19：Cloudflare 上的看板带数据来源（OKX / Binance）；原型和测试里默认不带（= 测试服务器的后端） */
+let mockSource: string | null = null;
+export function setMockBoardSource(s: string | null): void {
+  mockSource = s;
+}
+
 export function getBoard(): Promise<Board> {
   const base = (): Board => ({
     updatedAt: '2026-10-25T08:00:00Z',
@@ -66,6 +72,7 @@ export function getBoard(): Promise<Board> {
       from: '2026-10-24T08:00:00Z',
       to: '2026-10-25T08:00:00Z',
       updatedAt: '2026-10-25T08:00:12Z',
+      ...(mockSource ? { source: mockSource } : {}),
     },
     launched,
     waitlistOpen: !launched,

@@ -4,7 +4,7 @@
  * 示例市场是静态的，不滚动、不闪动（C84，营造氛围的元素放在官网也不做跑马灯）。示例数字是需求第 3.5 节的例子（162.29 = 100 + 65.57 − 3.28）。
  * 文案在 src/i18n/*.json（三种语言），内容只写系统已经做到或已定的规则。
  */
-import { clientLink } from '../config';
+import { clientLink, PUBLIC_SITE, SIGNUP_KEY, signupLink } from '../config';
 import { Icon, type IconName } from '../components/Icon';
 import { useI18n } from '../i18n';
 
@@ -141,7 +141,7 @@ function Safe({ desktop }: { desktop: boolean }) {
 
 export function HomeDesktop() {
   const { t, lang } = useI18n();
-  const reg = clientLink('register', lang);
+  const reg = signupLink(lang);
   return (
     <main>
       <div className="hero" data-testid="hero">
@@ -155,11 +155,13 @@ export function HomeDesktop() {
             <p className="sub">{t('hero.sub')}</p>
             <div className="cta">
               <a className="btn pri lg" href={reg} data-testid="hero-register">
-                {t('common.register')}
+                {t(SIGNUP_KEY)}
               </a>
-              <a className="btn sec lg" href={clientLink('login', lang)} data-testid="hero-login">
-                {t('common.login')}
-              </a>
+              {!PUBLIC_SITE && (
+                <a className="btn sec lg" href={clientLink('login', lang)} data-testid="hero-login">
+                  {t('common.login')}
+                </a>
+              )}
             </div>
             <div className="points">
               <span>{t('hero.p1')}</span>
@@ -214,10 +216,10 @@ export function HomeDesktop() {
 
       <section className="blk final">
         <div className="wrap">
-          <Title title={t('final.title')} sub={t('final.sub')} />
+          <Title title={t(PUBLIC_SITE ? 'final.titleWaitlist' : 'final.title')} sub={t(PUBLIC_SITE ? 'final.subWaitlist' : 'final.sub')} />
           <div style={{ marginTop: 22 }}>
             <a className="btn pri lg" href={reg}>
-              {t('common.register')}
+              {t(SIGNUP_KEY)}
             </a>
           </div>
         </div>
@@ -228,7 +230,7 @@ export function HomeDesktop() {
 
 export function HomeMobile() {
   const { t, lang } = useI18n();
-  const reg = clientLink('register', lang);
+  const reg = signupLink(lang);
   return (
     <main>
       <div className="hero" data-testid="hero">
@@ -240,11 +242,13 @@ export function HomeMobile() {
         <p className="sub">{t('hero.subMobile')}</p>
         <div className="cta">
           <a className="btn pri" href={reg} data-testid="hero-register">
-            {t('common.register')}
+            {t(SIGNUP_KEY)}
           </a>
-          <a className="btn sec" href={clientLink('login', lang)} data-testid="hero-login">
-            {t('common.login')}
-          </a>
+          {!PUBLIC_SITE && (
+            <a className="btn sec" href={clientLink('login', lang)} data-testid="hero-login">
+              {t('common.login')}
+            </a>
+          )}
         </div>
         <ExampleCard />
       </div>
@@ -285,7 +289,7 @@ export function HomeMobile() {
       </section>
 
       <section className="blk final">
-        <Title title={t('final.title')} sub={t('final.sub')} />
+        <Title title={t(PUBLIC_SITE ? 'final.titleWaitlist' : 'final.title')} sub={t(PUBLIC_SITE ? 'final.subWaitlist' : 'final.sub')} />
       </section>
     </main>
   );

@@ -788,6 +788,8 @@ export interface BoardBtc {
   from: string | null;
   to: string | null;
   updatedAt: string | null;
+  /** 数据来源的名字（OKX、Binance）：Cloudflare 上的公开版接口（S19，cf/src/board.ts）带；测试服务器的后端不带（=币安） */
+  source?: string | null;
 }
 export interface BoardOption {
   optionNo: string;

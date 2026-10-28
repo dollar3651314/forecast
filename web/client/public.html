@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-TW" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#ffffff" />
+    <!--
+      公开版（forecast S19，P11、P12）：Cloudflare 上 www 的首页，只有等候页兼看板、确认和退订（src/public/main.tsx → app/PrelaunchApp）。
+      官网在同一个站点的 /about/（web/site 的公开版），所以 fc-site-url 写同站路径；站点形态固定是 prelaunch，不靠服务器替换。
+      默认的标题、描述、分享卡片用繁中（繁中优先）；页面打开后按语言换标题（hooks/useTitle）。
+    -->
+    <meta name="fc-site-url" content="/about" />
+    <meta name="fc-site-mode" content="prelaunch" />
+    <script>
+      (function () {
+        var t = null;
+        try { t = localStorage.getItem('fc.theme'); } catch (e) {}
+        if (t !== 'light' && t !== 'dark') t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', t);
+      })();
+    </script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <title>Quick Come 即將上線</title>
+    <meta name="description" content="Quick Come 即將上線：用 USDT 預測足球、NBA、加密貨幣漲跌和經濟時事的結果。先看 BTC 每小時漲跌的公開資料，留個電子信箱，上線時只通知你一次。" />
+    <link rel="alternate" hreflang="zh-TW" href="/?lang=zh-TW" />
+    <link rel="alternate" hreflang="zh-CN" href="/?lang=zh-CN" />
+    <link rel="alternate" hreflang="en" href="/?lang=en" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Quick Come" />
+    <meta property="og:title" content="Quick Come 即將上線" />
+    <meta property="og:description" content="BTC 每小時漲跌 · 公開機率看板。留個電子信箱，上線時只通知你一次。" />
+    <meta property="og:image" content="/og-prelaunch.png" />
+    <meta property="og:locale" content="zh_TW" />
+    <meta name="twitter:card" content="summary_large_image" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/public/main.tsx"></script>
+  </body>
+</html>

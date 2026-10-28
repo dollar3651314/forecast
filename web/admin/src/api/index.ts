@@ -230,6 +230,8 @@ export const exportGrowth: typeof rf.exportGrowth = IS_MOCK ? fm.exportGrowth : 
 export const listWaitlist: typeof rf.listWaitlist = IS_MOCK ? fm.listWaitlist : rf.listWaitlist;
 /** POST /api/admin/waitlist/launch（content:publish ★，只能一次） */
 export const launchWaitlist: typeof rf.launchWaitlist = IS_MOCK ? fm.launchWaitlist : rf.launchWaitlist;
+/** POST /api/admin/waitlist/import（content:publish ★，S19：从 Cloudflare 导入名单） */
+export const importWaitlist: typeof rf.importWaitlist = IS_MOCK ? fm.importWaitlist : rf.importWaitlist;
 /** GET /api/admin/telegram（content:view） */
 export const getTelegram: typeof rf.getTelegram = IS_MOCK ? fm.getTelegram : rf.getTelegram;
 /** GET /api/admin/telegram/posts */

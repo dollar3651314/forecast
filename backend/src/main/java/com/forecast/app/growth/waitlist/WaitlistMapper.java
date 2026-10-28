@@ -60,6 +60,15 @@ public interface WaitlistMapper {
   int resubscribe(@Param("id") long id, @Param("confirmToken") String confirmToken, @Param("lang") String lang, @Param("src") String src, @Param("cmp") String cmp,
       @Param("ref") String ref, @Param("start") String start, @Param("now") LocalDateTime now);
 
+  /** S19 导入：新增一个已确认的订阅（时间、语言、来源照搬 Cloudflare 上的）；邮箱或随机串已经有了就不插入（返回 0） */
+  int insertImported(@Param("email") String email, @Param("lang") String lang, @Param("confirmToken") String confirmToken,
+      @Param("unsubToken") String unsubToken, @Param("src") String src, @Param("cmp") String cmp, @Param("ref") String ref, @Param("start") String start,
+      @Param("ipHash") String ipHash, @Param("createdAt") LocalDateTime createdAt, @Param("confirmedAt") LocalDateTime confirmedAt,
+      @Param("now") LocalDateTime now);
+
+  /** S19 导入：待确认 → 已确认，确认时间用 Cloudflare 上的 */
+  int confirmImported(@Param("id") long id, @Param("confirmedAt") LocalDateTime confirmedAt, @Param("now") LocalDateTime now);
+
   /** 待确认 → 已确认 */
   int confirm(@Param("id") long id, @Param("now") LocalDateTime now);
 

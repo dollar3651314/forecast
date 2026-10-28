@@ -1103,6 +1103,51 @@ export interface WaitlistPage {
   counts: WaitlistCounts;
   launch: WaitlistLaunch;
 }
+/**
+ * forecast S19（P15）：从 Cloudflare 导入等候页名单。文件是 Cloudflare 上 /api/admin/export.json 下载的（格式 fc-cf-waitlist-v1，cf/src/admin.ts），
+ * 页面读文件、解析后原样提交；后端 POST /api/admin/waitlist/import（content:publish ★）。
+ */
+export const CF_IMPORT_FORMAT = 'fc-cf-waitlist-v1';
+export interface CfImportItem {
+  email: string;
+  lang: string;
+  status: 'confirmed' | 'unsubscribed';
+  src: string | null;
+  cmp: string | null;
+  ref: string | null;
+  start: string | null;
+  createdAt: string | null;
+  confirmedAt: string | null;
+  unsubscribedAt: string | null;
+  unsubToken: string | null;
+  ipHash: string | null;
+}
+export interface CfImportFile {
+  format: string;
+  exportedAt?: string;
+  /** 这一份后面还有（Cloudflare 每份最多 2000 个）：导入后再下载 next 那一份 */
+  next?: string | null;
+  items: CfImportItem[];
+}
+/** 文件里第 row 个（从 1 起）的 field 不对：emailInvalid / statusInvalid / timeInvalid / missing */
+export interface CfImportProblem {
+  row: number;
+  field: string;
+  code: string;
+}
+export interface CfImportResult {
+  total: number;
+  added: number;
+  confirmed: number;
+  unsubscribed: number;
+  unchanged: number;
+  notAdded: number;
+  invalid: number;
+  /** 上线通知已经发完以后才变成已确认的：不会再收到上线通知 */
+  afterLaunch: number;
+  problems: CfImportProblem[];
+  launch: WaitlistLaunch;
+}
 export interface WaitlistQuery {
   status?: WaitlistStatus;
   page: number;

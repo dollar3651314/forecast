@@ -66,27 +66,29 @@ flowchart LR
 | `cf/wrangler.toml` | Worker 配置：正式（顶层）和 `env.staging`；静态资源目录 `cf/dist`；D1 绑定 `DB`；Cron；`observability`；变量（不含密钥） |
 | `cf/src/` | Worker 代码（TypeScript，不引入第三方运行时依赖）：`index.ts` 路由，`waitlist.ts`，`mail.ts`、`mailTexts.ts`，`board.ts`，`ratelimit.ts`，`attribution.ts`，`access.ts`（Access 签名校验），`admin.ts`，`health.ts`，`http.ts` |
 | `cf/migrations/` | D1 迁移（`0001_init.sql`），`wrangler d1 migrations apply` 执行，只往前走（K4） |
-| `cf/scripts/` | `build.mjs`（构建客户端公开版、官网公开版，合成 `cf/dist`）、`check-dist.mjs`（P11 底线检查）、`ensure-d1.mjs`（CI 里没有 D1 就建、把编号写进本次部署用的配置）、`e2e-local.sh`（本机 `wrangler dev` 端到端） |
-| `cf/test/` | Worker 单元和集成测试（vitest + Miniflare，真实的 D1 本地实现） |
-| `web/client/` | 公开版入口 `public.html`、`src/public-main.tsx`、`vite.public.config.ts`；看板显示数据来源（`btc.source`） |
+| `cf/scripts/` | `build.mjs`（构建客户端公开版、官网公开版，合成 `cf/dist`）、`check-dist.mjs`（P11 底线检查）、`ensure-d1.mjs`（CI 里没有 D1 就建、把编号写进本次部署用的配置）、`deploy.sh`（CI 部署：建库、迁移、部署、对外检查）、`e2e-local.sh`（本机 `wrangler dev` 端到端） |
+| `cf/test/` | Worker 测试（vitest；D1 用 wrangler `getPlatformProxy` 给的本地实现，底下是 Miniflare 的真实 SQLite） |
+| `web/client/` | 公开版入口 `public.html`、`src/public/main.tsx`、`vite.public.config.ts`、`src/public/stubs/`；`lib/emailRule.ts`（邮箱规则只有这一份）；看板显示数据来源（`btc.source`） |
 | `web/site/` | 公开版开关 `VITE_PUBLIC_SITE`：注册 / 登录按钮换成"加入等候名单" |
 | `backend/` | 后台"从 Cloudflare 导入"接口：`growth/waitlist/WaitlistImport`、`admin/ops/WaitlistOps`、`WaitlistAdminController` |
 | `web/admin/` | "等候页订阅"页的导入按钮和对话框 |
 | `.github/workflows/ci.yml` | 新 job `cf`（检查）、`deploy-cf`（部署，只在 push 到 `staging` / `main` 并且全绿时） |
 
 ### 2.3 页面：复用和"公开版"（P11 底线）【实际执行】
-- **客户端公开版**：新入口 `web/client/public.html` → `src/public-main.tsx`，只渲染 S18 的 `PrelaunchApp`（根路径是等候页兼看板，`/data/confirm`、`/data/unsubscribe` 是邮件里的链接，其他路径回首页）。用单独的 `vite.public.config.ts` 构建到 `web/client/dist-public/`：
+- **客户端公开版**：新入口 `web/client/public.html` → `src/public/main.tsx`，只渲染 S18 的 `PrelaunchApp`（根路径是等候页兼看板，`/data/confirm`、`/data/unsubscribe` 是邮件里的链接，其他路径回首页）。用单独的 `vite.public.config.ts` 构建到 `web/client/dist-public/`：
   - 入口文件里只 import `PrelaunchApp`，Rollup 只打包它用到的模块；**交易页面（登录、注册、市场、下注、资产、我的）的代码不在产物里**（不是"隐藏"，是没有）。
   - 不打包 Service Worker（PWA）：公开站不需要离线和推送，也避免以后同一个域名换成交易客户端时旧的 Service Worker 接管页面。
-  - 站点形态固定为 `prelaunch`（页面里直接写好 `fc-site-mode=prelaunch`，不再靠 Nginx 替换）。
+  - 站点形态固定为 `prelaunch`（页面里直接写好 `fc-site-mode=prelaunch`，不再靠 Nginx 替换）；构建常量 `VITE_PUBLIC_BUILD=true`（`lib/siteMode.ts` 的 `PUBLIC_BUILD`），等候页里"不是预热形态才显示"的分支（注册按钮、市场链接、页脚的结果和周报入口）打包时整段去掉。
+  - 登录后才用的两个模块不进产物：站内信接口 `api/notifications.ts` 换成 `src/public/stubs/notifications.ts`（导出的名字一样，测试检查），实时推送 `api/real/events.ts` 声明成没有副作用、没人用就不打包。实测产物里出现的接口只有 `/api/health`、`/api/public/board`、`/api/public/waitlist`（含确认、退订）、`/api/public/pages/how-to-play`、`/api/attribution/visit`。
   - 官网链接（服务条款、隐私、风险披露）指向同一个域名的 `/about/terms` 等（`fc-site-url` 允许写同站的路径，见 `lib/siteUrl.ts`）。
 - **官网公开版**：`web/site` 用 `SITE_BASE=/about/`、`VITE_PUBLIC_SITE=true` 构建（`/site/` 这种子路径原型站就在用，S1 起有）。公开版里：顶部、首屏、页底、手机底部固定栏的"注册""登录"按钮换成**一个"加入等候名单"**，链接回首页的等候页（带当前语言）；其他内容（玩法、费率、安全、FAQ、法律页）不变。
+- 静态资源找不到的路径会回到根目录的 `index.html`（等候页），所以官网的法律页每页放一份官网的 `index.html`（`about/terms.html` 等），`/about/terms` 直接给它。
 - **P11 检查**（`cf/scripts/check-dist.mjs`，CI 的 `cf` job 每次跑）：在 `cf/dist` 的全部 html / js 里查交易入口——接口路径（`/api/auth`、`/api/me`、`/api/bets`、`/api/wallet`、`/api/account`、`/api/markets` 等）、页面路径（`/login`、`/register`、`/markets/`、`/assets`、`/me`）、测试环境域名（`fc-test`）和占位符（`__FC_CLIENT_URL__`）；出现任何一个就失败。另外检查必须有的东西：等候页接口、`fc-site-mode` 是 `prelaunch`、三种语言的翻译都在。
 - **繁中优先**（P12）：繁中用的是 S18 已经换成台湾用语的翻译；公开版页面的 `<html lang>`、标题、描述、分享卡片（`og:*`）默认是繁中；语言选择沿用 Amos 2026-10-21 定的规则（跟浏览器：台湾、香港等用繁中，其他中文用简中，取不到用英文；地址栏 `?lang=` 优先），**没有改成"其他语言也默认繁中"**，是否要改见 SQ-67。确认邮件按订阅时页面的语言发，繁中邮件用台湾用语。
 
 ### 2.4 域名（P17）【未验证：要 Amos 在控制台操作】
 - **对外地址：`www.quickcome.online`**（S18 已经在宣传材料里用这个，P4 的 LINE 链接也是）。官网**不另用子域名**，放在同一个域名的 `/about/`：一个 Worker、一张证书、一个 Access 应用；分享出去的链接只有一个域名；官网的法律页和等候页互相链接不跨域（不需要 CORS）。测试环境的官网 `fc-test-www` 不变。
-- **要怎么换**：Amos 在 2026-10-28 加的那条 `www` A 记录（指向测试服务器 47.251.87.158，仅 DNS）**要先删掉**，然后在 Worker 的 **Settings → Domains & Routes → Add → Custom domain** 填 `www.quickcome.online`。Cloudflare 会自己建一条指向 Worker 的记录（代理状态）并签证书（文档，[custom-domains](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/)）。不用 Pages 的自定义域名，也不用"改成代理状态的 A 记录 + 路由"（那样要一条指向假地址的记录和一条路由，两处要对上）。
+- **要怎么换**：Amos 在 2026-10-28 加的那条 `www` A 记录（指向测试服务器，仅 DNS）**要先删掉**，然后在 Worker 的 **Settings → Domains & Routes → Add → Custom domain** 填 `www.quickcome.online`。Cloudflare 会自己建一条指向 Worker 的记录（代理状态）并签证书（文档，[custom-domains](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/)）。不用 Pages 的自定义域名，也不用"改成代理状态的 A 记录 + 路由"（那样要一条指向假地址的记录和一条路由，两处要对上）。
 - 文档写的是"已有 CNAME 记录的主机名不能建自定义域名"，A 记录是否同样冲突文档没写【推断：会冲突，所以先删】。删记录和加自定义域名之间那几分钟，`www` 打不开，影响很小（现在还没对外）。
 - 自定义域名**不写进 `wrangler.toml`**：这样部署用的令牌不需要域名（Zone）权限，令牌只要账户级的三项（第 2.10 节）；而且正式 Worker 部署了也不会自动对外。wrangler 在配置里没有 `routes` 时不改动已有的路由和自定义域名【代码走查：wrangler 4.149.0 的部署代码，见第 5 节】。
 - `quickcome.online` 根域名、`fc-email` 子域名（Resend）不受影响。
@@ -194,18 +196,60 @@ flowchart LR
 - **D-279** 邮件用 Resend HTTP 接口，不用 SMTP（2.5）。
 - **D-280** 没填 Resend key 时照样收订阅、不发信，健康检查"未开通"（2.5，C103）。
 - **D-281** 公开版不打包 Service Worker（2.3）。
+- **D-282** 等候页开关 `WAITLIST_OPEN` 不写进 `wrangler.toml`，由 Amos 在控制台加（`keep_vars = true`，部署不会盖掉）；没有这个变量 = 开着。
+- **D-283** 等候页上的台湾入金教程直接打包后端的 `public-pages.json`（`local` 里没标 `draft`、只用 `{brand}` 的段落），不另写一份；现在标着"待市场定稿"，所以不显示（和测试服务器一样）。
+- **D-284** 邮箱规则只有一份：客户端 `lib/emailRule.ts`（Worker 直接打包它），后端导入用同样的正则；三边跑同一组例子 `backend/src/test/resources/email/vectors.json`（C108）。顺带给客户端加了 254 个字符的上限（和后端 `@Size(max = 254)` 一致）。
+- **D-285** 带来源的访问只按"天 + src + cmp"计数，同一 IP 每小时最多计 30 次（防止刷满 D1 每天的写入额度），超过的不计、也不报错。
+- **D-286** 官网公开版最后一屏"现在注册 / 注册免费"换成"正式上线时通知你"（交易没开放，不能叫人注册）。
 
 ## 5. 测试和验证
-（实现后填写）
+2026-10-28 本机：Node 22、JDK 25、Docker `mysql:8.4` / `redis:7`（容器 `fc-s19-mysql`、`fc-s19-redis`，用完已删），wrangler 4.149.0（本地 workerd + 本地 D1）。
 
-## 6. 需要 Amos 决定的问题
-（实现后填写）
+| 项 | 怎么验证 | 结果 | 标注 |
+|---|---|---|---|
+| Worker 类型检查 | `cd cf && npm run typecheck`（`src` 一份、测试一份） | 通过 | 实际执行 |
+| Worker 测试 | `cd cf && npm test`（8 个文件 62 个：等候页 19、看板 11、名单和 Access 10、路由和定时任务 5、来源 / 教程 / 健康检查 6、确认邮件文字 3、来源参数 3、部署脚本和 P11 检查 5） | **62 通过** | 实际执行 |
+| 构建 + P11 检查 | `node cf/scripts/build.mjs && node cf/scripts/check-dist.mjs`；`check-no-mocks`（客户端公开版）、`check-brand cf/dist` | 通过；产物里的接口只有第 2.3 节那几个 | 实际执行 |
+| wrangler 打包 | `wrangler deploy --dry-run`（正式、测试两个环境） | 通过；Worker 67 KiB（gzip 20 KiB），静态资源 25 个文件 | 实际执行 |
+| 本机端到端 | `bash cf/scripts/e2e-local.sh`（真实配置、真实 `cf/dist`、wrangler dev） | **全部通过**：首页是繁中等候页、确认页、官网和法律页、robots、安全头；交易 / 登录 / 后台接口 8 个都 404；留邮箱（23～25 ms）→ 已在名单回答一样 → 确认 → 无效链接 404 → 退订；陷阱字段不记；同一 IP 第 11 次 429、别的 IP 照常；定时任务取到 OKX 行情（81,511.80，涨 58.3%），看板接口 13 ms | 实际执行 |
+| 每次请求的 CPU（Free 10 ms） | 本机只量得到总耗时（上一行，含本地 D1）；看板请求只读一行、留邮箱 3～4 条 SQL | 本机总耗时都在 25 ms 以内；Cloudflare 上的 CPU 时间部署后在 Workers Logs 的调用日志里看 | 未验证 |
+| 客户端 | `npm run lint`、`npx vitest run`、`npm run build`（真实 / 原型）、`check-no-mocks`、`check-brand` | lint 通过；**238 通过**（30 个文件，含新的 `s19.test.tsx` 7 个）；构建通过 | 实际执行 |
+| 官网 | 同上 | **35 通过**（含新的 `publicSite.test.tsx` 2 个）；构建通过 | 实际执行 |
+| 后台 | 同上 | **283 通过**（33 个文件，含新的 `s19.test.tsx` 4 个）；构建通过 | 实际执行 |
+| 后端（相关的） | `mvn test -Dtest=S19ImportAdminTest,WaitlistEmailRuleTest,S16WaitlistTest,S16AdminTest` | **14 通过**（S19 导入 4 个：权限 / 原因 / 格式 / 审计不含邮箱；规则表 + 重复导入 + 不发邮件；逐行报错；导入和上线通知只发一次） | 实际执行 |
+| 后端全量 | 空库 `mvn -o -B -ntp verify` | 见下面"全量结果" | 实际执行 |
+| 页面截图 | 本机 wrangler dev + Playwright（手机 390、电脑 1440），`assets/v1/s19/` 4 张；另看过简中、英文、官网电脑、法律页、确认页 | 没有横向滚动；正式版没有测试标识条（staging 有）；看图改了一处：官网公开版最后一屏原来写"现在注册"（D-286） | 实际执行 |
+| 从 Cloudflare 出口访问 OKX / 币安 | 部署后看 `/api/health` 的 `checks.board.sources` | — | **未验证** |
+| D1 建库、迁移、部署、令牌权限够不够 | CI 的 `deploy-cf`（`ensure-d1.mjs`、`deploy.sh`） | 只测了不连 Cloudflare 的部分（改配置、解析列表）；`wrangler deploy` 不带自定义域名时不改已有的自定义域名【代码走查：wrangler 4.149.0 `triggersDeploy` 只在配置里有 `routes` 时才改路由和自定义域名；文档也这样写】 | **未验证** |
+| Access 保护、`Cf-Access-Jwt-Assertion` 是否带到 Worker | 第 4、5 步 | 签名校验用测试生成的 RSA 密钥验过；真实 Access 的令牌未验证 | **未验证** |
+| Resend 发信 | 第 4.3 步 | 请求格式按 Resend 文档写，测试里是替身 | **未验证** |
+| Workers Logs、Cron 在 Free 上的实际运行 | 部署后看 | — | **未验证** |
+
+全量结果：（见第 5.1 节）
+
+### 5.1 后端全量
+（运行中，结果写在 PR 说明里）
+
+## 6. 需要 Amos 决定的问题（SQ-67 起）
+| 编号 | 问题 | 建议（本 PR 已按建议做） |
+|---|---|---|
+| SQ-67 | 公开站打开时的语言：现在沿用 2026-10-21 的规则（跟浏览器，取不到用英文）。要不要改成"不是简中、英文浏览器一律繁中"？ | **不改规则**：台湾用户的浏览器本来就是繁中；推广链接上带 `?lang=zh-TW`（营销给的链接都加上）。页面默认的标题、描述、分享卡片已经是繁中 |
+| SQ-68 | S18 里"`www` 指向测试服务器"那套代码（Nginx prelaunch 块、`sudo fc add-domain`、`PRELAUNCH_DOMAIN`）现在不用了，删不删？ | **先留着不启用**，开放交易、生产方案定了以后一起清理；操作清单第 5 步写明不要运行 `sudo fc add-domain` |
+| SQ-69 | 测试版（staging）要不要也填 Resend key、真的发信？ | **要**：不然验收不了确认邮件；测试版整个有 Access 保护，外人留不了邮箱，只有你自己测 |
+| SQ-70 | K7 的"定时从外部探测、失败发邮件"：用什么？ | 建议加一个 GitHub Actions 定时任务（每 30 分钟 `curl https://www.quickcome.online/api/health`，失败时 GitHub 自动发邮件，公开仓库免费）；本 PR **没做**（forecast 的 CI 现在不开定时任务），你同意再加 |
+| SQ-71 | 官网隐私政策要不要写明：等候页的邮箱存在 Cloudflare（D1）、经 Resend 发信？ | 建议写（PM / 法务定稿时加一句），本 PR 没改法律页文字 |
+| SQ-72 | 看板多久取一次行情：现在每 5 分钟（测试服务器上是每分钟） | **5 分钟**：Free 的 Cron 和 D1 写入额度更紧，"过去 24 小时每小时涨跌"5 分钟足够；页面写了更新时间 |
+| SQ-73 | 编号：S18 开发记录把"内容发布 P5～P8、P10"预留成 S19，本任务也叫 S19 | 内容发布那一块改叫 **S20** |
 
 ## 7. 给 Amos 的操作清单
-单独一页：`部署方案/v1-公开部分Cloudflare操作清单.md`。
+单独一页：`部署方案/v1-公开部分Cloudflare操作清单.md`（6 步，每步写了怎么确认做好了；截图前要遮住的东西在最前面）。
 
 ## 8. 默认关着的功能（C102）
-（实现后填写）
+见操作清单最后一节：确认邮件（没填 Resend key）、名单页（没配 Access 时 404）、正式版对外（没绑域名）、部署（没填 GitHub Secrets 时跳过）、官方 Telegram 链接（频道没建）、台湾入金教程（待市场定稿）。
 
 ## 9. 遗留
-（实现后填写）
+- 第 5 节标【未验证】的各项，要 Amos 做完操作清单第 2～5 步才能确认；看板的 Cloudflare 出口实测结果写回第 2.6 节。
+- 外部定时探测（SQ-70）、隐私政策加一句（SQ-71）。
+- 测试服务器上 S16 的后端留邮箱接口（`@Email`，Hibernate 的规则）和客户端、Cloudflare 的规则不完全一样（例如 `a@b` 后端认、页面不认）；这是 S16 原来就有的，页面先挡住了，本次没改后端的留邮箱接口（只有导入用了共用规则）。以后统一时用 `email/vectors.json`。
+- 开放交易时名单迁移的完整流程（第 2.9 节、操作清单第 6 步）要在生产环境建好以后再走一遍。
+- `www` 以后是继续给官网和看板，还是改指生产的客户端（S18 的 SQ-66）。

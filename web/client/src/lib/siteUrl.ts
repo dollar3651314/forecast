@@ -12,6 +12,9 @@ const PLACEHOLDER = '__FC_SITE_URL__';
 export function resolveSiteUrl(metaValue: string | null | undefined, mock: boolean): string {
   const s = (metaValue || '').trim();
   if (s && s !== PLACEHOLDER && /^https?:\/\/[^\s"'<>]+$/.test(s)) return s.replace(/\/+$/, '');
+  // S19：Cloudflare 上的公开版把官网放在同一个站点的 /about/，页面里直接写同站路径（public.html）
+  // 只认 /段/段 这种写法（不能是 // 开头，那是别的网站）
+  if (/^(\/[A-Za-z0-9_-]+)+\/?$/.test(s)) return s.replace(/\/+$/, '');
   return mock ? '/site' : '';
 }
 

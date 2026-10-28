@@ -42,4 +42,41 @@ public interface WaitlistAdminApi {
    * 只记下"要发"，邮件由任务一个订阅一个事务地写（{@code LaunchNoticeJob}），按下以后才确认的不发（等候页那时已经关闭）。
    */
   Launch startLaunch(long adminId, String reason);
+
+  // =====================================================================
+  // forecast S19（P15）：开放交易时，把 Cloudflare 上的等候页名单导进来
+  // =====================================================================
+
+  /**
+   * Cloudflare 导出文件（cf/src/admin.ts 的 export.json，格式 fc-cf-waitlist-v1）里的一项。时间是 ISO（UTC）。
+   *
+   * @param status confirmed 已确认 / unsubscribed 已退订（导出里只有这两种）
+   * @param unsubToken Cloudflare 上的退订随机串（新增时沿用，Cloudflare 发出去的退订链接以后指向生产仍然有效）
+   * @param ipHash 留邮箱时 IP 的 sha256（和这里同一种算法）
+   */
+  record ImportItem(String email, String lang, String status, String src, String cmp, String ref, String start, String createdAt, String confirmedAt,
+      String unsubscribedAt, String unsubToken, String ipHash) {}
+
+  /** 文件里第 row 个（从 1 起）的 field 不对：code = emailInvalid / statusInvalid / timeInvalid */
+  record ImportProblem(int row, String field, String code) {}
+
+  /**
+   * 导入结果。
+   *
+   * @param added 新增为已确认
+   * @param confirmed 后台原来是待确认、改成已确认
+   * @param unsubscribed Cloudflare 上退订了、后台改成已退订
+   * @param unchanged 已经一样（重复导入时全部在这里），或者后台已退订（退订优先，不替人重新订阅）
+   * @param notAdded Cloudflare 上已退订、后台没有这个邮箱：不新增（不保存退订者的邮箱）
+   * @param invalid 格式不对、没有导入的项数（明细在 problems）
+   * @param afterLaunch 上线通知已经发完以后才变成已确认的个数：他们不会再收到上线通知（全站只发一次）
+   */
+  record ImportResult(int total, int added, int confirmed, int unsubscribed, int unchanged, int notAdded, int invalid, int afterLaunch,
+      List<ImportProblem> problems, Launch launch) {}
+
+  /**
+   * 导入 Cloudflare 上的名单（S19，P15）。<b>不发任何邮件</b>；可以重复导入，结果一样。上线通知仍由 {@link #startLaunch} 发（只能一次），
+   * 正在发的时候导入的已确认会被发送任务接着发到。
+   */
+  ImportResult importFromCloudflare(List<ImportItem> items);
 }

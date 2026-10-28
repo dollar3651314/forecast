@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint';
 
 // 和 web/client 同一套规则
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules', 'coverage'] },
+  { ignores: ['dist', 'dist-public', 'node_modules', 'coverage'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],

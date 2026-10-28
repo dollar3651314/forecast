@@ -3054,7 +3054,32 @@
       "sending": "上线通知发送中（{{sent}} / {{n}}）",
       "done": "上线通知已发（{{sent}} 封）"
     },
-    "launchInfo": "上线通知已于 {{at}} 发出：已确认 {{n}} 个，已写成邮件 {{sent}} 封。原因：{{reason}}"
+    "launchInfo": "上线通知已于 {{at}} 发出：已确认 {{n}} 个，已写成邮件 {{sent}} 封。原因：{{reason}}",
+    "import": {
+      "btn": "从 Cloudflare 导入",
+      "title": "从 Cloudflare 导入等候页名单",
+      "desc": "开放交易时，把 Cloudflare 上已确认的订阅导进来（语言、来源、确认时间照搬）；在 Cloudflare 上退订了的，这里也改成已退订。可以重复导入，已经导过的不会多一份。",
+      "noMail": "导入本身不发任何邮件。上线通知仍要按\"发送上线通知\"（全站只能发一次）；已经发完以后才导入的人不会再收到。",
+      "file": "导出文件",
+      "fileHint": "在 Cloudflare 的名单页（/api/admin/）下载的 export.json。导入完把下载的文件删掉（里面是完整邮箱）。",
+      "fileRequired": "请选择 Cloudflare 下载的 export.json",
+      "notJson": "这个文件不是 JSON，请选 Cloudflare 名单页下载的 export.json",
+      "wrongFormat": "这不是 Cloudflare 名单的导出文件（格式应为 fc-cf-waitlist-v1）",
+      "empty": "文件里一个订阅都没有，不用导入",
+      "summary": "共 {{n}} 个：已确认 {{c}}，已退订 {{u}}",
+      "hasNext": "这一份后面还有（每份最多 2000 个）：导入这一份以后，回 Cloudflare 名单页按文件里的 next 下载下一份再导入。",
+      "confirm": "确认导入",
+      "result": "已导入 {{total}} 个：新增 {{added}}，改成已确认 {{confirmed}}，改成已退订 {{unsubscribed}}，不变 {{unchanged}}，退订者不新增 {{notAdded}}，格式不对 {{invalid}}",
+      "afterLaunch": "上线通知已经发完：其中 {{n}} 个是之后才变成已确认的，不会再收到上线通知（全站只发一次）。",
+      "problem": "第 {{row}} 个：{{what}}",
+      "more": "还有 {{n}} 处没列出",
+      "code": {
+        "emailInvalid": "邮箱格式不对",
+        "statusInvalid": "状态不是 confirmed / unsubscribed",
+        "timeInvalid": "时间格式不对（应为 ISO，例如 2026-10-28T08:00:00.000Z）",
+        "missing": "这一项是空的"
+      }
+    }
   },
   "tg": {
     "title": "Telegram 机器人",
