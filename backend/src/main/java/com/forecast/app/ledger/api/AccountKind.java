@@ -7,10 +7,15 @@ public enum AccountKind {
   /** 平台收入：抽成和结算尾差，不能为负 */
   PLATFORM_REVENUE,
   /** 平台补偿支出（需求 E13）：平台自己掏钱补偿客户，可用余额允许为负（= −累计补偿） */
-  PLATFORM_COMPENSATION;
+  PLATFORM_COMPENSATION,
+  /**
+   * 测试入金（forecast S17A，只在测试环境用）：测试入金的对手方，可用余额允许为负（= −累计测试入金）。
+   * 生产上这一行也存在（迁移 V29 建），但测试入金的接口不存在，余额永远是 0。
+   */
+  PLATFORM_TEST_CREDIT;
 
-  /** 可用余额能不能为负 */
+  /** 可用余额能不能为负（这几个账户的余额 = −平台付出的累计金额） */
   public boolean mayGoNegative() {
-    return this == PLATFORM_COMPENSATION;
+    return this == PLATFORM_COMPENSATION || this == PLATFORM_TEST_CREDIT;
   }
 }

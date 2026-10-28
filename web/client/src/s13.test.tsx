@@ -41,6 +41,7 @@ async function marketNo(prefix: string): Promise<string> {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   setDesktop(false);
   act(() => setProtoState({ scenario: 'normal' }));
   resetDb();
@@ -147,6 +148,10 @@ describe('不登录可浏览（MF-4，AC-84）', () => {
 
 describe('今日场次（P11，MF-3，AC-82）', () => {
   it('列表顶部按本地的今天列出带标记的市场，时间带 UTC；点进详情', async () => {
+    // 原型的场次按"现在"生成（BTC 是下一个整点）。本地 23 点以后跑，下一场就到了明天，今日场次是空的；
+    // 所以把时钟固定在本地中午、重新生成原型数据（afterEach 会恢复真实时钟并再重置一次）
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date(2026, 9, 27, 12, 0) });
+    resetMarkets();
     renderPage(<Markets />, '/markets');
     const slate = await screen.findByTestId('today-slate');
     expect(within(slate).getByText('今日场次')).toBeInTheDocument();

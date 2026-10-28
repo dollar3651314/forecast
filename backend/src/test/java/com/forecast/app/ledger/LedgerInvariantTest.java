@@ -45,6 +45,7 @@ import org.springframework.test.context.ActiveProfiles;
 class LedgerInvariantTest {
 
   private static final AtomicLong IDS = new AtomicLong(System.currentTimeMillis() * 1000 + 700_000_000L);
+  private static final long MARKET_BASE = System.currentTimeMillis() * 10 + 7_000_000_000L;
   private static final long SEED = 20261025L;
   private static final int THREADS = 8;
   private static final int USERS = 12;
@@ -89,7 +90,8 @@ class LedgerInvariantTest {
       fs.add(pool.submit(() -> {
         for (int i = 0; i < OPS; i++) {
           long u = users[r.nextInt(USERS)];
-          long market = 1 + r.nextInt(5);
+          // 市场 id 只是账本记录上的标签：用很大的数，不能和真实的市场（自增 id 1、2、3…）撞上——撞上时后跑的结算会"结算前对账不平"（S17A 本机全量时 AdminSettleTest 因此失败）
+          long market = MARKET_BASE + r.nextInt(5);
           String id = run + "-" + seq.incrementAndGet();
           try {
             switch (r.nextInt(10)) {

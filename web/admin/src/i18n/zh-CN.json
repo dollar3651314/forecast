@@ -88,7 +88,7 @@
     "options": "选项",
     "feeRate": "费率",
     "userCap": "单客户上限",
-    "checked": "检查确认",
+    "checked": "确认勾选",
     "optionNo": "结果",
     "evidenceUrls": "依据链接",
     "correctOptionNo": "正确结果",
@@ -111,7 +111,8 @@
     "options_label": "选项文字",
     "options_winCondition": "选项的判定条件",
     "plays_line": "分界线",
-    "chatId": "频道编号"
+    "chatId": "频道编号",
+    "requestId": "请求号"
   },
   "apiFieldCode": {
     "ageUnder18": "未满 18 周岁",
@@ -442,7 +443,18 @@
       "ip": "同 IP（注册 / 登录）",
       "deposit_from": "同充值来源地址",
       "withdraw_to": "同提现地址"
-    }
+    },
+    "testCredit": "测试入金",
+    "testEnv": "测试环境",
+    "testCreditImpact": "只在测试环境可用：给这个客户的可用余额加钱，好把下注到提现的流程测完。对手方是平台\"测试入金\"账户（余额为负），不是真实充值；报表和对账里单独一行。风控和提现规则把它当充值算。",
+    "testCreditAmount": "入金金额（USDT）",
+    "testCreditMax": "单笔上限 {{max}} USDT（参数设置 → 余额调整）",
+    "testCreditAmountRequired": "请填写入金金额",
+    "testCreditAmountInvalid": "请输入大于 0 的金额，最多 8 位小数",
+    "testCreditOverLimit": "超过单笔上限 {{max}} USDT",
+    "confirmTestCredit": "确认入金",
+    "testCreditDone": "已入金 {{amount}} USDT，可用余额 {{before}} → {{after}}",
+    "testCreditDuplicate": "这一笔刚才已经入过（重复提交），没有再入"
   },
   "dashboard": {
     "failedTasks": "失败任务",
@@ -598,7 +610,9 @@
       "CONTENT_BANNED_WORDS": "{{detail}}",
       "LAUNCH_ALREADY_SENT": "上线通知已经发过了（全站只能发一次）。",
       "TELEGRAM_TEMPLATE_CHANGED": "预览以后模板文字改过了，请重新打开预览再审定。",
-      "TELEGRAM_NO_PREVIEW": "还没有结束的市场，暂时没法生成预览。"
+      "TELEGRAM_NO_PREVIEW": "还没有结束的市场，暂时没法生成预览。",
+      "ADJUST_OVER_LIMIT": "{{detail}}",
+      "ADJUST_REQUEST_REUSED": "这次提交和刚才的一笔请求号相同但内容不同，请关闭确认框重新操作。"
     }
   },
   "funds": {
@@ -669,7 +683,8 @@
     "fee": "抽成",
     "payout": "派彩",
     "refund": "退款",
-    "withdraw": "出金"
+    "withdraw": "出金",
+    "testCredit": "测试入金"
   },
   "menu": {
     "admins": "管理员",
@@ -795,7 +810,8 @@
     "content_view": "查看内容中心（含 Telegram 机器人和发布日志）",
     "content_edit": "生成和编辑内容草稿",
     "content_publish": "对外发布：发布内容、改内容设置、Telegram 频道和模板审定、紧急停止、上线通知（高危）",
-    "alert_params_edit": "修改告警邮件设置（总开关、不发邮件的告警项）"
+    "alert_params_edit": "修改告警邮件设置（总开关、不发邮件的告警项）",
+    "balance_test_credit": "测试入金（只在测试环境有，高危）"
   },
   "permModule": {
     "customer": "客户",
@@ -859,7 +875,21 @@
     "sub": "钱包记录、账本、链上三方不一致的问题",
     "title": "对账",
     "type": "差异类型",
-    "unknownCustomer": "未匹配到客户"
+    "unknownCustomer": "未匹配到客户",
+    "platformTitle": "平台账户",
+    "platformHint": "平台账户的余额应该等于账本合计。补偿支出、测试入金是平台付出去的钱，余额是负数。",
+    "platformKind": "账户",
+    "platformBalance": "余额",
+    "platformLedger": "账本合计",
+    "platformEntries": "记录数",
+    "platformMatch": "核对",
+    "platformOk": "一致",
+    "platformBad": "不一致",
+    "platformKinds": {
+      "revenue": "平台收入（抽成 + 尾差）",
+      "compensation": "平台补偿支出",
+      "test_credit": "测试入金"
+    }
   },
   "reconStatus": {
     "open": "待处理",
@@ -1957,7 +1987,8 @@
       "sports": "体育赛程",
       "risk": "风控告警",
       "slate": "场次",
-      "alertMail": "告警邮件"
+      "alertMail": "告警邮件",
+      "adjust": "余额调整"
     },
     "key": {
       "market_fee_FOOTBALL": "足球",
@@ -2002,7 +2033,8 @@
       "risk_link_maxUsersPerKey": "关联账户：同一设备 / IP / 地址最多几个客户",
       "market_maxOpen": "同时开放的市场数上限",
       "alert_mail_enabled": "告警邮件总开关",
-      "alert_mail_muted": "不发邮件的告警项"
+      "alert_mail_muted": "不发邮件的告警项",
+      "adjust_testCreditMax": "测试入金单笔上限（只在测试环境生效）"
     },
     "hours": "{{n}} 小时",
     "minutes": "{{n}} 分钟",
@@ -2047,7 +2079,8 @@
       "DOWN": "出错",
       "NOT_CONFIGURED": "未开通"
     },
-    "alertNote": "收件人是 FC_ALERT_EMAILS。一次故障发一封告警、恢复发一封；一直没恢复每 24 小时提醒一次。\"未开通\"（没配 key 的可选功能）不发邮件。"
+    "alertNote": "收件人是 FC_ALERT_EMAILS。一次故障发一封告警、恢复发一封；一直没恢复每 24 小时提醒一次。\"未开通\"（没配 key 的可选功能）不发邮件。",
+    "adjustNote": "测试入金只在测试环境（FC_ENV_LABEL=test）能用，生产上这一项不起作用。"
   },
   "dash": {
     "sub": "今日 / 近 7 天按 UTC；待处理事项点进去处理",
@@ -2467,7 +2500,10 @@
     "empty": "这段时间没有收入",
     "date": "日期",
     "byMarket": "按市场（已完成的结算单）",
-    "noRuns": "还没有完成的结算单"
+    "noRuns": "还没有完成的结算单",
+    "testCredit": "测试入金",
+    "testCreditN": "测试入金笔数",
+    "testCreditHint": "只在测试环境有；不是平台收入，也不是真实充值"
   },
   "ra": {
     "title": "风控告警",

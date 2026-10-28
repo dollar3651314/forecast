@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 余额调整（forecast S17）：测试入金单 ledger_test_credit（S17A）。只增不改：这里没有 UPDATE、DELETE 语句（LedgerAppendOnlyTest 检查）。 -->
+<mapper namespace="com.forecast.app.ledger.adjust.AdjustMapper">
+
+  <sql id="testCreditCols">id, public_no, user_id, amount, available_before, available_after, reason, request_id, created_by, created_at</sql>
+
+  <insert id="insertTestCredit" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO ledger_test_credit (public_no, user_id, amount, available_before, available_after, reason, request_id, created_by, created_at)
+    VALUES (#{publicNo}, #{userId}, #{amount}, #{availableBefore}, #{availableAfter}, #{reason}, #{requestId}, #{createdBy}, #{createdAt})
+  </insert>
+
+  <select id="testCreditByRequest" resultType="com.forecast.app.ledger.adjust.AdjustMapper$TestCreditRow">
+    SELECT <include refid="testCreditCols"/> FROM ledger_test_credit WHERE request_id = #{requestId}
+  </select>
+
+  <select id="testCreditByNo" resultType="com.forecast.app.ledger.adjust.AdjustMapper$TestCreditRow">
+    SELECT <include refid="testCreditCols"/> FROM ledger_test_credit WHERE public_no = #{publicNo}
+  </select>
+
+  <select id="testCreditByDay" resultType="com.forecast.app.ledger.adjust.AdjustMapper$DayRow">
+    SELECT DATE(created_at) AS day, SUM(amount) AS amount, COUNT(*) AS n FROM ledger_test_credit
+    WHERE created_at &gt;= #{start} AND created_at &lt; #{end}
+    GROUP BY DATE(created_at) ORDER BY day
+  </select>
+</mapper>

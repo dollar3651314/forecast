@@ -164,6 +164,11 @@ public enum ConfigKey {
    * （包括还没到开放下注时间的）。人工上架超过时提示、勾选"仍要上架"才能上；加密模板自动生成的计入数量但不受阻止。参数设置页"场次"一组
    */
   MARKET_MAX_OPEN("market.maxOpen", Unit.COUNT, "slate", BigDecimal.ZERO, BigDecimal.valueOf(1000), 0, Params.BETTING),
+  /**
+   * forecast S17A：测试入金的单笔上限（默认 10,000 USDT，迁移 V29；SQ-56 等 Amos 确认）。参数设置页"余额调整"一组，betting_params:edit。
+   * 测试入金只在测试环境（FC_ENV_LABEL=test）能用；生产上这一项照样能看能改，但没有任何作用
+   */
+  TEST_CREDIT_MAX("adjust.testCreditMax", Unit.USDT, "adjust", new BigDecimal("0.01"), new BigDecimal("1000000000"), 2, Params.BETTING),
   /*
    * ---------- forecast S12b：告警邮件（Amos 2026-10-27："告警邮件，我可以在什么地方控制 是否发送"；迁移 V28；参数设置页"告警邮件"一组，alert_params:edit） ----------
    * 只管监控告警邮件（通知模块 AlertMonitor，收件人 FC_ALERT_EMAILS）；健康检查 /api/health 的 alerts 不受影响。读取见 common.config.AlertMailConfig

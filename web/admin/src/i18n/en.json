@@ -88,7 +88,7 @@
     "options": "Options",
     "feeRate": "Fee",
     "userCap": "Per-customer cap",
-    "checked": "Check confirmation",
+    "checked": "Confirmation",
     "optionNo": "Result",
     "evidenceUrls": "Evidence links",
     "correctOptionNo": "Correct result",
@@ -111,7 +111,8 @@
     "options_label": "Option text",
     "options_winCondition": "Option win condition",
     "plays_line": "Line",
-    "chatId": "Channel id"
+    "chatId": "Channel id",
+    "requestId": "Request number"
   },
   "apiFieldCode": {
     "ageUnder18": "is under 18",
@@ -442,7 +443,18 @@
       "ip": "Same IP (sign-up / login)",
       "deposit_from": "Same deposit source address",
       "withdraw_to": "Same withdrawal address"
-    }
+    },
+    "testCredit": "Test credit",
+    "testEnv": "Test environment",
+    "testCreditImpact": "Test environment only: adds money to this customer's available balance so the bet-to-withdrawal flow can be tested. The other side is the platform \"Test credit\" account (negative balance). It is not a real deposit and is listed separately in reports and reconciliation. Risk and withdrawal rules treat it as a deposit.",
+    "testCreditAmount": "Amount (USDT)",
+    "testCreditMax": "Limit per credit: {{max}} USDT (Parameters → Balance adjustments)",
+    "testCreditAmountRequired": "Enter an amount",
+    "testCreditAmountInvalid": "Enter an amount above 0 with at most 8 decimals",
+    "testCreditOverLimit": "Exceeds the limit of {{max}} USDT",
+    "confirmTestCredit": "Credit",
+    "testCreditDone": "Credited {{amount}} USDT; available balance {{before}} → {{after}}",
+    "testCreditDuplicate": "This credit was already made (repeated submission); nothing was added"
   },
   "dashboard": {
     "failedTasks": "Failed tasks",
@@ -598,7 +610,9 @@
       "CONTENT_BANNED_WORDS": "Words that are not allowed were found ({{detail}}). Nothing was saved.",
       "LAUNCH_ALREADY_SENT": "The launch email has already been sent (only once for the whole site).",
       "TELEGRAM_TEMPLATE_CHANGED": "The template text changed after the preview. Open the preview again before approving.",
-      "TELEGRAM_NO_PREVIEW": "No market has ended yet, so there is nothing to preview."
+      "TELEGRAM_NO_PREVIEW": "No market has ended yet, so there is nothing to preview.",
+      "ADJUST_OVER_LIMIT": "{{detail}}",
+      "ADJUST_REQUEST_REUSED": "This submission reuses a request number with different content. Close the dialog and try again."
     }
   },
   "funds": {
@@ -669,7 +683,8 @@
     "fee": "Fee",
     "payout": "Payout",
     "refund": "Refund",
-    "withdraw": "Withdrawal"
+    "withdraw": "Withdrawal",
+    "testCredit": "Test credit"
   },
   "menu": {
     "admins": "Administrators",
@@ -795,7 +810,8 @@
     "content_view": "View the content center (including the Telegram bot and posting log)",
     "content_edit": "Generate and edit content drafts",
     "content_publish": "Publish externally: publish content, change content settings, Telegram channels and template approval, emergency stop, launch email (high risk)",
-    "alert_params_edit": "Edit alert email settings (master switch, muted alerts)"
+    "alert_params_edit": "Edit alert email settings (master switch, muted alerts)",
+    "balance_test_credit": "Test credit (test environment only, high risk)"
   },
   "permModule": {
     "customer": "Customers",
@@ -859,7 +875,21 @@
     "sub": "Mismatches between wallet records, ledger and chain",
     "title": "Reconciliation",
     "type": "Type",
-    "unknownCustomer": "No matching customer"
+    "unknownCustomer": "No matching customer",
+    "platformTitle": "Platform accounts",
+    "platformHint": "Each platform account balance should equal its ledger total. Compensation and test credit are money paid out by the platform, so their balances are negative.",
+    "platformKind": "Account",
+    "platformBalance": "Balance",
+    "platformLedger": "Ledger total",
+    "platformEntries": "Entries",
+    "platformMatch": "Check",
+    "platformOk": "Matches",
+    "platformBad": "Mismatch",
+    "platformKinds": {
+      "revenue": "Platform revenue (fees + dust)",
+      "compensation": "Platform compensation",
+      "test_credit": "Test credit"
+    }
   },
   "reconStatus": {
     "open": "Open",
@@ -1957,7 +1987,8 @@
       "sports": "Sports fixtures",
       "risk": "Risk alerts",
       "slate": "Slate",
-      "alertMail": "Alert emails"
+      "alertMail": "Alert emails",
+      "adjust": "Balance adjustments"
     },
     "key": {
       "market_fee_FOOTBALL": "Football",
@@ -2002,7 +2033,8 @@
       "risk_link_maxUsersPerKey": "Linked accounts: max customers per device / IP / address",
       "market_maxOpen": "Max markets open at once",
       "alert_mail_enabled": "Alert emails (master switch)",
-      "alert_mail_muted": "Alerts without email"
+      "alert_mail_muted": "Alerts without email",
+      "adjust_testCreditMax": "Test credit limit per credit (test environment only)"
     },
     "hours": "{{n}} h",
     "minutes": "{{n}} min",
@@ -2047,7 +2079,8 @@
       "DOWN": "Failing",
       "NOT_CONFIGURED": "Not configured"
     },
-    "alertNote": "Recipients: FC_ALERT_EMAILS. One email per incident and one on recovery; a reminder every 24 hours while it stays down. \"Not configured\" optional features send no email."
+    "alertNote": "Recipients: FC_ALERT_EMAILS. One email per incident and one on recovery; a reminder every 24 hours while it stays down. \"Not configured\" optional features send no email.",
+    "adjustNote": "Test credit only works in the test environment (FC_ENV_LABEL=test); this value has no effect in production."
   },
   "dash": {
     "sub": "Today / last 7 days in UTC; open an item to handle it",
@@ -2467,7 +2500,10 @@
     "empty": "No revenue in this period",
     "date": "Date",
     "byMarket": "By market (completed payout runs)",
-    "noRuns": "No completed runs yet"
+    "noRuns": "No completed runs yet",
+    "testCredit": "Test credit",
+    "testCreditN": "Test credits",
+    "testCreditHint": "Test environment only; not platform revenue and not a real deposit"
   },
   "ra": {
     "title": "Risk alerts",

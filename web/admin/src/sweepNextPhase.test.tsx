@@ -20,7 +20,7 @@ describe('资金归集第一阶段（真实接口模式的显示）', () => {
   it('权限点换成 sweep:view / sweep:operate / sweep:config，后两个是高危', () => {
     expect(SWEEP_PERM).toEqual({ view: 'sweep:view', operate: 'sweep:operate', config: 'sweep:config' });
     // forecast S1 删除差价合约的 20 个权限点后剩 32 个（和后端 Permission 一致）
-    expect(ALL_PERMISSION_CODES).toHaveLength(58); // forecast S3 按需求第 2.2 节加了 21 个；S13 加 growth:view；S15 加 content:view / edit / publish（S16 的同名两个整合 4 去重）；S12b 加 alert_params:edit
+    expect(ALL_PERMISSION_CODES).toHaveLength(59); // forecast S3 按需求第 2.2 节加了 21 个；S13 加 growth:view；S15 加 content:view / edit / publish（S16 的同名两个整合 4 去重）；S12b 加 alert_params:edit；S17A 加 balance:test_credit
     expect(PERMISSIONS.filter((p) => p.code.startsWith('sweep:')).map((p) => [p.code, p.highRisk])).toEqual([
       ['sweep:view', false],
       ['sweep:operate', true],

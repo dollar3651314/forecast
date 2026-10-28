@@ -17,7 +17,7 @@ public interface CustomerFlowApi {
   /**
    * 一段时间里入账的充值。
    *
-   * @param net 充值 − 冲正（账本 DEPOSIT + DEPOSIT_REVERSAL，冲正是负数）
+   * @param net 充值 − 冲正（账本 DEPOSIT + DEPOSIT_REVERSAL，冲正是负数）；forecast S17A 起测试入金 TEST_CREDIT 也算充值（只在测试环境有）
    * @param firstAt 其中最早一笔充值的入账时间；没有充值时为空
    */
   record Deposits(BigDecimal net, LocalDateTime firstAt) {}

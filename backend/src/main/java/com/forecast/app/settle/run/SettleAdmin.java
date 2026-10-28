@@ -2,6 +2,7 @@ package com.forecast.app.settle.run;
 
 import com.forecast.app.common.error.BizException;
 import com.forecast.app.common.error.ValidationException;
+import com.forecast.app.ledger.api.AdjustReportApi;
 import com.forecast.app.market.api.MarketApi;
 import com.forecast.app.market.api.MarketStatus;
 import com.forecast.app.settle.api.SettleAdminApi;
@@ -36,8 +37,10 @@ class SettleAdmin implements SettleAdminApi, SettleApi {
   private final SettleMapper mapper;
   private final MarketApi markets;
   private final Clock clock;
+  private final AdjustReportApi adjust;
 
-  SettleAdmin(SettleService settle, CompensationService comp, SettleMapper mapper, MarketApi markets, Clock clock) {
+  SettleAdmin(SettleService settle, CompensationService comp, SettleMapper mapper, MarketApi markets, Clock clock, AdjustReportApi adjust) {
+    this.adjust = adjust;
     this.settle = settle;
     this.comp = comp;
     this.mapper = mapper;
@@ -175,16 +178,30 @@ class SettleAdmin implements SettleAdminApi, SettleApi {
     BigDecimal fee = BigDecimal.ZERO;
     BigDecimal dust = BigDecimal.ZERO;
     BigDecimal compTotal = BigDecimal.ZERO;
+    BigDecimal testTotal = BigDecimal.ZERO;
     int comps = 0;
+    int tests = 0;
+    // 一天一行：结算和补偿（settle 自己的表）+ 余额调整（ledger 的 AdjustReportApi，S17）；只有调整没有结算的日子也列出来
+    Map<LocalDate, CompensationService.Day> settleDays = new java.util.TreeMap<>();
+    for (CompensationService.Day d : comp.report(f, t)) settleDays.put(d.day(), d);
+    Map<LocalDate, AdjustReportApi.Day> adjustDays = new java.util.TreeMap<>();
+    for (AdjustReportApi.Day d : adjust.daily(f, t)) adjustDays.put(d.day(), d);
+    java.util.TreeSet<LocalDate> all = new java.util.TreeSet<>(settleDays.keySet());
+    all.addAll(adjustDays.keySet());
     List<ReportDay> days = new ArrayList<>();
-    for (CompensationService.Day d : comp.report(f, t)) {
+    for (LocalDate day : all) {
+      CompensationService.Day d = settleDays.getOrDefault(day, new CompensationService.Day(day, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, 0));
+      AdjustReportApi.Day a = adjustDays.getOrDefault(day, new AdjustReportApi.Day(day, BigDecimal.ZERO, 0));
       fee = fee.add(d.fee());
       dust = dust.add(d.dust());
       compTotal = compTotal.add(d.compensation());
       comps += d.compensations();
-      days.add(new ReportDay(d.day().toString(), money(d.fee()), money(d.dust()), money(d.fee().add(d.dust())), money(d.compensation()), d.compensations()));
+      testTotal = testTotal.add(a.testCredit());
+      tests += a.testCredits();
+      days.add(new ReportDay(day.toString(), money(d.fee()), money(d.dust()), money(d.fee().add(d.dust())), money(d.compensation()), d.compensations(),
+          money(a.testCredit()), a.testCredits()));
     }
-    return new Report(f.toString(), t.toString(), money(fee), money(dust), money(fee.add(dust)), money(compTotal), comps, days);
+    return new Report(f.toString(), t.toString(), money(fee), money(dust), money(fee.add(dust)), money(compTotal), comps, money(testTotal), tests, days);
   }
 
   private static LocalDate date(String v, String field, ValidationException.Collector errs) {

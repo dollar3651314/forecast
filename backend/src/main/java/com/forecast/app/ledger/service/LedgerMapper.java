@@ -139,4 +139,14 @@ interface LedgerMapper {
 
   /** 用户 → 余额（可用 + 下注锁定） */
   List<UserAmount> balances(@Param("ids") Collection<Long> ids);
+
+  /** 平台账户：余额、账本合计、记录条数（forecast S17A，对账页） */
+  class PlatformRow {
+    String kind;
+    BigDecimal available;
+    BigDecimal ledgerTotal;
+    long entries;
+  }
+
+  List<PlatformRow> platformAccounts();
 }

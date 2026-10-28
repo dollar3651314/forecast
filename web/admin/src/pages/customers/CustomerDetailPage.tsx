@@ -6,13 +6,15 @@
  * v2 E6：资料里显示最近登录 IP 和时间。
  * forecast S10：员工账户登记 / 取消登记（customer:edit，高危，原因必填；登记后不能下注，已有下注按 E15 当场退回，弹窗提示退回的笔数和金额）；
  *   关联账户（同设备、同 IP、同充值来源地址、同提现地址，后端 riskalert 扫描生成，需求第 8.1 节）。
+ * forecast S17A：测试入金（balance:test_credit，高危）：只在测试环境显示——后端详情的 testCredit 不为空才显示按钮（生产为 null，接口也是 404）；
+ *   金额、原因必填、勾选确认；每次打开确认框生成一个请求号，重复点击只入一次。
  */
 import { useCallback } from 'react';
 import { Alert, App, Button, Descriptions, Form, Input, Skeleton, Space } from 'antd';
-import { ArrowLeftOutlined, LockOutlined, UnlockOutlined, EditOutlined, SafetyOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, LockOutlined, UnlockOutlined, EditOutlined, SafetyOutlined, ExperimentOutlined } from '@ant-design/icons';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { getCustomer, getCustomerLinks, setCustomerFrozen, setCustomerStaff, updateCustomerProfile } from '../../api';
+import { getCustomer, getCustomerLinks, setCustomerFrozen, setCustomerStaff, testCredit, updateCustomerProfile } from '../../api';
 import type { CustomerLink } from '../../api/fcTypes';
 import type { LedgerEntry } from '../../api/types';
 import { useApi } from '../../hooks/useApi';
@@ -28,6 +30,7 @@ import { formatAmount } from '../../utils/money';
 import { DateFields } from '../../components/DateFields';
 import { birthDateProblems, nameProblems, nationalityProblems } from '../../utils/validators';
 import { fullTime } from '../../utils/display';
+import { amountProblem, newRequestId } from '../../utils/adjust';
 
 export function CustomerDetailPage() {
   const { t, i18n } = useTranslation();
@@ -56,6 +59,54 @@ export function CustomerDetailPage() {
       onConfirm: async (v) => {
         const r = await setCustomerStaff(c.id, registering, v.reason);
         if (registering) void message.info(r.bets > 0 ? t('customers.staffRefunded', { bets: r.bets, markets: r.markets, amount: formatAmount(r.amount) }) : t('customers.staffNoRefund'));
+      },
+      onDone: reload,
+    });
+  };
+
+  /** forecast S17A：测试入金（只在测试环境；c.testCredit 为空时没有按钮） */
+  const askTestCredit = () => {
+    if (!c?.testCredit) return;
+    const max = c.testCredit.maxAmount;
+    const requestId = newRequestId();
+    hr.ask({
+      title: t('customers.testCredit'),
+      description: (
+        <>
+          <div>{t('customers.targetLine', { name: c.name, id: c.id, email: c.email })}</div>
+          <div>{t('customers.testCreditImpact')}</div>
+        </>
+      ),
+      extra: (
+        <Form.Item
+          name="amount"
+          label={t('customers.testCreditAmount')}
+          extra={t('customers.testCreditMax', { max: formatAmount(max) })}
+          required
+          rules={[
+            {
+              validator: (_r: unknown, value: string | undefined) => {
+                const p = amountProblem(value, max);
+                if (!p) return Promise.resolve();
+                const key = p === 'required' ? 'customers.testCreditAmountRequired' : p === 'invalid' ? 'customers.testCreditAmountInvalid' : 'customers.testCreditOverLimit';
+                return Promise.reject(new Error(t(key, { max: formatAmount(max) })));
+              },
+            },
+          ]}
+        >
+          <Input inputMode="decimal" autoComplete="off" suffix="USDT" style={{ width: 240 }} />
+        </Form.Item>
+      ),
+      confirmText: t('customers.confirmTestCredit'),
+      successText: '',
+      onConfirm: async (v) => {
+        const r = await testCredit(c.id, String(v.amount ?? '').trim(), v.reason, requestId);
+        const cr = r.credit;
+        void message.success(
+          cr.duplicate
+            ? t('customers.testCreditDuplicate')
+            : t('customers.testCreditDone', { amount: formatAmount(cr.amount), before: formatAmount(cr.availableBefore), after: formatAmount(cr.availableAfter) }),
+        );
       },
       onDone: reload,
     });
@@ -173,6 +224,11 @@ export function CustomerDetailPage() {
               <PermButton perm="customer:edit" icon={<SafetyOutlined />} onClick={askStaff}>
                 {c.staff ? t('customers.staffOff') : t('customers.staffOn')}
               </PermButton>
+              {c.testCredit ? (
+                <PermButton perm="balance:test_credit" icon={<ExperimentOutlined />} onClick={askTestCredit} data-testid="test-credit">
+                  {t('customers.testCredit')}
+                </PermButton>
+              ) : null}
               <PermButton perm="customer:freeze" danger icon={c.status === 'active' ? <LockOutlined /> : <UnlockOutlined />} onClick={askFreeze}>
                 {c.status === 'active' ? t('customers.freeze') : t('customers.unfreeze')}
               </PermButton>

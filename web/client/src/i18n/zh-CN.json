@@ -161,7 +161,8 @@
       "payout": "派彩",
       "fee": "抽成",
       "refund": "下注退回",
-      "compensation": "补偿"
+      "compensation": "补偿",
+      "testCredit": "测试入金"
     },
     "icon": {
       "deposit": "入",
@@ -171,7 +172,8 @@
       "payout": "派",
       "fee": "费",
       "refund": "还",
-      "compensation": "补"
+      "compensation": "补",
+      "testCredit": "测"
     },
     "range": {
       "7d": "近 7 天",

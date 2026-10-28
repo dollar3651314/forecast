@@ -11,6 +11,7 @@ const ICON_TONE: Record<LedgerItem['type'], string> = {
   fee: 'out',
   refund: 'in',
   compensation: 'in',
+  testCredit: 'in',
 };
 
 /** 市场题目按当前语言取（取不到用英文，RQ-18） */

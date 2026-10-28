@@ -102,6 +102,8 @@ public class GlobalExceptionHandler {
       // S16 Telegram 机器人（MF-7）：模板没有可预览的市场、频道编号不合法、审定时模板文字和预览的不是同一版
       Map.entry("TELEGRAM_NO_PREVIEW", HttpStatus.NOT_FOUND),
       Map.entry("TELEGRAM_TEMPLATE_CHANGED", HttpStatus.CONFLICT),
+      // S17 余额调整：同一个请求号换了客户或金额（后台每次打开确认框生成新的请求号）
+      Map.entry("ADJUST_REQUEST_REUSED", HttpStatus.CONFLICT),
       Map.entry("NOT_FOUND", HttpStatus.NOT_FOUND));
 
   @ExceptionHandler(BizException.class)

@@ -217,6 +217,16 @@ class OpsController {
     return funds.recon(status, page, pageSize);
   }
 
+  /**
+   * 平台账户（forecast S17A，对账页"平台账户"）：平台收入、补偿支出、测试入金各一行（B 加人工调账），余额和账本合计应该相等。
+   * 测试入金单独一行，不和真实充值、补偿混在一起
+   */
+  @RequiresPermission(Permission.RECON_VIEW)
+  @GetMapping("/api/admin/recon/platform-accounts")
+  List<FundsOps.PlatformAccountView> platformAccounts() {
+    return funds.platformAccounts();
+  }
+
   /** 热钱包当前余额和告警下限（对账页上方）；下限在系统配置页改 */
   @RequiresPermission(Permission.RECON_VIEW)
   @GetMapping("/api/admin/hot-wallets")

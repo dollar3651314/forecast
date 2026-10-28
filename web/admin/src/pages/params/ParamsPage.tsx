@@ -6,6 +6,7 @@
  * 没有某个权限点时那几张卡片显示"没有权限"，不影响另一组（单笔最小提现在"提现"组，SQ-6）。
  * S13：加"场次"一组（同时开放的市场数上限，超过时上架要勾"仍要上架"，0 = 不限；需求第 4.2 节）。
  * S10：加"风控"一组（尾盘大额的分钟和比例、新账户押中冷门的天数 / 金额 / 赔率、关联账户的同一线索最多几个客户，需求第 8.1 节）；单位多了个数（count）和倍数（multiple）。
+ * S17A：加"余额调整"一组（betting_params:edit）：测试入金的单笔上限（只在测试环境生效）。
  * S12b：加"告警邮件"一组（alert_params:edit，Amos 2026-10-27："告警邮件要能控制是否发送"）：总开关（bool，关掉只写日志、不发邮件；健康检查不受影响）、
  * 不发邮件的告警项（text，逗号分隔；改的时候从 GET /api/admin/params/alert/items 列出现在所有的告警项，带中文说明和状态，勾选）。"未开通"的项本来就不发。
  */
@@ -38,6 +39,7 @@ const GROUPS: Array<{ key: string; section: ParamSection }> = [
   { key: 'sports', section: 'betting' },
   { key: 'risk', section: 'betting' },
   { key: 'slate', section: 'betting' },
+  { key: 'adjust', section: 'betting' },
   { key: 'alertMail', section: 'alert' },
 ];
 
@@ -230,6 +232,7 @@ export function ParamsPage() {
                 {g.key === 'sports' && <p className="pm-note">{t('pm.sportsNote')}</p>}
                 {g.key === 'risk' && <p className="pm-note">{t('pm.riskNote')}</p>}
                 {g.key === 'slate' && <p className="pm-note">{t('pm.slateNote')}</p>}
+                {g.key === 'adjust' && <p className="pm-note">{t('pm.adjustNote')}</p>}
                 {g.key === 'alertMail' && <p className="pm-note">{t('pm.alertNote')}</p>}
               </Card>
             </Col>
