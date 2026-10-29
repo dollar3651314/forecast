@@ -4,44 +4,12 @@
 - 密钥只由你自己填进服务器，不要发给我。截图前遮住密码、key、`.env` 的内容。
 - 版本：v1.37（2026-10-28）
 
-## 🟠 要你做的事
+## ⏸ 项目已暂停（2026-10-28）
+Amos 2026-10-28："现在我已经将所有项目都暂停了"。整体调整的结论见 agents 仓库的《项目版图》（agents PR #30），重启时按新产品的五个阶段处理（C116）。v1.38 里的 T17～T23、SQ-43～73 和"用到时再做"都挂起，重启时从 git 历史里的 v1.38 取回再看。
+
+## 🟠 要你做的事（暂停收尾，Amos 2026-10-29："所有都可以停掉"）
 | # | 做什么 | 怎么确认做好了 |
 |---|---|---|
-| T17 | 后台 https://fc-test-admin.quickcome.online →"加密自动生成"→ 打开 BTC 1 小时 → 检查后点"启用"。场次是 UTC（北京时间减 8 小时），`1:00`、`01:00` 都可以 | 几分钟内客户端首页出现 BTC 市场 |
-| T18 | 测试入金、人工调账：后台 → 客户 → 详情 → 右上角"测试入金"给自己的测试账号加钱，然后下注、等结算、试提现；"人工加款 / 人工扣款"也试一次 | 客户端资产和资金流水里看到；后台 → 资金 → 人工调账记录里有记录 |
-| T19 | Threads 应用第一部分（约 20 分钟，随时可做）：按 `部署方案/v1-Threads应用申请清单.md` 第 1～4 步注册 Meta 开发者、建应用、加发帖权限、把测试账号登记为测试者并接受邀请。第 5～7 步（拿令牌）等我通知再做 | 清单第 4 步的"怎么确认"都通过 |
-| T20 | （建议）Cloudflare 里先删掉 `www` 的 A 记录：等候页改走 Cloudflare 版（S19），测试服务器的证书不含 www，现在打开会报证书错误；**不要运行** `sudo fc add-domain` | `www.quickcome.online` 查不到记录 |
-| T2 | 给朋友的情况简介 https://claude.ai/artifact/CYg8Ei1uhynh1YLm6NSeey ：在右上角"分享"里打开访问权限 | 朋友能打开链接 |
-
-## ❓ 等你回答的问题
-| 编号 | 问题 | 建议 |
-|---|---|---|
-| SQ-43 | 等候页现在写"即将上线"，要不要写具体上线日期 | 上线日期定了再告诉我 |
-| SQ-50 | 申请证书时要不要留到期提醒邮箱 | 不留（证书自动续期） |
-| SQ-52 | 切换命令 `fc` 和系统自带命令同名，必须带 `sudo` | 保持 `fc`，一律写 `sudo fc` |
-| SQ-53 | 充值合约地址一个都没填时算"未开通"、不发告警邮件 | 按未开通处理，上线检查单里查"合约已部署" |
-| SQ-54 | 后台界面只有中文和英文 | 后台不加繁体 |
-| SQ-55 | ① 24 小时提醒间隔要不要放进后台 ② 要不要让重启后还记得已发过的告警 | 都先不做 |
-| SQ-56 | 测试入金单笔上限 | 10,000 USDT |
-| SQ-57 | 人工调账超过单笔上限时怎么办 | 再勾一次确认就放行 |
-| SQ-58 | 人工调账哪些类别算作充值（影响风控和提现规则） | 只有"充值未到账补入" |
-| SQ-59 | 24 小时人工加款告警阈值 | 10,000 USDT |
-| SQ-60 | 人工调账的三个类别够不够 | 先用着，需要再加 |
-| SQ-61 | www 上想进产品的人要不要跳到测试环境 | 不跳 |
-| SQ-62 | 台湾入金教程只在繁中显示，还是三种语言都显示 | 只在繁中 |
-| SQ-63 | 等候页上显示入金教程吗 | 显示，可以展开 |
-| SQ-64 | AI 直接按台湾用语写稿吗 | 网站页面继续"自动转换 + 词表"；X、Threads 繁中帖子直接按台湾用语写 |
-| SQ-65 | "充值""提现"要不要改叫"入金/儲值""提領" | 等市场校对时一起定 |
-| SQ-66 | 正式上线时 www 怎么办 | 上线前一天迁订阅名单，再把 www 指向正式环境，发上线通知（S19 后按 Cloudflare 版调整） |
-
-## ⏸ 用到时再做
-在服务器上填 key：`sudo fc set-key 变量名`，回车后粘贴，屏幕不显示，会自动生效。
-
-| # | 做什么 | 什么时候做 |
-|---|---|---|
-| T4 | Gemini：在 Google AI Studio 申请免费 key → `sudo fc set-key FC_GEMINI_API_KEY` | 要用自动化文章、体育抓取解析时 |
-| T14a | football-data.org：在 https://www.football-data.org/client/register 注册免费档，token 会发到邮箱 → `sudo fc set-key FC_SRC_FOOTBALL_DATA_TOKEN` | 要测足球市场时 |
-| T14b | balldontlie：在 https://app.balldontlie.io 注册免费档 → `sudo fc set-key FC_SRC_BALLDONTLIE_KEY` | 要测 NBA 市场时 |
-| T14c | TheSportsDB：上线时买约 $9/月的档 → `sudo fc set-key FC_SRC_THESPORTSDB_KEY` | 上线前 |
-| T16 | Telegram 机器人：在 BotFather 建机器人 → `sudo fc set-key FC_TELEGRAM_BOT_TOKEN` → 建频道、把机器人设为管理员 → 后台"Telegram 机器人"页填频道并打开 → 确认开奖卡模板（细节见 `开发记录/S16-等候页和机器人.md` 第 11 节） | 要做频道推广时 |
-| T5～T10 | 充值合约：建 Safe 冷钱包和两个新账户 → 部署合约 → 填地址 → 测试网充值和归集验收（步骤见 `部署方案/v1-归集合约部署.md`，到时我再做成一条命令） | 要验收充值、提现时 |
+| T24 | 停掉测试服务器上的 forecast 测试环境：登录服务器后运行 `sudo bash /opt/forecast/stop.sh`（会先备份数据库，只停不删，以后 `sudo bash /opt/forecast/start.sh` 原样恢复） | 最后打印的容器列表里 `forecast-` 开头的都是 `Exited`；把这段输出截图发我（输出里没有密钥） |
+| T25 | 停掉 amos111 在 cron-job.org 的两个每分钟任务（生产 `amos111.vercel.app/api/tick/` 和测试环境那个）：cron-job.org → Cronjobs → 每个任务点开 → 关闭 Enabled 开关（不删除） | 两个任务都显示停用；Vercel 用量页里 amos111 的 CPU 之后不再增长 |
+| T26 | （顺手）重新打开 Ubuntu 自带的软件包数据库备份：`sudo systemctl enable --now dpkg-db-backup.timer`（10-26 一键部署时为绕过检查关掉的） | `systemctl is-enabled dpkg-db-backup.timer` 显示 `enabled` |
